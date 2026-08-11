@@ -3,10 +3,11 @@ name: CI
 on:
   pull_request:
     branches:
+      - dev
       - main
+
   push:
     branches:
-      - main
       - dev
       - feature/**
 
@@ -56,4 +57,7 @@ jobs:
         run: mvn -B -pl backend/${{ matrix.service }} -am package -DskipTests
 
       - name: Build Docker image
-        run: docker build -t tripsense-platform-${{ matrix.service }}:${{ github.sha }} ./backend/${{ matrix.service }}
+        run: |
+          docker build \
+            -t tripsense-platform-${{ matrix.service }}:${{ github.sha }} \
+            ./backend/${{ matrix.service }}
