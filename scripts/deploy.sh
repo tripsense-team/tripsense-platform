@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd /opt/capstone
+DEPLOY_DIR="${TRIPSENSE_DEPLOY_DIR:-/opt/tripsense}/deploy"
 
-docker compose pull
-docker compose up -d
+cd "$DEPLOY_DIR"
+
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
 docker image prune -f
