@@ -1,3 +1,43 @@
 spring:
   application:
     name: ApiGateway
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: 
+              - "http://localhost:3000"
+              - "http://localhost:8080"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+      routes:
+        - id: context-service
+          uri: ${CONTEXT_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/context/**
+        - id: itinerary-service
+          uri: ${ITINERARY_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/itineraries/**
+        - id: place-service
+          uri: ${PLACE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/places/**
+        - id: review-service
+          uri: ${REVIEW_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/reviews/**
+        - id: trip-service
+          uri: ${TRIP_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/trips/**
+
+server:
+  port: 8080
