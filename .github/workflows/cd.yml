@@ -1,0 +1,103 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Make Maven wrapper executable
+        run: chmod +x ./mvnw
+
+      - name: Build and test all services
+        run: ./mvnw clean verify
+
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: verify
+
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - user-service
+          - booking-service
+          - payment-service
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Make Maven wrapper executable
+        run: chmod +x ./mvnw
+
+      - name: Package service
+        run: ./mvnw -pl backend/${{ matrix.service }} -am package -DskipTests
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend/${{ matrix.service }}
+          push: true
+          tags: |
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.service }}:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.service }}:latest
+
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: publish
+
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - tripsense-dev
+
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Deploy TripSense to Azure
+        run: |
+          cd /opt/tripsense
+          ./deploy.sh
