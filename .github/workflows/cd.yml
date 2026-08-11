@@ -78,7 +78,6 @@ jobs:
       - self-hosted
       - Linux
       - X64
-      - tripsense-dev
 
     needs: publish
 
