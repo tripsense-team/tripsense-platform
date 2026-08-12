@@ -45,7 +45,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<RefreshResponse>> refreshToken(
-            @CookieValue(name = "refreshToken", required = false) String refreshToken) {
+            @CookieValue(name = "${jwt.refresh-token-cookie-name}", required = false) String refreshToken) {
         RefreshResult result = authService.refreshToken(refreshToken);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, result.cookie().toString())

@@ -14,14 +14,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class VerificationServiceImpl implements VerificationService {
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final EmailVerificationCodeRepository emailVerificationCodeRepository;
@@ -46,7 +48,7 @@ public class VerificationServiceImpl implements VerificationService {
                     }
                 });
 
-        String rawCode = String.format("%06d", ThreadLocalRandom.current().nextInt(1000000));
+        String rawCode = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
         String codeHash = TokenHashUtils.hashToken(rawCode);
 
         EmailVerificationCode verificationCode = EmailVerificationCode.builder()
