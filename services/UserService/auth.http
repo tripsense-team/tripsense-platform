@@ -1,0 +1,83 @@
+### Variables
+@baseUrl = http://localhost:8081
+@email = test.user@example.com
+@password = Password@123
+@verificationCode = 123456
+
+###############################################################################
+### 1. REGISTER - Đăng ký tài khoản (Tạo tài khoản với status UNVERIFIED)
+###############################################################################
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+
+###############################################################################
+### 2. VERIFY EMAIL - Xác thực mã OTP (Chuyển status sang ACTIVE)
+###############################################################################
+POST {{baseUrl}}/api/auth/verify-email
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "code": "{{verificationCode}}"
+}
+
+###
+
+###############################################################################
+### 3. RESEND CODE - Gửi lại mã xác thực OTP
+###############################################################################
+POST {{baseUrl}}/api/auth/resend-code
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+###
+
+###############################################################################
+### 4. LOGIN - Đăng nhập sau khi đã xác thực (200 OK)
+###############################################################################
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+
+###############################################################################
+### 5. LOGIN - Sai mật khẩu (401 Unauthorized)
+###############################################################################
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "WrongPassword@999"
+}
+
+###
+
+###############################################################################
+### 6. REFRESH TOKEN - Làm mới Access Token (200 OK)
+###############################################################################
+POST {{baseUrl}}/api/auth/refresh
+
+###
+
+###############################################################################
+### 7. REFRESH TOKEN - Thiếu Cookie Refresh Token (401 Unauthorized)
+###############################################################################
+POST {{baseUrl}}/api/auth/refresh
+Cookie: refreshToken=
