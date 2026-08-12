@@ -1,0 +1,116 @@
+{
+  "destination": "Da Nang",
+  "hotels": [
+    {
+      "id": "hotel_001",
+      "name": "InterContinental Danang Sun Peninsula Resort",
+      "category": "resort",
+      "location": "Son Tra Peninsula, Da Nang",
+      "rating": 4.8,
+      "review_count": 8500,
+      "price_level": 4,
+      "estimated_price_per_night": 8000000,
+      "distance_to_center_km": 15,
+      "best_for": [
+        "luxury",
+        "couple",
+        "family"
+      ],
+      "amenities": [
+        "private_beach",
+        "swimming_pool",
+        "restaurant",
+        "spa"
+      ],
+      "description": "Luxury beachfront resort with private beach and premium services."
+    },
+    {
+      "id": "hotel_002",
+      "name": "Hyatt Regency Danang Resort and Spa",
+      "category": "resort",
+      "location": "Ngu Hanh Son District, Da Nang",
+      "rating": 4.7,
+      "review_count": 9200,
+      "price_level": 4,
+      "estimated_price_per_night": 5000000,
+      "distance_to_center_km": 10,
+      "best_for": [
+        "family",
+        "relax",
+        "beach"
+      ],
+      "amenities": [
+        "private_beach",
+        "pool",
+        "spa",
+        "restaurant"
+      ],
+      "description": "Beach resort suitable for family vacations and relaxation."
+    },
+    {
+      "id": "hotel_003",
+      "name": "Sala Danang Beach Hotel",
+      "category": "hotel",
+      "location": "Vo Nguyen Giap Street, Son Tra, Da Nang",
+      "rating": 4.6,
+      "review_count": 7600,
+      "price_level": 2,
+      "estimated_price_per_night": 1200000,
+      "distance_to_center_km": 3,
+      "best_for": [
+        "couple",
+        "short_trip",
+        "beach"
+      ],
+      "amenities": [
+        "rooftop_pool",
+        "restaurant",
+        "gym"
+      ],
+      "description": "Modern hotel near My Khe Beach with reasonable price."
+    },
+    {
+      "id": "hotel_004",
+      "name": "Sanouva Danang Hotel",
+      "category": "hotel",
+      "location": "Hai Chau District, Da Nang",
+      "rating": 4.5,
+      "review_count": 5200,
+      "price_level": 2,
+      "estimated_price_per_night": 900000,
+      "distance_to_center_km": 1,
+      "best_for": [
+        "budget",
+        "city_trip",
+        "business"
+      ],
+      "amenities": [
+        "restaurant",
+        "gym",
+        "spa"
+      ],
+      "description": "Affordable hotel located in the city center."
+    },
+    {
+      "id": "hotel_005",
+      "name": "Hadana Boutique Hotel Da Nang",
+      "category": "hotel",
+      "location": "Son Tra District, Da Nang",
+      "rating": 4.4,
+      "review_count": 4300,
+      "price_level": 1,
+      "estimated_price_per_night": 600000,
+      "distance_to_center_km": 2,
+      "best_for": [
+        "budget",
+        "backpacker",
+        "short_trip"
+      ],
+      "amenities": [
+        "restaurant",
+        "coffee_shop"
+      ],
+      "description": "Affordable accommodation suitable for travelers with limited budget."
+    }
+  ]
+}
