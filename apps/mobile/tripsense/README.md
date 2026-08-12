@@ -1,17 +1,37 @@
-# trip
+# TripSense Mobile
 
-A new Flutter project.
+Flutter application for the TripSense mobile experience.
 
-## Getting Started
+## Architecture
 
-This project is a starting point for a Flutter application.
+The MVP foundation uses:
 
-A few resources to get you started if this is your first Flutter project:
+- `lib/app` for app bootstrap, routing, and theme.
+- `lib/core` for cross-cutting config, networking, errors, and session state.
+- `lib/features/startup` for the neutral startup shell.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+All backend traffic must go through the API Gateway. Do not point mobile code at service-local URLs.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Environment
+
+The default API Gateway base URL is:
+
+```text
+http://10.0.2.2:8080
+```
+
+This default supports Android emulator access to a Gateway running on the host machine.
+
+For iOS simulator, pass:
+
+```shell
+flutter run --dart-define=TRIPSENSE_API_BASE_URL=http://localhost:8080
+```
+
+## Development
+
+```shell
+flutter pub get
+flutter analyze
+flutter test
+```
