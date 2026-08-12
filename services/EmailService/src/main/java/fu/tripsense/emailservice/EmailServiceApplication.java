@@ -15,14 +15,31 @@ public class EmailServiceApplication {
     }
 
     private static void loadDotenv() {
-        File envFile = new File(".env");
-        if (envFile.exists()) {
-            Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        File envFile = findEnvFile();
+        if (envFile != null) {
+            Dotenv dotenv = Dotenv.configure()
+                    .directory(envFile.getParent() != null ? envFile.getParent() : ".")
+                    .filename(envFile.getName())
+                    .ignoreIfMissing()
+                    .load();
             dotenv.entries().forEach(entry -> {
                 if (System.getProperty(entry.getKey()) == null) {
                     System.setProperty(entry.getKey(), entry.getValue());
                 }
             });
         }
+    }
+
+    private static File findEnvFile() {
+        File[] candidates = new File[]{
+                new File("../../env/.env"),
+                new File("../env/.env"),
+                new File("env/.env"),
+                new File(".env")
+        };
+        for (File f : candidates) {
+            if (f.exists()) return f;
+        }
+        return null;
     }
 }

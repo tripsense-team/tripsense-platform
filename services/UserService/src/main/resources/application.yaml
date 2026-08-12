@@ -13,7 +13,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -34,4 +34,4 @@ jwt:
   cookie-secure: false
 
 email-service:
-  url: http://localhost:8082
+  url: ${EMAIL_SERVICE_URL:http://localhost:8082}
