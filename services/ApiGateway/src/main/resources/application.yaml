@@ -1,3 +1,53 @@
 spring:
   application:
     name: ApiGateway
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: 
+              - "http://localhost:3000"
+              - "http://localhost:5173"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+      default-filters:
+        - name: CircuitBreaker
+          args:
+            name: myCircuitBreaker
+            fallbackUri: forward:/fallback
+      routes:
+        - id: context-service
+          uri: lb://ContextService
+          predicates:
+            - Path=/api/context/**
+        - id: itinerary-service
+          uri: lb://ItineraryService
+          predicates:
+            - Path=/api/itineraries/**
+        - id: place-service
+          uri: lb://PlaceService
+          predicates:
+            - Path=/api/places/**
+        - id: review-service
+          uri: lb://ReviewService
+          predicates:
+            - Path=/api/reviews/**
+        - id: trip-service
+          uri: lb://TripService
+          predicates:
+            - Path=/api/trips/**
+
+server:
+  port: 8080
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
