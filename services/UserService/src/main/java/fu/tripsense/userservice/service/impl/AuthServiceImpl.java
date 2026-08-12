@@ -24,6 +24,7 @@ import fu.tripsense.userservice.service.AuthService;
 import fu.tripsense.userservice.util.CookieUtils;
 import fu.tripsense.userservice.util.JwtUtils;
 import fu.tripsense.userservice.util.TokenHashUtils;
+import fu.tripsense.userservice.validator.EmailVerificationValidator;
 import fu.tripsense.userservice.validator.RefreshTokenValidator;
 import fu.tripsense.userservice.validator.SessionValidator;
 import fu.tripsense.userservice.validator.UserValidator;
@@ -46,7 +47,7 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.UUID;
 
-import fu.tripsense.userservice.service.EmailService;
+import fu.tripsense.userservice.service.VerificationService;
 
 @Service
 @RequiredArgsConstructor
@@ -56,15 +57,15 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final SessionRepository sessionRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final EmailVerificationCodeRepository emailVerificationCodeRepository;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final CookieUtils cookieUtils;
-    private final EmailService emailService;
+    private final VerificationService verificationService;
     private final RefreshTokenValidator refreshTokenValidator;
     private final SessionValidator sessionValidator;
     private final UserValidator userValidator;
+    private final EmailVerificationValidator emailVerificationValidator;
 
     @Value("${jwt.idle-timeout-days}")
     private int idleTimeoutDays;
@@ -145,13 +146,11 @@ public class AuthServiceImpl implements AuthService {
         log.info("Processing registration request for email: {}", request.email());
 
         Optional<User> existingUserOpt = userRepository.findByEmail(request.email());
+        emailVerificationValidator.validateRegistrationEmail(existingUserOpt, request.email());
+
         User user;
         if (existingUserOpt.isPresent()) {
             User existingUser = existingUserOpt.get();
-            if (existingUser.getStatus() == UserStatus.ACTIVE) {
-                log.warn("Registration failed: Email {} is already registered and active", request.email());
-                throw new UserAlreadyExistsException("Email is already registered");
-            }
             existingUser.setPassword(passwordEncoder.encode(request.password()));
             user = userRepository.save(existingUser);
         } else {
@@ -164,19 +163,7 @@ public class AuthServiceImpl implements AuthService {
             user = userRepository.save(user);
         }
 
-        // Generate 6-digit verification code
-        String rawCode = String.format("%06d", java.util.concurrent.ThreadLocalRandom.current().nextInt(1000000));
-        String codeHash = TokenHashUtils.hashToken(rawCode);
-
-        EmailVerificationCode verificationCode = EmailVerificationCode.builder()
-                .user(user)
-                .codeHash(codeHash)
-                .expiresAt(LocalDateTime.now().plusMinutes(10))
-                .attemptCount(0)
-                .build();
-
-        emailVerificationCodeRepository.save(verificationCode);
-        emailService.sendVerificationCode(user.getEmail(), rawCode);
+        verificationService.createAndSendVerificationCode(user);
 
         return UserDto.builder()
                 .id(user.getId())
@@ -186,77 +173,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    @Override
-    @Transactional
-    public UserDto verifyEmail(VerifyEmailRequest request) {
-        log.info("Processing email verification request for email: {}", request.email());
 
-        EmailVerificationCode codeEntity = emailVerificationCodeRepository
-                .findTopByUserEmailAndVerifiedAtIsNullOrderByCreatedAtDesc(request.email())
-                .orElseThrow(() -> new InvalidVerificationCodeException("No pending verification code found for email"));
-
-        User user = codeEntity.getUser();
-        if (user.getStatus() == UserStatus.ACTIVE) {
-            throw new InvalidVerificationCodeException("User email is already verified");
-        }
-
-        if (codeEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new InvalidVerificationCodeException("Verification code has expired");
-        }
-
-        if (codeEntity.getAttemptCount() >= 5) {
-            throw new InvalidVerificationCodeException("Maximum verification attempts exceeded. Please request a new code.");
-        }
-
-        codeEntity.setAttemptCount(codeEntity.getAttemptCount() + 1);
-
-        String inputHash = TokenHashUtils.hashToken(request.code());
-        if (!codeEntity.getCodeHash().equals(inputHash)) {
-            emailVerificationCodeRepository.save(codeEntity);
-            throw new InvalidVerificationCodeException("Invalid verification code");
-        }
-
-        codeEntity.setVerifiedAt(LocalDateTime.now());
-        emailVerificationCodeRepository.save(codeEntity);
-
-        user.setStatus(UserStatus.ACTIVE);
-        userRepository.save(user);
-
-        log.info("Email verified successfully for user id: {}", user.getId());
-
-        return UserDto.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .status(user.getStatus())
-                .build();
-    }
-
-    @Override
-    @Transactional
-    public void resendCode(ResendCodeRequest request) {
-        log.info("Processing resend code request for email: {}", request.email());
-
-        User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new InvalidVerificationCodeException("User not found"));
-
-        if (user.getStatus() != UserStatus.UNVERIFIED) {
-            throw new InvalidVerificationCodeException("User email is already verified or inactive");
-        }
-
-        String rawCode = String.format("%06d", java.util.concurrent.ThreadLocalRandom.current().nextInt(1000000));
-        String codeHash = TokenHashUtils.hashToken(rawCode);
-
-        EmailVerificationCode verificationCode = EmailVerificationCode.builder()
-                .user(user)
-                .codeHash(codeHash)
-                .expiresAt(LocalDateTime.now().plusMinutes(10))
-                .attemptCount(0)
-                .build();
-
-        emailVerificationCodeRepository.save(verificationCode);
-        emailService.sendVerificationCode(user.getEmail(), rawCode);
-    }
 
     @Override
     @Transactional

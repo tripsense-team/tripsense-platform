@@ -2,8 +2,6 @@ package fu.tripsense.userservice.controller;
 
 import fu.tripsense.userservice.dto.request.LoginRequest;
 import fu.tripsense.userservice.dto.request.RegisterRequest;
-import fu.tripsense.userservice.dto.request.ResendCodeRequest;
-import fu.tripsense.userservice.dto.request.VerifyEmailRequest;
 import fu.tripsense.userservice.dto.response.ApiResponse;
 import fu.tripsense.userservice.dto.response.LoginResponse;
 import fu.tripsense.userservice.dto.response.LoginResult;
@@ -34,18 +32,6 @@ public class AuthController {
         UserDto user = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Registration successful. Please check your email for the verification code.", user));
-    }
-
-    @PostMapping("/verify-email")
-    public ResponseEntity<ApiResponse<UserDto>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
-        UserDto user = authService.verifyEmail(request);
-        return ResponseEntity.ok(ApiResponse.success("Email verified successfully", user));
-    }
-
-    @PostMapping("/resend-code")
-    public ResponseEntity<ApiResponse<Void>> resendCode(@Valid @RequestBody ResendCodeRequest request) {
-        authService.resendCode(request);
-        return ResponseEntity.ok(ApiResponse.success("Verification code resent successfully", null));
     }
 
     @PostMapping("/login")
