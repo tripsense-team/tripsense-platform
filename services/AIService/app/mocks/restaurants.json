@@ -1,0 +1,99 @@
+{
+  "destination": "Da Nang",
+  "restaurants": [
+    {
+      "id": "restaurant_001",
+      "name": "Be Man Seafood",
+      "category": "seafood",
+      "location": "Vo Nguyen Giap Street, Son Tra, Da Nang",
+      "rating": 4.5,
+      "review_count": 12500,
+      "price_level": 2,
+      "average_price_per_person": 250000,
+      "best_for": [
+        "dinner",
+        "family",
+        "seafood"
+      ],
+      "description": "Popular seafood restaurant with fresh seafood and ocean view."
+    },
+    {
+      "id": "restaurant_002",
+      "name": "Nam Danh Seafood",
+      "category": "seafood",
+      "location": "K139/H59 Ho Nghinh Street, Son Tra, Da Nang",
+      "rating": 4.6,
+      "review_count": 9800,
+      "price_level": 2,
+      "average_price_per_person": 200000,
+      "best_for": [
+        "lunch",
+        "seafood",
+        "local_food"
+      ],
+      "description": "Local seafood restaurant famous for affordable fresh seafood."
+    },
+    {
+      "id": "restaurant_003",
+      "name": "Mi Quang Ba Mua",
+      "category": "local_food",
+      "location": "Da Nang City Center",
+      "rating": 4.4,
+      "review_count": 7600,
+      "price_level": 1,
+      "average_price_per_person": 60000,
+      "best_for": [
+        "breakfast",
+        "local_food"
+      ],
+      "description": "Traditional Da Nang restaurant serving Mi Quang and local dishes."
+    },
+    {
+      "id": "restaurant_004",
+      "name": "Bun Cha Ca Ba Hoa",
+      "category": "local_food",
+      "location": "Hai Chau District, Da Nang",
+      "rating": 4.5,
+      "review_count": 8200,
+      "price_level": 1,
+      "average_price_per_person": 50000,
+      "best_for": [
+        "breakfast",
+        "local_food"
+      ],
+      "description": "Famous local fish cake noodle soup restaurant."
+    },
+    {
+      "id": "restaurant_005",
+      "name": "Madame Lan Restaurant",
+      "category": "vietnamese_cuisine",
+      "location": "Tran Hung Dao Street, Da Nang",
+      "rating": 4.3,
+      "review_count": 11000,
+      "price_level": 3,
+      "average_price_per_person": 350000,
+      "best_for": [
+        "dinner",
+        "couple",
+        "traditional_food"
+      ],
+      "description": "Elegant restaurant serving Vietnamese cuisine with river view."
+    },
+    {
+      "id": "restaurant_006",
+      "name": "Cong Ca Phe Da Nang",
+      "category": "cafe",
+      "location": "Bach Dang Street, Da Nang",
+      "rating": 4.4,
+      "review_count": 6500,
+      "price_level": 1,
+      "average_price_per_person": 50000,
+      "best_for": [
+        "coffee",
+        "afternoon",
+        "relax"
+      ],
+      "description": "Popular Vietnamese coffee shop suitable for relaxing."
+    }
+  ]
+}
