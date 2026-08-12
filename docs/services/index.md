@@ -4,17 +4,17 @@ This index distinguishes implemented source-tree services from planned architect
 
 | Service | Status | Source |
 | --- | --- | --- |
-| API Gateway | IMPLEMENTED | [ApiGateway](../../services/ApiGateway/) |
+| API Gateway | IMPLEMENTED | [api-gateway](../../services/api-gateway/) |
 | Discovery Server | IMPLEMENTED | [discovery-server](../../services/discovery-server/) |
-| Trip Service | IMPLEMENTED | [TripService](../../services/TripService/) |
-| Place Service | IMPLEMENTED | [PlaceService](../../services/PlaceService/) |
-| Context Service | IMPLEMENTED | [ContextService](../../services/ContextService/) |
-| Itinerary Service | IMPLEMENTED | [ItineraryService](../../services/ItineraryService/) |
-| Review Service | IMPLEMENTED | [ReviewService](../../services/ReviewService/) |
+| Place Service | IMPLEMENTED | [place-service](../../services/place-service/) |
+| ai-service | IMPLEMENTED | [ai-service](../../services/ai-service/) |
+| trip-service | PLANNED | Not found |
+| context-service | PLANNED | Not found |
+| itinerary-service | PLANNED | Not found |
+| review-service | PLANNED | Not found |
 | identity-service | PLANNED | Not found |
 | user-service | PLANNED | Not found |
 | notification-service | PLANNED | Not found |
-| ai-service | PLANNED | Not found |
 
 Feature plans must link to affected services and must not describe planned services as implemented.
 
