@@ -1,0 +1,107 @@
+{
+  "destination": "Da Nang",
+  "activities": [
+    {
+      "id": "activity_001",
+      "name": "Son Tra Peninsula Sightseeing Tour",
+      "category": "nature_tour",
+      "location": "Son Tra Peninsula, Da Nang",
+      "rating": 4.7,
+      "review_count": 5600,
+      "price_level": 2,
+      "estimated_duration_hours": 4,
+      "best_time": "morning",
+      "best_for": [
+        "nature",
+        "couple",
+        "family"
+      ],
+      "description": "Explore Son Tra Peninsula, Linh Ung Pagoda, and scenic viewpoints."
+    },
+    {
+      "id": "activity_002",
+      "name": "Ba Na Hills Cable Car Experience",
+      "category": "theme_park",
+      "location": "Hoa Vang District, Da Nang",
+      "rating": 4.6,
+      "review_count": 32000,
+      "price_level": 3,
+      "estimated_duration_hours": 8,
+      "best_time": "day",
+      "best_for": [
+        "family",
+        "couple",
+        "photography"
+      ],
+      "description": "Visit Golden Bridge, French Village, and entertainment areas at Ba Na Hills."
+    },
+    {
+      "id": "activity_003",
+      "name": "Hoi An Ancient Town Day Trip",
+      "category": "culture_tour",
+      "location": "Hoi An, Quang Nam",
+      "rating": 4.8,
+      "review_count": 24000,
+      "price_level": 2,
+      "estimated_duration_hours": 10,
+      "best_time": "afternoon_evening",
+      "best_for": [
+        "culture",
+        "couple",
+        "photography"
+      ],
+      "description": "Explore ancient streets, lanterns, local food, and traditional architecture."
+    },
+    {
+      "id": "activity_004",
+      "name": "Han River Night Cruise",
+      "category": "night_activity",
+      "location": "Han River, Da Nang",
+      "rating": 4.5,
+      "review_count": 8700,
+      "price_level": 2,
+      "estimated_duration_hours": 1.5,
+      "best_time": "evening",
+      "best_for": [
+        "couple",
+        "relax",
+        "family"
+      ],
+      "description": "Enjoy Da Nang city lights and views from Han River."
+    },
+    {
+      "id": "activity_005",
+      "name": "Cooking Class and Local Market Tour",
+      "category": "food_experience",
+      "location": "Da Nang City Center",
+      "rating": 4.6,
+      "review_count": 3500,
+      "price_level": 2,
+      "estimated_duration_hours": 4,
+      "best_time": "morning",
+      "best_for": [
+        "food",
+        "culture",
+        "experience"
+      ],
+      "description": "Learn Vietnamese cooking and explore local ingredients."
+    },
+    {
+      "id": "activity_006",
+      "name": "My Khe Beach Water Activities",
+      "category": "water_activity",
+      "location": "My Khe Beach, Da Nang",
+      "rating": 4.4,
+      "review_count": 4200,
+      "price_level": 2,
+      "estimated_duration_hours": 3,
+      "best_time": "morning",
+      "best_for": [
+        "beach",
+        "adventure",
+        "young_travelers"
+      ],
+      "description": "Enjoy swimming, surfing, and beach activities at My Khe Beach."
+    }
+  ]
+}
