@@ -24,19 +24,19 @@ TripSense is organized as a gateway-fronted platform with independently owned se
 
 The source tree currently includes:
 
-- API Gateway: `IMPLEMENTED` at [ApiGateway](../../services/ApiGateway/)
+- API Gateway: `IMPLEMENTED` at [api-gateway](../../services/api-gateway/)
 - Discovery server: `IMPLEMENTED` in the working tree at [discovery-server](../../services/discovery-server/)
-- Trip service: `IMPLEMENTED` at [TripService](../../services/TripService/)
-- Place service: `IMPLEMENTED` at [PlaceService](../../services/PlaceService/)
-- Context service: `IMPLEMENTED` at [ContextService](../../services/ContextService/)
-- Itinerary service: `IMPLEMENTED` at [ItineraryService](../../services/ItineraryService/)
-- Review service: `IMPLEMENTED` at [ReviewService](../../services/ReviewService/)
+- Place service: `IMPLEMENTED` at [place-service](../../services/place-service/)
+- ai-service: `IMPLEMENTED` at [ai-service](../../services/ai-service/)
+- trip-service: `PLANNED`, not found in the current source tree.
+- context-service: `PLANNED`, not found in the current source tree.
+- itinerary-service: `PLANNED`, not found in the current source tree.
+- review-service: `PLANNED`, not found in the current source tree.
 - Web app: `IMPLEMENTED` at [Web App](../../apps/web/tripsense/)
 - Mobile app: `IMPLEMENTED` at [Mobile App](../../apps/mobile/tripsense/)
 - identity-service: `PLANNED`, not found in the current source tree.
 - user-service: `PLANNED`, not found in the current source tree.
 - notification-service: `PLANNED`, not found in the current source tree.
-- ai-service: `PLANNED`, not found in the current source tree.
 
 The expected architecture may include services not yet present in the repository. Feature plans must state whether a service already exists or is a proposed future component.
 

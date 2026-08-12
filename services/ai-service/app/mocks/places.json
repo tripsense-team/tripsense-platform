@@ -1,0 +1,83 @@
+{
+  "destination": "Da Nang",
+  "places": [
+    {
+      "id": "place_001",
+      "name": "My Khe Beach",
+      "category": "beach",
+      "location": "Vo Nguyen Giap, Son Tra, Da Nang",
+      "rating": 4.6,
+      "review_count": 18500,
+      "price_level": 0,
+      "estimated_duration_hours": 2,
+      "best_time": "morning",
+      "indoor": false,
+      "description": "Popular beach suitable for swimming, walking, and relaxing."
+    },
+    {
+      "id": "place_002",
+      "name": "Son Tra Peninsula",
+      "category": "nature",
+      "location": "Son Tra District, Da Nang",
+      "rating": 4.7,
+      "review_count": 12300,
+      "price_level": 0,
+      "estimated_duration_hours": 3,
+      "best_time": "morning",
+      "indoor": false,
+      "description": "Scenic peninsula with viewpoints, nature, and Linh Ung Pagoda."
+    },
+    {
+      "id": "place_003",
+      "name": "Marble Mountains",
+      "category": "attraction",
+      "location": "Ngu Hanh Son District, Da Nang",
+      "rating": 4.5,
+      "review_count": 9800,
+      "price_level": 1,
+      "estimated_duration_hours": 2,
+      "best_time": "morning",
+      "indoor": false,
+      "description": "A group of limestone mountains with caves, pagodas, and viewpoints."
+    },
+    {
+      "id": "place_004",
+      "name": "Dragon Bridge",
+      "category": "landmark",
+      "location": "Hai Chau District, Da Nang",
+      "rating": 4.6,
+      "review_count": 14200,
+      "price_level": 0,
+      "estimated_duration_hours": 1,
+      "best_time": "evening",
+      "indoor": false,
+      "description": "Famous bridge in central Da Nang, especially attractive at night."
+    },
+    {
+      "id": "place_005",
+      "name": "Ba Na Hills",
+      "category": "theme_park",
+      "location": "Hoa Vang District, Da Nang",
+      "rating": 4.6,
+      "review_count": 36000,
+      "price_level": 3,
+      "estimated_duration_hours": 7,
+      "best_time": "day",
+      "indoor": false,
+      "description": "Mountain resort featuring the Golden Bridge, cable cars, gardens, and entertainment."
+    },
+    {
+      "id": "place_006",
+      "name": "Da Nang Museum of Cham Sculpture",
+      "category": "museum",
+      "location": "2 September Street, Hai Chau, Da Nang",
+      "rating": 4.4,
+      "review_count": 6500,
+      "price_level": 1,
+      "estimated_duration_hours": 1.5,
+      "best_time": "afternoon",
+      "indoor": true,
+      "description": "Museum displaying a major collection of Cham sculptures and artifacts."
+    }
+  ]
+}
