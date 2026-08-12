@@ -31,12 +31,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class SecurityConfig implements WebMvcConfigurer, WebSecurityCustomizer {
 
     private static final String[] WHITE_LIST = {
-            "/api/auth/**",
-            "/auth/**",
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html",
-            "/actuator/**"
+            "/api/auth/**"
     };
 
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
