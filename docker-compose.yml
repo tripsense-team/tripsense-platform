@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: user-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: tripsense_user
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  email-service:
+    build:
+      context: ./services/EmailService
+      dockerfile: Dockerfile
+    container_name: email-service
+    ports:
+      - "8082:8082"
+    env_file:
+      - ./env/.env
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./services/UserService
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./env/.env
+    environment:
+      - DB_HOST=db
+      - EMAIL_SERVICE_URL=http://email-service:8082
+    depends_on:
+      - db
+      - email-service
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

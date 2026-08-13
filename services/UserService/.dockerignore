@@ -1,0 +1,20 @@
+# Ignore build output and IDE files
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!target/*.jar
+
+# IDE specific files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
