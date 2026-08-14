@@ -1,11 +1,11 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     container_name: user-postgres
     environment:
-      POSTGRES_USER: postgres
       POSTGRES_DB: tripsense_user
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
     ports:
       - "5432:5432"
     volumes:
@@ -20,7 +20,43 @@ services:
     ports:
       - "8082:8082"
     env_file:
-      - ./env/.env
+      - path: ./env/.env
+        required: false
+    restart: unless-stopped
+
+  discovery-server:
+    build:
+      context: .
+      dockerfile: services/discovery-server/Dockerfile
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    environment:
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  place-service:
+    build:
+      context: .
+      dockerfile: services/place-service/Dockerfile
+    container_name: place-service
+    environment:
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+    ports:
+      - "8083:8082"
     restart: unless-stopped
 
   user-service:
@@ -28,16 +64,21 @@ services:
       context: ./services/UserService
       dockerfile: Dockerfile
     container_name: user-service
-    ports:
-      - "8081:8081"
     env_file:
-      - ./env/.env
+      - path: ./env/.env
+        required: false
     environment:
-      - DB_HOST=db
-      - EMAIL_SERVICE_URL=http://email-service:8082
+      DB_HOST: db
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      EMAIL_SERVICE_URL: http://email-service:8082
     depends_on:
       - db
       - email-service
+    ports:
+      - "8081:8081"
     restart: unless-stopped
 
 volumes:

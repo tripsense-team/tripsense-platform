@@ -21,6 +21,8 @@
         <module>services/discovery-server</module>
         <module>services/api-gateway</module>
         <module>services/place-service</module>
+        <module>services/UserService</module>
+        <module>services/EmailService</module>
     </modules>
 
     <properties>
