@@ -39,18 +39,22 @@ jobs:
           - image: api-gateway
             context: .
             dockerfile: services/api-gateway/Dockerfile
+
           - image: discovery-server
             context: .
             dockerfile: services/discovery-server/Dockerfile
+
           - image: place-service
             context: .
             dockerfile: services/place-service/Dockerfile
+
           - image: user-service
-            context: ./services/UserService
-            dockerfile: Dockerfile
+            context: .
+            dockerfile: services/UserService/Dockerfile
+
           - image: email-service
-            context: ./services/EmailService
-            dockerfile: Dockerfile
+            context: .
+            dockerfile: services/EmailService/Dockerfile
 
     steps:
       - name: Checkout source
