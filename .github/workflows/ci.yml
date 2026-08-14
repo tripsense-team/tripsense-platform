@@ -27,7 +27,10 @@ jobs:
           cache: maven
 
       - name: Build and test all services
-        run: mvn -B clean verify
+        run: |
+          mvn -B clean verify
+          mvn -B -f services/UserService/pom.xml clean verify
+          mvn -B -f services/EmailService/pom.xml clean verify
 
   docker-build:
     runs-on: ubuntu-latest
@@ -35,12 +38,27 @@ jobs:
 
     strategy:
       matrix:
-        service:
-          - api-gateway
-          - auth-service
-          - user-service
-          - booking-service
-          - payment-service
+        include:
+          - image_name: api-gateway
+            maven_args: -pl services/api-gateway -am
+            docker_context: .
+            dockerfile: services/api-gateway/Dockerfile
+          - image_name: discovery-server
+            maven_args: -pl services/discovery-server -am
+            docker_context: .
+            dockerfile: services/discovery-server/Dockerfile
+          - image_name: place-service
+            maven_args: -pl services/place-service -am
+            docker_context: .
+            dockerfile: services/place-service/Dockerfile
+          - image_name: user-service
+            maven_args: -f services/UserService/pom.xml
+            docker_context: services/UserService
+            dockerfile: services/UserService/Dockerfile
+          - image_name: email-service
+            maven_args: -f services/EmailService/pom.xml
+            docker_context: services/EmailService
+            dockerfile: services/EmailService/Dockerfile
 
     steps:
       - name: Checkout source
@@ -54,10 +72,11 @@ jobs:
           cache: maven
 
       - name: Package service
-        run: mvn -B -pl backend/${{ matrix.service }} -am package -DskipTests
+        run: mvn -B ${{ matrix.maven_args }} package -DskipTests
 
       - name: Build Docker image
         run: |
           docker build \
-            -t tripsense-platform-${{ matrix.service }}:${{ github.sha }} \
-            ./backend/${{ matrix.service }}
+            -f ${{ matrix.dockerfile }} \
+            -t tripsense-platform-${{ matrix.image_name }}:${{ github.sha }} \
+            ${{ matrix.docker_context }}

@@ -3,42 +3,61 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
+      - discovery-server
       - api-gateway
-      - auth-service
       - user-service
-      - booking-service
-      - payment-service
+      - place-service
+      - email-service
     ports:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
+  discovery-server:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-discovery-server:${IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
+    depends_on:
+      - discovery-server
+    environment:
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     ports:
       - "8080:8080"
 
-  auth-service:
-    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-auth-service:${IMAGE_TAG}
+  place-service:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-place-service:${IMAGE_TAG}
     restart: unless-stopped
+    depends_on:
+      - discovery-server
+    environment:
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     ports:
-      - "8081:8080"
+      - "8082:8082"
 
   user-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-user-service:${IMAGE_TAG}
     restart: unless-stopped
+    depends_on:
+      - email-service
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      EMAIL_SERVICE_URL: http://email-service:8082
     ports:
-      - "8082:8080"
+      - "8081:8081"
 
-  booking-service:
-    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-booking-service:${IMAGE_TAG}
+  email-service:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-email-service:${IMAGE_TAG}
     restart: unless-stopped
+    environment:
+      RESEND_API_KEY: ${RESEND_API_KEY}
     ports:
-      - "8083:8080"
-
-  payment-service:
-    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-payment-service:${IMAGE_TAG}
-    restart: unless-stopped
-    ports:
-      - "8084:8080"
+      - "8083:8082"

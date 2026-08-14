@@ -20,7 +20,43 @@ services:
     ports:
       - "8082:8082"
     env_file:
-      - ./env/.env
+      - path: ./env/.env
+        required: false
+    restart: unless-stopped
+
+  discovery-server:
+    build:
+      context: .
+      dockerfile: services/discovery-server/Dockerfile
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_DEFAULT_ZONE=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+    restart: unless-stopped
+
+  place-service:
+    build:
+      context: .
+      dockerfile: services/place-service/Dockerfile
+    container_name: place-service
+    ports:
+      - "8083:8082"
+    environment:
+      - EUREKA_DEFAULT_ZONE=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
     restart: unless-stopped
 
   user-service:
@@ -31,7 +67,8 @@ services:
     ports:
       - "8081:8081"
     env_file:
-      - ./env/.env
+      - path: ./env/.env
+        required: false
     environment:
       - DB_HOST=db
       - EMAIL_SERVICE_URL=http://email-service:8082
