@@ -13,6 +13,7 @@ services:
     restart: unless-stopped
 
   email-service:
+    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-email-service:${IMAGE_TAG:-latest}
     build:
       context: ./services/EmailService
       dockerfile: Dockerfile
@@ -25,6 +26,7 @@ services:
     restart: unless-stopped
 
   discovery-server:
+    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-discovery-server:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/discovery-server/Dockerfile
@@ -34,6 +36,7 @@ services:
     restart: unless-stopped
 
   api-gateway:
+    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-api-gateway:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/api-gateway/Dockerfile
@@ -47,6 +50,7 @@ services:
     restart: unless-stopped
 
   place-service:
+    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-place-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/place-service/Dockerfile
@@ -60,6 +64,7 @@ services:
     restart: unless-stopped
 
   user-service:
+    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-user-service:${IMAGE_TAG:-latest}
     build:
       context: ./services/UserService
       dockerfile: Dockerfile
