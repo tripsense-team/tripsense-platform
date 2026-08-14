@@ -101,12 +101,19 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Check deployment files
+        run: |
+          pwd
+          ls -la deploy
+          ls -la deploy/nginx
+          ls -la scripts
+
       - name: Prepare deployment directory
         run: |
           mkdir -p /opt/tripsense/deploy/nginx
 
-          cp deploy/docker-compose.yml /opt/tripsense/deploy/docker-compose.yml
-          cp deploy/deploy.sh /opt/tripsense/deploy/deploy.sh
+          cp deploy/docker-compose.prod.yml /opt/tripsense/deploy/docker-compose.yml
+          cp scripts/deploy.sh /opt/tripsense/deploy/deploy.sh
           cp deploy/nginx/nginx.conf /opt/tripsense/deploy/nginx/nginx.conf
 
           chmod +x /opt/tripsense/deploy/deploy.sh
@@ -119,9 +126,4 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
 
         run: |
-          export IMAGE_REGISTRY
-          export IMAGE_OWNER
-          export IMAGE_PROJECT
-          export IMAGE_TAG
-
           /opt/tripsense/deploy/deploy.sh

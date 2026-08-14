@@ -7,16 +7,14 @@ ENV_FILE="$BASE_DIR/.env"
 
 cd "$DEPLOY_DIR"
 
-echo "=== Pulling Docker images ==="
+echo "=== Pull Docker images ==="
 docker compose --env-file "$ENV_FILE" pull
 
-echo "=== Starting TripSense ==="
+echo "=== Start containers ==="
 docker compose --env-file "$ENV_FILE" up -d --remove-orphans
 
-echo "=== Container status ==="
+echo "=== Deployment status ==="
 docker compose --env-file "$ENV_FILE" ps
 
-echo "=== Cleaning old Docker images ==="
+echo "=== Clean unused images ==="
 docker image prune -f
-
-echo "=== Deployment completed ==="
