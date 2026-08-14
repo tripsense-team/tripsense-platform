@@ -4,8 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
-
-No feature plans have been created yet. Use [_template](./_template/index.md) for the first feature.
+| `logout-management` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/user-service` | [Docs](./logout-management/index.md) |
 
 ## Statuses
 
