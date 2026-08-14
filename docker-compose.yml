@@ -1,32 +1,18 @@
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:15-alpine
     container_name: user-postgres
     environment:
+      POSTGRES_USER: postgres
       POSTGRES_DB: tripsense_user
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-  email-service:
-    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-email-service:${IMAGE_TAG:-latest}
-    build:
-      context: ./services/EmailService
-      dockerfile: Dockerfile
-    container_name: email-service
-    ports:
-      - "8082:8082"
-    env_file:
-      - path: ./env/.env
-        required: false
-    restart: unless-stopped
-
   discovery-server:
-    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-discovery-server:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/discovery-server/Dockerfile
@@ -36,7 +22,6 @@ services:
     restart: unless-stopped
 
   api-gateway:
-    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-api-gateway:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/api-gateway/Dockerfile
@@ -50,7 +35,6 @@ services:
     restart: unless-stopped
 
   place-service:
-    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-place-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/place-service/Dockerfile
@@ -63,21 +47,26 @@ services:
       - "8083:8082"
     restart: unless-stopped
 
+  email-service:
+    build:
+      context: ./services/EmailService
+      dockerfile: Dockerfile
+    container_name: email-service
+    env_file:
+      - ./env/.env
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+
   user-service:
-    image: ${IMAGE_REGISTRY:-docker.io}/${IMAGE_OWNER:-local}/${IMAGE_PROJECT:-tripsense}-user-service:${IMAGE_TAG:-latest}
     build:
       context: ./services/UserService
       dockerfile: Dockerfile
     container_name: user-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       DB_HOST: db
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASS: ${DB_PASS:-postgres}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       EMAIL_SERVICE_URL: http://email-service:8082
     depends_on:
       - db

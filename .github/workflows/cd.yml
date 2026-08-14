@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
           cache: maven
 
       - name: Build and test all services
@@ -35,26 +35,26 @@ jobs:
 
     strategy:
       matrix:
-        service:
-          - api-gateway
-          - auth-service
-          - user-service
-          - booking-service
-          - payment-service
+        include:
+          - image: api-gateway
+            context: .
+            dockerfile: services/api-gateway/Dockerfile
+          - image: discovery-server
+            context: .
+            dockerfile: services/discovery-server/Dockerfile
+          - image: place-service
+            context: .
+            dockerfile: services/place-service/Dockerfile
+          - image: user-service
+            context: ./services/UserService
+            dockerfile: Dockerfile
+          - image: email-service
+            context: ./services/EmailService
+            dockerfile: Dockerfile
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-
-      - name: Package service
-        run: mvn -B -pl backend/${{ matrix.service }} -am package -DskipTests
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -66,11 +66,12 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend/${{ matrix.service }}
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.service }}:${{ github.sha }}
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.service }}:latest
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:latest
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -90,6 +91,11 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Deploy TripSense to Azure
+        env:
+          IMAGE_REGISTRY: docker.io
+          IMAGE_OWNER: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_PROJECT: tripsense
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           cd /opt/tripsense
           ./deploy.sh
