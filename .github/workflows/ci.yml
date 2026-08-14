@@ -15,6 +15,30 @@ jobs:
   verify:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: tripsense_user
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d tripsense_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASS: ci-placeholder
+      JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+      JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+      RESEND_API_KEY: ci-placeholder
+      EMAIL_SERVICE_URL: http://localhost:8082
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -43,11 +67,15 @@ jobs:
           IMAGE_OWNER: phatnguyen105
           IMAGE_PROJECT: tripsense
           IMAGE_TAG: ci-${{ github.sha }}
+
           DB_USER: postgres
           DB_PASS: ci-placeholder
+
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+
           RESEND_API_KEY: ci-placeholder
+
         run: docker compose -f deploy/docker-compose.prod.yml config
 
       - name: Create CI env file

@@ -1,10 +1,11 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     container_name: user-postgres
     environment:
-      POSTGRES_USER: postgres
       POSTGRES_DB: tripsense_user
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-123456}
     ports:
       - "5432:5432"
     volumes:

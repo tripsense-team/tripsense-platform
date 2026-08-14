@@ -4,6 +4,7 @@ target/
 *.jar
 *.war
 *.ear
+.tools/
 
 # Runtime logs
 *.log
