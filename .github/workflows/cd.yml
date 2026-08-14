@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - feature/ci-cd
+      - cicd
 
   workflow_dispatch:
 
@@ -76,6 +76,7 @@ jobs:
           push: true
           tags: |
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:latest
 
   deploy:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/cicd'
@@ -103,4 +104,5 @@ jobs:
 
         run: |
           cd /opt/tripsense
+          chmod +x deploy.sh
           ./deploy.sh
