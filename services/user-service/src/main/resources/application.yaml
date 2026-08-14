@@ -6,8 +6,8 @@ spring:
     name: user-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/tripsense_user
-    username: postgres
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/tripsense_user
+    username: ${DB_USER:postgres}
     password: ${DB_PASS:}
     driver-class-name: org.postgresql.Driver
 
@@ -27,7 +27,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
 
@@ -41,4 +41,4 @@ jwt:
   cookie-secure: false
 
 email-service:
-  url: http://localhost:8082
+  url: ${EMAIL_SERVICE_URL:http://localhost:8082}

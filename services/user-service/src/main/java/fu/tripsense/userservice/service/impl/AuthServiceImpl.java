@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -254,7 +255,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseCookie logoutAll(String rawRefreshToken, User currentUser) {
-        log.info("Processing multi-device logout for user id: {}", currentUser != null ? currentUser.getId() : "unknown");
+        log.info("Processing multi-device logout for user: {}", currentUser != null ? currentUser.getId() : "via-cookie");
         LocalDateTime now = LocalDateTime.now();
 
         UUID targetUserId = null;
@@ -272,23 +273,15 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        if (targetUserId != null) {
-            // Revoke all active sessions for this user
-            List<Session> activeSessions = sessionRepository.findByUserIdAndRevokedAtIsNull(targetUserId);
-            for (Session s : activeSessions) {
-                s.setRevokedAt(now);
-                sessionRepository.save(s);
-            }
-
-            // Revoke all active refresh tokens for this user
-            List<RefreshToken> activeTokens = refreshTokenRepository.findBySessionUserIdAndRevokedAtIsNull(targetUserId);
-            for (RefreshToken t : activeTokens) {
-                t.setRevokedAt(now);
-                refreshTokenRepository.save(t);
-            }
-
-            log.info("Revoked {} active sessions and {} refresh tokens for user id: {}", activeSessions.size(), activeTokens.size(), targetUserId);
+        if (targetUserId == null) {
+            throw new InsufficientAuthenticationException("Authentication required to logout of all devices");
         }
+
+        // Bulk revoke all active sessions & refresh tokens for this user in 2 direct DB queries
+        int revokedSessions = sessionRepository.revokeAllByUserId(targetUserId, now);
+        int revokedTokens = refreshTokenRepository.revokeAllByUserId(targetUserId, now);
+
+        log.info("Bulk revoked {} active sessions and {} refresh tokens for user id: {}", revokedSessions, revokedTokens, targetUserId);
 
         return cookieUtils.cleanRefreshTokenCookie();
     }

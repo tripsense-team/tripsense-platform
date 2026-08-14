@@ -64,46 +64,45 @@ export const authApi = {
   },
 
   async logout(): Promise<ApiResponse<void>> {
-    // 1. Immediately transition Zustand state to unauthenticated to stop all refresh triggers
-    useAuthStore.getState().clearAuth();
-
     try {
-      // 2. Dispatch logout request to revoke backend token & clear HttpOnly Cookie
+      // 1. Dispatch logout request to revoke current session & clear HttpOnly Cookie
       const response = await apiClient<ApiResponse<void>>("/api/auth/logout", {
         method: "POST",
         skipAuth: true,
       });
       return response;
     } catch {
-      // Ignore network errors on logout since frontend state is already cleared
+      // Ignore network errors on logout since frontend state is already cleared in finally
       return {
         success: true,
         message: "Logged out",
         data: undefined as unknown as void,
         timestamp: new Date().toISOString(),
       };
+    } finally {
+      // 2. Clear frontend state after dispatching request
+      useAuthStore.getState().clearAuth();
     }
   },
 
   async logoutAll(): Promise<ApiResponse<void>> {
-    // 1. Immediately transition Zustand state to unauthenticated to stop all refresh triggers
-    useAuthStore.getState().clearAuth();
-
     try {
-      // 2. Dispatch logout-all request to revoke backend tokens & clear HttpOnly Cookie
+      // 1. Dispatch logout-all request with Authorization header & HttpOnly Cookie to revoke all sessions
       const response = await apiClient<ApiResponse<void>>("/api/auth/logout-all", {
         method: "POST",
-        skipAuth: true,
       });
       return response;
     } catch {
-      // Ignore network errors on logout-all since frontend state is already cleared
+      // Ignore network errors on logout-all since frontend state is already cleared in finally
       return {
         success: true,
         message: "Logged out of all devices",
         data: undefined as unknown as void,
         timestamp: new Date().toISOString(),
       };
+    } finally {
+      // 2. Clear frontend state after dispatching request
+      useAuthStore.getState().clearAuth();
     }
   },
 };
