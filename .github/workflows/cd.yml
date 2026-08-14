@@ -52,11 +52,11 @@ jobs:
             dockerfile: services/place-service/Dockerfile
 
           - image: user-service
-            context: .
+            context: ./services/UserService
             dockerfile: services/UserService/Dockerfile
 
           - image: email-service
-            context: .
+            context: ./services/EmailService
             dockerfile: services/EmailService/Dockerfile
 
     steps:
