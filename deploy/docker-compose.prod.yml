@@ -4,7 +4,6 @@ services:
     restart: unless-stopped
     depends_on:
       - api-gateway
-      - user-service
     ports:
       - "80:80"
     volumes:
@@ -26,16 +25,12 @@ services:
     environment:
       EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
       EUREKA_CLIENT_FETCH_REGISTRY: "false"
-    expose:
-      - "8761"
 
   email-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-email-service:${IMAGE_TAG}
     restart: unless-stopped
     environment:
       RESEND_API_KEY: ${RESEND_API_KEY}
-    expose:
-      - "8082"
 
   place-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-place-service:${IMAGE_TAG}
@@ -58,8 +53,6 @@ services:
     depends_on:
       - db
       - email-service
-    expose:
-      - "8081"
 
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
@@ -70,8 +63,6 @@ services:
       - discovery-server
       - user-service
       - place-service
-    expose:
-      - "8080"
 
 volumes:
   postgres_data:

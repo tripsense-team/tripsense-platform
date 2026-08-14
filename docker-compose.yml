@@ -5,7 +5,6 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: tripsense_user
-      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
     volumes:
@@ -53,7 +52,8 @@ services:
       dockerfile: Dockerfile
     container_name: email-service
     env_file:
-      - ./env/.env
+    - path: ./env/.env
+      required: false
     ports:
       - "8082:8082"
     restart: unless-stopped
@@ -64,7 +64,8 @@ services:
       dockerfile: Dockerfile
     container_name: user-service
     env_file:
-      - ./env/.env
+    - path: ./env/.env
+      required: false
     environment:
       DB_HOST: db
       EMAIL_SERVICE_URL: http://email-service:8082
