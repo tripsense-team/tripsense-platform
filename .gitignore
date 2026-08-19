@@ -8,10 +8,15 @@ target/
 # Runtime logs
 *.log
 logs/
+.codex-run/
 
 # Local environment files
 .env
 .env.*
+.env.local
+.env*.local
+**/.env
+**/.env.local
 !.env.example
 
 # IDE and OS metadata

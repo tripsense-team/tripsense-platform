@@ -4,8 +4,8 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
-
-No feature plans have been created yet. Use [_template](./_template/index.md) for the first feature.
+| Core Platform Setup | APPROVED | API Gateway, Discovery Server, Place Service | [core-platform-setup](core-platform-setup/index.md) |
+| TripSense Web Core Platform | APPROVED | Web App, API Gateway, Place Service | [tripsense-web-core-platform](tripsense-web-core-platform/index.md) |
 
 ## Statuses
 

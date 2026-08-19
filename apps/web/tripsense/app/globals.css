@@ -24,3 +24,101 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.vietmapgl-popup-content {
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgb(23 33 29 / 22%);
+}
+
+.ts-popup {
+  width: 260px;
+  background: white;
+}
+
+.ts-popup-image,
+.ts-popup-fallback {
+  height: 132px;
+  width: 100%;
+}
+
+.ts-popup-image {
+  object-fit: cover;
+}
+
+.ts-popup-fallback {
+  display: grid;
+  place-items: center;
+  background: #dbe4dc;
+  color: #587164;
+  font-weight: 700;
+}
+
+.ts-popup-body {
+  padding: 12px;
+}
+
+.ts-popup-body h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #17211d;
+}
+
+.ts-popup-body p {
+  margin: 4px 0 0;
+  color: #637169;
+  font-size: 12px;
+}
+
+.ts-popup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  color: #2f7d68;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ts-popup-address {
+  line-height: 1.4;
+}
+
+.ts-popup-description {
+  line-height: 1.45;
+  color: #394941 !important;
+}
+
+.ts-popup-muted {
+  color: #9b3725 !important;
+}
+
+.ts-popup-skeleton {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ts-popup-skeleton span {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8e2, #f4f7f4, #e2e8e2);
+}
+
+.ts-popup-skeleton span:last-child {
+  width: 68%;
+}
+
+.ts-popup-button {
+  width: 100%;
+  height: 34px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 6px;
+  background: #17211d;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}

@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@vietmap/vietmap-gl-js": "^7.0.0-pre.1",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

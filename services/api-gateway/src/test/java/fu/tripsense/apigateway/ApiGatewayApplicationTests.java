@@ -35,4 +35,16 @@ class ApiGatewayApplicationTests {
                 });
     }
 
+    @Test
+    void routeServicePathUsesPlaceServiceForPoc() {
+        List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes)
+                .isNotNull()
+                .anySatisfy(route -> {
+                    assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.ROUTES_SERVICE_ROUTE_ID);
+                    assertThat(route.getUri()).isEqualTo(URI.create("lb://place-service"));
+                });
+    }
+
 }
