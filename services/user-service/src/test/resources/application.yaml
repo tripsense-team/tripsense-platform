@@ -1,0 +1,17 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: UserService
+  flyway:
+    enabled: false
+
+jwt:
+  access-secret: ${JWT_ACCESS_SECRET}
+  refresh-secret: ${JWT_REFRESH_SECRET}
+  access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:900000}
+  refresh-token-cookie-name: ${JWT_REFRESH_TOKEN_COOKIE_NAME:refreshToken}
+  idle-timeout-days: ${JWT_IDLE_TIMEOUT_DAYS:7}
+  absolute-timeout-days: ${JWT_ABSOLUTE_TIMEOUT_DAYS:30}
+  cookie-secure: ${JWT_COOKIE_SECURE:false}

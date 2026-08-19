@@ -47,32 +47,37 @@ services:
       - "8083:8082"
     restart: unless-stopped
 
-  email-service:
+  mail-service:
     build:
-      context: ./services/EmailService
-      dockerfile: Dockerfile
-    container_name: email-service
-    env_file:
-    - path: ./env/.env
-      required: false
+      context: .
+      dockerfile: services/mail-service/Dockerfile
+    container_name: mail-service
     ports:
       - "8082:8082"
+    env_file:
+      - ./env/.env
+    environment:
+      - EUREKA_CLIENT_ENABLED=true
+      - EUREKA_REGISTER=true
+      - EUREKA_FETCH=true
     restart: unless-stopped
 
   user-service:
     build:
-      context: ./services/UserService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/user-service/Dockerfile
     container_name: user-service
     env_file:
-    - path: ./env/.env
-      required: false
+      - ./env/.env
     environment:
-      DB_HOST: db
-      EMAIL_SERVICE_URL: http://email-service:8082
+      - DB_HOST=db
+      - EMAIL_SERVICE_URL=http://mail-service:8082
+      - EUREKA_CLIENT_ENABLED=true
+      - EUREKA_REGISTER=true
+      - EUREKA_FETCH=true
     depends_on:
       - db
-      - email-service
+      - mail-service
     ports:
       - "8081:8081"
     restart: unless-stopped
