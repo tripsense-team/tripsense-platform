@@ -14,8 +14,8 @@ services:
 
   mail-service:
     build:
-      context: ./services/mail-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/mail-service/Dockerfile
     container_name: mail-service
     ports:
       - "8082:8082"
@@ -29,8 +29,8 @@ services:
 
   user-service:
     build:
-      context: ./services/user-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/user-service/Dockerfile
     container_name: user-service
     ports:
       - "8081:8081"
