@@ -78,3 +78,13 @@ export function titleCaseDestination(value: string): string {
     .map((word) => word.charAt(0).toLocaleUpperCase("vi-VN") + word.slice(1))
     .join(" ");
 }
+
+export function tripTimingPhrase(trip: TripResponse): string {
+  const start = new Date(trip.startDate);
+  const day = start.getDate();
+  const month = new Intl.DateTimeFormat("en", { month: "long" }).format(start);
+
+  if (day >= 24) return `at the end of ${month}`;
+  if (day <= 7) return `at the beginning of ${month}`;
+  return `in the middle of ${month}`;
+}

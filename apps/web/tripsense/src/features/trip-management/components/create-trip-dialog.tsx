@@ -11,6 +11,8 @@ import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { cn } from "@/lib/utils";
 import type { CreateTripRequest } from "../types";
 import { titleCaseDestination, tripCoverOptions } from "../utils/format";
+import { nextDate, todayIso } from "../utils/date";
+import { normalizeSearchText } from "../utils/search";
 
 interface CreateTripDialogProps {
   open: boolean;
@@ -284,27 +286,6 @@ export function CreateTripDialog({
 function shouldSyncGeneratedName(name: string): boolean {
   const value = name.trim();
   return !value || /^Trip to\b/i.test(value);
-}
-
-function todayIso(): string {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 10);
-}
-
-function nextDate(value: string): string {
-  const date = new Date(`${value}T00:00:00`);
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
-function normalizeSearchText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\u0111/g, "d")
-    .replace(/\u0110/g, "D")
-    .toLowerCase();
 }
 
 function TripPill({

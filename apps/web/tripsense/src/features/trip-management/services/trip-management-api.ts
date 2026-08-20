@@ -49,7 +49,7 @@ export function updateTrip(tripId: string, payload: UpdateTripRequest): Promise<
   return unwrap(apiClient<ApiResponse<TripResponse>>(`/api/trips/${tripId}`, { method: "PATCH", body: JSON.stringify(payload) }));
 }
 
-export async function archiveTrip(tripId: string): Promise<void> {
+export async function deleteTrip(tripId: string): Promise<void> {
   await apiClient<ApiResponse<void>>(`/api/trips/${tripId}`, { method: "DELETE" });
 }
 
