@@ -52,12 +52,12 @@ jobs:
             dockerfile: services/place-service/Dockerfile
 
           - image: user-service
-            context: ./services/UserService
-            dockerfile: services/UserService/Dockerfile
+            context: ./services/user-service
+            dockerfile: services/user-service/Dockerfile
 
-          - image: email-service
-            context: ./services/EmailService
-            dockerfile: services/EmailService/Dockerfile
+          - image: mail-service
+            context: ./services/mail-service
+            dockerfile: services/mail-service/Dockerfile
 
     steps:
       - name: Checkout source

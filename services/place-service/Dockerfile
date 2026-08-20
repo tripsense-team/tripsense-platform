@@ -7,8 +7,9 @@ COPY pom.xml .
 COPY services/api-gateway/pom.xml services/api-gateway/pom.xml
 COPY services/discovery-server/pom.xml services/discovery-server/pom.xml
 COPY services/place-service/pom.xml services/place-service/pom.xml
-COPY services/UserService/pom.xml services/UserService/pom.xml
-COPY services/EmailService/pom.xml services/EmailService/pom.xml
+COPY services/user-service/pom.xml services/user-service/pom.xml
+COPY services/mail-service/pom.xml services/mail-service/pom.xml
+COPY services/trip-service/pom.xml services/trip-service/pom.xml
 
 RUN mvn -B -pl services/place-service -am dependency:go-offline
 
