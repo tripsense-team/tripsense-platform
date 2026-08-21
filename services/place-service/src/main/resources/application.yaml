@@ -1,10 +1,38 @@
 spring:
   application:
     name: place-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/tripsense_places}
+      database: ${MONGODB_DATABASE:tripsense_places}
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2000ms}
 
 server:
   port: ${SERVER_PORT:8082}
   shutdown: graceful
+
+ziomap:
+  base-url: ${ZIOMAP_BASE_URL:https://ziomap-api.socibi.com}
+  api-key: ${ZIOMAP_API_KEY}
+  timeout-ms: ${ZIOMAP_TIMEOUT_MS:8000}
+
+tripsense:
+  places:
+    default-city: ${DEFAULT_CITY:Da Nang}
+    default-country: ${DEFAULT_COUNTRY:Vietnam}
+    default-lat: ${DEFAULT_LAT:16.0544}
+    default-lng: ${DEFAULT_LNG:108.2022}
+    cache:
+      search-ttl-seconds: ${CACHE_TTL_SEARCH_SECONDS:1800}
+      details-ttl-seconds: ${CACHE_TTL_DETAILS_SECONDS:43200}
+      autocomplete-ttl-seconds: ${CACHE_TTL_AUTOCOMPLETE_SECONDS:3600}
+      provider-ttl-seconds: ${CACHE_TTL_PROVIDER_SECONDS:2592000}
+    search:
+      min-local-results: ${MIN_LOCAL_RESULTS:5}
 
 eureka:
   client:

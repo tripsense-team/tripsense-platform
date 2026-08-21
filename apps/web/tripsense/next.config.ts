@@ -5,23 +5,23 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "images.unsplash.com",
+        hostname: "**",
       },
       {
-        protocol: "https",
-        hostname: "images.mindtrip.ai",
-      },
-      {
-        protocol: "https",
-        hostname: "*.cloudfront.net",
+        protocol: "http",
+        hostname: "**",
       },
     ],
   },
   async rewrites() {
     return [
       {
+        source: "/api/places/:path*",
+        destination: process.env.PLACE_SERVICE_URL || "http://localhost:8082/api/places/:path*",
+      },
+      {
         source: "/api/:path*",
-        destination: "http://localhost:8080/api/:path*",
+        destination: process.env.API_GATEWAY_URL || "http://localhost:8080/api/:path*",
       },
     ];
   },
