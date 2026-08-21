@@ -12,15 +12,31 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  mongodb:
+    image: mongo:7.0
+    container_name: place-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: place-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
   mail-service:
     build:
       context: ./services/mail-service
       dockerfile: Dockerfile
     container_name: mail-service
     ports:
-      - "8082:8082"
-    env_file:
-      - ./env/.env
+      - "8083:8082"
     environment:
       - EUREKA_CLIENT_ENABLED=true
       - EUREKA_REGISTER=true
@@ -34,8 +50,6 @@ services:
     container_name: user-service
     ports:
       - "8081:8081"
-    env_file:
-      - ./env/.env
     environment:
       - DB_HOST=db
       - EMAIL_SERVICE_URL=http://mail-service:8082
@@ -47,5 +61,31 @@ services:
       - mail-service
     restart: unless-stopped
 
+  place-service:
+    build:
+      context: ./services/place-service
+      dockerfile: Dockerfile
+    container_name: place-service
+    ports:
+      - "8082:8082"
+    env_file:
+      - ./services/place-service/.env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/tripsense_places
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERVER_PORT=8082
+      - ZIOMAP_BASE_URL=https://ziomap-api.socibi.com
+      - ZIOMAP_API_KEY=eyJ1c2VyX2lkIjo1MjQsImFwcF9pZCI6IjMwNzc3NjY3MDQiLCJhcGlfa2V5IjoiemlvbWFwLW5pdTU0ZmVnZXg1azV2Zjl3bSJ9
+      - EUREKA_CLIENT_ENABLED=true
+      - EUREKA_REGISTER=true
+      - EUREKA_FETCH=true
+    depends_on:
+      - mongodb
+      - redis
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  mongodb_data:
+  redis_data:

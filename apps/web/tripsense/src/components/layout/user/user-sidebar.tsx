@@ -33,9 +33,14 @@ const mainNavItems: NavItem[] = [
     icon: Compass,
   },
   {
+    title: "Places & Map",
+    href: "/places",
+    icon: MapPin,
+  },
+  {
     title: "My Trips",
     href: "/trips",
-    icon: MapPin,
+    icon: FolderBookmark,
     badge: "3",
   },
   {

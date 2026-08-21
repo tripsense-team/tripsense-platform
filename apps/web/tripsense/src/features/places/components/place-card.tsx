@@ -1,168 +1,239 @@
+"use client";
+
+import * as React from "react";
 import Image from "next/image";
-import { MapPin, Clock } from "lucide-react";
+import { MapPin, Clock, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Rating } from "@/components/shared/rating";
-import { FavoriteButton } from "@/components/shared/favorite-button";
-import { PriceDisplay } from "@/components/shared/price-display";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getPlacePhotoUrl } from "../utils/place-photo";
+import type { Place } from "../types";
 
 export interface PlaceCardProps {
-  id?: string;
-  image?: string;
-  name: string;
-  category?: string;
-  location?: string;
-  rating?: number;
-  reviewCount?: number;
-  priceLevel?: 1 | 2 | 3 | 4;
-  openingHours?: string;
-  favorite?: boolean;
-  onFavoriteToggle?: (favorite: boolean) => void;
-  actionButton?: React.ReactNode;
-  variant?: "default" | "horizontal" | "compact";
+  place: Place;
+  index?: number;
+  isSelected?: boolean;
   onClick?: () => void;
+  onViewDetails?: () => void;
+  variant?: "vertical" | "horizontal";
   className?: string;
 }
 
 export function PlaceCard({
-  image,
-  name,
-  category,
-  location,
-  rating,
-  reviewCount,
-  priceLevel,
-  openingHours,
-  favorite = false,
-  onFavoriteToggle,
-  actionButton,
-  variant = "default",
+  place,
+  index,
+  isSelected = false,
   onClick,
+  onViewDetails,
+  variant = "horizontal",
   className,
 }: PlaceCardProps) {
-  if (variant === "horizontal") {
+  const photoUrl = getPlacePhotoUrl(place);
+  const primaryCategory = place.categories && place.categories.length > 0 ? place.categories[0] : null;
+
+  if (variant === "vertical") {
     return (
       <Card
         onClick={onClick}
         className={cn(
-          "group flex flex-row overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-all cursor-pointer h-32 w-full",
+          "group flex flex-col overflow-hidden rounded-2xl border bg-card transition-all cursor-pointer",
+          isSelected
+            ? "border-primary ring-2 ring-primary/20 shadow-md scale-[1.01]"
+            : "border-border shadow-xs hover:border-primary/40 hover:shadow-md",
           className
         )}
       >
-        <div className="relative w-36 h-full shrink-0 bg-muted overflow-hidden">
-          {image ? (
+        {/* Photo Container */}
+        <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
+          {photoUrl ? (
             <Image
-              src={image}
-              alt={name}
+              src={photoUrl}
+              alt={place.name}
               fill
-              sizes="144px"
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, 33vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs font-medium">
-              No Image
+            <div className="flex flex-col h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-muted/80 text-muted-foreground text-xs font-medium p-4 text-center gap-1.5">
+              <MapPin className="h-6 w-6 text-primary/70" />
+              <span className="line-clamp-1 font-semibold text-foreground">{place.name}</span>
             </div>
           )}
-        </div>
-        <div className="p-3 flex-1 flex flex-col justify-between overflow-hidden">
-          <div className="space-y-1">
-            <div className="flex items-start justify-between gap-2">
-              <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                {name}
-              </h4>
-              {priceLevel !== undefined && (
-                <PriceDisplay priceLevel={priceLevel} className="shrink-0" />
-              )}
+
+          {typeof index === "number" && (
+            <div className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/80 text-white font-extrabold text-xs shadow-md backdrop-blur-xs">
+              {index}
             </div>
-            {category && (
-              <span className="text-xs font-medium text-muted-foreground block">
-                {category}
-              </span>
+          )}
+
+          {primaryCategory && (
+            <Badge
+              variant="secondary"
+              className="absolute top-2.5 left-2.5 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-medium text-[11px] px-2.5 py-0.5 shadow-2xs capitalize"
+            >
+              {primaryCategory.replace(/_/g, " ")}
+            </Badge>
+          )}
+        </div>
+
+        {/* Card Details */}
+        <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+          <div className="space-y-1.5">
+            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-1">
+              {place.name}
+            </h3>
+
+            {/* Rating & Reviews */}
+            {typeof place.rating === "number" && place.rating > 0 && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1 text-amber-500 font-semibold">
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  <span>{place.rating.toFixed(1)}</span>
+                </div>
+                {typeof place.userRatingCount === "number" && place.userRatingCount > 0 && (
+                  <span className="text-muted-foreground">
+                    ({place.userRatingCount.toLocaleString()} đánh giá)
+                  </span>
+                )}
+              </div>
             )}
-            {location && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3 text-primary shrink-0" />
-                <span className="line-clamp-1">{location}</span>
+
+            {/* Address */}
+            {place.address && (
+              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                <span className="line-clamp-2 leading-relaxed">{place.address}</span>
+              </div>
+            )}
+
+            {/* Opening Hours */}
+            {place.openingHours && (
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <span className="line-clamp-1">{place.openingHours}</span>
               </div>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
-            {rating !== undefined && <Rating value={rating} reviewCount={reviewCount} />}
-            {actionButton}
-          </div>
+
+          {onViewDetails && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetails();
+              }}
+              className="w-full rounded-xl text-xs font-semibold h-8 mt-1 hover:bg-primary hover:text-primary-foreground transition-all"
+            >
+              Xem chi tiết
+            </Button>
+          )}
         </div>
       </Card>
     );
   }
 
+  // Horizontal Variant (Default for List View on Desktop/Split)
   return (
     <Card
       onClick={onClick}
       className={cn(
-        "group overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col h-full",
+        "group flex flex-row overflow-hidden rounded-2xl border bg-card transition-all cursor-pointer h-36 w-full",
+        isSelected
+          ? "border-primary ring-2 ring-primary/20 shadow-md bg-accent/20 scale-[1.01]"
+          : "border-border shadow-xs hover:border-primary/40 hover:shadow-md",
         className
       )}
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
-        {image ? (
+      {/* Photo Container */}
+      <div className="relative w-36 sm:w-44 h-full shrink-0 bg-muted overflow-hidden">
+        {photoUrl ? (
           <Image
-            src={image}
-            alt={name}
+            src={photoUrl}
+            alt={place.name}
             fill
-            sizes="(max-width: 768px) 100vw, 33vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="176px"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground text-xs font-medium">
-            No Image
+          <div className="flex flex-col h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-muted/80 text-muted-foreground text-xs font-medium text-center p-3 gap-1">
+            <MapPin className="h-5 w-5 text-primary/70" />
+            <span className="line-clamp-1 font-semibold text-foreground text-[11px]">{place.name}</span>
           </div>
         )}
-        <div className="absolute top-2.5 right-2.5 z-10">
-          <FavoriteButton isFavorite={favorite} onToggle={onFavoriteToggle} />
-        </div>
-        {category && (
-          <div className="absolute top-2.5 left-2.5 z-10">
-            <Badge variant="secondary" className="bg-background/80 backdrop-blur font-medium text-[11px] px-2 py-0.5">
-              {category}
-            </Badge>
+
+        {typeof index === "number" && (
+          <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950/80 text-white font-extrabold text-[10px] shadow-sm backdrop-blur-xs">
+            {index}
           </div>
+        )}
+
+        {primaryCategory && (
+          <Badge
+            variant="secondary"
+            className="absolute top-2 left-2 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-medium text-[10px] px-2 py-0.5 shadow-2xs capitalize"
+          >
+            {primaryCategory.replace(/_/g, " ")}
+          </Badge>
         )}
       </div>
 
-      <div className="p-3.5 flex flex-col flex-1 justify-between gap-2">
+      {/* Content */}
+      <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between overflow-hidden">
         <div className="space-y-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-1">
-              {name}
-            </h3>
-            {priceLevel !== undefined && (
-              <PriceDisplay priceLevel={priceLevel} className="shrink-0" />
-            )}
-          </div>
+          <h4 className="font-bold text-sm sm:text-base text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+            {place.name}
+          </h4>
 
-          {location && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3 text-primary shrink-0" />
-              <span className="line-clamp-1">{location}</span>
+          {/* Rating */}
+          {typeof place.rating === "number" && place.rating > 0 && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1 text-amber-500 font-semibold">
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                <span>{place.rating.toFixed(1)}</span>
+              </div>
+              {typeof place.userRatingCount === "number" && place.userRatingCount > 0 && (
+                <span className="text-muted-foreground text-[11px]">
+                  ({place.userRatingCount.toLocaleString()})
+                </span>
+              )}
             </div>
           )}
 
-          {openingHours && (
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-              <Clock className="h-3 w-3 shrink-0" />
-              <span className="line-clamp-1">{openingHours}</span>
+          {/* Address */}
+          {place.address && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="truncate">{place.address}</span>
+            </div>
+          )}
+
+          {/* Opening Hours */}
+          {place.openingHours && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="truncate">{place.openingHours}</span>
             </div>
           )}
         </div>
 
-        <div className="pt-2 border-t border-border flex items-center justify-between gap-2 mt-auto">
-          {rating !== undefined ? (
-            <Rating value={rating} reviewCount={reviewCount} />
-          ) : (
-            <span className="text-xs text-muted-foreground">Unrated</span>
+        {/* Action Row */}
+        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border/40 mt-1">
+          <span className="text-[11px] font-medium text-primary">Đà Nẵng</span>
+          {onViewDetails && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetails();
+              }}
+              className="h-7 text-xs font-semibold px-2.5 hover:bg-primary hover:text-primary-foreground rounded-lg transition-all"
+            >
+              Chi tiết
+            </Button>
           )}
-          {actionButton}
         </div>
       </div>
     </Card>
