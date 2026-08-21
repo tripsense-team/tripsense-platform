@@ -5,6 +5,7 @@ Track every feature that enters the multi-agent workflow.
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
 | `logout-management` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/user-service` | [Docs](./logout-management/index.md) |
+| `places-maps-integration` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./places-maps-integration/index.md) |
 
 ## Statuses
 

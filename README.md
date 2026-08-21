@@ -47,3 +47,17 @@ cd ..\place-service; .\mvnw.cmd test
 The service test profile disables Eureka client discovery so CI does not require a running registry for context-load tests.
 
 The root Maven parent owns shared Spring Boot and Spring Cloud versions. New Spring services should inherit from `fu.tripsense:tripsense-platform` with `../../pom.xml` as the relative parent and should be added to the root `<modules>` list.
+
+## Local Docker Compose
+
+Copy the root environment template before starting the backend stack:
+
+```powershell
+Copy-Item .env.example .env
+docker compose config
+docker compose up --build
+```
+
+The root `.env` supplies shared Compose secrets and Gateway settings. It is ignored by Git. Service-local development may instead use `services/place-service/.env`, while Next.js uses `apps/web/tripsense/.env.local` and the AI service uses `services/ai-service/.env`.
+
+`TRUSTED_PROXY_CIDRS` must list only the actual Next.js or reverse-proxy peers in front of Gateway. The loopback defaults are suitable when Next.js and Gateway run directly on the same host; container deployments must set the exact proxy address or subnet.
