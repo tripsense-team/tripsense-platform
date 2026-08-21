@@ -2,6 +2,7 @@ package fu.tripsense.placeservice.service;
 
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.service.impl.PlaceRankingServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,11 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class PlaceRankingServiceTest {
 
-    private PlaceRankingService rankingService;
+    private PlaceRankingServiceImpl rankingService;
 
     @BeforeEach
     void setUp() {
-        rankingService = new PlaceRankingService();
+        rankingService = new PlaceRankingServiceImpl();
     }
 
     @Test

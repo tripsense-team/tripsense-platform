@@ -5,20 +5,20 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**",
+        hostname: "maps.mapvina.com",
       },
       {
-        protocol: "http",
-        hostname: "**",
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
       },
     ],
   },
   async rewrites() {
     return [
-      {
-        source: "/api/places/:path*",
-        destination: process.env.PLACE_SERVICE_URL || "http://localhost:8082/api/places/:path*",
-      },
       {
         source: "/api/:path*",
         destination: process.env.API_GATEWAY_URL || "http://localhost:8080/api/:path*",

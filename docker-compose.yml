@@ -1,4 +1,13 @@
 services:
+  discovery-server:
+    build:
+      context: .
+      dockerfile: services/discovery-server/Dockerfile
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    restart: unless-stopped
+
   db:
     image: postgres:15-alpine
     container_name: user-postgres
@@ -30,32 +39,61 @@ services:
       - redis_data:/data
     restart: unless-stopped
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: ./.env
+        required: false
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - EUREKA_DEFAULT_ZONE=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+      - redis
+    restart: unless-stopped
+
   mail-service:
     build:
-      context: ./services/mail-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/mail-service/Dockerfile
     container_name: mail-service
     ports:
       - "8083:8082"
+    env_file:
+      - path: ./.env
+        required: false
     environment:
       - EUREKA_CLIENT_ENABLED=true
       - EUREKA_REGISTER=true
       - EUREKA_FETCH=true
+      - EUREKA_DEFAULT_ZONE=http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
     restart: unless-stopped
 
   user-service:
     build:
-      context: ./services/user-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/user-service/Dockerfile
     container_name: user-service
     ports:
       - "8081:8081"
+    env_file:
+      - path: ./.env
+        required: false
     environment:
       - DB_HOST=db
       - EMAIL_SERVICE_URL=http://mail-service:8082
       - EUREKA_CLIENT_ENABLED=true
       - EUREKA_REGISTER=true
       - EUREKA_FETCH=true
+      - EUREKA_DEFAULT_ZONE=http://discovery-server:8761/eureka/
     depends_on:
       - db
       - mail-service
@@ -63,24 +101,28 @@ services:
 
   place-service:
     build:
-      context: ./services/place-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/place-service/Dockerfile
     container_name: place-service
     ports:
       - "8082:8082"
     env_file:
-      - ./services/place-service/.env
+      - path: ./.env
+        required: false
+      - path: ./services/place-service/.env
+        required: false
     environment:
       - MONGODB_URI=mongodb://mongodb:27017/tripsense_places
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - SERVER_PORT=8082
       - ZIOMAP_BASE_URL=https://ziomap-api.socibi.com
-      - ZIOMAP_API_KEY=eyJ1c2VyX2lkIjo1MjQsImFwcF9pZCI6IjMwNzc3NjY3MDQiLCJhcGlfa2V5IjoiemlvbWFwLW5pdTU0ZmVnZXg1azV2Zjl3bSJ9
       - EUREKA_CLIENT_ENABLED=true
       - EUREKA_REGISTER=true
       - EUREKA_FETCH=true
+      - EUREKA_DEFAULT_ZONE=http://discovery-server:8761/eureka/
     depends_on:
+      - discovery-server
       - mongodb
       - redis
     restart: unless-stopped

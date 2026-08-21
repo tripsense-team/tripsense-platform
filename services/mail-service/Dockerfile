@@ -1,20 +1,24 @@
 # Stage 1: Build stage
 FROM maven:3.9-eclipse-temurin-21 AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
+COPY pom.xml ./pom.xml
+COPY services/mail-service ./services/mail-service
 
-COPY src ./src
-RUN mvn clean package -DskipTests
+WORKDIR /build/services/mail-service
+RUN mvn clean package -DskipTests -B
 
 # Stage 2: Runtime stage
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=builder /app/target/*.jar app.jar
+RUN groupadd --system tripsense && useradd --system --gid tripsense tripsense
+
+COPY --from=builder /build/services/mail-service/target/*.jar app.jar
+
+USER tripsense
 
 EXPOSE 8082
 

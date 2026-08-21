@@ -1,48 +1,45 @@
 # Security & Trust Boundaries: Place Search & Map Application
 
-## Credential Handling & Provider Isolation
+## Credentials
 
-- **ZioMap secret**: The ZioMap API key remains backend-only through `ZIOMAP_API_KEY`; `place-service` reads its base URL from `ZIOMAP_BASE_URL`.
-- **Current ZioMap gap**: `docker-compose.yml` currently assigns a concrete `ZIOMAP_API_KEY` value. Remove it from versioned configuration, load it from an ignored environment/secret source, and rotate the exposed credential.
-- **MapVina browser token**: The web map and direct MapVina fallback use `NEXT_PUBLIC_MAPVINA_API_KEY`. Any `NEXT_PUBLIC_*` value is embedded in the browser bundle, so this must be a domain/referer-restricted public token with least-privilege provider settings.
-- **Current gap**: `mapvina-container.tsx` and `places-api.ts` contain a hard-coded fallback token. This is an implementation risk to remove; the documentation does not treat that token as secret or claim zero client exposure.
-- **Direct provider boundary**: Search/details try the TripSense backend first, but browser fallback and autocomplete can bypass API Gateway, Redis, MongoDB persistence, and gateway rate limiting.
+- `ZIOMAP_API_KEY` is a backend secret read by `place-service`. It is not present in frontend code, public responses, or versioned `docker-compose.yml` values.
+- Production supplies the ZioMap key through a deployment secret. Local Compose may load it from the ignored service `.env` file.
+- `NEXT_PUBLIC_MAPVINA_API_KEY` is only a browser-visible basemap style token. Restrict it by allowed origin/referrer, enabled API/style, quota, and rotation policy.
+- There is no hard-coded fallback token. Without a MapVina token, the frontend uses the configured CARTO/OSM basemap fallback.
 
----
+## Trust Boundaries
 
-## Authentication & Authorization
+```text
+Browser -> API Gateway -> Place Service -> ZioMap
+Browser -> MapVina style endpoint (public restricted style token only)
+```
 
-- `GET /api/places/search`, `GET /api/places/autocomplete`, `GET /api/places/:id`, `GET /api/places/nearby` are public discovery endpoints.
-- No user authentication is required for basic place browsing, maintaining zero barrier to entry for travelers.
-- Future write/curation endpoints (e.g. adding custom places, flagging incorrect data) will require authenticated role-based access.
+Search, autocomplete, details, and nearby requests cannot bypass Gateway rate limits, service validation, cache, or persistence. External provider payloads are untrusted input.
 
----
+## Authentication and Authorization
 
-## Input Validation & Sanitization
+Current place endpoints are public read-only discovery endpoints and require no user identity. Future mutation or curation endpoints require authenticated role/ownership checks and a separate security review. No user-supplied identity is trusted in this feature.
 
-- **Query Sanitization**: Strip dangerous characters, limit search query length to 200 characters to prevent buffer and regex injection.
-- **Geographic Coordinate Validation**:
-  - `lat` strictly validated in `[-90.0, 90.0]`.
-  - `lng` strictly validated in `[-180.0, 180.0]`.
-  - `radius` strictly capped at `50,000` meters (50km).
-  - `limit` strictly clamped to `[1, 50]`.
-- **ID Validation**: `GET /api/places/:id` validates hex string length (MongoDB ObjectId or provider ID format) before database or provider query to prevent query tampering.
+## Input and Output Safety
 
----
+- Bean validation constrains query length, coordinates, radius, and result limit.
+- Repository access uses typed Spring Data queries rather than concatenated database expressions.
+- Map popup provider values are inserted with DOM `textContent`; provider HTML is never interpolated into `innerHTML`.
+- Website/social links accept only `http` and `https`; phone links accept a restricted telephone character set.
+- External links use `noopener noreferrer`.
+- Provider failures return sanitized errors without stack traces, internal URLs, credentials, or raw payload dumps.
 
-## Abuse Prevention & Rate Limiting
+## Abuse Controls
 
-- **Frontend Debouncing**: Autocomplete is throttled to 300ms debounce on keystroke to avoid API flooding.
-- **API Gateway Rate Limiting**: Limit `/api/places/**` requests per client IP to protect ZioMap quota and backend resources. This does not cover direct MapVina browser calls; MapVina token restrictions and provider quotas must cover that path.
-- **Redis Cache Layer**: Absorbs identical searches, shielding both internal MongoDB and external ZioMap API from brute-force queries.
+- Search autocomplete is debounced by 300 ms and stale requests are cancelled.
+- API Gateway rate limiting protects `/api/places/**`; deployment limits should reflect ZioMap quota.
+- Rate-limit identity uses the nearest untrusted address in `X-Forwarded-For` only when the immediate peer belongs to `TRUSTED_PROXY_CIDRS`. Headers received directly from untrusted peers are ignored.
+- `TRUSTED_PROXY_CIDRS` must contain only the actual Next.js or reverse-proxy addresses/subnets. Broad values such as `0.0.0.0/0` let clients spoof rate-limit identities and are prohibited.
+- Redis and MongoDB reduce repeated provider calls.
+- Provider connect/read timeouts prevent unbounded request occupation.
 
----
+## Residual Operational Requirements
 
-## Error Sanitization & Data Masking
-
-- In case of external ZioMap failures or database connection errors, the backend returns a generic, friendly response code (`503 SERVICE_UNAVAILABLE` or graceful empty/cached list).
-- Stack traces, internal IP addresses, database connection strings, and provider error dumps are strictly suppressed in API Gateway and Place Service exception handlers.
-
-## Required Follow-up
-
-Rotate and remove the inline ZioMap credential from `docker-compose.yml`. Remove the hard-coded MapVina token fallback. If MapVina search/details must remain a resilience feature, issue a restricted browser token and document its allowed origins, APIs, quota, and rotation procedure. Otherwise, proxy those calls through `place-service` and keep the credential backend-side.
+- Rotate any credential that existed in prior repository history; removing it from the current file does not erase Git history.
+- Configure Gateway rate-limit values, trusted proxy CIDRs, and MapVina allowed origins per environment.
+- Monitor `503` rate and provider latency without logging query secrets or provider credentials.

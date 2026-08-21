@@ -3,6 +3,7 @@ package fu.tripsense.placeservice.controller;
 import fu.tripsense.placeservice.dto.ApiResponse;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.service.PlaceDetailsService;
 import fu.tripsense.placeservice.service.PlaceSearchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -24,9 +25,11 @@ import java.util.Optional;
 public class PlaceController {
 
     private final PlaceSearchService placeSearchService;
+    private final PlaceDetailsService placeDetailsService;
 
-    public PlaceController(PlaceSearchService placeSearchService) {
+    public PlaceController(PlaceSearchService placeSearchService, PlaceDetailsService placeDetailsService) {
         this.placeSearchService = placeSearchService;
+        this.placeDetailsService = placeDetailsService;
     }
 
     @GetMapping("/search")
@@ -124,7 +127,7 @@ public class PlaceController {
                     .body(ApiResponse.error("INVALID_ID", "Place ID must not be blank"));
         }
 
-        Optional<PlaceDto> place = placeSearchService.getPlaceDetails(id, name, lat, lng);
+        Optional<PlaceDto> place = placeDetailsService.getDetails(id, name, lat, lng);
         if (place.isEmpty()) {
             return ResponseEntity.status(404)
                     .body(ApiResponse.error("PLACE_NOT_FOUND", "No place found with ID: " + id));

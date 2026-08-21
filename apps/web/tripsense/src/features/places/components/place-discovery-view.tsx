@@ -185,7 +185,38 @@ export function PlaceDiscoveryView() {
     setSelectedPlaceId(id);
   };
 
-  // Add and select a base map POI, enriching with full MapVina address in background
+  /**
+   * Fuzzy name match: checks if two place names are likely the same place.
+   * Strips accents/diacritics, lowercases, and compares token overlap.
+   */
+  const isNameMatch = React.useCallback((nameA: string, nameB: string): boolean => {
+    const normalize = (s: string) =>
+      s
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/gi, "d")
+        .toLowerCase()
+        .trim();
+
+    const a = normalize(nameA);
+    const b = normalize(nameB);
+
+    // Exact or substring match
+    if (a === b || a.includes(b) || b.includes(a)) return true;
+
+    // Token overlap: at least 50% of the shorter name's tokens must appear in the longer
+    const tokensA = a.split(/[\s,\-_/.]+/).filter((t) => t.length >= 2);
+    const tokensB = b.split(/[\s,\-_/.]+/).filter((t) => t.length >= 2);
+    const shorter = tokensA.length <= tokensB.length ? tokensA : tokensB;
+    const longerSet = new Set(tokensA.length > tokensB.length ? tokensA : tokensB);
+
+    if (shorter.length === 0) return false;
+
+    const matchCount = shorter.filter((t) => longerSet.has(t)).length;
+    return matchCount / shorter.length >= 0.5;
+  }, []);
+
+  // Add and select a base-map POI, then enrich it through the TripSense place API.
   const handleAddAndSelectPlace = React.useCallback(async (place: Place) => {
     setSelectedPlaceId(place.id);
 
@@ -197,7 +228,7 @@ export function PlaceDiscoveryView() {
       return prev;
     });
 
-    // 2. Enrich in background via MapVina search to get full official address, district, ward & categories
+    // 2. Enrich in the background through API Gateway/place-service.
     if (place.name && place.location) {
       try {
         const res = await searchPlaces({
@@ -205,24 +236,49 @@ export function PlaceDiscoveryView() {
           lat: place.location.lat,
           lng: place.location.lng,
           radius: 2000,
-          limit: 1,
+          limit: 5,
         });
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          const match = res.data[0];
-          const enriched: Place = {
-            ...place,
-            ...match,
-            id: place.id, // keep id stable for selection
-            address: match.address || place.address,
-            categories: match.categories && match.categories.length > 0 ? match.categories : place.categories,
-          };
-          setPlaces((prev) => prev.map((p) => (p.id === place.id ? enriched : p)));
+          // Find the best match by name similarity + proximity, not just the first result
+          const match = res.data.find((candidate) => {
+            if (!candidate.name) return false;
+
+            // Must pass fuzzy name match
+            if (!isNameMatch(place.name, candidate.name)) return false;
+
+            // Must be within reasonable distance (500m)
+            if (candidate.location && place.location) {
+              const R = 6371;
+              const dLat = ((candidate.location.lat - place.location.lat) * Math.PI) / 180;
+              const dLng = ((candidate.location.lng - place.location.lng) * Math.PI) / 180;
+              const a =
+                Math.sin(dLat / 2) ** 2 +
+                Math.cos((place.location.lat * Math.PI) / 180) *
+                  Math.cos((candidate.location.lat * Math.PI) / 180) *
+                  Math.sin(dLng / 2) ** 2;
+              const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              if (distKm > 0.5) return false;
+            }
+
+            return true;
+          });
+
+          if (match) {
+            const enriched: Place = {
+              ...place,
+              ...match,
+              id: place.id, // keep id stable for selection
+              address: match.address || place.address,
+              categories: match.categories && match.categories.length > 0 ? match.categories : place.categories,
+            };
+            setPlaces((prev) => prev.map((p) => (p.id === place.id ? enriched : p)));
+          }
         }
       } catch (e) {
         console.debug("Background place enrichment error:", e);
       }
     }
-  }, []);
+  }, [isNameMatch]);
 
   // Synchronized details opener with intelligent caching
   const handleOpenDetails = React.useCallback(async (place: Place) => {
@@ -302,7 +358,7 @@ export function PlaceDiscoveryView() {
         <div className="flex-1 max-w-2xl">
           <SearchBar
             initialQuery={query}
-            onSearch={(val, suggestion) => {
+            onSearch={(val) => {
               setQuery(val);
               // Explicit keyword search searches city-wide and flies to top match
               executeSearch(val, true, false);

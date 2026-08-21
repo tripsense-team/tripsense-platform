@@ -4,13 +4,15 @@ import fu.tripsense.placeservice.config.ZioMapProperties;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.providers.PlaceEnrichmentProvider;
 import fu.tripsense.placeservice.providers.PlaceProvider;
+import fu.tripsense.placeservice.providers.PlaceProviderException;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapAutocompleteResponse;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPlaceResult;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchPlace;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -19,28 +21,24 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Slf4j
-@org.springframework.stereotype.Component("zioMapProvider")
-public class ZioMapProvider implements PlaceProvider {
+@Component("zioMapProvider")
+public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
     public static final String PROVIDER_NAME = "ziomap";
 
     private final ZioMapProperties properties;
     private final RestClient restClient;
 
-    public ZioMapProvider(ZioMapProperties properties) {
+    public ZioMapProvider(
+            ZioMapProperties properties,
+            @Qualifier("zioMapRestClient") RestClient restClient
+    ) {
         this.properties = properties;
-
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(properties.getTimeoutMs());
-        requestFactory.setReadTimeout(properties.getTimeoutMs());
-
-        this.restClient = RestClient.builder()
-                .baseUrl(properties.getBaseUrl())
-                .requestFactory(requestFactory)
-                .build();
+        this.restClient = restClient;
     }
 
     @Override
@@ -97,7 +95,7 @@ public class ZioMapProvider implements PlaceProvider {
             return results;
         } catch (Exception ex) {
             log.error("Failed to execute ZioMap text search for query '{}': {}", query, ex.getMessage());
-            return Collections.emptyList();
+            throw new PlaceProviderException("ZioMap text search is unavailable", ex);
         }
     }
 
@@ -169,22 +167,17 @@ public class ZioMapProvider implements PlaceProvider {
             return suggestions;
         } catch (Exception ex) {
             log.warn("ZioMap autocomplete failed for query '{}' ({}), falling back to textSearch", query, ex.getMessage());
-            try {
-                List<PlaceDto> searchResults = textSearch(query, lat, lng, radiusMeters, limit);
-                List<AutocompleteSuggestionDto> suggestions = new ArrayList<>();
-                for (PlaceDto p : searchResults) {
-                    suggestions.add(AutocompleteSuggestionDto.builder()
-                            .id(p.getProviderPlaceId() != null ? p.getProviderPlaceId() : p.getId())
-                            .title(p.getName())
-                            .subtitle(p.getAddress() != null ? p.getAddress() : "")
-                            .category(p.getCategories() != null && !p.getCategories().isEmpty() ? p.getCategories().get(0) : "place")
-                            .build());
-                }
-                return suggestions;
-            } catch (Exception fallbackEx) {
-                log.error("ZioMap textSearch fallback also failed: {}", fallbackEx.getMessage());
-                return Collections.emptyList();
+            List<PlaceDto> searchResults = textSearch(query, lat, lng, radiusMeters, limit);
+            List<AutocompleteSuggestionDto> suggestions = new ArrayList<>();
+            for (PlaceDto p : searchResults) {
+                suggestions.add(AutocompleteSuggestionDto.builder()
+                        .id(p.getProviderPlaceId() != null ? p.getProviderPlaceId() : p.getId())
+                        .title(p.getName())
+                        .subtitle(p.getAddress() != null ? p.getAddress() : "")
+                        .category(p.getCategories() != null && !p.getCategories().isEmpty() ? p.getCategories().get(0) : "place")
+                        .build());
             }
+            return suggestions;
         }
     }
 
@@ -213,10 +206,10 @@ public class ZioMapProvider implements PlaceProvider {
                 return Optional.empty();
             }
 
-            return Optional.of(mapPlaceResultToDto(response));
+            return Optional.ofNullable(mapPlaceResultToDto(response));
         } catch (Exception ex) {
             log.error("Failed to execute ZioMap place details for id '{}': {}", providerPlaceId, ex.getMessage());
-            return Optional.empty();
+            throw new PlaceProviderException("ZioMap place details are unavailable", ex);
         }
     }
 
@@ -225,9 +218,10 @@ public class ZioMapProvider implements PlaceProvider {
             return null;
         }
 
-        String name = item.getDisplayName() != null && StringUtils.hasText(item.getDisplayName().getText())
-                ? item.getDisplayName().getText()
-                : "Unnamed Place";
+        if (item.getDisplayName() == null || !StringUtils.hasText(item.getDisplayName().getText())) {
+            return null;
+        }
+        String name = item.getDisplayName().getText();
 
         LocationDto location = null;
         if (item.getLocation() != null && item.getLocation().getLatitude() != null && item.getLocation().getLongitude() != null) {
@@ -260,36 +254,25 @@ public class ZioMapProvider implements PlaceProvider {
             categories = inferCategoriesFromName(name);
         }
 
-        Double rating = item.getRating();
-        Integer userRatingCount = item.getUserRatingCount();
-        if (rating == null || rating == 0) {
-            int hash = Math.abs(item.getId().hashCode());
-            rating = 4.2 + (hash % 8) * 0.1; // 4.2 to 4.9
-            if (userRatingCount == null || userRatingCount == 0) {
-                userRatingCount = 120 + (hash % 800);
-            }
-        }
-
         return PlaceDto.builder()
                 .provider(PROVIDER_NAME)
                 .providerPlaceId(item.getId())
                 .name(name)
                 .location(location)
                 .address(item.getFormattedAddress())
-                .city("Da Nang")
                 .categories(categories)
-                .rating(rating)
-                .userRatingCount(userRatingCount)
+                .rating(item.getRating())
+                .userRatingCount(item.getUserRatingCount())
                 .photos(photoUrls)
                 .phone(StringUtils.hasText(item.getInternationalPhoneNumber()) ? item.getInternationalPhoneNumber() : item.getNationalPhoneNumber())
                 .website(item.getWebsiteUri())
                 .openingHours(openingHours)
-                .businessStatus(item.getBusinessStatus() != null ? item.getBusinessStatus() : "Đang mở cửa")
+                .businessStatus(item.getBusinessStatus())
                 .build();
     }
 
     private List<String> inferCategoriesFromName(String name) {
-        String lower = name != null ? name.toLowerCase() : "";
+        String lower = name != null ? name.toLowerCase(Locale.ROOT) : "";
         List<String> list = new ArrayList<>();
         if (lower.contains("cafe") || lower.contains("coffee") || lower.contains("cà phê")) {
             list.add("quán cafe");
@@ -316,6 +299,9 @@ public class ZioMapProvider implements PlaceProvider {
     }
 
     private PlaceDto mapPlaceResultToDto(ZioMapPlaceResult item) {
+        if (item == null || !StringUtils.hasText(item.getPlaceId()) || !StringUtils.hasText(item.getName())) {
+            return null;
+        }
         LocationDto location = null;
         if (item.getGeometry() != null && item.getGeometry().getLocation() != null) {
             location = LocationDto.builder()
@@ -363,10 +349,9 @@ public class ZioMapProvider implements PlaceProvider {
         return PlaceDto.builder()
                 .provider(PROVIDER_NAME)
                 .providerPlaceId(item.getPlaceId())
-                .name(StringUtils.hasText(item.getName()) ? item.getName() : "Unnamed Place")
+                .name(item.getName())
                 .location(location)
                 .address(item.getFormattedAddress())
-                .city("Da Nang")
                 .categories(categories)
                 .rating(rating)
                 .userRatingCount(userRatingCount)
@@ -374,41 +359,38 @@ public class ZioMapProvider implements PlaceProvider {
                 .phone(StringUtils.hasText(item.getInternationalPhoneNumber()) ? item.getInternationalPhoneNumber() : item.getFormattedPhoneNumber())
                 .website(item.getWebsite())
                 .openingHours(openingHours)
-                .businessStatus(item.getBusinessStatus() != null ? item.getBusinessStatus() : "Đang mở cửa")
+                .businessStatus(item.getBusinessStatus())
                 .reviews(reviewDtos)
                 .build();
     }
 
-    public Optional<PlaceDto> fetchGooglePlaceEnrichment(String placeName, Double lat, Double lng) {
+    @Override
+    public Optional<PlaceDto> enrichPlace(String placeName, Double lat, Double lng) {
         if (!StringUtils.hasText(placeName)) {
             return Optional.empty();
         }
-        try {
-            String cleanName = placeName.trim();
-            if (cleanName.contains(",")) {
-                String[] parts = cleanName.split(",");
-                if (parts.length > 0 && StringUtils.hasText(parts[0])) {
-                    cleanName = parts[0].trim();
-                }
+        String cleanName = placeName.trim();
+        if (cleanName.contains(",")) {
+            String[] parts = cleanName.split(",");
+            if (parts.length > 0 && StringUtils.hasText(parts[0])) {
+                cleanName = parts[0].trim();
             }
-            String query = cleanName.toLowerCase().contains("đà nẵng") || cleanName.toLowerCase().contains("da nang")
-                    ? cleanName
-                    : cleanName + " Đà Nẵng";
+        }
+        String query = cleanName.toLowerCase().contains("đà nẵng") || cleanName.toLowerCase().contains("da nang")
+                ? cleanName
+                : cleanName + " Đà Nẵng";
 
-            List<PlaceDto> places = textSearch(query, lat, lng, 5000, 1);
-            if (!places.isEmpty()) {
-                PlaceDto matched = places.get(0);
-                String zioPlaceId = matched.getProviderPlaceId();
-                if (StringUtils.hasText(zioPlaceId)) {
-                    Optional<PlaceDto> details = getPlaceDetails(zioPlaceId);
-                    if (details.isPresent()) {
-                        return details;
-                    }
+        List<PlaceDto> places = textSearch(query, lat, lng, 5000, 1);
+        if (!places.isEmpty()) {
+            PlaceDto matched = places.get(0);
+            String zioPlaceId = matched.getProviderPlaceId();
+            if (StringUtils.hasText(zioPlaceId)) {
+                Optional<PlaceDto> details = getPlaceDetails(zioPlaceId);
+                if (details.isPresent()) {
+                    return details;
                 }
-                return Optional.of(matched);
             }
-        } catch (Exception ex) {
-            log.error("Failed to fetch ZioMap place enrichment for '{}': {}", placeName, ex.getMessage());
+            return Optional.of(matched);
         }
         return Optional.empty();
     }

@@ -5,6 +5,7 @@ import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import java.util.List;
 
@@ -21,7 +22,7 @@ class ZioMapProviderTest {
         ZioMapProperties props = new ZioMapProperties();
         props.setBaseUrl("https://ziomap-api.socibi.com");
         props.setApiKey("test-key");
-        provider = new ZioMapProvider(props);
+        provider = new ZioMapProvider(props, RestClient.builder().baseUrl(props.getBaseUrl()).build());
     }
 
     @Test

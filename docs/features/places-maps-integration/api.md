@@ -1,168 +1,69 @@
 # API Specifications: Place Search & Map Application
 
-TripSense backend endpoints are served under `/api/places` through API Gateway. The current browser client also has direct MapVina Cloud calls; those are provider APIs, not TripSense-owned contracts.
+All TripSense place endpoints are public read endpoints served under `/api/places` through API Gateway. The browser does not call ZioMap or MapVina place APIs directly.
 
-### Backend vs ZioMap Provider Mapping
+## Endpoints
 
-| TripSense Internal Endpoint | ZioMap External Endpoint | Parameters Mapping |
-| --- | --- | --- |
-| `GET /api/places/search?q={query}` | `GET /api/place/text-search` | `query={q}`, `languageCode=vi`, `regionCode=vn`, `location={lat},{lng}`, `maxResultCount={limit}` |
-| `GET /api/places/autocomplete?q={query}` | `GET /api/place/autocomplete` | `input={q}`, `language=vi`, `region=vn`, `location={lat},{lng}` |
-| `GET /api/places/{id}` | `GET /api/place/details` | `placeId={providerPlaceId}`, `language=vi` |
-| `GET /api/places/nearby?lat={lat}&lng={lng}` | `GET /api/place/text-search` | `query=*`, `location={lat},{lng}`, `rankPreference=DISTANCE` |
+| Method | Path | Parameters | Success |
+| --- | --- | --- | --- |
+| GET | `/api/places/search` | `q` required; optional `lat`, `lng`, `radius`, `limit` | `200` place list |
+| GET | `/api/places/autocomplete` | `q` required; optional `lat`, `lng`, `limit` | `200` suggestions |
+| GET | `/api/places/{id}` | internal/provider ID; optional fallback `name`, `lat`, `lng` | `200` detail or `404` |
+| GET | `/api/places/nearby` | `lat`, `lng` required; optional `radius`, `category`, `limit` | `200` place list |
 
-### Current Browser-to-MapVina Calls
+The web client uses relative `/api/places/**` URLs. Next.js routes `/api/**` to the configured API Gateway; it has no place-service-specific rewrite.
 
-| Web operation | MapVina endpoint | Notes |
-| --- | --- | --- |
-| Search fallback | `GET https://maps.mapvina.com/api/v1/search` | Uses `text`, focus point, `size`, and public `key` parameters after an empty/failed backend search. |
-| Autocomplete | `GET https://maps.mapvina.com/api/v2/place/autocomplete/json` | Called directly by the browser with `input`, `location`, `size`, and public `key`. |
-| Details fallback | `GET https://maps.mapvina.com/api/v2/place/details/json` | Called after backend details fail; `/api/v1/search` is the final fallback. |
+## Provider Mapping
 
-MapVina fallback results are normalized in the web client and are not persisted to MongoDB. Backend ZioMap results use the cache/persistence flow below.
+| TripSense operation | ZioMap adapter call |
+| --- | --- |
+| Search | `/api/place/text-search` |
+| Autocomplete | `/api/place/autocomplete`, with text-search fallback in the adapter |
+| Details | `/api/place/details` |
+| Nearby fallback | text search constrained by location/radius |
 
----
+Provider endpoints and credentials are implementation details and are never returned as browser contracts.
 
-## TripSense Internal Endpoints
-
-### 1. Place Search
-- **Method**: `GET`
-- **Path**: `/api/places/search`
-- **Query Parameters**:
-  - `q` (string, required): Search query (e.g., `"top quán ăn ngon ở Đà Nẵng"`).
-  - `lat` (double, optional): Reference latitude (default Da Nang: `16.0544`).
-  - `lng` (double, optional): Reference longitude (default Da Nang: `108.2022`).
-  - `radius` (integer, optional): Search radius in meters (default: `15000`).
-  - `limit` (integer, optional, default: `20`, max: `50`).
-- **Response**: `200 OK`
-
-### 2. Autocomplete Suggestions
-- **Method**: `GET`
-- **Path**: `/api/places/autocomplete`
-- **Query Parameters**:
-  - `q` (string, required): Partial query text.
-  - `lat` (double, optional): Reference latitude.
-  - `lng` (double, optional): Reference longitude.
-  - `limit` (integer, optional, default: `5`, max: `10`).
-- **Response**: `200 OK`
-
-### 3. Place Details
-- **Method**: `GET`
-- **Path**: `/api/places/{id}`
-- **Path Parameters**:
-  - `id` (string, required): Internal place ID or provider lookup ID.
-- **Optional Query Parameters**: `name`, `lat`, and `lng` provide fallback context for backend enrichment.
-- **Response**: `200 OK` (or `404 Not Found`)
-
-### 4. Nearby Places
-- **Method**: `GET`
-- **Path**: `/api/places/nearby`
-- **Query Parameters**:
-  - `lat` (double, required): Latitude.
-  - `lng` (double, required): Longitude.
-  - `radius` (integer, optional, default: `5000` meters).
-  - `category` (string, optional): Filter by category.
-  - `limit` (integer, optional, default: `20`).
-- **Response**: `200 OK`
-
----
-
-## Request & Response DTOs
-
-### Normalized Place DTO (Search Response Item)
+## Normalized Place
 
 ```json
 {
   "id": "66c4a1b2e4b01234567890ab",
   "provider": "ziomap",
-  "providerPlaceId": "zm_dn_madame_lan_01",
+  "providerPlaceId": "zm_dn_01",
   "name": "Madame Lan Restaurant",
-  "location": {
-    "lat": 16.0678,
-    "lng": 108.2208
-  },
-  "address": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng, Vietnam",
-  "categories": [
-    "restaurant",
-    "vietnamese"
-  ],
+  "location": { "lat": 16.0678, "lng": 108.2208 },
+  "address": "04 Bach Dang, Hai Chau, Da Nang",
+  "categories": ["restaurant", "vietnamese"],
   "rating": 4.6,
   "userRatingCount": 1200,
-  "photos": [
-    "https://images.ziomap.com/photos/zm_dn_madame_lan_01_main.jpg"
-  ],
-  "phone": "+84 905 697 555",
-  "website": "https://madamelan.vn",
+  "photos": [],
   "openingHours": "06:30 - 21:30"
 }
 ```
 
-### Search Response Wrapper
+Optional provider values such as `rating`, `userRatingCount`, `businessStatus`, and `openingHours` remain absent when the provider does not supply them. The backend and frontend must not fabricate defaults.
 
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "66c4a1b2e4b01234567890ab",
-      "name": "Madame Lan Restaurant",
-      "location": { "lat": 16.0678, "lng": 108.2208 },
-      "address": "04 Bạch Đằng, Hải Châu, Đà Nẵng",
-      "categories": ["restaurant", "vietnamese"],
-      "rating": 4.6,
-      "userRatingCount": 1200,
-      "photos": ["https://images.ziomap.com/..."],
-      "openingHours": "06:30 - 21:30"
-    }
-  ],
-  "meta": {
-    "query": "top quán ăn ngon ở Đà Nẵng",
-    "total": 1,
-    "source": "cache|local|external",
-    "city": "Da Nang"
-  }
-}
-```
+## Validation
 
-### Autocomplete Response DTO
+- `q`: non-blank, maximum 200 characters.
+- `lat`: `[-90, 90]`; `lng`: `[-180, 180]`.
+- `radius`: `100..50000` metres.
+- `limit`: `1..50` (autocomplete may use a lower endpoint maximum).
 
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "zm_dn_madame_lan_01",
-      "title": "Madame Lan Restaurant",
-      "subtitle": "04 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng",
-      "category": "restaurant"
-    }
-  ]
-}
-```
-
----
-
-## Validation Rules
-
-- `q` parameter must not be empty or exceed 200 characters.
-- `lat` must be within `[-90, 90]`; `lng` must be within `[-180, 180]`.
-- `radius` must be between `100` and `50000` meters.
-- `limit` must be between `1` and `50`.
-
-## Error Responses
+## Errors
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "INVALID_QUERY",
-    "message": "Query parameter 'q' must not be blank"
+    "code": "SERVICE_UNAVAILABLE",
+    "message": "Place provider is temporarily unavailable"
   }
 }
 ```
 
-HTTP Status Codes:
-- `200 OK`: Successful response.
-- `400 Bad Request`: Invalid parameters / coordinates out of range.
-- `404 Not Found`: Place ID not found.
-- `503 Service Unavailable`: External provider unavailable and no cached fallback exists.
+- `400`: validation failure.
+- `404`: place not found.
+- `503`: provider failed and neither cache nor local persisted data can satisfy the request.
+- `500`: sanitized unexpected server error.

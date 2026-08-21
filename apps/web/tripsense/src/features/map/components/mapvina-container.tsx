@@ -4,15 +4,17 @@ import * as React from "react";
 import * as mapvinagl from "mapvina-gl";
 import "mapvina-gl/dist/mapvina-gl.css";
 import { cn } from "@/lib/utils";
-import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
 import type { MapVinaContainerProps } from "../types";
 import type { Place } from "@/features/places/types";
+import { createMapVinaPopup } from "./mapvina-popup";
 
-const MAPVINA_API_KEY = process.env.NEXT_PUBLIC_MAPVINA_API_KEY || "d3d41d12e3f48ea412e21787195793ff33";
-const MAPVINA_STYLE_URL = `https://maps.mapvina.com/styles/v2/streets.json?key=${MAPVINA_API_KEY}`;
+const MAPVINA_API_KEY = process.env.NEXT_PUBLIC_MAPVINA_API_KEY;
+const MAPVINA_STYLE_URL = MAPVINA_API_KEY
+  ? `https://maps.mapvina.com/styles/v2/streets.json?key=${encodeURIComponent(MAPVINA_API_KEY)}`
+  : null;
 
 // Fallback raster style if vector tile style is unavailable
-const FALLBACK_STYLE: any = {
+const FALLBACK_STYLE: mapvinagl.StyleSpecification = {
   version: 8,
   sources: {
     "map-tiles": {
@@ -24,7 +26,7 @@ const FALLBACK_STYLE: any = {
         "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
       ],
       tileSize: 256,
-      attribution: '&copy; <a href="https://mapvina.com">MapVina</a>',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
     },
   },
   layers: [
@@ -180,12 +182,6 @@ function getCategoryIcon(categories?: string[]): { svg: string; bg: string; labe
   return CATEGORY_ICONS.default;
 }
 
-// Keep old getCategoryColor for popup compatibility
-function getCategoryColor(categories?: string[]): { bg: string; text: string; icon: string } {
-  const cat = getCategoryIcon(categories);
-  return { bg: cat.bg, text: "text-white", icon: cat.label.split(" ")[0] };
-}
-
 function createMarkerWrapper(
   place: Place,
   isSelected: boolean,
@@ -221,15 +217,16 @@ function createMarkerWrapper(
     textSpan.className = "text-xs font-semibold tracking-tight whitespace-nowrap max-w-[130px] truncate";
     textSpan.innerText = place.name;
 
-    const scoreSpan = document.createElement("span");
-    scoreSpan.className = `text-[11px] font-bold shrink-0 ${
-      isSelected ? "text-amber-300 dark:text-amber-500" : "text-amber-500 dark:text-amber-400"
-    }`;
-    scoreSpan.innerText = `★${(place.rating || 4.5).toFixed(1)}`;
-
     pill.appendChild(iconSpan);
     pill.appendChild(textSpan);
-    pill.appendChild(scoreSpan);
+    if (typeof place.rating === "number" && place.rating > 0) {
+      const scoreSpan = document.createElement("span");
+      scoreSpan.className = `text-[11px] font-bold shrink-0 ${
+        isSelected ? "text-amber-300 dark:text-amber-500" : "text-amber-500 dark:text-amber-400"
+      }`;
+      scoreSpan.innerText = `★${place.rating.toFixed(1)}`;
+      pill.appendChild(scoreSpan);
+    }
     wrapper.appendChild(pill);
 
     // Arrow matches pill background
@@ -265,214 +262,6 @@ function createMarkerWrapper(
   return wrapper;
 }
 
-function createPopupContent(
-  place: Place,
-  isFavorite: boolean,
-  onFavoriteClick: () => void,
-  onAddClick: () => void,
-  onDetailClick: () => void
-): HTMLDivElement {
-  const container = document.createElement("div");
-  container.className =
-    "w-[300px] sm:w-[340px] max-h-[350px] overflow-y-auto rounded-2xl bg-card text-card-foreground border border-border shadow-2xl backdrop-blur-xl p-4 space-y-3.5 animate-in fade-in zoom-in-95 duration-150 scrollbar-thin";
-
-  const { svg: catSvg, bg: catBg } = getCategoryIcon(place.categories);
-  const primaryCategory =
-    place.categories && place.categories.length > 0 ? place.categories[0] : "Địa điểm";
-
-  // 1. Top Header: Title, Category Subtitle, Category Icon & Close Button
-  const header = document.createElement("div");
-  header.className = "flex items-start justify-between gap-2.5";
-
-  const titleCol = document.createElement("div");
-  titleCol.className = "flex-1 min-w-0 pr-1";
-
-  const title = document.createElement("h3");
-  title.className = "font-bold text-base sm:text-lg text-foreground leading-snug tracking-tight line-clamp-1";
-  title.innerText = place.name;
-  titleCol.appendChild(title);
-
-  const subtitle = document.createElement("p");
-  subtitle.className = "text-xs text-muted-foreground font-medium capitalize mt-0.5";
-  subtitle.innerText = primaryCategory.replace(/_/g, " ");
-  titleCol.appendChild(subtitle);
-
-  header.appendChild(titleCol);
-
-  const iconBox = document.createElement("div");
-  iconBox.className =
-    `w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-xs text-white ${catBg}`;
-  iconBox.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${catSvg}</svg>`;
-  header.appendChild(iconBox);
-
-  const closeBtn = document.createElement("button");
-  closeBtn.id = "btn-close-popup";
-  closeBtn.type = "button";
-  closeBtn.className =
-    "w-7 h-7 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shrink-0";
-  closeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-  header.appendChild(closeBtn);
-
-  container.appendChild(header);
-
-  // 2. Action Buttons Toolbar: Dẫn đường, Gọi điện, Yêu thích, Chia sẻ, Chi tiết
-  const actionsRow = document.createElement("div");
-  actionsRow.className = "flex items-center gap-1.5 pt-0.5";
-
-  // Dẫn đường (Directions) button
-  const dirBtn = document.createElement("a");
-  const lat = place.location?.lat || 16.0544;
-  const lng = place.location?.lng || 108.2022;
-  dirBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  dirBtn.target = "_blank";
-  dirBtn.rel = "noopener noreferrer";
-  dirBtn.className =
-    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer";
-  dirBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg><span>Dẫn đường</span>`;
-  actionsRow.appendChild(dirBtn);
-
-  // Gọi điện (Phone) button
-  if (place.phone) {
-    const phoneBtn = document.createElement("a");
-    phoneBtn.href = `tel:${place.phone}`;
-    phoneBtn.className =
-      "w-8 h-8 rounded-xl border border-border bg-card hover:bg-muted text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-xs";
-    phoneBtn.title = `Gọi điện: ${place.phone}`;
-    phoneBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
-    actionsRow.appendChild(phoneBtn);
-  }
-
-  // Favorite button
-  const favBtn = document.createElement("button");
-  favBtn.id = "btn-fav-popup";
-  favBtn.type = "button";
-  favBtn.className = `w-8 h-8 rounded-xl border border-border bg-card hover:bg-muted text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-xs ${
-    isFavorite ? "text-rose-500" : ""
-  }`;
-  favBtn.title = "Yêu thích";
-  favBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="${
-    isFavorite ? "currentColor" : "none"
-  }" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>`;
-  actionsRow.appendChild(favBtn);
-
-  // Share button
-  const shareBtn = document.createElement("button");
-  shareBtn.id = "btn-share-popup";
-  shareBtn.type = "button";
-  shareBtn.className =
-    "w-8 h-8 rounded-xl border border-border bg-card hover:bg-muted text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-xs";
-  shareBtn.title = "Chia sẻ";
-  shareBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
-  actionsRow.appendChild(shareBtn);
-
-  // Detail / Info button
-  const detailBtn = document.createElement("button");
-  detailBtn.id = "btn-detail-popup";
-  detailBtn.type = "button";
-  detailBtn.className =
-    "w-8 h-8 rounded-xl border border-border bg-card hover:bg-muted text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-xs";
-  detailBtn.title = "Xem chi tiết";
-  detailBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
-  actionsRow.appendChild(detailBtn);
-
-  container.appendChild(actionsRow);
-
-  // Divider
-  const divider = document.createElement("div");
-  divider.className = "h-px bg-border/60 my-1";
-  container.appendChild(divider);
-
-  // 3. Information List Fields
-  const infoList = document.createElement("div");
-  infoList.className = "space-y-2.5 text-xs";
-
-  // 📍 Địa chỉ
-  const addressItem = document.createElement("div");
-  addressItem.className = "flex items-start gap-2.5";
-  addressItem.innerHTML = `
-    <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-    </div>
-    <div class="flex-1 min-w-0">
-      <p class="text-[11px] text-muted-foreground font-medium">Địa chỉ</p>
-      <p class="text-xs text-foreground font-medium leading-relaxed">${place.address || place.district || "Thành phố Đà Nẵng"}</p>
-      ${place.oldAddress ? `<p class="text-[11px] text-muted-foreground/80 italic mt-0.5 leading-tight">Địa chỉ cũ: ${place.oldAddress}</p>` : ""}
-    </div>
-  `;
-  infoList.appendChild(addressItem);
-
-  // 📞 Điện thoại (nếu có)
-  if (place.phone) {
-    const phoneItem = document.createElement("div");
-    phoneItem.className = "flex items-start gap-2.5";
-    phoneItem.innerHTML = `
-      <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-[11px] text-muted-foreground font-medium">Điện thoại</p>
-        <a href="tel:${place.phone}" class="text-xs font-semibold text-foreground hover:text-emerald-600 transition-colors">${place.phone}</a>
-      </div>
-    `;
-    infoList.appendChild(phoneItem);
-  }
-
-  // 🌐 Trang web (nếu có)
-  if (place.website) {
-    const webItem = document.createElement("div");
-    webItem.className = "flex items-start gap-2.5";
-    webItem.innerHTML = `
-      <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-[11px] text-muted-foreground font-medium">Trang web</p>
-        <a href="${place.website}" target="_blank" rel="noopener noreferrer" class="text-xs text-primary hover:underline truncate block max-w-[240px]">${place.website}</a>
-      </div>
-    `;
-    infoList.appendChild(webItem);
-  }
-
-  // 💬 Mạng xã hội (nếu có)
-  const socialUrl = (place.socials && place.socials.length > 0) ? place.socials[0] : (place.website?.includes("facebook.com") ? place.website : null);
-  if (socialUrl) {
-    const socialItem = document.createElement("div");
-    socialItem.className = "flex items-start gap-2.5";
-    socialItem.innerHTML = `
-      <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-[11px] text-muted-foreground font-medium">Mạng xã hội</p>
-        <a href="${socialUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-          <span>📘 Facebook</span>
-        </a>
-      </div>
-    `;
-    infoList.appendChild(socialItem);
-  }
-
-  // ⏰ Giờ mở cửa (nếu có)
-  if (place.openingHours) {
-    const hoursItem = document.createElement("div");
-    hoursItem.className = "flex items-start gap-2.5";
-    hoursItem.innerHTML = `
-      <div class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-[11px] text-muted-foreground font-medium">Giờ hoạt động</p>
-        <p class="text-xs text-foreground font-medium">${place.openingHours}</p>
-      </div>
-    `;
-    infoList.appendChild(hoursItem);
-  }
-
-  container.appendChild(infoList);
-
-  return container;
-}
-
 export function MapVinaContainer({
   places,
   selectedPlaceId,
@@ -493,6 +282,8 @@ export function MapVinaContainer({
   const onViewDetailsRef = React.useRef(onViewDetails);
   const onViewportChangeRef = React.useRef(onViewportChange);
   const isUserInteractingRef = React.useRef(false);
+  const initialCenterRef = React.useRef(center);
+  const initialZoomRef = React.useRef(zoom);
 
   const lastQueriedRef = React.useRef<{ lat: number; lng: number; zoom: number }>({
     lat: center[1],
@@ -533,9 +324,9 @@ export function MapVinaContainer({
     try {
       mapInstance = new mapvinagl.Map({
         container: mapContainerRef.current,
-        style: MAPVINA_STYLE_URL,
-        center,
-        zoom,
+        style: MAPVINA_STYLE_URL ?? FALLBACK_STYLE,
+        center: initialCenterRef.current,
+        zoom: initialZoomRef.current,
         attributionControl: {
           compact: true,
         },
@@ -545,8 +336,8 @@ export function MapVinaContainer({
       mapInstance = new mapvinagl.Map({
         container: mapContainerRef.current,
         style: FALLBACK_STYLE,
-        center,
-        zoom,
+        center: initialCenterRef.current,
+        zoom: initialZoomRef.current,
         attributionControl: {
           compact: true,
         },
@@ -591,7 +382,7 @@ export function MapVinaContainer({
 
       // Find first feature with a meaningful name or label
       const poi = features.find(
-        (f: any) =>
+        (f) =>
           f.properties &&
           (f.properties.name ||
             f.properties.name_vi ||
@@ -645,8 +436,7 @@ export function MapVinaContainer({
           props.formatted_address ||
           props.address ||
           props.label ||
-          props.vicinity ||
-          `${name}, Đà Nẵng`;
+          props.vicinity;
 
         const newPlace: Place = {
           id: props.gid || props.id || `poi_${poiLat.toFixed(5)}_${poiLng.toFixed(5)}`,
@@ -659,8 +449,6 @@ export function MapVinaContainer({
           address,
           city: "Đà Nẵng",
           categories: [category],
-          rating: 4.5,
-          userRatingCount: 25,
           provider: "mapvina",
           photos: [],
         };
@@ -687,7 +475,7 @@ export function MapVinaContainer({
       ];
       const features = mapInstance.queryRenderedFeatures(bbox);
       const isPoi = features.some(
-        (f: any) =>
+        (f) =>
           f.properties &&
           (f.properties.name ||
             f.properties.name_vi ||
@@ -830,13 +618,7 @@ export function MapVinaContainer({
     });
 
     const isFav = !!favorites[place.id];
-    const container = createPopupContent(
-      place,
-      isFav,
-      () => {},
-      () => {},
-      () => {}
-    );
+    const container = createMapVinaPopup(place, isFav);
 
     container.querySelector("#btn-close-popup")?.addEventListener("click", (e) => {
       e.stopPropagation();

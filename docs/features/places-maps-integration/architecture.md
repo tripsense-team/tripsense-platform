@@ -1,90 +1,71 @@
 # Architecture: Place Search & Map Application
 
-## Affected Services
+## Ownership
 
-1. **`services/place-service`**:
-   - Primary domain owner for place entities, search coordination, caching, and provider integration.
-   - Built on Spring Boot 3.x with Spring Data MongoDB and Spring Data Redis.
-   - Contains `PlaceController`, `PlaceSearchService`, `PlaceRankingService`, `PlaceRepository`, `PlaceCacheService`, and `ZioMapProvider`.
-2. **`services/api-gateway`**:
-   - Routes public endpoint `/api/places/**` to `place-service`.
-   - Handles global CORS and rate limiting filters.
-3. **`apps/web/tripsense`**:
-   - Next.js 16 (App Router) frontend.
-   - Features `src/features/places` and `src/features/map/components/mapvina-container.tsx`, backed by the `mapvina-gl` package.
+- `place-service` owns place search orchestration, provider integration, normalization, ranking, persistence, and place cache keys.
+- API Gateway is the only public backend entry point for `/api/places/**`.
+- The Next.js application owns presentation and map interaction. It does not own provider data or call ZioMap/MapVina place APIs directly.
+- MapVina GL renders the basemap. `NEXT_PUBLIC_MAPVINA_API_KEY` is only a restricted public style token; if absent, the map uses the configured CARTO/OSM fallback style.
 
-## Service Ownership & Boundaries
+## Backend Responsibilities
 
-- `place-service` strictly owns the `places` collection in MongoDB and `place:*` cache keys in Redis.
-- No other service accesses `place-service`'s MongoDB database directly.
-- The frontend tries API Gateway -> `place-service` first for search and details.
-- The current frontend then calls MapVina Cloud directly as a fallback; autocomplete currently calls MapVina directly.
-- MapVina GL renders the map and exposes base-map POIs. ZioMap remains the backend enrichment provider.
+| Component | Responsibility |
+| --- | --- |
+| `PlaceController` | HTTP validation and response envelope only |
+| `PlaceSearchService` / `PlaceSearchServiceImpl` | Search, autocomplete, nearby contract and implementation |
+| `PlaceDetailsService` / `PlaceDetailsServiceImpl` | Detail contract, stored/provider retrieval, and refresh policy |
+| `PlacePersistenceService` / `PlacePersistenceServiceImpl` | Persistence contract, provider upsert, merge, and entity/DTO mapping |
+| `PlaceRankingService` / `PlaceRankingServiceImpl` | Deterministic ranking contract and implementation |
+| `PlaceCacheService` / `PlaceCacheServiceImpl` | Cache contract and Redis-backed implementation |
+| `PlaceProvider` | Search/autocomplete/detail provider abstraction |
+| `PlaceEnrichmentProvider` | Optional enrichment abstraction |
+| `ZioMapProvider` | ZioMap HTTP adapter and payload normalization |
 
-## Component Flow
+Interfaces live in `service`; Spring implementations live in `service/impl`, matching the `user-service` convention. Controllers and collaborating services depend on interfaces. This split keeps HTTP, application orchestration, persistence mapping, cache, ranking, and external-provider concerns separate.
+
+## Request Flow
 
 ```mermaid
 sequenceDiagram
-    autonumber
     actor User
-    participant Web as Web Frontend (MapVina GL + React)
+    participant Web as Next.js + MapVina GL
     participant GW as API Gateway
     participant PS as Place Service
-    participant Redis as Redis Cache
-    participant Mongo as MongoDB (places)
+    participant Redis
+    participant Mongo
     participant Zio as ZioMap API
-    participant MV as MapVina Cloud
 
-    User->>Web: Type search query ("quán cafe chill gần biển")
-    Web->>GW: GET /api/places/search?q=quán cafe chill gần biển
-    GW->>PS: Proxy request
-    PS->>PS: Normalize query (hash key)
-    PS->>Redis: GET place:search:{hash}
-    alt Cache Hit
-        Redis-->>PS: Return cached NormalizedPlace[]
-        PS-->>GW-->>Web: Return 200 OK (PlaceList)
-    else Cache Miss
-        PS->>Mongo: Local text & geo search query
-        alt Sufficient Local Results (>= minThreshold)
-            Mongo-->>PS: Return local Place documents
-            PS->>Redis: SETEX place:search:{hash} 1800s
-            PS-->>GW-->>Web: Return 200 OK (PlaceList)
-        else Insufficient Local Results (< minThreshold)
-            PS->>Zio: GET /api/place/text-search?query=...
-            Zio-->>PS: Raw ZioMap response
-            PS->>PS: Normalize to Internal Place Model
-            PS->>Mongo: Bulk Idempotent Upsert (provider + providerPlaceId)
-            PS->>Redis: SETEX place:search:{hash} 1800s
-            PS-->>GW-->>Web: Return 200 OK (PlaceList)
+    User->>Web: Search places
+    Web->>GW: GET /api/places/search
+    GW->>PS: Route request
+    PS->>Redis: Read search cache
+    alt Cache hit
+        Redis-->>PS: Normalized places
+    else Cache miss
+        PS->>Mongo: Local text/geo search
+        alt Local result is insufficient
+            PS->>Zio: Provider search
+            Zio-->>PS: Provider payload
+            PS->>Mongo: Idempotent upsert
         end
+        PS->>Redis: Cache normalized result
     end
-    Web->>Web: Render PlaceCards and MapVina markers
-    opt Backend unavailable or returns no usable search result
-        Web->>MV: GET /api/v1/search?text=...&key=publicToken
-        MV-->>Web: GeoJSON features
-    end
+    PS-->>GW-->>Web: Normalized response
+    Web->>Web: Render cards and markers
 ```
 
-## Synchronous Communication
+If ZioMap fails, cached or local MongoDB results are returned when available. If no fallback exists, `PlaceProviderException` is translated to `503 Service Unavailable`; an outage is not disguised as an empty successful result.
 
-- `apps/web/tripsense` -> `api-gateway` -> `place-service`: Synchronous HTTP REST for search, autocomplete, and place details.
-- `place-service` -> `ZioMap API`: Synchronous HTTP via Spring `RestClient`; the current `ZIOMAP_TIMEOUT_MS` value (default 8000ms) is applied to both connect and read timeouts.
-- `apps/web/tripsense` -> `MapVina Cloud`: Synchronous browser HTTP for the implemented fallback and autocomplete paths.
+## Communication and Boundaries
 
-## Asynchronous Events
-
-- Not required for Phase 1 search flow. Background place enrichment or data refreshing can be queued asynchronously in later phases if required.
+- Web -> Gateway -> Place Service: synchronous HTTP because search/details are needed immediately for the user flow.
+- Place Service -> ZioMap: synchronous HTTP with configured connect/read timeout.
+- No asynchronous event is required for phase 1.
+- No cross-service database access, shared writable collection, or cross-service ORM relationship is introduced.
+- Provider credentials remain backend-side; only the restricted basemap style token is browser-visible.
 
 ## Rejected Alternatives
 
-1. **Calling ZioMap directly from Frontend**:
-   - *Rejected*: ZioMap remains backend-only so its credential and enrichment flow stay behind `place-service`.
-2. **Using Google Maps JS SDK / Places API**:
-   - *Rejected*: The implemented map renderer and browser place fallback use MapVina.
-3. **AI / LLM-based query rewriting in Phase 1**:
-   - *Rejected*: Adds latency, cost, and non-determinism. Deterministic ZioMap + MongoDB text scoring is simpler, faster (<300ms), and meets all current product goals.
-
-## Related
-
-- [TripSense Architecture](../../architecture/tripsense-architecture.md)
-- [Service Boundaries](../../architecture/service-boundaries.md)
+1. Browser-direct place provider calls: bypass Gateway policies, persistence, caching, consistent errors, and provider isolation.
+2. Concrete ZioMap dependencies in application services: makes substitution and testing harder; services use provider interfaces.
+3. AI query rewriting/ranking in phase 1: deterministic rules remain explicit and testable.
