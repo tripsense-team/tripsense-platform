@@ -45,37 +45,35 @@ export function SearchBar({
     setQuery(initialQuery);
   }
 
-  // Debounced autocomplete fetch (250ms)
+  // Debounced autocomplete fetch (300ms)
   React.useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setSuggestions([]);
-      setIsOpen(false);
       return;
     }
 
-    let isMounted = true;
+    const controller = new AbortController();
     const timeoutId = setTimeout(async () => {
       setIsSearchingSuggestions(true);
       try {
-        const res = await getAutocomplete(trimmed);
-        if (isMounted && res.success && Array.isArray(res.data)) {
+        const res = await getAutocomplete(trimmed, undefined, undefined, 5, controller.signal);
+        if (res.success && Array.isArray(res.data)) {
           setSuggestions(res.data);
           setIsOpen(res.data.length > 0);
         }
-      } catch {
-        if (isMounted) {
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
           setSuggestions([]);
         }
       } finally {
-        if (isMounted) {
+        if (!controller.signal.aborted) {
           setIsSearchingSuggestions(false);
         }
       }
-    }, 250);
+    }, 300);
 
     return () => {
-      isMounted = false;
+      controller.abort();
       clearTimeout(timeoutId);
     };
   }, [query]);
@@ -142,7 +140,16 @@ export function SearchBar({
         <Input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            const nextQuery = e.target.value;
+            setQuery(nextQuery);
+            setSelectedIndex(-1);
+            if (nextQuery.trim().length < 2) {
+              setSuggestions([]);
+              setIsOpen(false);
+              setIsSearchingSuggestions(false);
+            }
+          }}
           onFocus={() => {
             if (suggestions.length > 0) setIsOpen(true);
           }}

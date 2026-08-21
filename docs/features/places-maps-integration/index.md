@@ -3,26 +3,22 @@
 - **Status**: DONE
 - **Feature Name**: `places-maps-integration`
 - **Affected Services**: `apps/web/tripsense`, `services/api-gateway`, `services/place-service`
+- **Last Reviewed**: 2026-08-21
 
 ## Overview
 
-A Mindtrip/TripSense-style place discovery application focused initially on Da Nang, Vietnam.
-The feature enables natural-language place search around Da Nang, a local-first cache-aside backend (Redis -> MongoDB -> ZioMap Places API), and an interactive map rendered with the `mapvina-gl` SDK and MapVina styles. Place cards and map markers share selection state in both directions.
+TripSense provides deterministic place discovery for Da Nang with synchronized place cards and an interactive map. Public place requests flow through API Gateway to `place-service`. The service applies Redis cache-aside, MongoDB local search, and ZioMap provider fallback/enrichment.
 
-### Key Tenets
-1. **Provider responsibilities**: MapVina GL renders the basemap, POIs, and markers. `place-service` uses ZioMap for persisted search/enrichment. The current web client also falls back directly to MapVina Cloud for search, autocomplete, and details when the backend does not return usable data.
-2. **Local-First & Data Persistence**: Discovered places from ZioMap are idempotently persisted to MongoDB and cached in Redis. Redis is disposable; MongoDB is the durable source of truth.
-3. **No AI in Phase 1**: Search uses provider APIs and deterministic local text/geo queries.
-4. **Normalized core model**: Backend and frontend map provider payloads into the internal `Place` shape.
+MapVina GL is the browser map renderer. Its public, origin-restricted style token may be exposed to the browser, but place search, autocomplete, nearby lookup, and details never call a provider directly from the web client.
 
-## Current Provider Matrix
+## Provider Matrix
 
-| Concern | Current provider / implementation |
+| Concern | Provider / implementation |
 | --- | --- |
-| Basemap and map interaction | MapVina GL (`mapvina-gl`) with a MapVina style URL |
-| Backend place search and enrichment | ZioMap through `place-service` |
-| Browser fallback search/autocomplete/details | MapVina Cloud API |
-| Persistence and cache | MongoDB and Redis owned by `place-service` |
+| Basemap and map interaction | `mapvina-gl`; MapVina style when a public token is configured, CARTO/OSM fallback otherwise |
+| Place search, autocomplete, details, enrichment | ZioMap through `place-service` |
+| Public application API | API Gateway route `/api/places/**` |
+| Persistence and cache | MongoDB and Redis owned exclusively by `place-service` |
 
 ## Documentation Index
 
@@ -34,6 +30,7 @@ The feature enables natural-language place search around Da Nang, a local-first 
 - [Decisions & Tradeoffs](./decisions.md)
 - [Implementation Plan](./implementation-plan.md)
 - [Test Plan](./test-plan.md)
+- [PR Review](./pr-review.md)
 
 ## Related
 

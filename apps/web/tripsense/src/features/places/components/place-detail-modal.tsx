@@ -13,16 +13,9 @@ import {
   MessageSquare,
   Sparkles,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getPlacePhotoUrl, getPlaceGalleryPhotos } from "../utils/place-photo";
-import { fetchGoogleReviews } from "../services/places-api";
+import { getPlaceDetails } from "../services/places-api";
 import type { Place } from "../types";
 
 export interface PlaceDetailModalProps {
@@ -33,27 +26,25 @@ export interface PlaceDetailModalProps {
 }
 
 export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails = false, onClose }: PlaceDetailModalProps) {
-  const [currentPlace, setCurrentPlace] = React.useState<Place | null>(initialPlace);
+  const [refreshedPlace, setRefreshedPlace] = React.useState<Place | null>(null);
   const [isLoadingReviews, setIsLoadingReviews] = React.useState(false);
 
-  React.useEffect(() => {
-    setCurrentPlace(initialPlace);
-  }, [initialPlace]);
+  const currentPlace =
+    refreshedPlace && initialPlace && refreshedPlace.id === initialPlace.id
+      ? refreshedPlace
+      : initialPlace;
 
   if (!currentPlace) return null;
 
   const place = currentPlace;
   const primaryCategory = place.categories && place.categories.length > 0 ? place.categories[0] : null;
-  const photoUrl = getPlacePhotoUrl(place);
-  const galleryPhotos = getPlaceGalleryPhotos(place);
 
-  const handleFetchGoogleReviews = async () => {
-    if (!place) return;
+  const handleRefreshDetails = async () => {
     setIsLoadingReviews(true);
     try {
-      const res = await fetchGoogleReviews(place.id, place.name, place.location?.lat, place.location?.lng);
+      const res = await getPlaceDetails(place.id, place.name, place.location?.lat, place.location?.lng);
       if (res && res.success && res.data) {
-        setCurrentPlace(res.data);
+        setRefreshedPlace(res.data);
       }
     } catch (err) {
       console.error("Error fetching Google reviews:", err);
@@ -313,7 +304,7 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
-                  <span>Đánh giá từ Google Maps</span>
+                  <span>Đánh giá từ nhà cung cấp</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Xem nhận xét và cảm nhận thực tế từ du khách đã trải nghiệm địa điểm này.
@@ -321,12 +312,12 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={handleFetchGoogleReviews}
+                  onClick={handleRefreshDetails}
                   disabled={isLoadingReviews}
                   className="rounded-xl px-4 text-xs font-semibold gap-1.5 shadow-xs cursor-pointer hover:bg-secondary/80"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  <span>Xem đánh giá từ Google</span>
+                  <span>Cập nhật đánh giá</span>
                 </Button>
               </div>
             )}

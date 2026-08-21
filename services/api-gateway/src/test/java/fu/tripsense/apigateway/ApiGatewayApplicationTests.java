@@ -32,6 +32,7 @@ class ApiGatewayApplicationTests {
                 .anySatisfy(route -> {
                     assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.PLACE_SERVICE_ROUTE_ID);
                     assertThat(route.getUri()).isEqualTo(URI.create("lb://place-service"));
+                    assertThat(route.getFilters()).isNotEmpty();
                 });
     }
 

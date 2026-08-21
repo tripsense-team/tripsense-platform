@@ -3,6 +3,7 @@ package fu.tripsense.placeservice.controller;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.service.PlaceDetailsService;
 import fu.tripsense.placeservice.service.PlaceSearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,9 +31,12 @@ class PlaceControllerTest {
     @Mock
     private PlaceSearchService placeSearchService;
 
+    @Mock
+    private PlaceDetailsService placeDetailsService;
+
     @BeforeEach
     void setUp() {
-        PlaceController controller = new PlaceController(placeSearchService);
+        PlaceController controller = new PlaceController(placeSearchService, placeDetailsService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -85,7 +89,7 @@ class PlaceControllerTest {
 
     @Test
     void shouldReturn404WhenPlaceNotFound() throws Exception {
-        when(placeSearchService.getPlaceDetails("unknown-id", null, null, null)).thenReturn(Optional.empty());
+        when(placeDetailsService.getDetails("unknown-id", null, null, null)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/places/unknown-id"))
                 .andExpect(status().isNotFound())
