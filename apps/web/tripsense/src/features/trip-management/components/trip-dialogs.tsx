@@ -10,13 +10,7 @@ import type { CreateItineraryItemRequest, ItineraryDayResponse, ItineraryItemRes
 import { coverImageForTrip, displayTripTitle, formatDate, itemTypeLabel, titleCaseDestination, tripCoverOptions } from "../utils/format";
 import { itinerarySuggestions, type ItinerarySuggestion } from "../utils/itinerary-suggestions";
 import { todayIso } from "../utils/date";
-import { addMinutesToTime, durationMinutesFromTimeRange, formatHHMM } from "../utils/time";
-
-const TIME_OPTIONS_24H = Array.from({ length: 48 }, (_, i) => {
-  const h = Math.floor(i / 2).toString().padStart(2, "0");
-  const m = i % 2 === 0 ? "00" : "30";
-  return `${h}:${m}`;
-}).concat(["23:59"]);
+import { addMinutesToTime, durationMinutesFromTimeRange, formatHHMM, TIME_OPTIONS_24H } from "../utils/time";
 
 function TimeInput24h({
   value,

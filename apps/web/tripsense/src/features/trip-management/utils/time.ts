@@ -108,3 +108,9 @@ export function formatDisplayTimeRange(startTime?: string | null, endTime?: stri
   }
   return "";
 }
+
+export const TIME_OPTIONS_24H = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2).toString().padStart(2, "0");
+  const m = i % 2 === 0 ? "00" : "30";
+  return `${h}:${m}`;
+}).concat(["23:59"]);
