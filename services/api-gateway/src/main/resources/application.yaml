@@ -1,6 +1,7 @@
 spring:
   application:
     name: api-gateway
+
   cloud:
     gateway:
       globalcors:
@@ -25,8 +26,12 @@ server:
 
 eureka:
   client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://discovery-server:8761/eureka/}
+
   instance:
     prefer-ip-address: true
 
@@ -35,6 +40,7 @@ management:
     health:
       probes:
         enabled: true
+
   endpoints:
     web:
       exposure:

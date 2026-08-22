@@ -4,6 +4,7 @@ target/
 *.jar
 *.war
 *.ear
+.tools/
 
 # Runtime logs
 *.log
@@ -21,3 +22,4 @@ logs/
 .DS_Store
 Thumbs.db
 
+.tools/

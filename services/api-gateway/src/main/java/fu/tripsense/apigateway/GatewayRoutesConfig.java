@@ -21,6 +21,10 @@ class GatewayRoutesConfig {
     static final String MAIL_SERVICE_PATH = "/api/email/**";
     static final String MAIL_SERVICE_URI = "lb://mail-service";
 
+    static final String TRIP_SERVICE_ROUTE_ID = "trip-service";
+    static final String TRIP_SERVICE_PATH = "/api/trips/**";
+    static final String TRIP_SERVICE_URI = "lb://trip-service";
+
     @Bean
     RouteLocator tripSenseRoutes(RouteLocatorBuilder routes) {
         return routes.routes()
@@ -33,6 +37,9 @@ class GatewayRoutesConfig {
                 .route(MAIL_SERVICE_ROUTE_ID, route -> route
                         .path(MAIL_SERVICE_PATH)
                         .uri(MAIL_SERVICE_URI))
+                .route(TRIP_SERVICE_ROUTE_ID, route -> route
+                        .path(TRIP_SERVICE_PATH)
+                        .uri(TRIP_SERVICE_URI))
                 .build();
     }
 }

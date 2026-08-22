@@ -9,11 +9,35 @@ on:
   push:
     branches:
       - dev
-      - feature/**
+      - "feature/**"
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: tripsense_user
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d tripsense_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASS: ci-placeholder
+      JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+      JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+      RESEND_API_KEY: ci-placeholder
+      EMAIL_SERVICE_URL: http://localhost:8082
 
     steps:
       - name: Checkout source
@@ -23,7 +47,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
           cache: maven
 
       - name: Build and test all services
@@ -33,31 +57,50 @@ jobs:
     runs-on: ubuntu-latest
     needs: verify
 
-    strategy:
-      matrix:
-        service:
-          - api-gateway
-          - auth-service
-          - user-service
-          - booking-service
-          - payment-service
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
+      - name: Validate production compose
+        env:
+          IMAGE_REGISTRY: docker.io
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          IMAGE_PROJECT: tripsense
+          IMAGE_TAG: ci-${{ github.sha }}
 
-      - name: Package service
-        run: mvn -B -pl backend/${{ matrix.service }} -am package -DskipTests
+          DB_USER: postgres
+          DB_PASS: ci-placeholder
 
-      - name: Build Docker image
+          JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+          JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+
+          RESEND_API_KEY: ci-placeholder
+
+        run: docker compose -f deploy/docker-compose.prod.yml config
+
+      - name: Create CI env file
         run: |
-          docker build \
-            -t tripsense-platform-${{ matrix.service }}:${{ github.sha }} \
-            ./backend/${{ matrix.service }}
+          mkdir -p env
+          {
+            echo "DB_HOST=db"
+            echo "DB_USER=postgres"
+            echo "DB_PASS=ci-placeholder"
+            echo "JWT_ACCESS_SECRET=ci-placeholder-access-secret-12345678901234567890"
+            echo "JWT_REFRESH_SECRET=ci-placeholder-refresh-secret-12345678901234567890"
+            echo "RESEND_API_KEY=ci-placeholder"
+          } > env/.env
+
+      - name: Build Docker images
+        env:
+          IMAGE_REGISTRY: docker.io
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          IMAGE_PROJECT: tripsense
+          IMAGE_TAG: ci-${{ github.sha }}
+
+          DB_USER: postgres
+          DB_PASS: ci-placeholder
+          JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+          JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+          RESEND_API_KEY: ci-placeholder
+
+        run: docker compose build

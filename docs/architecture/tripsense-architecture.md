@@ -28,7 +28,7 @@ The source tree currently includes:
 - Discovery server: `IMPLEMENTED` in the working tree at [discovery-server](../../services/discovery-server/)
 - Place service: `IMPLEMENTED` at [place-service](../../services/place-service/)
 - ai-service: `IMPLEMENTED` at [ai-service](../../services/ai-service/)
-- trip-service: `PLANNED`, not found in the current source tree.
+- trip-service: `IMPLEMENTED` at [trip-service](../../services/trip-service/).
 - context-service: `PLANNED`, not found in the current source tree.
 - itinerary-service: `PLANNED`, not found in the current source tree.
 - review-service: `PLANNED`, not found in the current source tree.
