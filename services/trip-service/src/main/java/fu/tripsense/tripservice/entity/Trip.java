@@ -56,7 +56,7 @@ public class Trip {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
-    @Column(name = "cover_image_url", length = 1024)
+    @Column(name = "cover_image_url", columnDefinition = "TEXT")
     private String coverImageUrl;
 
     @Version

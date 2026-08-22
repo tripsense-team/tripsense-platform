@@ -12,6 +12,7 @@ import fu.tripsense.tripservice.dto.response.TripResponse;
 import fu.tripsense.tripservice.enums.DateChangePolicy;
 import fu.tripsense.tripservice.enums.ItineraryItemStatus;
 import fu.tripsense.tripservice.enums.ItineraryItemType;
+import fu.tripsense.tripservice.exception.ConflictException;
 import fu.tripsense.tripservice.exception.ValidationException;
 import fu.tripsense.tripservice.support.RealInfrastructureTest;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ class TripServiceTest extends RealInfrastructureTest {
 
     @Test
     void createTripGeneratesItineraryDays() {
-        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 8, 20), LocalDate.of(2026, 8, 22)));
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 26)));
 
         ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
 
@@ -45,7 +46,7 @@ class TripServiceTest extends RealInfrastructureTest {
                 .containsExactly(1, 2, 3);
         assertThat(itinerary.days())
                 .extracting(ItineraryDayResponse::date)
-                .containsExactly(LocalDate.of(2026, 8, 20), LocalDate.of(2026, 8, 21), LocalDate.of(2026, 8, 22));
+                .containsExactly(LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 25), LocalDate.of(2026, 8, 26));
     }
 
     @Test
@@ -108,13 +109,17 @@ class TripServiceTest extends RealInfrastructureTest {
     }
 
     @Test
-    void createTripRejectsEndDateThatIsNotAfterStartDate() {
-        assertThatThrownBy(() -> tripService.createTrip(
+    void createTripAllowsSameDayTrip() {
+        TripResponse trip = tripService.createTrip(
                 USER_ID,
                 createTripRequest("Same Day", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1))
-        ))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("after startDate");
+        );
+
+        ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
+
+        assertThat(trip.startDate()).isEqualTo(trip.endDate());
+        assertThat(itinerary.days()).hasSize(1);
+        assertThat(itinerary.days().getFirst().date()).isEqualTo(LocalDate.of(2026, 10, 1));
     }
 
     @Test
@@ -133,68 +138,165 @@ class TripServiceTest extends RealInfrastructureTest {
     }
 
     @Test
-    void reorderAcceptsStaleDayVersionWhenItemIdsMatchCurrentDay() {
+    void reorderRejectsStaleDayVersion() {
         TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 4), LocalDate.of(2026, 10, 5)));
         ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
         ItineraryItemResponse first = tripService.createItem(USER_ID, trip.id(), day.id(), createItemRequest("Breakfast"));
         ItineraryItemResponse second = tripService.createItem(USER_ID, trip.id(), day.id(), createItemRequest("Museum"));
+        ItineraryDayResponse currentDay = tripService.getItineraryDay(USER_ID, trip.id(), day.id());
 
-        ItineraryDayResponse reordered = tripService.reorderItems(
+        assertThatThrownBy(() -> tripService.reorderItems(
                 USER_ID,
                 trip.id(),
                 day.id(),
-                new ReorderItemsRequest(List.of(second.id(), first.id()), 0L)
-        );
-
-        assertThat(reordered.items())
-                .extracting(ItineraryItemResponse::id)
-                .containsExactly(second.id(), first.id());
+                new ReorderItemsRequest(List.of(second.id(), first.id()), currentDay.version() + 1)
+        ))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("modified concurrently");
     }
 
     @Test
-    void reorderReassignsTimeSlotsFromEarliestToLatest() {
+    void reorderPreservesDurationAndChainsMovedItemsAfterPreviousEndTime() {
         TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 6), LocalDate.of(2026, 10, 7)));
         ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
-        ItineraryItemResponse lunch = tripService.createItem(
+        ItineraryItemResponse pointA = tripService.createItem(
                 USER_ID,
                 trip.id(),
                 day.id(),
-                createItemRequest("Moc Quan Seafood", LocalTime.of(12, 0), LocalTime.of(13, 30))
+                createItemRequest("Point A", LocalTime.of(15, 0), LocalTime.of(17, 0))
         );
-        ItineraryItemResponse dinner = tripService.createItem(
+        ItineraryItemResponse pointB = tripService.createItem(
                 USER_ID,
                 trip.id(),
                 day.id(),
-                createItemRequest("Van May", LocalTime.of(18, 0), LocalTime.of(19, 15))
+                createItemRequest("Point B", LocalTime.of(17, 0), LocalTime.of(19, 0))
         );
+        ItineraryDayResponse currentDay = tripService.getItineraryDay(USER_ID, trip.id(), day.id());
+
+        ItineraryDayResponse aAfterB = tripService.reorderItems(
+                USER_ID,
+                trip.id(),
+                day.id(),
+                new ReorderItemsRequest(List.of(pointB.id(), pointA.id()), currentDay.version())
+        );
+
+        assertThat(aAfterB.items())
+                .extracting(ItineraryItemResponse::id)
+                .containsExactly(pointB.id(), pointA.id());
+        assertThat(aAfterB.items())
+                .extracting(ItineraryItemResponse::startTime)
+                .containsExactly(LocalTime.of(17, 0), LocalTime.of(19, 0));
+        assertThat(aAfterB.items())
+                .extracting(ItineraryItemResponse::endTime)
+                .containsExactly(LocalTime.of(19, 0), LocalTime.of(21, 0));
+        assertThat(aAfterB.items())
+                .extracting(ItineraryItemResponse::durationMinutes)
+                .containsExactly(120, 120);
+
+        ItineraryDayResponse refreshedDay = tripService.getItineraryDay(USER_ID, trip.id(), day.id());
+        ItineraryDayResponse bAfterA = tripService.reorderItems(
+                USER_ID,
+                trip.id(),
+                day.id(),
+                new ReorderItemsRequest(List.of(pointA.id(), pointB.id()), refreshedDay.version())
+        );
+
+        assertThat(bAfterA.items())
+                .extracting(ItineraryItemResponse::id)
+                .containsExactly(pointA.id(), pointB.id());
+        assertThat(bAfterA.items())
+                .extracting(ItineraryItemResponse::startTime)
+                .containsExactly(LocalTime.of(19, 0), LocalTime.of(21, 0));
+        assertThat(bAfterA.items())
+                .extracting(ItineraryItemResponse::endTime)
+                .containsExactly(LocalTime.of(21, 0), LocalTime.of(23, 0));
+        assertThat(bAfterA.items())
+                .extracting(ItineraryItemResponse::durationMinutes)
+                .containsExactly(120, 120);
+    }
+
+    @Test
+    void reorderMovedItemStartsAtPreviousItemsEndAndKeepsItsOwnDuration() {
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 8), LocalDate.of(2026, 10, 9)));
+        ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
+        ItineraryItemResponse madameLan = tripService.createItem(
+                USER_ID,
+                trip.id(),
+                day.id(),
+                createItemRequest("Nha hang Madame Lan", LocalTime.of(9, 0), LocalTime.of(10, 30))
+        );
+        ItineraryItemResponse mocQuan = tripService.createItem(
+                USER_ID,
+                trip.id(),
+                day.id(),
+                createItemRequest("Moc Quan Seafood", LocalTime.of(10, 30), LocalTime.of(15, 0))
+        );
+        ItineraryDayResponse currentDay = tripService.getItineraryDay(USER_ID, trip.id(), day.id());
 
         ItineraryDayResponse reordered = tripService.reorderItems(
                 USER_ID,
                 trip.id(),
                 day.id(),
-                new ReorderItemsRequest(List.of(dinner.id(), lunch.id()), 0L)
+                new ReorderItemsRequest(List.of(mocQuan.id(), madameLan.id()), currentDay.version())
         );
 
         assertThat(reordered.items())
                 .extracting(ItineraryItemResponse::id)
-                .containsExactly(dinner.id(), lunch.id());
+                .containsExactly(mocQuan.id(), madameLan.id());
         assertThat(reordered.items())
                 .extracting(ItineraryItemResponse::startTime)
-                .containsExactly(LocalTime.of(12, 0), LocalTime.of(18, 0));
+                .containsExactly(LocalTime.of(10, 30), LocalTime.of(15, 0));
         assertThat(reordered.items())
                 .extracting(ItineraryItemResponse::endTime)
-                .containsExactly(LocalTime.of(13, 30), LocalTime.of(19, 15));
+                .containsExactly(LocalTime.of(15, 0), LocalTime.of(16, 30));
+        assertThat(reordered.items())
+                .extracting(ItineraryItemResponse::durationMinutes)
+                .containsExactly(270, 90);
     }
 
     @Test
-    void updateItemAcceptsStaleVersionAfterManualReorder() {
-        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 8), LocalDate.of(2026, 10, 9)));
+    void reorderChainsItemsWhenEndTimeIsImplicit() {
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 13)));
+        ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
+        ItineraryItemResponse item1 = tripService.createItem(
+                USER_ID,
+                trip.id(),
+                day.id(),
+                new CreateItineraryItemRequest(null, ItineraryItemType.MEAL, "Item 1", LocalTime.of(16, 30), null, 60, null)
+        );
+        ItineraryItemResponse item2 = tripService.createItem(
+                USER_ID,
+                trip.id(),
+                day.id(),
+                new CreateItineraryItemRequest(null, ItineraryItemType.MEAL, "Item 2", LocalTime.of(21, 0), null, 90, null)
+        );
+        ItineraryDayResponse currentDay = tripService.getItineraryDay(USER_ID, trip.id(), day.id());
+
+        ItineraryDayResponse reordered = tripService.reorderItems(
+                USER_ID,
+                trip.id(),
+                day.id(),
+                new ReorderItemsRequest(List.of(item2.id(), item1.id()), currentDay.version())
+        );
+
+        assertThat(reordered.items())
+                .extracting(ItineraryItemResponse::id)
+                .containsExactly(item2.id(), item1.id());
+        assertThat(reordered.items())
+                .extracting(ItineraryItemResponse::startTime)
+                .containsExactly(LocalTime.of(21, 0), LocalTime.of(22, 30));
+        assertThat(reordered.items())
+                .extracting(ItineraryItemResponse::endTime)
+                .containsExactly(LocalTime.of(22, 30), LocalTime.of(23, 30));
+    }
+
+    @Test
+    void updateItemRejectsStaleVersion() {
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 11)));
         ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
         ItineraryItemResponse first = tripService.createItem(USER_ID, trip.id(), day.id(), createItemRequest("Breakfast"));
-        ItineraryItemResponse second = tripService.createItem(USER_ID, trip.id(), day.id(), createItemRequest("Museum"));
-        tripService.reorderItems(USER_ID, trip.id(), day.id(), new ReorderItemsRequest(List.of(second.id(), first.id()), 0L));
 
-        ItineraryItemResponse updated = tripService.updateItem(
+        assertThatThrownBy(() -> tripService.updateItem(
                 USER_ID,
                 trip.id(),
                 first.id(),
@@ -207,18 +309,16 @@ class TripServiceTest extends RealInfrastructureTest {
                         60,
                         ItineraryItemStatus.DONE,
                         "Updated manually",
-                        0L
+                        first.version() + 1
                 )
-        );
-
-        assertThat(updated.title()).isEqualTo("Updated breakfast");
-        assertThat(updated.status()).isEqualTo(ItineraryItemStatus.DONE);
-        assertThat(updated.startTime()).isEqualTo(LocalTime.of(8, 30));
+        ))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("modified concurrently");
     }
 
     @Test
     void deleteItemIsIdempotentWhenItemWasAlreadyRemoved() {
-        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 11)));
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 13)));
         ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
         ItineraryItemResponse item = tripService.createItem(USER_ID, trip.id(), day.id(), createItemRequest("Breakfast"));
 
@@ -249,13 +349,16 @@ class TripServiceTest extends RealInfrastructureTest {
     }
 
     private CreateItineraryItemRequest createItemRequest(String title, LocalTime startTime, LocalTime endTime) {
+        Integer durationMinutes = startTime != null && endTime != null && startTime.isBefore(endTime)
+                ? Math.toIntExact(java.time.temporal.ChronoUnit.MINUTES.between(startTime, endTime))
+                : null;
         return new CreateItineraryItemRequest(
                 null,
                 ItineraryItemType.NOTE,
                 title,
                 startTime,
                 endTime,
-                60,
+                durationMinutes,
                 null
         );
     }

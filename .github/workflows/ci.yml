@@ -64,7 +64,7 @@ jobs:
       - name: Validate production compose
         env:
           IMAGE_REGISTRY: docker.io
-          IMAGE_OWNER: phatnguyen105
+          IMAGE_OWNER: ${{ github.repository_owner }}
           IMAGE_PROJECT: tripsense
           IMAGE_TAG: ci-${{ github.sha }}
 
@@ -93,7 +93,7 @@ jobs:
       - name: Build Docker images
         env:
           IMAGE_REGISTRY: docker.io
-          IMAGE_OWNER: phatnguyen105
+          IMAGE_OWNER: ${{ github.repository_owner }}
           IMAGE_PROJECT: tripsense
           IMAGE_TAG: ci-${{ github.sha }}
 

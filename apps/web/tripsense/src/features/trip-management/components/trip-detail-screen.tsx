@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { ItineraryDayResponse, ItineraryItemResponse, ItineraryResponse, TripResponse } from "../types";
 import { countTripDays, displayTripTitle, formatDate, formatShortRange, itemTypeLabel, titleCaseDestination, tripTimingPhrase } from "../utils/format";
 import { mapEmbedForDestination } from "../utils/map";
+import { formatDisplayTimeRange } from "../utils/time";
 
 type TripDetailPanel = "overview" | "itinerary";
 
@@ -393,7 +394,9 @@ function ItineraryPanel({
                       <div className="min-w-0">
                       <p className="font-semibold">{item.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {itemTypeLabel(item.type)} {item.startTime ? `- ${item.startTime}` : ""} {item.status !== "PLANNED" ? `- ${item.status.toLowerCase()}` : ""}
+                        {itemTypeLabel(item.type)}{" "}
+                        {formatDisplayTimeRange(item.startTime, item.endTime) ? `- ${formatDisplayTimeRange(item.startTime, item.endTime)}` : ""}{" "}
+                        {item.status !== "PLANNED" ? `- ${item.status.toLowerCase()}` : ""}
                       </p>
                       {item.warnings?.includes("TIME_OVERLAP") && (
                         <p className="mt-1 text-xs font-medium text-destructive">Time overlaps another item.</p>

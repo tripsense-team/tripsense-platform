@@ -60,11 +60,7 @@ export function displayStatusLabel(status: DisplayStatus): string {
 
 export function displayTripTitle(trip: TripResponse): string {
   const name = trip.name.trim();
-  if (name.length >= 8 && !name.toLowerCase().includes("test")) {
-    return name;
-  }
-
-  return `Trip to ${titleCaseDestination(trip.destinationName)}`;
+  return name || `Trip to ${titleCaseDestination(trip.destinationName)}`;
 }
 
 export function itemTypeLabel(type: ItineraryItemType): string {

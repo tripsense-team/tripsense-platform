@@ -35,6 +35,7 @@ import type {
 } from "../types";
 import { titleCaseDestination } from "../utils/format";
 import { isoDateFromToday } from "../utils/date";
+import { chainItineraryItemsTimes, itemDurationMinutes } from "../utils/time";
 
 type TripScreen = "trips" | "calendar" | "detail";
 
@@ -229,7 +230,7 @@ export function TripManagementView({
         ...itemDraft,
         startTime: itemDraft.startTime || null,
         endTime: itemDraft.endTime || null,
-        durationMinutes: itemDraft.durationMinutes ? Number(itemDraft.durationMinutes) : null,
+        durationMinutes: itemDurationMinutes(itemDraft),
       });
       setAddItemDay(null);
       setItemDraft(newItemDraft());
@@ -251,7 +252,7 @@ export function TripManagementView({
         ...payload,
         startTime: payload.startTime || null,
         endTime: payload.endTime || null,
-        durationMinutes: payload.durationMinutes ? Number(payload.durationMinutes) : null,
+        durationMinutes: itemDurationMinutes(payload),
       });
       setAddItemDay(null);
       setItemDraft(newItemDraft());
@@ -300,7 +301,7 @@ export function TripManagementView({
       await updateItineraryItem(trip.id, editingItem.id, {
         ...editItemDraft,
         title: editItemDraft.title?.trim() || editingItem.title,
-        durationMinutes: editItemDraft.durationMinutes ? Number(editItemDraft.durationMinutes) : null,
+        durationMinutes: itemDurationMinutes(editItemDraft),
         version: undefined,
       });
       setEditingItem(null);
@@ -436,16 +437,37 @@ export function TripManagementView({
     const nextOrder = orderedItemIds.join("|");
     if (currentOrder === nextOrder) return;
 
+    const itemMap = new Map(day.items.map((item) => [item.id, item]));
+    const reorderedRaw = orderedItemIds
+      .map((id) => itemMap.get(id))
+      .filter((item): item is ItineraryItemResponse => Boolean(item));
+    const optimisticItems = chainItineraryItemsTimes(reorderedRaw);
+
+    setItinerary((current) =>
+      current
+        ? {
+            ...current,
+            days: current.days.map((candidate) =>
+              candidate.id === day.id ? { ...candidate, items: optimisticItems } : candidate
+            ),
+          }
+        : current
+    );
+
     setSubmitting(true);
     setError(null);
     try {
       const nextDay = await reorderItineraryItems(trip.id, day.id, { orderedItemIds, version: day.version });
+      const chainedDay = {
+        ...nextDay,
+        items: chainItineraryItemsTimes(nextDay.items),
+      };
 
       setItinerary((current) =>
         current
           ? {
               ...current,
-              days: current.days.map((candidate) => (candidate.id === nextDay.id ? nextDay : candidate)),
+              days: current.days.map((candidate) => (candidate.id === chainedDay.id ? chainedDay : candidate)),
             }
           : current
       );

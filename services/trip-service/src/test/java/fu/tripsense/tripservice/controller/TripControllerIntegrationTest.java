@@ -44,7 +44,7 @@ class TripControllerIntegrationTest extends RealInfrastructureTest {
 
     @Test
     void createsTripWithJwtAndPersistsGeneratedDaysThroughFlywayPostgres() throws Exception {
-        String tripId = createTrip(USER_A, "Da Nang", "2026-08-20", "2026-08-22");
+        String tripId = createTrip(USER_A, "Da Nang", "2026-08-24", "2026-08-26");
 
         mockMvc.perform(get("/api/trips/{tripId}/itinerary", tripId)
                         .header("Authorization", bearer(USER_A)))
@@ -222,9 +222,9 @@ class TripControllerIntegrationTest extends RealInfrastructureTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "Same Day Trip",
+                                  "name": "End Before Start Trip",
                                   "destinationName": "Da Nang",
-                                  "startDate": "2026-10-01",
+                                  "startDate": "2026-10-02",
                                   "endDate": "2026-10-01"
                                 }
                                 """))

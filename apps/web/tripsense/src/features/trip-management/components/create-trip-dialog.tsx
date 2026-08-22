@@ -11,7 +11,7 @@ import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { cn } from "@/lib/utils";
 import type { CreateTripRequest } from "../types";
 import { titleCaseDestination, tripCoverOptions } from "../utils/format";
-import { nextDate, todayIso } from "../utils/date";
+import { todayIso } from "../utils/date";
 import { normalizeSearchText } from "../utils/search";
 
 interface CreateTripDialogProps {
@@ -57,16 +57,16 @@ export function CreateTripDialog({
   const user = useAuthStore((state) => state.user);
   const firstName = user?.email?.split("@")[0] || "traveler";
   const today = todayIso();
-  const minEndDate = draft.startDate ? nextDate(draft.startDate) : today;
+  const minEndDate = draft.startDate || today;
   const startsInPast = draft.startDate < today;
-  const endIsNotAfterStart = draft.endDate <= draft.startDate;
+  const endIsBeforeStart = draft.endDate < draft.startDate;
   const missingDestination = draft.destinationName.trim().length === 0;
   const validationMessage = missingDestination
     ? "Enter a destination to create the trip."
     : startsInPast
       ? "Start date cannot be in the past."
-      : endIsNotAfterStart
-        ? "End date must be after start date."
+      : endIsBeforeStart
+        ? "End date must be on or after start date."
         : null;
   const canCreate = !validationMessage && !submitting;
   const normalizedDestination = normalizeSearchText(draft.destinationName);
@@ -195,7 +195,7 @@ export function CreateTripDialog({
                       onDraftChange((current) => ({
                         ...current,
                         startDate: event.target.value,
-                        endDate: current.endDate <= event.target.value ? nextDate(event.target.value) : current.endDate,
+                        endDate: current.endDate < event.target.value ? event.target.value : current.endDate,
                       }))
                     }
                     className="h-11 cursor-pointer rounded-full text-sm"
@@ -212,7 +212,7 @@ export function CreateTripDialog({
                 </div>
               </div>
               {startsInPast && <p className="text-sm font-medium text-destructive">Start date cannot be in the past.</p>}
-              {endIsNotAfterStart && <p className="text-sm font-medium text-destructive">End date must be after start date.</p>}
+              {endIsBeforeStart && <p className="text-sm font-medium text-destructive">End date must be on or after start date.</p>}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">

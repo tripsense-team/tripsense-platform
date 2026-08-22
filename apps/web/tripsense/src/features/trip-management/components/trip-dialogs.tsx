@@ -9,7 +9,75 @@ import { cn } from "@/lib/utils";
 import type { CreateItineraryItemRequest, ItineraryDayResponse, ItineraryItemResponse, ItineraryItemStatus, ItineraryItemType, TripResponse, UpdateItineraryItemRequest, UpdateTripRequest } from "../types";
 import { coverImageForTrip, displayTripTitle, formatDate, itemTypeLabel, titleCaseDestination, tripCoverOptions } from "../utils/format";
 import { itinerarySuggestions, type ItinerarySuggestion } from "../utils/itinerary-suggestions";
-import { nextDate, todayIso } from "../utils/date";
+import { todayIso } from "../utils/date";
+import { addMinutesToTime, durationMinutesFromTimeRange, formatHHMM } from "../utils/time";
+
+const TIME_OPTIONS_24H = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2).toString().padStart(2, "0");
+  const m = i % 2 === 0 ? "00" : "30";
+  return `${h}:${m}`;
+}).concat(["23:59"]);
+
+function TimeInput24h({
+  value,
+  onChange,
+  id,
+}: {
+  value: string | null | undefined;
+  onChange: (val: string | null) => void;
+  id?: string;
+}) {
+  const formatted = formatHHMM(value) || "";
+  const listId = id ? `list-${id}` : "time-24h-list";
+
+  return (
+    <>
+      <datalist id={listId}>
+        {TIME_OPTIONS_24H.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+      <Input
+        type="text"
+        placeholder="HH:mm (e.g. 22:30)"
+        value={formatted}
+        list={listId}
+        onChange={(event) => {
+          const raw = event.target.value;
+          if (!raw) {
+            onChange(null);
+            return;
+          }
+          onChange(raw);
+        }}
+        onBlur={(event) => {
+          const raw = event.target.value.trim();
+          if (!raw) {
+            onChange(null);
+            return;
+          }
+          const clean = raw.replace(/[^0-9:]/g, "");
+          if (clean.includes(":")) {
+            const [hStr, mStr] = clean.split(":");
+            const hour = Math.min(23, Math.max(0, Number(hStr) || 0)).toString().padStart(2, "0");
+            const minute = Math.min(59, Math.max(0, Number(mStr) || 0)).toString().padStart(2, "0");
+            onChange(`${hour}:${minute}`);
+          } else if (clean.length === 3) {
+            const hour = clean.substring(0, 1).padStart(2, "0");
+            const minute = clean.substring(1, 3);
+            onChange(`${hour}:${minute}`);
+          } else if (clean.length === 4) {
+            const hour = clean.substring(0, 2);
+            const minute = clean.substring(2, 4);
+            const h = Math.min(23, Math.max(0, Number(hour) || 0)).toString().padStart(2, "0");
+            const m = Math.min(59, Math.max(0, Number(minute) || 0)).toString().padStart(2, "0");
+            onChange(`${h}:${m}`);
+          }
+        }}
+      />
+    </>
+  );
+}
 
 export function AddItemDialog({
   trip,
@@ -169,8 +237,8 @@ export function AddItemDialog({
                   </select>
                 </Field>
                 <Field label="Title"><Input required value={draft.title} onChange={(event) => onDraftChange((current) => ({ ...current, title: event.target.value }))} /></Field>
-                <Field label="Start"><Input type="time" value={draft.startTime || ""} onChange={(event) => onDraftChange((current) => ({ ...current, startTime: event.target.value }))} /></Field>
-                <Field label="End"><Input type="time" value={draft.endTime || ""} onChange={(event) => onDraftChange((current) => ({ ...current, endTime: event.target.value }))} /></Field>
+                <Field label="Start"><TimeInput24h id="add-start" value={draft.startTime || ""} onChange={(val) => onDraftChange((current) => ({ ...current, startTime: val || "" }))} /></Field>
+                <Field label="End"><TimeInput24h id="add-end" value={draft.endTime || ""} onChange={(val) => onDraftChange((current) => ({ ...current, endTime: val || "" }))} /></Field>
               </div>
               <Field label="Notes"><Textarea value={draft.notes || ""} onChange={(event) => onDraftChange((current) => ({ ...current, notes: event.target.value }))} /></Field>
               <div className="flex justify-end gap-2">
@@ -202,10 +270,10 @@ export function EditTripDialog({
 }) {
   const open = !!trip && !!draft;
   const today = todayIso();
-  const minEndDate = draft?.startDate ? nextDate(draft.startDate) : today;
+  const minEndDate = draft?.startDate || today;
   const startsInPast = !!draft?.startDate && draft.startDate < today;
-  const endIsNotAfterStart = !!draft?.startDate && !!draft?.endDate && draft.endDate <= draft.startDate;
-  const canSave = !startsInPast && !endIsNotAfterStart && !submitting;
+  const endIsBeforeStart = !!draft?.startDate && !!draft?.endDate && draft.endDate < draft.startDate;
+  const canSave = !startsInPast && !endIsBeforeStart && !submitting;
 
   function updateDraft(patch: UpdateTripRequest) {
     onDraftChange((current) => ({ ...(current || {}), ...patch }));
@@ -240,7 +308,7 @@ export function EditTripDialog({
                       return {
                         ...currentDraft,
                         startDate: nextStart,
-                        endDate: currentDraft.endDate && currentDraft.endDate <= nextStart ? nextDate(nextStart) : currentDraft.endDate,
+                        endDate: currentDraft.endDate && currentDraft.endDate < nextStart ? nextStart : currentDraft.endDate,
                       };
                     })
                   }
@@ -279,7 +347,7 @@ export function EditTripDialog({
               <Textarea value={draft.notes || ""} onChange={(event) => updateDraft({ notes: event.target.value })} />
             </Field>
             {startsInPast && <p className="text-sm font-medium text-destructive">Start date cannot be in the past.</p>}
-            {endIsNotAfterStart && <p className="text-sm font-medium text-destructive">End date must be after start date.</p>}
+            {endIsBeforeStart && <p className="text-sm font-medium text-destructive">End date must be on or after start date.</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
               <Button type="submit" disabled={!canSave}>
@@ -313,6 +381,27 @@ export function EditItemDialog({
 
   function updateDraft(patch: UpdateItineraryItemRequest) {
     onDraftChange((current) => ({ ...(current || {}), ...patch }));
+  }
+
+  function updateTimeDraft(patch: Pick<UpdateItineraryItemRequest, "startTime" | "endTime">) {
+    onDraftChange((current) => {
+      const next = { ...(current || {}), ...patch };
+      return {
+        ...next,
+        durationMinutes: durationMinutesFromTimeRange(next.startTime, next.endTime) ?? next.durationMinutes ?? null,
+      };
+    });
+  }
+
+  function updateDurationDraft(durationMinutes: number | null) {
+    onDraftChange((current) => {
+      const nextEndTime = addMinutesToTime(current?.startTime, durationMinutes);
+      return {
+        ...(current || {}),
+        durationMinutes,
+        endTime: nextEndTime ?? current?.endTime ?? null,
+      };
+    });
   }
 
   return (
@@ -356,14 +445,14 @@ export function EditItemDialog({
                   min={1}
                   max={1440}
                   value={draft.durationMinutes ?? ""}
-                  onChange={(event) => updateDraft({ durationMinutes: event.target.value ? Number(event.target.value) : null })}
+                  onChange={(event) => updateDurationDraft(event.target.value ? Number(event.target.value) : null)}
                 />
               </Field>
               <Field label="Start">
-                <Input type="time" value={draft.startTime || ""} onChange={(event) => updateDraft({ startTime: event.target.value || null })} />
+                <TimeInput24h id="edit-start" value={draft.startTime || null} onChange={(val) => updateTimeDraft({ startTime: val })} />
               </Field>
               <Field label="End">
-                <Input type="time" value={draft.endTime || ""} onChange={(event) => updateDraft({ endTime: event.target.value || null })} />
+                <TimeInput24h id="edit-end" value={draft.endTime || null} onChange={(val) => updateTimeDraft({ endTime: val })} />
               </Field>
             </div>
             <Field label="Notes">
