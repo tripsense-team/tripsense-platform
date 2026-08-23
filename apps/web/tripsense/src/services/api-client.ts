@@ -65,6 +65,18 @@ export interface ApiClientOptions extends RequestInit {
   _retry?: boolean;
 }
 
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+
+  constructor(message: string, status: number, data: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
 export async function apiClient<T>(
   endpoint: string,
   options: ApiClientOptions = {}
@@ -104,14 +116,14 @@ export async function apiClient<T>(
           useAuthStore.getState().clearAuth();
         }
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new ApiError(errorData.message || `HTTP error! status: ${response.status}`, response.status, errorData);
       }
 
       // 2. Always evaluate LATEST fresh status from Zustand store (never use stale local variables!)
       const latestStatus = useAuthStore.getState().status;
       if (latestStatus === "unauthenticated") {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "User is unauthenticated. Request cancelled.");
+        throw new ApiError(errorData.message || "User is unauthenticated. Request cancelled.", response.status, errorData);
       }
 
       // 3. Initiate or await Single-Flight Refresh
@@ -139,10 +151,15 @@ export async function apiClient<T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      throw new ApiError(errorData.message || `HTTP error! status: ${response.status}`, response.status, errorData);
     }
 
-    return await response.json();
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const text = await response.text();
+    return (text ? JSON.parse(text) : undefined) as T;
   } catch (error) {
     throw error;
   }

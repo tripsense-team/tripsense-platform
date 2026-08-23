@@ -35,4 +35,16 @@ class ApiGatewayApplicationTests {
                 });
     }
 
+    @Test
+    void tripServiceRouteUsesDiscoveryLoadBalancer() {
+        List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes)
+                .isNotNull()
+                .anySatisfy(route -> {
+                    assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.TRIP_SERVICE_ROUTE_ID);
+                    assertThat(route.getUri()).isEqualTo(URI.create("lb://trip-service"));
+                });
+    }
+
 }

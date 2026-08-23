@@ -8,7 +8,7 @@ This index distinguishes implemented source-tree services from planned architect
 | Discovery Server | IMPLEMENTED | [discovery-server](../../services/discovery-server/) |
 | Place Service | IMPLEMENTED | [place-service](../../services/place-service/) |
 | ai-service | IMPLEMENTED | [ai-service](../../services/ai-service/) |
-| trip-service | PLANNED | Not found |
+| trip-service | IMPLEMENTED | [trip-service](../../services/trip-service/) |
 | context-service | PLANNED | Not found |
 | itinerary-service | PLANNED | Not found |
 | review-service | PLANNED | Not found |

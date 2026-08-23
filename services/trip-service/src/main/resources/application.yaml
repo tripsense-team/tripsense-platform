@@ -1,0 +1,64 @@
+server:
+  port: ${SERVER_PORT:8084}
+  shutdown: graceful
+
+spring:
+  application:
+    name: trip-service
+
+  datasource:
+    url: jdbc:postgresql://${TRIP_DB_HOST:${DB_HOST:localhost}}:${TRIP_DB_PORT:${DB_PORT:5432}}/${TRIP_DB_NAME:tripsense_trip}
+    username: ${TRIP_DB_USER:${DB_USER:postgres}}
+    password: ${TRIP_DB_PASS:${DB_PASS:}}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      repositories:
+        enabled: false
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:2s}
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: ${TRIP_CACHE_TTL:10m}
+      cache-null-values: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  access-secret: ${JWT_ACCESS_SECRET}
+
+place-service:
+  url: ${PLACE_SERVICE_URL:http://localhost:8082}
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info

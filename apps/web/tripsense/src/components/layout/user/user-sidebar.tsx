@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { listTrips } from "@/features/trip-management/services/trip-management-api";
 
 export interface NavItem {
   title: string;
@@ -36,7 +38,6 @@ const mainNavItems: NavItem[] = [
     title: "My Trips",
     href: "/trips",
     icon: MapPin,
-    badge: "3",
   },
   {
     title: "Saved Places",
@@ -76,6 +77,51 @@ export interface UserSidebarProps {
 
 export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebarProps) {
   const pathname = usePathname();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const [tripCount, setTripCount] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    let ignore = false;
+
+    async function loadTripCount() {
+      if (!isAuthenticated) {
+        setTripCount(null);
+        return;
+      }
+
+      try {
+        const page = await listTrips();
+        if (!ignore) {
+          setTripCount(page.totalElements ?? page.content.length);
+        }
+      } catch {
+        if (!ignore) {
+          setTripCount(null);
+        }
+      }
+    }
+
+    void loadTripCount();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isAuthenticated]);
+
+  React.useEffect(() => {
+    function handleTripCountChanged(event: Event) {
+      const count = (event as CustomEvent<number>).detail;
+      if (typeof count === "number") {
+        setTripCount(count);
+      }
+    }
+
+    window.addEventListener("trip-management:count-changed", handleTripCountChanged);
+
+    return () => {
+      window.removeEventListener("trip-management:count-changed", handleTripCountChanged);
+    };
+  }, []);
 
   return (
     <aside
@@ -112,6 +158,7 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+              const badge = item.href === "/trips" && tripCount !== null ? String(tripCount) : item.badge;
 
               return (
                 <Link
@@ -127,16 +174,16 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
                 >
                   <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary")} />
                   {!collapsed && <span className="flex-1 truncate">{item.title}</span>}
-                  {!collapsed && item.badge && (
+                  {!collapsed && badge && (
                     <span
                       className={cn(
                         "text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0",
-                        item.badge === "AI"
+                        badge === "AI"
                           ? "bg-primary/10 text-primary border border-primary/20"
                           : "bg-muted text-muted-foreground"
                       )}
                     >
-                      {item.badge}
+                      {badge}
                     </span>
                   )}
                 </Link>
