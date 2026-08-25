@@ -1,7 +1,10 @@
 spring:
   application:
     name: api-gateway
-
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   cloud:
     gateway:
       globalcors:
@@ -30,12 +33,15 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: ${EUREKA_DEFAULT_ZONE:http://discovery-server:8761/eureka/}
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
 
   instance:
     prefer-ip-address: true
 
 management:
+  health:
+    redis:
+      enabled: false
   endpoint:
     health:
       probes:
@@ -45,3 +51,11 @@ management:
     web:
       exposure:
         include: health,info
+
+tripsense:
+  gateway:
+    places-rate-limit:
+      replenish-rate: ${PLACES_RATE_LIMIT_REPLENISH_RATE:10}
+      burst-capacity: ${PLACES_RATE_LIMIT_BURST_CAPACITY:20}
+    client-ip:
+      trusted-proxies: ${TRUSTED_PROXY_CIDRS:127.0.0.1/32,::1/128}

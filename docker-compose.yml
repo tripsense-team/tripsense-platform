@@ -1,7 +1,7 @@
 services:
 
   # =========================
-  # DATABASES
+  # DATABASES & CACHE
   # =========================
 
   db:
@@ -17,7 +17,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-
   trip-db:
     image: postgres:17-alpine
     container_name: trip-postgres
@@ -31,33 +30,35 @@ services:
       - trip_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
-
-  # =========================
-  # REDIS
-  # =========================
+  mongodb:
+    image: mongo:7.0
+    container_name: place-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    container_name: trip-redis
+    container_name: tripsense-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     restart: unless-stopped
 
-
   # =========================
-  # EUREKA
+  # EUREKA DISCOVERY SERVER
   # =========================
 
   discovery-server:
     build:
       context: .
       dockerfile: services/discovery-server/Dockerfile
-
     container_name: discovery-server
-
     ports:
       - "8761:8761"
-
     healthcheck:
       test:
         [
@@ -68,9 +69,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-
     restart: unless-stopped
-
 
   # =========================
   # API GATEWAY
@@ -80,21 +79,22 @@ services:
     build:
       context: .
       dockerfile: services/api-gateway/Dockerfile
-
     container_name: api-gateway
-
+    env_file:
+      - path: ./.env
+        required: false
     environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
-
     depends_on:
       discovery-server:
         condition: service_healthy
-
+      redis:
+        condition: service_started
     ports:
       - "8080:8080"
-
     restart: unless-stopped
-
 
   # =========================
   # PLACE SERVICE
@@ -104,21 +104,32 @@ services:
     build:
       context: .
       dockerfile: services/place-service/Dockerfile
-
     container_name: place-service
-
+    env_file:
+      - path: ./.env
+        required: false
+      - path: ./services/place-service/.env
+        required: false
     environment:
+      MONGODB_URI: mongodb://mongodb:27017/tripsense_places
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SERVER_PORT: 8082
+      ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
-
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
     depends_on:
       discovery-server:
         condition: service_healthy
-
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
     ports:
-      - "8083:8082"
-
+      - "8082:8082"
     restart: unless-stopped
-
 
   # =========================
   # MAIL SERVICE
@@ -128,27 +139,23 @@ services:
     build:
       context: .
       dockerfile: services/mail-service/Dockerfile
-
     container_name: mail-service
-
     env_file:
-      - ./env/.env
-
+      - path: ./.env
+        required: false
+      - path: ./env/.env
+        required: false
     environment:
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
-
     depends_on:
       discovery-server:
         condition: service_healthy
-
     ports:
-      - "8082:8082"
-
+      - "8083:8082"
     restart: unless-stopped
-
 
   # =========================
   # USER SERVICE
@@ -158,36 +165,31 @@ services:
     build:
       context: .
       dockerfile: services/user-service/Dockerfile
-
     container_name: user-service
-
     env_file:
-      - ./env/.env
-
+      - path: ./.env
+        required: false
+      - path: ./env/.env
+        required: false
     environment:
       DB_HOST: db
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-123456}
       EMAIL_SERVICE_URL: http://mail-service:8082
-
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
-
     depends_on:
       db:
         condition: service_started
-
       mail-service:
         condition: service_started
-
       discovery-server:
         condition: service_healthy
-
     ports:
       - "8081:8081"
-
     restart: unless-stopped
-
 
   # =========================
   # TRIP SERVICE
@@ -197,40 +199,51 @@ services:
     build:
       context: .
       dockerfile: services/trip-service/Dockerfile
-
     container_name: trip-service
-
     env_file:
-      - ./env/.env
-
+      - path: ./.env
+        required: false
+      - path: ./env/.env
+        required: false
     environment:
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: "5432"
-
+      TRIP_DB_USER: ${TRIP_DB_USER:-postgres}
+      TRIP_DB_PASS: ${TRIP_DB_PASS:-123456}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
-
     depends_on:
       trip-db:
         condition: service_started
-
       redis:
         condition: service_started
-
       discovery-server:
         condition: service_healthy
-
     ports:
       - "8084:8084"
-
     restart: unless-stopped
 
+  # =========================
+  # DOCKER WEB UI (PORTAINER)
+  # =========================
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: tripsense-portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   trip_postgres_data:
+  mongodb_data:
+  redis_data:
+  portainer_data:
