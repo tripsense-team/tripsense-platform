@@ -34,17 +34,14 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
       ? refreshedPlace
       : initialPlace;
 
-  const place = currentPlace;
-  const primaryCategory = place?.categories && place.categories.length > 0 ? place.categories[0] : null;
-
   const handleRefreshDetails = React.useCallback(async () => {
-    if (!place) return;
+    if (!currentPlace) return;
     setIsLoadingReviews(true);
     try {
-      const targetId = (place.providerPlaceId && !place.providerPlaceId.startsWith("poi_"))
-        ? place.providerPlaceId
-        : place.id;
-      const res = await getPlaceDetails(targetId, place.name, place.location?.lat, place.location?.lng);
+      const targetId = (currentPlace.providerPlaceId && !currentPlace.providerPlaceId.startsWith("poi_"))
+        ? currentPlace.providerPlaceId
+        : currentPlace.id;
+      const res = await getPlaceDetails(targetId, currentPlace.name, currentPlace.location?.lat, currentPlace.location?.lng);
       if (res && res.success && res.data) {
         setRefreshedPlace(res.data);
       }
@@ -53,15 +50,18 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
     } finally {
       setIsLoadingReviews(false);
     }
-  }, [place]);
+  }, [currentPlace]);
 
   React.useEffect(() => {
-    if (isOpen && place && (!place.reviews || place.reviews.length === 0)) {
+    if (isOpen && currentPlace && (!currentPlace.reviews || currentPlace.reviews.length === 0)) {
       handleRefreshDetails();
     }
-  }, [isOpen, place?.id, place?.providerPlaceId]);
+  }, [isOpen, currentPlace?.id, currentPlace?.providerPlaceId, handleRefreshDetails]);
 
   if (!currentPlace) return null;
+
+  const place = currentPlace;
+  const primaryCategory = place.categories && place.categories.length > 0 ? place.categories[0] : null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

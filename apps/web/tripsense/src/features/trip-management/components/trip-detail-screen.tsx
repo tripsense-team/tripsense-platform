@@ -1,14 +1,27 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowUp, Briefcase, Calendar, ChevronDown, ChevronRight, ClipboardCheck, Compass, Edit3, File, GripVertical, Info, Lightbulb, Mic, Plus, Send, Share, Sparkles, Trash2, X } from "lucide-react";
+import dynamic from "next/dynamic";
+import { ArrowDown, ArrowLeft, ArrowUp, Briefcase, Calendar, ChevronDown, ChevronRight, ClipboardCheck, Edit3, File, GripVertical, Info, Lightbulb, Mic, Plus, Send, Share, Sparkles, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import type { ItineraryDayResponse, ItineraryItemResponse, ItineraryResponse, TripResponse } from "../types";
+import type { Place } from "@/features/places/types";
 import { countTripDays, displayTripTitle, formatDate, formatShortRange, itemTypeLabel, titleCaseDestination, tripTimingPhrase } from "../utils/format";
-import { mapEmbedForDestination } from "../utils/map";
 import { formatDisplayTimeRange } from "../utils/time";
+
+const MapVinaContainer = dynamic(
+  () => import("@/features/map/components/mapvina-container").then((mod) => mod.MapVinaContainer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center rounded-2xl border border-border bg-muted/40 text-muted-foreground text-sm font-medium animate-pulse">
+        <span>Đang tải bản đồ MapVina...</span>
+      </div>
+    ),
+  }
+);
 
 type TripDetailPanel = "overview" | "itinerary";
 
@@ -63,6 +76,31 @@ export function TripDetailScreen({
 
   const destination = titleCaseDestination(trip.destinationName);
   const title = displayTripTitle(trip);
+
+  const mapPlaces: Place[] = React.useMemo(() => {
+    const places: Place[] = [];
+    if (itinerary?.days) {
+      for (const day of itinerary.days) {
+        for (const item of day.items) {
+          if (item.latSnapshot != null && item.lngSnapshot != null) {
+            places.push({
+              id: item.id,
+              providerPlaceId: item.placeId || undefined,
+              name: item.title || item.placeNameSnapshot || "Điểm đến",
+              location: {
+                lat: item.latSnapshot,
+                lng: item.lngSnapshot,
+              },
+              address: item.placeAddressSnapshot || undefined,
+              categories: [item.type.toLowerCase()],
+              photos: [],
+            });
+          }
+        }
+      }
+    }
+    return places;
+  }, [itinerary]);
 
   return (
     <section className="min-h-screen px-6 py-6 sm:px-8 lg:px-12 xl:px-16">
@@ -152,7 +190,7 @@ export function TripDetailScreen({
             <ActionTile icon={Info} label="Trip preferences" badge="4" />
             <ActionTile icon={Calendar} label="Calendar" href="/calendar" />
               </div>
-              <MapPreview destination={trip.destinationName} />
+              <MapPreview destination={trip.destinationName} places={mapPlaces} />
             </>
           ) : (
             <ItineraryPanel
@@ -207,25 +245,35 @@ function ActionTile({
   );
 }
 
-function MapPreview({ destination }: { destination: string }) {
-  const mapUrl = mapEmbedForDestination(destination);
+function getDestinationCenter(destination: string): [number, number] {
+  const norm = (destination || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  if (norm.includes("da nang")) return [108.2022, 16.0544];
+  if (norm.includes("ha noi") || norm.includes("hanoi")) return [105.8342, 21.0278];
+  if (norm.includes("ho chi minh") || norm.includes("sai gon") || norm.includes("hcm")) return [106.6297, 10.8231];
+  if (norm.includes("hoi an")) return [108.3262, 15.8801];
+  if (norm.includes("hue")) return [107.5905, 16.4637];
+  if (norm.includes("nha trang")) return [109.1967, 12.2388];
+  if (norm.includes("da lat") || norm.includes("dalat")) return [108.4583, 11.9404];
+  if (norm.includes("phu quoc")) return [103.9630, 10.2899];
+  if (norm.includes("quy nhon")) return [109.2197, 13.7820];
+  if (norm.includes("vung tau")) return [107.0843, 10.3460];
+  return [108.2022, 16.0544];
+}
+
+function MapPreview({ destination, places = [] }: { destination: string; places?: Place[] }) {
+  const [selectedPlaceId, setSelectedPlaceId] = React.useState<string | null>(null);
+  const center = React.useMemo(() => getDestinationCenter(destination), [destination]);
 
   return (
-    <div className="relative h-[360px] overflow-hidden rounded-2xl border border-border bg-muted shadow-xs">
-      <iframe
-        title={`${destination} map`}
-        src={mapUrl}
-        className="h-full w-full border-0"
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
+    <div className="relative h-[380px] w-full overflow-hidden rounded-3xl border border-border bg-muted shadow-sm">
+      <MapVinaContainer
+        places={places}
+        selectedPlaceId={selectedPlaceId}
+        onSelectPlace={setSelectedPlaceId}
+        center={center}
+        zoom={places.length > 0 ? 13 : 12}
+        className="h-full w-full"
       />
-      <div className="absolute bottom-8 right-8 flex flex-col overflow-hidden rounded-full border border-border bg-background shadow-sm">
-        <button type="button" className="flex h-8 w-8 items-center justify-center text-base font-bold">+</button>
-        <button type="button" className="flex h-8 w-8 items-center justify-center border-t border-border text-base font-bold">-</button>
-      </div>
-      <button type="button" className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm" aria-label="Center map">
-        <Compass className="h-5 w-5" />
-      </button>
     </div>
   );
 }
