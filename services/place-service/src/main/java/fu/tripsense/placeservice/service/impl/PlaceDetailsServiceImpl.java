@@ -58,11 +58,36 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
             log.warn("Failed to query place details from MongoDB for id '{}': {}", id, ex.getMessage());
         }
 
-        Optional<PlaceDto> providerDetails = provider.getPlaceDetails(id);
+        Optional<PlaceDto> providerDetails = Optional.empty();
+        if (!id.startsWith("poi_")) {
+            try {
+                providerDetails = provider.getPlaceDetails(id);
+            } catch (Exception ex) {
+                log.debug("Direct place details lookup failed for id '{}': {}", id, ex.getMessage());
+            }
+        }
+
         if (providerDetails.isEmpty() && StringUtils.hasText(fallbackName)) {
-            providerDetails = provider.textSearch(fallbackName, fallbackLat, fallbackLng, 5000, 1)
-                    .stream()
-                    .findFirst();
+            try {
+                Optional<PlaceDto> found = provider.textSearch(fallbackName, fallbackLat, fallbackLng, 5000, 1)
+                        .stream()
+                        .findFirst();
+                if (found.isPresent()) {
+                    String zioId = found.get().getProviderPlaceId();
+                    if (StringUtils.hasText(zioId) && !zioId.startsWith("poi_")) {
+                        try {
+                            Optional<PlaceDto> deep = provider.getPlaceDetails(zioId);
+                            providerDetails = deep.isPresent() ? deep : found;
+                        } catch (Exception ex) {
+                            providerDetails = found;
+                        }
+                    } else {
+                        providerDetails = found;
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to find fallback place details for '{}': {}", fallbackName, ex.getMessage());
+            }
         }
         if (providerDetails.isEmpty()) return Optional.empty();
 
@@ -90,6 +115,17 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
         Double lat = place.getLocation() == null ? fallbackLat : Double.valueOf(place.getLocation().getY());
         Double lng = place.getLocation() == null ? fallbackLng : Double.valueOf(place.getLocation().getX());
         try {
+            if (StringUtils.hasText(place.getProviderPlaceId()) && !place.getProviderPlaceId().startsWith("poi_")) {
+                try {
+                    Optional<PlaceDto> deep = provider.getPlaceDetails(place.getProviderPlaceId());
+                    if (deep.isPresent()) {
+                        PlaceDto refreshed = persistence.enrichExistingPlace(place, deep.get());
+                        cacheDetails(place.getId(), refreshed);
+                        return refreshed;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
             Optional<PlaceDto> enrichment = enrichmentProvider.enrichPlace(place.getName(), lat, lng);
             if (enrichment.isPresent()) {
                 PlaceDto refreshed = persistence.enrichExistingPlace(place, enrichment.get());

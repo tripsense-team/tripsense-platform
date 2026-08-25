@@ -268,6 +268,7 @@ export function PlaceDiscoveryView() {
               ...place,
               ...match,
               id: place.id, // keep id stable for selection
+              providerPlaceId: match.providerPlaceId || match.id,
               address: match.address || place.address,
               categories: match.categories && match.categories.length > 0 ? match.categories : place.categories,
             };
@@ -282,7 +283,9 @@ export function PlaceDiscoveryView() {
 
   // Synchronized details opener with intelligent caching
   const handleOpenDetails = React.useCallback(async (place: Place) => {
-    const lookupId = place.id || place.providerPlaceId;
+    const lookupId = (place.providerPlaceId && !place.providerPlaceId.startsWith("poi_"))
+      ? place.providerPlaceId
+      : place.id;
     setSelectedPlaceId(place.id);
 
     // Ensure place is present in places state so it renders a marker on the map

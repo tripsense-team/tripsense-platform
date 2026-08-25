@@ -30,19 +30,21 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
   const [isLoadingReviews, setIsLoadingReviews] = React.useState(false);
 
   const currentPlace =
-    refreshedPlace && initialPlace && refreshedPlace.id === initialPlace.id
+    refreshedPlace && initialPlace && (refreshedPlace.id === initialPlace.id || refreshedPlace.providerPlaceId === initialPlace.providerPlaceId)
       ? refreshedPlace
       : initialPlace;
 
-  if (!currentPlace) return null;
-
   const place = currentPlace;
-  const primaryCategory = place.categories && place.categories.length > 0 ? place.categories[0] : null;
+  const primaryCategory = place?.categories && place.categories.length > 0 ? place.categories[0] : null;
 
-  const handleRefreshDetails = async () => {
+  const handleRefreshDetails = React.useCallback(async () => {
+    if (!place) return;
     setIsLoadingReviews(true);
     try {
-      const res = await getPlaceDetails(place.id, place.name, place.location?.lat, place.location?.lng);
+      const targetId = (place.providerPlaceId && !place.providerPlaceId.startsWith("poi_"))
+        ? place.providerPlaceId
+        : place.id;
+      const res = await getPlaceDetails(targetId, place.name, place.location?.lat, place.location?.lng);
       if (res && res.success && res.data) {
         setRefreshedPlace(res.data);
       }
@@ -51,7 +53,15 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
     } finally {
       setIsLoadingReviews(false);
     }
-  };
+  }, [place]);
+
+  React.useEffect(() => {
+    if (isOpen && place && (!place.reviews || place.reviews.length === 0)) {
+      handleRefreshDetails();
+    }
+  }, [isOpen, place?.id, place?.providerPlaceId]);
+
+  if (!currentPlace) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -293,6 +303,11 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
                     )}
                   </div>
                 ))}
+              </div>
+            ) : isLoadingReviews ? (
+              <div className="p-6 rounded-2xl bg-muted/40 border border-border/60 flex flex-col items-center justify-center gap-2.5">
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-muted-foreground font-medium">Đang tải đánh giá từ Google...</span>
               </div>
             ) : (
               /* On-Demand Google Reviews Button - only if loading done and still no reviews */

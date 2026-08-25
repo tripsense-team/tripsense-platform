@@ -61,7 +61,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
                     .queryParam("regionCode", "vn")
                     .queryParam("maxResultCount", maxCount)
                     .queryParam("rankPreference", "RELEVANCE")
-                    .queryParam("fieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos,places.regularOpeningHours,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.businessStatus");
+                    .queryParam("fieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos,places.regularOpeningHours,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.businessStatus,places.types,places.primaryType");
 
             if (lat != null && lng != null) {
                 uriBuilder.queryParam("location", lat + "," + lng);
@@ -274,7 +274,16 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     private List<String> inferCategoriesFromName(String name) {
         String lower = name != null ? name.toLowerCase(Locale.ROOT) : "";
         List<String> list = new ArrayList<>();
-        if (lower.contains("cafe") || lower.contains("coffee") || lower.contains("cà phê")) {
+        if (lower.contains("nha khoa") || lower.contains("dental") || lower.contains("răng") || lower.contains("niềng")) {
+            list.add("nha khoa");
+            list.add("y tế");
+        } else if (lower.contains("bệnh viện") || lower.contains("phòng khám") || lower.contains("clinic") || lower.contains("y tế") || lower.contains("dược") || lower.contains("nhà thuốc")) {
+            list.add("y tế");
+            list.add("phòng khám");
+        } else if (lower.contains("hotel") || lower.contains("khách sạn") || lower.contains("resort") || lower.contains("homestay") || lower.contains("villa") || lower.contains("hostel")) {
+            list.add("khách sạn");
+            list.add("lưu trú");
+        } else if (lower.contains("cafe") || lower.contains("coffee") || lower.contains("cà phê") || lower.contains("tea") || lower.contains("trà sữa")) {
             list.add("quán cafe");
             list.add("đồ uống");
         } else if (lower.contains("ốc") || lower.contains("hải sản") || lower.contains("seafood")) {
@@ -289,11 +298,17 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         } else if (lower.contains("bánh") || lower.contains("cuốn") || lower.contains("bún") || lower.contains("mì") || lower.contains("hủ tiếu") || lower.contains("phở")) {
             list.add("đặc sản đà nẵng");
             list.add("ẩm thực truyền thống");
-        } else if (lower.contains("cơm") || lower.contains("quán") || lower.contains("nhà hàng")) {
+        } else if (lower.contains("cơm") || lower.contains("quán") || lower.contains("nhà hàng") || lower.contains("ẩm thực")) {
             list.add("ẩm thực việt");
             list.add("nhà hàng");
+        } else if (lower.contains("chợ") || lower.contains("siêu thị") || lower.contains("mall") || lower.contains("shop") || lower.contains("store") || lower.contains("plaza")) {
+            list.add("mua sắm");
+            list.add("trung tâm thương mại");
+        } else if (lower.contains("du lịch") || lower.contains("tour") || lower.contains("bà nà") || lower.contains("bana") || lower.contains("chùa") || lower.contains("đền") || lower.contains("cầu") || lower.contains("bãi biển") || lower.contains("núi")) {
+            list.add("điểm tham quan");
+            list.add("du lịch");
         } else {
-            list.add("ẩm thực đà nẵng");
+            list.add("địa điểm khám phá");
         }
         return list;
     }
