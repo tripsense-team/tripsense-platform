@@ -173,6 +173,8 @@ services:
         required: false
     environment:
       DB_HOST: db
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-123456}
       EMAIL_SERVICE_URL: http://mail-service:8082
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
@@ -206,6 +208,8 @@ services:
     environment:
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: "5432"
+      TRIP_DB_USER: ${TRIP_DB_USER:-postgres}
+      TRIP_DB_PASS: ${TRIP_DB_PASS:-123456}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
@@ -223,8 +227,23 @@ services:
       - "8084:8084"
     restart: unless-stopped
 
+  # =========================
+  # DOCKER WEB UI (PORTAINER)
+  # =========================
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: tripsense-portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   trip_postgres_data:
   mongodb_data:
   redis_data:
+  portainer_data:
