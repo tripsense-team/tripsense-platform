@@ -19,6 +19,28 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  trip-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tripsense_trip
+      POSTGRES_USER: ${TRIP_DB_USER}
+      POSTGRES_PASSWORD: ${TRIP_DB_PASS}
+    volumes:
+      - trip_postgres_data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
   discovery-server:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-discovery-server:${IMAGE_TAG}
     restart: unless-stopped
@@ -42,12 +64,21 @@ services:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-place-service:${IMAGE_TAG}
     restart: unless-stopped
     environment:
+      MONGODB_URI: mongodb://mongodb:27017/tripsense_places
+      MONGODB_DATABASE: tripsense_places
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SERVER_PORT: 8082
+      ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
+      ZIOMAP_API_KEY: ${ZIOMAP_API_KEY}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
     depends_on:
       - discovery-server
+      - mongodb
+      - redis
 
   user-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-user-service:${IMAGE_TAG}
@@ -67,16 +98,45 @@ services:
       - db
       - mail-service
 
+  trip-service:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-trip-service:${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      TRIP_DB_HOST: trip-db
+      TRIP_DB_PORT: 5432
+      TRIP_DB_USER: ${TRIP_DB_USER}
+      TRIP_DB_PASS: ${TRIP_DB_PASS}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      PLACE_SERVICE_URL: http://place-service:8082
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      - trip-db
+      - redis
+      - place-service
+      - discovery-server
+
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
     environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
       - discovery-server
+      - redis
       - user-service
       - place-service
       - mail-service
+      - trip-service
 
 volumes:
   postgres_data:
+  trip_postgres_data:
+  mongodb_data:
+  redis_data:
