@@ -34,17 +34,21 @@ class GatewayRoutesConfig {
     RouteLocator tripSenseRoutes(
             RouteLocatorBuilder routes,
             RedisRateLimiter placeRedisRateLimiter,
-            KeyResolver clientIpKeyResolver
+            KeyResolver clientIpKeyResolver,
+            @Value("${tripsense.gateway.places-rate-limit.enabled:false}") boolean rateLimitingEnabled
     ) {
         return routes.routes()
-                .route(PLACE_SERVICE_ROUTE_ID, route -> route
-                        .path(PLACE_SERVICE_PATH)
-                        .filters(filters -> filters.requestRateLimiter(config -> {
+                .route(PLACE_SERVICE_ROUTE_ID, route -> {
+                    var r = route.path(PLACE_SERVICE_PATH);
+                    if (rateLimitingEnabled) {
+                        r.filters(filters -> filters.requestRateLimiter(config -> {
                             config.setRateLimiter(placeRedisRateLimiter);
                             config.setKeyResolver(clientIpKeyResolver);
                             config.setDenyEmptyKey(true);
-                        }))
-                        .uri(PLACE_SERVICE_URI))
+                        }));
+                    }
+                    return r.uri(PLACE_SERVICE_URI);
+                })
                 .route(USER_SERVICE_ROUTE_ID, route -> route
                         .path(USER_SERVICE_AUTH_PATH, USER_SERVICE_USERS_PATH)
                         .uri(USER_SERVICE_URI))

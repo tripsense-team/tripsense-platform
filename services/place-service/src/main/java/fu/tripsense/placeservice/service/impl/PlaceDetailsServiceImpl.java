@@ -48,10 +48,14 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
         Optional<PlaceDto> cached = cache.getPlaceDetails(id);
         if (cached.filter(this::hasCompleteDetails).isPresent()) return cached;
 
-        Optional<Place> stored = repository.findById(id)
-                .or(() -> repository.findByProviderAndProviderPlaceId(provider.getProviderName(), id));
-        if (stored.isPresent()) {
-            return Optional.of(refreshIfNeeded(stored.get(), fallbackLat, fallbackLng));
+        try {
+            Optional<Place> stored = repository.findById(id)
+                    .or(() -> repository.findByProviderAndProviderPlaceId(provider.getProviderName(), id));
+            if (stored.isPresent()) {
+                return Optional.of(refreshIfNeeded(stored.get(), fallbackLat, fallbackLng));
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to query place details from MongoDB for id '{}': {}", id, ex.getMessage());
         }
 
         Optional<PlaceDto> providerDetails = provider.getPlaceDetails(id);
@@ -63,10 +67,17 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
         if (providerDetails.isEmpty()) return Optional.empty();
 
         PlaceDto saved = persistence.upsertProviderPlace(providerDetails.get(), provider.getProviderName());
-        Place entity = repository.findById(saved.getId()).orElse(null);
+        Place entity = null;
+        if (saved != null && StringUtils.hasText(saved.getId())) {
+            try {
+                entity = repository.findById(saved.getId()).orElse(null);
+            } catch (Exception ex) {
+                log.warn("Failed to query saved place from MongoDB: {}", ex.getMessage());
+            }
+        }
         PlaceDto result = entity == null ? saved : refreshIfNeeded(entity, fallbackLat, fallbackLng);
         cacheDetails(id, result);
-        return Optional.of(result);
+        return Optional.ofNullable(result);
     }
 
     private PlaceDto refreshIfNeeded(Place place, Double fallbackLat, Double fallbackLng) {

@@ -3,9 +3,9 @@ spring:
     name: place-service
   data:
     mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/tripsense_places}
+      uri: ${MONGODB_URI:mongodb://localhost:27017/tripsense_places?serverSelectionTimeoutMS=500&connectTimeoutMS=500}
       database: ${MONGODB_DATABASE:tripsense_places}
-      auto-index-creation: true
+      auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:false}
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
@@ -42,6 +42,13 @@ eureka:
     prefer-ip-address: ${EUREKA_PREFER_IP_ADDRESS:true}
 
 management:
+  health:
+    mongo:
+      enabled: false
+    mongodb:
+      enabled: false
+    redis:
+      enabled: false
   endpoint:
     health:
       probes:

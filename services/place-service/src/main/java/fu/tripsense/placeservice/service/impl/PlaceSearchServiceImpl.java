@@ -195,10 +195,16 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
         return query;
     }
 
+    private volatile long lastLocalSearchFailureTime = 0;
+
     private List<Place> findLocalPlaces(String normalizedQuery, int limit) {
+        if (System.currentTimeMillis() - lastLocalSearchFailureTime < 30_000) {
+            return Collections.emptyList();
+        }
         try {
             return repository.searchByText(normalizedQuery, PageRequest.of(0, limit));
         } catch (Exception exception) {
+            lastLocalSearchFailureTime = System.currentTimeMillis();
             log.warn("Local MongoDB text search failed: {}", exception.getMessage());
             return Collections.emptyList();
         }

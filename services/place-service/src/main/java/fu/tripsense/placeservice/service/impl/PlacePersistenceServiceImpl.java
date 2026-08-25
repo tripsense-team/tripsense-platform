@@ -12,16 +12,20 @@ import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+@Slf4j
 @Service
 public class PlacePersistenceServiceImpl implements PlacePersistenceService {
 
     private final PlaceRepository repository;
     private final TripSensePlaceProperties properties;
+    private volatile long lastFailureTime = 0;
 
     public PlacePersistenceServiceImpl(PlaceRepository repository, TripSensePlaceProperties properties) {
         this.repository = repository;
@@ -34,17 +38,37 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
             throw new IllegalArgumentException("Provider place ID is required for persistence");
         }
 
-        String provider = StringUtils.hasText(dto.getProvider()) ? dto.getProvider() : defaultProvider;
-        Place entity = repository.findByProviderAndProviderPlaceId(provider, dto.getProviderPlaceId())
-                .orElseGet(() -> newPlace(dto, provider));
-        applyProviderData(entity, dto);
-        return toDto(repository.save(entity));
+        if (System.currentTimeMillis() - lastFailureTime < 30_000) {
+            return dto;
+        }
+
+        try {
+            String provider = StringUtils.hasText(dto.getProvider()) ? dto.getProvider() : defaultProvider;
+            Place entity = repository.findByProviderAndProviderPlaceId(provider, dto.getProviderPlaceId())
+                    .orElseGet(() -> newPlace(dto, provider));
+            applyProviderData(entity, dto);
+            return toDto(repository.save(entity));
+        } catch (Exception ex) {
+            lastFailureTime = System.currentTimeMillis();
+            log.warn("Failed to upsert place to MongoDB: {}", ex.getMessage());
+            return dto;
+        }
     }
 
     @Override
     public PlaceDto enrichExistingPlace(Place entity, PlaceDto enrichment) {
-        applyProviderData(entity, enrichment);
-        return toDto(repository.save(entity));
+        if (System.currentTimeMillis() - lastFailureTime < 30_000) {
+            return enrichment;
+        }
+
+        try {
+            applyProviderData(entity, enrichment);
+            return toDto(repository.save(entity));
+        } catch (Exception ex) {
+            lastFailureTime = System.currentTimeMillis();
+            log.warn("Failed to enrich place in MongoDB: {}", ex.getMessage());
+            return enrichment;
+        }
     }
 
     @Override
