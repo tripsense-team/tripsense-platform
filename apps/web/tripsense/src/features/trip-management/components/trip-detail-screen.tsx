@@ -62,21 +62,6 @@ export function TripDetailScreen({
 }) {
   const [activePanel, setActivePanel] = React.useState<TripDetailPanel>("overview");
 
-  if (loading) {
-    return <LoadingState className="min-h-screen" text="Loading trip..." />;
-  }
-
-  if (!trip) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-8">
-        <EmptyState icon={Briefcase} title="Trip not found" description={error || "Create or select a trip to continue."} action={<Button onClick={onCreateTrip}>New trip</Button>} />
-      </div>
-    );
-  }
-
-  const destination = titleCaseDestination(trip.destinationName);
-  const title = displayTripTitle(trip);
-
   const mapPlaces: Place[] = React.useMemo(() => {
     const places: Place[] = [];
     if (itinerary?.days) {
@@ -101,6 +86,21 @@ export function TripDetailScreen({
     }
     return places;
   }, [itinerary]);
+
+  if (loading) {
+    return <LoadingState className="min-h-screen" text="Loading trip..." />;
+  }
+
+  if (!trip) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-8">
+        <EmptyState icon={Briefcase} title="Trip not found" description={error || "Create or select a trip to continue."} action={<Button onClick={onCreateTrip}>New trip</Button>} />
+      </div>
+    );
+  }
+
+  const destination = titleCaseDestination(trip.destinationName);
+  const title = displayTripTitle(trip);
 
   return (
     <section className="min-h-screen px-6 py-6 sm:px-8 lg:px-12 xl:px-16">
