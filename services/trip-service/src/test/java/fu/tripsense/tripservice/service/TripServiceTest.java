@@ -37,7 +37,9 @@ class TripServiceTest extends RealInfrastructureTest {
 
     @Test
     void createTripGeneratesItineraryDays() {
-        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 26)));
+        LocalDate startDate = LocalDate.now().plusDays(10);
+        LocalDate endDate = startDate.plusDays(2);
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", startDate, endDate));
 
         ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
 
@@ -46,7 +48,7 @@ class TripServiceTest extends RealInfrastructureTest {
                 .containsExactly(1, 2, 3);
         assertThat(itinerary.days())
                 .extracting(ItineraryDayResponse::date)
-                .containsExactly(LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 25), LocalDate.of(2026, 8, 26));
+                .containsExactly(startDate, startDate.plusDays(1), endDate);
     }
 
     @Test
