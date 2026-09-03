@@ -559,7 +559,7 @@ export function MapVinaContainer({
       if (!place.location || typeof place.location.lat !== "number" || typeof place.location.lng !== "number") {
         return;
       }
-      const isSelected = place.id === selectedPlaceId;
+      const isSelected = place.id === selectedPlaceId || (!!place.providerPlaceId && place.providerPlaceId === selectedPlaceId);
       const innerWrapper = createMarkerWrapper(place, isSelected, currentZoom);
 
       if (markersRef.current[place.id]) {
@@ -605,7 +605,7 @@ export function MapVinaContainer({
 
     if (!selectedPlaceId) return;
 
-    const place = places.find((p) => p.id === selectedPlaceId);
+    const place = places.find((p) => p.id === selectedPlaceId || (!!p.providerPlaceId && p.providerPlaceId === selectedPlaceId));
     if (!place || !place.location) return;
 
     const targetZoom = Math.max(map.getZoom(), 15.5);

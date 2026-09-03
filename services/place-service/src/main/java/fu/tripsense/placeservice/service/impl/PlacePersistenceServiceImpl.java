@@ -39,6 +39,9 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         }
 
         if (System.currentTimeMillis() - lastFailureTime < 30_000) {
+            if (!StringUtils.hasText(dto.getId())) {
+                dto.setId(dto.getProviderPlaceId());
+            }
             return dto;
         }
 
@@ -51,6 +54,9 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         } catch (Exception ex) {
             lastFailureTime = System.currentTimeMillis();
             log.warn("Failed to upsert place to MongoDB: {}", ex.getMessage());
+            if (!StringUtils.hasText(dto.getId())) {
+                dto.setId(dto.getProviderPlaceId());
+            }
             return dto;
         }
     }

@@ -255,6 +255,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         }
 
         return PlaceDto.builder()
+                .id(item.getId())
                 .provider(PROVIDER_NAME)
                 .providerPlaceId(item.getId())
                 .name(name)
@@ -362,6 +363,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         }
 
         return PlaceDto.builder()
+                .id(item.getPlaceId())
                 .provider(PROVIDER_NAME)
                 .providerPlaceId(item.getPlaceId())
                 .name(item.getName())

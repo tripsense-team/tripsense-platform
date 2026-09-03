@@ -34,29 +34,35 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
       ? refreshedPlace
       : initialPlace;
 
-  const handleRefreshDetails = React.useCallback(async () => {
-    if (!currentPlace) return;
-    setIsLoadingReviews(true);
-    try {
+  React.useEffect(() => {
+    let ignore = false;
+    if (isOpen && currentPlace && (!currentPlace.reviews || currentPlace.reviews.length === 0)) {
       const targetId = (currentPlace.providerPlaceId && !currentPlace.providerPlaceId.startsWith("poi_"))
         ? currentPlace.providerPlaceId
         : currentPlace.id;
-      const res = await getPlaceDetails(targetId, currentPlace.name, currentPlace.location?.lat, currentPlace.location?.lng);
-      if (res && res.success && res.data) {
-        setRefreshedPlace(res.data);
-      }
-    } catch (err) {
-      console.error("Error fetching Google reviews:", err);
-    } finally {
-      setIsLoadingReviews(false);
-    }
-  }, [currentPlace]);
 
-  React.useEffect(() => {
-    if (isOpen && currentPlace && (!currentPlace.reviews || currentPlace.reviews.length === 0)) {
-      handleRefreshDetails();
+      Promise.resolve().then(() => {
+        if (!ignore) setIsLoadingReviews(true);
+      });
+
+      getPlaceDetails(targetId, currentPlace.name, currentPlace.location?.lat, currentPlace.location?.lng)
+        .then((res) => {
+          if (!ignore && res && res.success && res.data) {
+            setRefreshedPlace(res.data);
+          }
+        })
+        .catch((err) => {
+          if (!ignore) console.error("Error fetching Google reviews:", err);
+        })
+        .finally(() => {
+          if (!ignore) setIsLoadingReviews(false);
+        });
     }
-  }, [isOpen, currentPlace?.id, currentPlace?.providerPlaceId, handleRefreshDetails]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [isOpen, currentPlace]);
 
   if (!currentPlace) return null;
 

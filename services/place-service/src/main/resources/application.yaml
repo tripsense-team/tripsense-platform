@@ -1,6 +1,9 @@
 spring:
   application:
     name: place-service
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/tripsense_places?serverSelectionTimeoutMS=500&connectTimeoutMS=500}
+    database: ${MONGODB_DATABASE:tripsense_places}
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/tripsense_places?serverSelectionTimeoutMS=500&connectTimeoutMS=500}
