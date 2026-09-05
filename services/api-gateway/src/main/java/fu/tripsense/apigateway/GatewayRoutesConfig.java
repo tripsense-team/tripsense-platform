@@ -42,7 +42,7 @@ class GatewayRoutesConfig {
             RedisRateLimiter socialRedisRateLimiter,
             KeyResolver clientIpKeyResolver,
             @Value("${tripsense.gateway.places-rate-limit.enabled:false}") boolean placeRateLimitingEnabled,
-            @Value("${tripsense.gateway.social-rate-limit.enabled:true}") boolean socialRateLimitingEnabled
+            @Value("${tripsense.gateway.social-rate-limit.enabled:false}") boolean socialRateLimitingEnabled
     ) {
         return routes.routes()
                 .route(PLACE_SERVICE_ROUTE_ID, route -> {

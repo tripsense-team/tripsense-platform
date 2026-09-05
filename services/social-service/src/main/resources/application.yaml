@@ -23,12 +23,13 @@ eureka:
   instance:
     prefer-ip-address: true
 jwt:
-  access-secret: ${JWT_ACCESS_SECRET}
+  access-secret: ${JWT_ACCESS_SECRET:replace-with-at-least-32-random-characters}
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}
   api-key: ${CLOUDINARY_API_KEY:}
   api-secret: ${CLOUDINARY_API_SECRET:}
   folder-prefix: ${CLOUDINARY_SOCIAL_FOLDER:tripsense/social}
+  signature-algorithm: ${CLOUDINARY_SIGNATURE_ALGORITHM:sha256}
 management:
   endpoints:
     web:
