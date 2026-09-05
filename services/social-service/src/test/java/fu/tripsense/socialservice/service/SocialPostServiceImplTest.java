@@ -157,4 +157,36 @@ class SocialPostServiceImplTest {
         assertThat(result).isEqualTo(new ToggleLikeResponse(true, 2));
         verify(commentLikes, never()).save(any());
     }
+
+    @Test void createsUploadSignatureWithSha256ByDefault() {
+        UploadSignatureResponse response = service.createUploadSignature(user, new UploadSignatureRequest("image"));
+
+        assertThat(response.cloudName()).isEqualTo("tripsense");
+        assertThat(response.apiKey()).isEqualTo("key");
+        assertThat(response.folder()).isEqualTo("tripsense/social/" + user.id());
+        assertThat(response.signature()).isNotEmpty().hasSize(64); // SHA-256 produces 64 hex characters
+        assertThat(response.allowedFormats()).contains("jpg", "jpeg", "png", "webp", "avif");
+    }
+
+    @Test void createsUploadSignatureWithSha1WhenConfigured() {
+        ReflectionTestUtils.setField(service, "signatureAlgorithm", "sha1");
+
+        UploadSignatureResponse response = service.createUploadSignature(user, new UploadSignatureRequest("image"));
+
+        assertThat(response.signature()).isNotEmpty().hasSize(40); // SHA-1 produces 40 hex characters
+    }
+
+    @Test void rejectsUploadSignatureWhenCloudinaryNotConfigured() {
+        ReflectionTestUtils.setField(service, "cloudName", "");
+
+        assertThatThrownBy(() -> service.createUploadSignature(user, new UploadSignatureRequest("image")))
+                .isInstanceOf(SocialException.class)
+                .hasMessageContaining("Media upload is not configured");
+    }
+
+    @Test void rejectsUploadSignatureForNonImageResourceType() {
+        assertThatThrownBy(() -> service.createUploadSignature(user, new UploadSignatureRequest("video")))
+                .isInstanceOf(SocialException.class)
+                .hasMessageContaining("Only image uploads are supported");
+    }
 }
