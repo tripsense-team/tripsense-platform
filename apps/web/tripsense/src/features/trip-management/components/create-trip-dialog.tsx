@@ -18,6 +18,7 @@ interface CreateTripDialogProps {
   open: boolean;
   draft: CreateTripRequest;
   submitting: boolean;
+  error?: string | null;
   onOpenChange: (open: boolean) => void;
   onDraftChange: React.Dispatch<React.SetStateAction<CreateTripRequest>>;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -50,6 +51,7 @@ export function CreateTripDialog({
   open,
   draft,
   submitting,
+  error,
   onOpenChange,
   onDraftChange,
   onSubmit,
@@ -271,6 +273,11 @@ export function CreateTripDialog({
               {draft.budgetAmount ? <TripPill icon={Check} label={`${draft.budgetAmount.toLocaleString("vi-VN")} ${draft.budgetCurrency || "VND"}`} /> : null}
             </div>
 
+            {error && (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
+                {error}
+              </div>
+            )}
             {validationMessage && <p className="text-center text-sm font-medium text-destructive">{validationMessage}</p>}
             <Button type="submit" disabled={!canCreate} title={validationMessage || undefined} className="h-12 rounded-full text-base font-bold">
               {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}

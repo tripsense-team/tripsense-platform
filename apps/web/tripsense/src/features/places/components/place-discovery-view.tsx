@@ -6,7 +6,7 @@ import { Compass, Sparkles, Coffee, Utensils, Waves, ShoppingBag } from "lucide-
 import { SearchBar } from "./search-bar";
 import { PlaceDetailModal } from "./place-detail-modal";
 import { searchPlaces, getPlaceDetails } from "../services/places-api";
-import type { Place } from "../types";
+import type { Place, AutocompleteSuggestion } from "../types";
 
 // Dynamically import MapVina container with ssr disabled
 const MapVinaContainer = dynamic(
@@ -348,6 +348,35 @@ export function PlaceDiscoveryView() {
     }
   }, []);
 
+  const handleSelectSuggestion = React.useCallback(
+    async (val: string, suggestion?: AutocompleteSuggestion) => {
+      setQuery(val);
+      if (suggestion?.id) {
+        setIsLoading(true);
+        try {
+          // 1. Try to fetch direct details by suggestion.id or title
+          const res = await getPlaceDetails(suggestion.id, suggestion.title);
+          if (res && res.success && res.data && res.data.location) {
+            const place = res.data;
+            setPlaces((prev) => {
+              const filtered = prev.filter((p) => p.id !== place.id);
+              return [place, ...filtered];
+            });
+            setSelectedPlaceId(place.id);
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("Direct suggestion detail fetch error, falling back to search:", e);
+        }
+      }
+
+      // 2. Fallback to search query and pin top match
+      executeSearch(val, true, false);
+    },
+    [executeSearch]
+  );
+
   const handleCategoryClick = (cat: typeof CATEGORY_CHIPS[0]) => {
     setActiveCategory(cat.id);
     activeCategoryQueryRef.current = cat.query;
@@ -361,10 +390,8 @@ export function PlaceDiscoveryView() {
         <div className="flex-1 max-w-2xl">
           <SearchBar
             initialQuery={query}
-            onSearch={(val) => {
-              setQuery(val);
-              // Explicit keyword search searches city-wide and flies to top match
-              executeSearch(val, true, false);
+            onSearch={(val, suggestion) => {
+              handleSelectSuggestion(val, suggestion);
             }}
             onClear={() => {
               setQuery("");

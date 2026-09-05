@@ -59,4 +59,28 @@ describe("places API client", () => {
       message: "Please retry",
     });
   });
+
+  it("normalizes places with missing id using providerPlaceId or fallback", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              providerPlaceId: "prov-123",
+              name: "Coffee Shop",
+              location: { lat: 16.05, lng: 108.2 },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchPlaces({ q: "coffee" });
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe("prov-123");
+    expect(result.data[0].providerPlaceId).toBe("prov-123");
+  });
 });

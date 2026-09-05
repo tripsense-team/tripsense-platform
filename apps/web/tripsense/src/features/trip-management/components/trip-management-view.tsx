@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/shared";
 import { ApiError } from "@/services/api-client";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { AuthModal } from "@/features/auth";
 import { CreateTripDialog } from "./create-trip-dialog";
 import { CalendarScreen } from "./calendar-screen";
 import { AddItemDialog, ChangeCoverPhotoDialog, DeleteTripDialog, EditItemDialog, EditTripDialog } from "./trip-dialogs";
@@ -94,6 +95,7 @@ export function TripManagementView({
   const [itemDraft, setItemDraft] = React.useState<CreateItineraryItemRequest>(() => newItemDraft());
   const [editItemDraft, setEditItemDraft] = React.useState<UpdateItineraryItemRequest | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [authModalOpen, setAuthModalOpen] = React.useState(false);
   const [chatText, setChatText] = React.useState("");
   const [chatMessages, setChatMessages] = React.useState(["Setting Up My Travel Assistant"]);
 
@@ -206,6 +208,7 @@ export function TripManagementView({
         ...tripDraft,
         name: tripName,
         destinationName,
+        destinationPlaceId: tripDraft.destinationPlaceId || null,
         travelerCount: tripDraft.travelerCount ? Number(tripDraft.travelerCount) : null,
         budgetAmount: tripDraft.budgetAmount ? Number(tripDraft.budgetAmount) : null,
       });
@@ -354,7 +357,25 @@ export function TripManagementView({
     if (authStatus !== "initializing" && !isAuthenticated) {
       return (
         <div className="flex min-h-screen items-center justify-center p-8">
-          <EmptyState icon={Sparkles} title="Sign in to view your trips" description="Trip management uses your real trip-service data." />
+          <EmptyState
+            icon={Sparkles}
+            title="Sign in to view your trips"
+            description="Trip management uses your real trip-service data."
+            action={
+              <button
+                type="button"
+                onClick={() => setAuthModalOpen(true)}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-6 text-sm font-bold text-primary-foreground shadow-sm hover:bg-primary/90 cursor-pointer"
+              >
+                Sign in
+              </button>
+            }
+          />
+          <AuthModal
+            open={authModalOpen}
+            onOpenChange={setAuthModalOpen}
+            initialMode="signin"
+          />
         </div>
       );
     }
@@ -521,6 +542,7 @@ export function TripManagementView({
         open={createOpen}
         draft={tripDraft}
         submitting={submitting}
+        error={error}
         onOpenChange={handleCreateOpenChange}
         onDraftChange={setTripDraft}
         onSubmit={handleCreateTrip}
@@ -569,6 +591,11 @@ export function TripManagementView({
         }}
         onDraftChange={setEditItemDraft}
         onSubmit={handleUpdateItem}
+      />
+      <AuthModal
+        open={authModalOpen}
+        onOpenChange={setAuthModalOpen}
+        initialMode="signin"
       />
     </>
   );
