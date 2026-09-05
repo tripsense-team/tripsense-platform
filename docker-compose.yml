@@ -94,7 +94,7 @@ services:
       dockerfile: services/api-gateway/Dockerfile
     container_name: api-gateway
     env_file:
-      - path: ./.env
+      - path: ./env/.env
         required: false
     environment:
       REDIS_HOST: redis
@@ -119,9 +119,7 @@ services:
       dockerfile: services/place-service/Dockerfile
     container_name: place-service
     env_file:
-      - path: ./.env
-        required: false
-      - path: ./services/place-service/.env
+      - path: ./env/.env
         required: false
     environment:
       MONGODB_URI: mongodb://mongodb:27017/tripsense_places
@@ -154,8 +152,6 @@ services:
       dockerfile: services/mail-service/Dockerfile
     container_name: mail-service
     env_file:
-      - path: ./.env
-        required: false
       - path: ./env/.env
         required: false
     environment:
@@ -180,8 +176,6 @@ services:
       dockerfile: services/user-service/Dockerfile
     container_name: user-service
     env_file:
-      - path: ./.env
-        required: false
       - path: ./env/.env
         required: false
     environment:
@@ -215,8 +209,6 @@ services:
       dockerfile: services/trip-service/Dockerfile
     container_name: trip-service
     env_file:
-      - path: ./.env
-        required: false
       - path: ./env/.env
         required: false
     environment:
