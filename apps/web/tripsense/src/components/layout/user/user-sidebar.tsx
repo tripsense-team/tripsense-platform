@@ -15,6 +15,7 @@ import {
   Settings,
   HelpCircle,
   LucideIcon,
+  MessageSquareQuote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,11 @@ const mainNavItems: NavItem[] = [
     title: "Explore",
     href: "/explore",
     icon: Compass,
+  },
+  {
+    title: "Community",
+    href: "/community",
+    icon: MessageSquareQuote,
   },
   {
     title: "Places & Map",

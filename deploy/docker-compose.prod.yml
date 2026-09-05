@@ -14,10 +14,20 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: tripsense_user
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_USER: ${USER_DB_USER}
+      POSTGRES_PASSWORD: ${USER_DB_PASS}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  social-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SOCIAL_DB_NAME:-tripsense_social}
+      POSTGRES_USER: ${SOCIAL_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${SOCIAL_DB_PASS}
+    volumes:
+      - social_postgres_data:/var/lib/postgresql/data
 
   discovery-server:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-discovery-server:${IMAGE_TAG}
@@ -53,9 +63,10 @@ services:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-user-service:${IMAGE_TAG}
     restart: unless-stopped
     environment:
-      DB_HOST: db
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
+      USER_DB_HOST: db
+      USER_DB_PORT: "5432"
+      USER_DB_USER: ${USER_DB_USER}
+      USER_DB_PASS: ${USER_DB_PASS}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       EMAIL_SERVICE_URL: http://mail-service:8082
@@ -67,6 +78,28 @@ services:
       - db
       - mail-service
 
+  social-service:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-social-service:${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      SOCIAL_DB_HOST: social-db
+      SOCIAL_DB_PORT: "5432"
+      SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
+      SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
+      SOCIAL_DB_PASS: ${SOCIAL_DB_PASS}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      CLOUDINARY_SOCIAL_FOLDER: ${CLOUDINARY_SOCIAL_FOLDER:-tripsense/social}
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      - social-db
+      - discovery-server
+
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
@@ -77,6 +110,8 @@ services:
       - user-service
       - place-service
       - mail-service
+      - social-service
 
 volumes:
   postgres_data:
+  social_postgres_data:

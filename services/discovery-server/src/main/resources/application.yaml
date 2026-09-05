@@ -3,7 +3,7 @@ spring:
     name: discovery-server
 
 server:
-  port: ${SERVER_PORT:8761}
+  port: ${DISCOVERY_SERVER_PORT:${SERVER_PORT:8761}}
   shutdown: graceful
 
 eureka:

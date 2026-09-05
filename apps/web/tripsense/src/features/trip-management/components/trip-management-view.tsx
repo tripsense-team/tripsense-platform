@@ -354,7 +354,7 @@ export function TripManagementView({
   }
 
   const content = (() => {
-    if (authStatus !== "initializing" && !isAuthenticated) {
+    if (authStatus !== "initializing" && authStatus !== "checking" && !isAuthenticated) {
       return (
         <div className="flex min-h-screen items-center justify-center p-8">
           <EmptyState

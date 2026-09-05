@@ -12,6 +12,8 @@ This knowledge base stores reusable planning, architecture, and review context f
 - [ADRs](adr/index.md)
 - [Feature Index](features/index.md)
 - [Feature Documentation Template](features/_template/index.md)
+- [UX Feedback & Toast Guidelines](UX_FEEDBACK_GUIDELINES.md)
+
 
 ## Canonical Rules
 

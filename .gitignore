@@ -6,6 +6,9 @@ target/
 *.ear
 .tools/
 
+# pnpm local content-addressable cache
+/.pnpm-store/
+
 # Runtime logs
 *.log
 logs/
@@ -23,3 +26,7 @@ logs/
 Thumbs.db
 
 .tools/
+
+# Scripts (keep only deploy.sh)
+scripts/*
+!scripts/deploy.sh
