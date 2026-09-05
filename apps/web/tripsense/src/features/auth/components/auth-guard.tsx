@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/auth-context";
 import { UserRole } from "../types";
-import { Compass } from "lucide-react";
+import { AuthLoadingScreen } from "@/components/shared";
 
 export interface AuthGuardProps {
   children: React.ReactNode;
@@ -20,41 +20,45 @@ export function AuthGuard({
   const { user, status, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
+  const isChecking = isLoading || status === "checking" || status === "initializing";
+
+  const isAuthorized = React.useMemo(() => {
+    if (isChecking) return false;
+    if (requireAuth && !isAuthenticated) return false;
+    if (allowedRoles && allowedRoles.length > 0) {
+      if (!isAuthenticated) return false;
+      if (!user || !allowedRoles.includes(user.role)) return false;
+    }
+    return true;
+  }, [isChecking, requireAuth, isAuthenticated, allowedRoles, user]);
+
   React.useEffect(() => {
-    if (isLoading) return;
+    if (isChecking) return;
 
     if (requireAuth && !isAuthenticated) {
-      router.push("/");
+      router.replace("/?signin=true");
       return;
     }
 
     if (allowedRoles && allowedRoles.length > 0) {
       if (!isAuthenticated) {
-        router.push("/");
+        router.replace("/?signin=true");
         return;
       }
 
       if (user && !allowedRoles.includes(user.role)) {
         if (user.role === UserRole.USER) {
-          router.push("/explore");
+          router.replace("/explore");
         } else {
-          router.push("/");
+          router.replace("/");
         }
       }
     }
-  }, [isLoading, isAuthenticated, status, user, allowedRoles, requireAuth, router]);
+  }, [isChecking, isAuthenticated, user, allowedRoles, requireAuth, router]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground">
-        <div className="flex flex-col items-center gap-3">
-          <div className="p-3 rounded-2xl bg-primary/10 text-primary animate-pulse">
-            <Compass className="h-8 w-8 animate-spin" />
-          </div>
-          <p className="text-sm font-medium text-muted-foreground">Verifying TripSense session...</p>
-        </div>
-      </div>
-    );
+  // Zero Flicker: while checking OR if unauthorized/unauthenticated, render loading screen
+  if (isChecking || !isAuthorized) {
+    return <AuthLoadingScreen message="Đang kiểm tra quyền truy cập..." />;
   }
 
   return <>{children}</>;

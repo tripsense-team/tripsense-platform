@@ -17,17 +17,26 @@ cd ..\api-gateway
 
 Default local ports:
 
-| Service | Port | Health |
-| --- | --- | --- |
-| discovery-server | 8761 | http://localhost:8761/actuator/health |
-| api-gateway | 8080 | http://localhost:8080/actuator/health |
-| place-service | 8082 | http://localhost:8082/actuator/health |
+| Service | Port | Environment Variable | Health |
+| --- | --- | --- | --- |
+| discovery-server | 8761 | `DISCOVERY_SERVER_PORT` | http://localhost:8761/actuator/health |
+| api-gateway | 8080 | `API_GATEWAY_PORT` | http://localhost:8080/actuator/health |
+| user-service | 8081 | `USER_SERVICE_PORT` | http://localhost:8081/actuator/health |
+| mail-service | 8082 | `MAIL_SERVICE_PORT` | http://localhost:8082/actuator/health |
+| place-service | 8083 | `PLACE_SERVICE_PORT` | http://localhost:8083/actuator/health |
+| trip-service | 8084 | `TRIP_SERVICE_PORT` | http://localhost:8084/actuator/health |
 
-Production and CI/CD configuration must override network wiring through environment variables instead of editing YAML:
+Production and local configuration can override ports and network wiring via `env/.env` or system environment variables:
 
 | Variable | Default |
 | --- | --- |
-| `SERVER_PORT` | service-specific local port |
+| `DISCOVERY_SERVER_PORT` | `8761` |
+| `API_GATEWAY_PORT` | `8080` |
+| `USER_SERVICE_PORT` | `8081` |
+| `MAIL_SERVICE_PORT` | `8082` |
+| `PLACE_SERVICE_PORT` | `8083` |
+| `TRIP_SERVICE_PORT` | `8084` |
+| `SERVER_PORT` | service fallback port |
 | `EUREKA_DEFAULT_ZONE` | `http://localhost:8761/eureka/` |
 | `EUREKA_PREFER_IP_ADDRESS` | `true` |
 
@@ -50,14 +59,14 @@ The root Maven parent owns shared Spring Boot and Spring Cloud versions. New Spr
 
 ## Local Docker Compose
 
-Copy the root environment template before starting the backend stack:
+Copy the shared environment template before starting the backend stack:
 
 ```powershell
-Copy-Item .env.example .env
-docker compose config
-docker compose up --build
+Copy-Item env/.env.example env/.env
+docker compose --env-file env/.env config
+docker compose --env-file env/.env up --build
 ```
 
-The root `.env` supplies shared Compose secrets and Gateway settings. It is ignored by Git. Service-local development may instead use `services/place-service/.env`, while Next.js uses `apps/web/tripsense/.env.local` and the AI service uses `services/ai-service/.env`.
+`env/.env` supplies shared Compose secrets and Gateway settings. It is ignored by Git. Service-local development may instead use `services/place-service/.env`, while Next.js uses `apps/web/tripsense/.env.local` and the AI service uses `services/ai-service/.env`.
 
 `TRUSTED_PROXY_CIDRS` must list only the actual Next.js or reverse-proxy peers in front of Gateway. The loopback defaults are suitable when Next.js and Gateway run directly on the same host; container deployments must set the exact proxy address or subnet.

@@ -34,6 +34,32 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
       ? refreshedPlace
       : initialPlace;
 
+  const handleRefreshDetails = React.useCallback(async () => {
+    if (!currentPlace) return;
+
+    setIsLoadingReviews(true);
+    try {
+      const targetId =
+        currentPlace.providerPlaceId && !currentPlace.providerPlaceId.startsWith("poi_")
+          ? currentPlace.providerPlaceId
+          : currentPlace.id;
+      const response = await getPlaceDetails(
+        targetId,
+        currentPlace.name,
+        currentPlace.location?.lat,
+        currentPlace.location?.lng,
+      );
+
+      if (response?.success && response.data) {
+        setRefreshedPlace(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching Google reviews:", error);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  }, [currentPlace]);
+
   React.useEffect(() => {
     let ignore = false;
     if (isOpen && currentPlace && (!currentPlace.reviews || currentPlace.reviews.length === 0)) {
@@ -58,7 +84,6 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
           if (!ignore) setIsLoadingReviews(false);
         });
     }
-
     return () => {
       ignore = true;
     };

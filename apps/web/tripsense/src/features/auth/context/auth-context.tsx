@@ -52,12 +52,12 @@ function parseJwtClaims(token: string): { sub?: string; email?: string; role?: s
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user, status, setAuth, clearAuth } = useAuthStore();
 
-  // Bootstrap Auth ONLY when status === "initializing" (e.g. F5 page reload)
+  // Bootstrap Auth ONLY when status === "checking" || status === "initializing" (e.g. F5 page reload)
   React.useEffect(() => {
     let isMounted = true;
 
     // Do NOT bootstrap if already authenticated or unauthenticated
-    if (status !== "initializing") {
+    if (status !== "checking" && status !== "initializing") {
       return;
     }
 
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     status,
     isAuthenticated: status === "authenticated",
-    isLoading: status === "initializing",
+    isLoading: status === "checking" || status === "initializing",
     login,
     register,
     verifyEmail,

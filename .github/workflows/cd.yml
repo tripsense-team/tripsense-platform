@@ -59,6 +59,10 @@ jobs:
             context: ./services/mail-service
             dockerfile: services/mail-service/Dockerfile
 
+          - image: social-service
+            context: .
+            dockerfile: services/social-service/Dockerfile
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4

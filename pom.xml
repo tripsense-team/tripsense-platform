@@ -24,6 +24,7 @@
         <module>services/mail-service</module>
         <module>services/user-service</module>
         <module>services/trip-service</module>
+        <module>services/social-service</module>
     </modules>
 
     <properties>

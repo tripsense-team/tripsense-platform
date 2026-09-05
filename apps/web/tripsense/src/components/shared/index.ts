@@ -9,3 +9,4 @@ export * from "./share-button";
 export * from "./price-display";
 export * from "./responsive-dialog";
 export * from "./confirmation-dialog";
+export * from "./auth-loading-screen";
