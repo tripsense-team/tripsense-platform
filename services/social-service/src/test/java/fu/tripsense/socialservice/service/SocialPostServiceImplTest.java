@@ -49,7 +49,7 @@ class SocialPostServiceImplTest {
         SocialPostResponse response = service.createPost(user, new CreatePostRequest("A real post", List.of(image)), UUID.randomUUID());
 
         assertThat(response.author().id()).isEqualTo(user.id());
-        assertThat(response.author().name()).isEqualTo(user.email());
+        assertThat(response.author().name()).isEqualTo("author");
         assertThat(response.content()).isEqualTo("A real post");
         verify(media).save(argThat(saved -> saved.getPostId().equals(response.id()) && saved.getPublicId().equals(image.publicId())));
     }

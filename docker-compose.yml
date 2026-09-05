@@ -260,6 +260,11 @@ services:
       SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
       SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
       SOCIAL_DB_PASS: ${SOCIAL_DB_PASS:-123456}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-replace-with-at-least-32-random-characters}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_SOCIAL_FOLDER: ${CLOUDINARY_SOCIAL_FOLDER:-tripsense/social}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"

@@ -58,7 +58,7 @@ tripsense:
       replenish-rate: ${PLACES_RATE_LIMIT_REPLENISH_RATE:10}
       burst-capacity: ${PLACES_RATE_LIMIT_BURST_CAPACITY:20}
     social-rate-limit:
-      enabled: ${SOCIAL_RATE_LIMIT_ENABLED:true}
+      enabled: ${SOCIAL_RATE_LIMIT_ENABLED:false}
       replenish-rate: ${SOCIAL_RATE_LIMIT_REPLENISH_RATE:30}
       burst-capacity: ${SOCIAL_RATE_LIMIT_BURST_CAPACITY:60}
     client-ip:
