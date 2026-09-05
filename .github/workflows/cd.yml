@@ -63,6 +63,10 @@ jobs:
             context: .
             dockerfile: services/trip-service/Dockerfile
 
+          - image: social-service
+            context: .
+            dockerfile: services/social-service/Dockerfile
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -77,10 +81,17 @@ jobs:
           DB_PASS: ci-placeholder
           TRIP_DB_USER: postgres
           TRIP_DB_PASS: ci-placeholder
+          SOCIAL_DB_NAME: tripsense_social
+          SOCIAL_DB_USER: postgres
+          SOCIAL_DB_PASS: ci-placeholder
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
           RESEND_API_KEY: ci-placeholder
           ZIOMAP_API_KEY: ci-placeholder
+          CLOUDINARY_CLOUD_NAME: ci-placeholder
+          CLOUDINARY_API_KEY: ci-placeholder
+          CLOUDINARY_API_SECRET: ci-placeholder
+          CLOUDINARY_SOCIAL_FOLDER: tripsense/social
         run: docker compose -f deploy/docker-compose.prod.yml config
 
       - name: Login to Docker Hub

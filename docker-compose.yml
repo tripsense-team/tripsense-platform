@@ -9,8 +9,8 @@ services:
     container_name: user-postgres
     environment:
       POSTGRES_DB: tripsense_user
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASS:-123456}
+      POSTGRES_USER: ${USER_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${USER_DB_PASS:-123456}
     ports:
       - "5432:5432"
     volumes:
@@ -28,6 +28,19 @@ services:
       - "5433:5432"
     volumes:
       - trip_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  social-db:
+    image: postgres:17-alpine
+    container_name: social-postgres
+    environment:
+      POSTGRES_DB: ${SOCIAL_DB_NAME:-tripsense_social}
+      POSTGRES_USER: ${SOCIAL_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${SOCIAL_DB_PASS:-123456}
+    ports:
+      - "5434:5432"
+    volumes:
+      - social_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
   mongodb:
@@ -172,9 +185,10 @@ services:
       - path: ./env/.env
         required: false
     environment:
-      DB_HOST: db
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASS: ${DB_PASS:-123456}
+      USER_DB_HOST: db
+      USER_DB_PORT: "5432"
+      USER_DB_USER: ${USER_DB_USER:-postgres}
+      USER_DB_PASS: ${USER_DB_PASS:-123456}
       EMAIL_SERVICE_URL: http://mail-service:8082
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
@@ -212,6 +226,7 @@ services:
       TRIP_DB_PASS: ${TRIP_DB_PASS:-123456}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      PLACE_SERVICE_URL: http://place-service:8082
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -225,6 +240,37 @@ services:
         condition: service_healthy
     ports:
       - "8084:8084"
+    restart: unless-stopped
+
+  # =========================
+  # SOCIAL SERVICE
+  # =========================
+
+  social-service:
+    build:
+      context: .
+      dockerfile: services/social-service/Dockerfile
+    container_name: social-service
+    env_file:
+      - path: ./env/.env
+        required: true
+    environment:
+      SOCIAL_DB_HOST: social-db
+      SOCIAL_DB_PORT: "5432"
+      SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
+      SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
+      SOCIAL_DB_PASS: ${SOCIAL_DB_PASS:-123456}
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+    depends_on:
+      social-db:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
     restart: unless-stopped
 
   # =========================
@@ -244,6 +290,7 @@ services:
 volumes:
   postgres_data:
   trip_postgres_data:
+  social_postgres_data:
   mongodb_data:
   redis_data:
   portainer_data:

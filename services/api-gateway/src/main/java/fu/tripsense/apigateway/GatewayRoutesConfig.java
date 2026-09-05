@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 
@@ -30,17 +31,23 @@ class GatewayRoutesConfig {
     static final String TRIP_SERVICE_PATH = "/api/trips/**";
     static final String TRIP_SERVICE_URI = "lb://trip-service";
 
+    static final String SOCIAL_SERVICE_ROUTE_ID = "social-service";
+    static final String SOCIAL_SERVICE_PATH = "/api/social/**";
+    static final String SOCIAL_SERVICE_URI = "lb://social-service";
+
     @Bean
     RouteLocator tripSenseRoutes(
             RouteLocatorBuilder routes,
             RedisRateLimiter placeRedisRateLimiter,
+            RedisRateLimiter socialRedisRateLimiter,
             KeyResolver clientIpKeyResolver,
-            @Value("${tripsense.gateway.places-rate-limit.enabled:false}") boolean rateLimitingEnabled
+            @Value("${tripsense.gateway.places-rate-limit.enabled:false}") boolean placeRateLimitingEnabled,
+            @Value("${tripsense.gateway.social-rate-limit.enabled:false}") boolean socialRateLimitingEnabled
     ) {
         return routes.routes()
                 .route(PLACE_SERVICE_ROUTE_ID, route -> {
                     var r = route.path(PLACE_SERVICE_PATH);
-                    if (rateLimitingEnabled) {
+                    if (placeRateLimitingEnabled) {
                         r.filters(filters -> filters.requestRateLimiter(config -> {
                             config.setRateLimiter(placeRedisRateLimiter);
                             config.setKeyResolver(clientIpKeyResolver);
@@ -58,13 +65,33 @@ class GatewayRoutesConfig {
                 .route(TRIP_SERVICE_ROUTE_ID, route -> route
                         .path(TRIP_SERVICE_PATH)
                         .uri(TRIP_SERVICE_URI))
+                .route(SOCIAL_SERVICE_ROUTE_ID, route -> {
+                    var r = route.path(SOCIAL_SERVICE_PATH);
+                    if (socialRateLimitingEnabled) {
+                        r.filters(filters -> filters.requestRateLimiter(config -> {
+                            config.setRateLimiter(socialRedisRateLimiter);
+                            config.setKeyResolver(clientIpKeyResolver);
+                            config.setDenyEmptyKey(true);
+                        }));
+                    }
+                    return r.uri(SOCIAL_SERVICE_URI);
+                })
                 .build();
     }
 
     @Bean
+    @Primary
     RedisRateLimiter placeRedisRateLimiter(
             @Value("${tripsense.gateway.places-rate-limit.replenish-rate:10}") int replenishRate,
             @Value("${tripsense.gateway.places-rate-limit.burst-capacity:20}") int burstCapacity
+    ) {
+        return new RedisRateLimiter(replenishRate, burstCapacity);
+    }
+
+    @Bean
+    RedisRateLimiter socialRedisRateLimiter(
+            @Value("${tripsense.gateway.social-rate-limit.replenish-rate:30}") int replenishRate,
+            @Value("${tripsense.gateway.social-rate-limit.burst-capacity:60}") int burstCapacity
     ) {
         return new RedisRateLimiter(replenishRate, burstCapacity);
     }

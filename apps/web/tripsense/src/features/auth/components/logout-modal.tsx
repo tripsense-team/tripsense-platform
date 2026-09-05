@@ -18,35 +18,42 @@ export function LogoutModal({ open, onOpenChange }: LogoutModalProps) {
   const [loadingType, setLoadingType] = React.useState<"current" | "all" | null>(null);
 
   const handleLogoutCurrentDevice = async () => {
+    if (loadingType !== null) return;
     setLoadingType("current");
     try {
       await logout();
       onOpenChange(false);
-      router.push("/");
+      router.replace("/");
     } catch {
       onOpenChange(false);
-      router.push("/");
+      router.replace("/");
     } finally {
       setLoadingType(null);
     }
   };
 
   const handleLogoutAllDevices = async () => {
+    if (loadingType !== null) return;
     setLoadingType("all");
     try {
       await logoutAll();
       onOpenChange(false);
-      router.push("/");
+      router.replace("/");
     } catch {
       onOpenChange(false);
-      router.push("/");
+      router.replace("/");
     } finally {
       setLoadingType(null);
     }
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (loadingType !== null) return;
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[420px] p-6 sm:p-8 rounded-3xl border border-border bg-card shadow-2xl text-card-foreground">
         <DialogHeader className="flex flex-col items-center text-center space-y-2">
           <div className="p-3 rounded-2xl bg-destructive/10 text-destructive">

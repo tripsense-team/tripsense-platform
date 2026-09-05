@@ -1,5 +1,6 @@
 import type {
   AutocompleteResponse,
+  Place,
   PlaceDetailsResponse,
   PlaceSearchParams,
   PlacesResponse,
@@ -20,6 +21,19 @@ interface ErrorEnvelope {
   error?: {
     code?: string;
     message?: string;
+  };
+}
+
+export function normalizePlace(place: Place): Place {
+  if (!place) return place;
+  const id =
+    place.id ||
+    place.providerPlaceId ||
+    (place.location ? `place_${place.location.lat.toFixed(5)}_${place.location.lng.toFixed(5)}` : `place_${Math.random().toString(36).slice(2)}`);
+  return {
+    ...place,
+    id,
+    providerPlaceId: place.providerPlaceId || id,
   };
 }
 
@@ -49,7 +63,11 @@ export async function searchPlaces(params: PlaceSearchParams): Promise<PlacesRes
   if (params.limit !== undefined) url.searchParams.set("limit", params.limit.toString());
 
   const response = await fetch(url, { signal: params.signal });
-  return parseResponse<PlacesResponse>(response);
+  const parsed = await parseResponse<PlacesResponse>(response);
+  return {
+    ...parsed,
+    data: Array.isArray(parsed.data) ? parsed.data.map(normalizePlace) : [],
+  };
 }
 
 export async function getAutocomplete(
@@ -87,7 +105,11 @@ export async function getPlaceDetails(
   if (lng !== undefined) url.searchParams.set("lng", lng.toString());
 
   const response = await fetch(url, { signal });
-  return parseResponse<PlaceDetailsResponse>(response);
+  const parsed = await parseResponse<PlaceDetailsResponse>(response);
+  return {
+    ...parsed,
+    data: parsed.data ? normalizePlace(parsed.data) : parsed.data,
+  };
 }
 
 export async function getNearbyPlaces(
@@ -106,5 +128,9 @@ export async function getNearbyPlaces(
   if (category) url.searchParams.set("category", category);
 
   const response = await fetch(url, { signal });
-  return parseResponse<PlacesResponse>(response);
+  const parsed = await parseResponse<PlacesResponse>(response);
+  return {
+    ...parsed,
+    data: Array.isArray(parsed.data) ? parsed.data.map(normalizePlace) : [],
+  };
 }

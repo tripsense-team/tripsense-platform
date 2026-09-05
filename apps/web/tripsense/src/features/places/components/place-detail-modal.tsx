@@ -36,27 +36,58 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
 
   const handleRefreshDetails = React.useCallback(async () => {
     if (!currentPlace) return;
+
     setIsLoadingReviews(true);
     try {
-      const targetId = (currentPlace.providerPlaceId && !currentPlace.providerPlaceId.startsWith("poi_"))
-        ? currentPlace.providerPlaceId
-        : currentPlace.id;
-      const res = await getPlaceDetails(targetId, currentPlace.name, currentPlace.location?.lat, currentPlace.location?.lng);
-      if (res && res.success && res.data) {
-        setRefreshedPlace(res.data);
+      const targetId =
+        currentPlace.providerPlaceId && !currentPlace.providerPlaceId.startsWith("poi_")
+          ? currentPlace.providerPlaceId
+          : currentPlace.id;
+      const response = await getPlaceDetails(
+        targetId,
+        currentPlace.name,
+        currentPlace.location?.lat,
+        currentPlace.location?.lng,
+      );
+
+      if (response?.success && response.data) {
+        setRefreshedPlace(response.data);
       }
-    } catch (err) {
-      console.error("Error fetching Google reviews:", err);
+    } catch (error) {
+      console.error("Error fetching Google reviews:", error);
     } finally {
       setIsLoadingReviews(false);
     }
   }, [currentPlace]);
 
   React.useEffect(() => {
+    let ignore = false;
     if (isOpen && currentPlace && (!currentPlace.reviews || currentPlace.reviews.length === 0)) {
-      handleRefreshDetails();
+      const targetId = (currentPlace.providerPlaceId && !currentPlace.providerPlaceId.startsWith("poi_"))
+        ? currentPlace.providerPlaceId
+        : currentPlace.id;
+
+      Promise.resolve().then(() => {
+        if (!ignore) setIsLoadingReviews(true);
+      });
+
+      getPlaceDetails(targetId, currentPlace.name, currentPlace.location?.lat, currentPlace.location?.lng)
+        .then((res) => {
+          if (!ignore && res && res.success && res.data) {
+            setRefreshedPlace(res.data);
+          }
+        })
+        .catch((err) => {
+          if (!ignore) console.error("Error fetching Google reviews:", err);
+        })
+        .finally(() => {
+          if (!ignore) setIsLoadingReviews(false);
+        });
     }
-  }, [isOpen, currentPlace?.id, currentPlace?.providerPlaceId, handleRefreshDetails]);
+    return () => {
+      ignore = true;
+    };
+  }, [isOpen, currentPlace]);
 
   if (!currentPlace) return null;
 

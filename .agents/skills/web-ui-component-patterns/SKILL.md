@@ -50,6 +50,8 @@ Reuse shared cross-feature components from `@/components/shared/`:
 - `ShareButton`
 - `ResponsiveDialog` (Modal on Desktop, Sheet on Mobile)
 - `EmptyState` / `ErrorState` / `LoadingState`
+- Refer to [User Feedback & Toast Guidelines](../../../docs/UX_FEEDBACK_GUIDELINES.md) for UX feedback rules (Toast, Inline Errors, Confirmation Dialogs).
+
 
 ### 3. Layout Compositions (`@/components/layout/*`)
 Select the appropriate layout wrapper:
