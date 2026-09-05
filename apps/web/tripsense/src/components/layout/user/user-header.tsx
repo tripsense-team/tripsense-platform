@@ -24,7 +24,7 @@ export function UserHeader({ onSignInClick, onMobileMenuClick, user: customUser 
 
   const activeUser = customUser || authUser;
   const isLoggedIn = (isAuthenticated || !!customUser) && !!activeUser;
-  const isInitializing = status === "initializing";
+  const isInitializing = status === "initializing" || status === "checking";
 
   const toggleTheme = () => {
     const nextTheme = theme === "light" ? "dark" : "light";

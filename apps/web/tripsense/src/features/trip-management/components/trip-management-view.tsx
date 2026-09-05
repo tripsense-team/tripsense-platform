@@ -351,7 +351,7 @@ export function TripManagementView({
   }
 
   const content = (() => {
-    if (authStatus !== "initializing" && !isAuthenticated) {
+    if (authStatus !== "initializing" && authStatus !== "checking" && !isAuthenticated) {
       return (
         <div className="flex min-h-screen items-center justify-center p-8">
           <EmptyState icon={Sparkles} title="Sign in to view your trips" description="Trip management uses your real trip-service data." />

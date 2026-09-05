@@ -9,7 +9,7 @@ export enum UserStatus {
   SUSPENDED = "SUSPENDED",
 }
 
-export type AuthStatus = "initializing" | "authenticated" | "unauthenticated";
+export type AuthStatus = "checking" | "authenticated" | "unauthenticated" | "initializing";
 
 export type AuthModalStep = "email" | "login-password" | "register-details" | "verify-otp";
 

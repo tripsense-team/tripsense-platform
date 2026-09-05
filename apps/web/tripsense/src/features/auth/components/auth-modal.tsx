@@ -81,6 +81,7 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (!password) {
       setErrorMsg("Please enter your password");
       return;
@@ -96,9 +97,9 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
         onOpenChange(false);
         // Role-Based Navigation: ADMIN to /admin, USER to /explore
         if (loggedInRole === UserRole.ADMIN) {
-          router.push("/admin");
+          router.replace("/admin");
         } else {
-          router.push("/explore");
+          router.replace("/explore");
         }
       }, 800);
     } catch (err: unknown) {
@@ -111,6 +112,7 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (!email.trim() || !password || !confirmPassword) {
       setErrorMsg("Please fill in all fields");
       return;
@@ -136,6 +138,7 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
 
   const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (otpCode.length < 6) {
       setErrorMsg("Please enter the complete 6-digit verification code");
       return;
@@ -363,9 +366,11 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 rounded-full bg-black text-white hover:bg-black/90 font-semibold text-sm shadow-md"
+                loading={loading}
+                loadingText="Đang đăng nhập..."
+                className="w-full h-12 rounded-full font-semibold text-sm shadow-md"
               >
-                {loading ? "Signing in..." : "Sign In"}
+                Đăng nhập
               </Button>
             </form>
           </div>
@@ -404,9 +409,11 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 rounded-full bg-black text-white hover:bg-black/90 font-semibold text-sm shadow-md gap-2"
+                loading={loading}
+                loadingText="Đang đăng ký..."
+                className="w-full h-12 rounded-full font-semibold text-sm shadow-md gap-2"
               >
-                <span>{loading ? "Registering..." : "Continue to Verification"}</span>
+                <span>Tiếp tục xác thực</span>
                 <Sparkles className="h-4 w-4 text-amber-200" />
               </Button>
             </form>
@@ -446,9 +453,11 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
               <Button
                 type="submit"
                 disabled={loading || otpCode.length < 6}
-                className="w-full h-12 rounded-full bg-black text-white hover:bg-black/90 font-semibold text-sm shadow-md"
+                loading={loading}
+                loadingText="Đang xác thực..."
+                className="w-full h-12 rounded-full font-semibold text-sm shadow-md"
               >
-                {loading ? "Verifying..." : "Verify Code"}
+                Xác thực mã OTP
               </Button>
             </form>
 

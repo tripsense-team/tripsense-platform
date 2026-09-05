@@ -53,10 +53,31 @@ export function PlaceDetailModal({ place: initialPlace, isOpen, isLoadingDetails
   }, [currentPlace]);
 
   React.useEffect(() => {
-    if (isOpen && currentPlace && (!currentPlace.reviews || currentPlace.reviews.length === 0)) {
-      handleRefreshDetails();
+    let ignore = false;
+
+    async function loadReviews() {
+      if (!currentPlace) return;
+      try {
+        const targetId = (currentPlace.providerPlaceId && !currentPlace.providerPlaceId.startsWith("poi_"))
+          ? currentPlace.providerPlaceId
+          : currentPlace.id;
+        const res = await getPlaceDetails(targetId, currentPlace.name, currentPlace.location?.lat, currentPlace.location?.lng);
+        if (!ignore && res && res.success && res.data) {
+          setRefreshedPlace(res.data);
+        }
+      } catch (err) {
+        console.error("Error fetching Google reviews:", err);
+      }
     }
-  }, [isOpen, currentPlace?.id, currentPlace?.providerPlaceId, handleRefreshDetails]);
+
+    if (isOpen && currentPlace && (!currentPlace.reviews || currentPlace.reviews.length === 0)) {
+      void loadReviews();
+    }
+
+    return () => {
+      ignore = true;
+    };
+  }, [isOpen, currentPlace]);
 
   if (!currentPlace) return null;
 

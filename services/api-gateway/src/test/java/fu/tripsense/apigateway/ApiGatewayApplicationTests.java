@@ -48,4 +48,17 @@ class ApiGatewayApplicationTests {
                 });
     }
 
+    @Test
+    void socialServiceRouteUsesDiscoveryLoadBalancerAndRateLimit() {
+        List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+        assertThat(routes)
+                .isNotNull()
+                .anySatisfy(route -> {
+                    assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.SOCIAL_SERVICE_ROUTE_ID);
+                    assertThat(route.getUri()).isEqualTo(URI.create("lb://social-service"));
+                    assertThat(route.getFilters()).isNotEmpty();
+                });
+    }
+
 }

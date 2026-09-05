@@ -6,3 +6,8 @@ spring:
   cloud:
     discovery:
       enabled: false
+
+tripsense:
+  gateway:
+    places-rate-limit:
+      enabled: true
