@@ -252,12 +252,15 @@ services:
       SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
       SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
       SOCIAL_DB_PASS: ${SOCIAL_DB_PASS:-123456}
+      TRIP_SERVICE_URL: http://trip-service:8084
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
     depends_on:
       social-db:
+        condition: service_started
+      trip-service:
         condition: service_started
       discovery-server:
         condition: service_healthy

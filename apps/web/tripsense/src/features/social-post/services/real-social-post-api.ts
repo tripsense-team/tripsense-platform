@@ -3,11 +3,14 @@ import type { ApiResponse } from "@/features/auth";
 import type {
   CreateCommentRequest,
   CreateSocialPostRequest,
+  CreateTripShareRequest,
   ListPostsParams,
   PostComment,
   SocialPost,
   SocialPostPageResponse,
   ToggleLikeResponse,
+  UpdatePostContentRequest,
+  TripShareDetailResponse,
   UploadSignatureResponse,
 } from "../types";
 import type { ISocialPostRepository } from "./social-post-repository";
@@ -41,6 +44,40 @@ export class RealSocialPostApi implements ISocialPostRepository {
         headers: { "Idempotency-Key": idempotencyKey },
         body: JSON.stringify(payload),
       })
+    );
+  }
+
+  async updatePostContent(postId: string, payload: UpdatePostContentRequest): Promise<SocialPost> {
+    return unwrap(
+      apiClient<ApiResponse<SocialPost>>(`/api/social/posts/${postId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      })
+    );
+  }
+
+  async createTripShare(payload: CreateTripShareRequest, idempotencyKey: string): Promise<SocialPost> {
+    return unwrap(
+      apiClient<ApiResponse<SocialPost>>("/api/social/trip-shares", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(payload),
+      })
+    );
+  }
+
+  async updatePostVisibility(postId: string, visibility: "PUBLIC" | "UNLISTED" | "PRIVATE"): Promise<SocialPost> {
+    return unwrap(
+      apiClient<ApiResponse<SocialPost>>(`/api/social/posts/${postId}/visibility`, {
+        method: "PATCH",
+        body: JSON.stringify({ visibility }),
+      })
+    );
+  }
+
+  async getTripShareDetail(postId: string): Promise<TripShareDetailResponse> {
+    return unwrap(
+      apiClient<ApiResponse<TripShareDetailResponse>>(`/api/social/trip-shares/${postId}`)
     );
   }
 

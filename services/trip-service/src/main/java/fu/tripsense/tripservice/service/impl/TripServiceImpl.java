@@ -320,6 +320,71 @@ public class TripServiceImpl implements TripService {
         return toDayResponse(day, saved.stream().sorted(Comparator.comparing(ItineraryItem::getSortOrder)).toList());
     }
 
+    @Transactional(readOnly = true)
+    @Override
+    public TripShareSnapshotResponse getShareSnapshot(UUID userId, UUID tripId) {
+        Trip trip = getOwnedTrip(userId, tripId);
+        ensureNotArchived(trip);
+
+        List<ItineraryDay> days = dayRepository.findByTripIdOrderByDayNumberAsc(trip.getId());
+        int dayCount = days.isEmpty()
+                ? Math.max(1, (int) ChronoUnit.DAYS.between(trip.getStartDate(), trip.getEndDate()) + 1)
+                : days.size();
+
+        List<ItineraryItem> allItems = new ArrayList<>();
+        List<TripShareHighlightResponse> highlights = new ArrayList<>();
+        List<TripShareItineraryDayResponse> itineraryDays = new ArrayList<>();
+
+        for (ItineraryDay day : days) {
+            List<ItineraryItem> dayItems = itemRepository.findByTripIdAndDayIdOrderBySortOrderAsc(trip.getId(), day.getId());
+            allItems.addAll(dayItems);
+            for (ItineraryItem item : dayItems) {
+                String placeName = item.getPlaceNameSnapshot() != null ? item.getPlaceNameSnapshot() : item.getTitle();
+                highlights.add(new TripShareHighlightResponse(item.getTitle(), placeName, day.getDayNumber()));
+            }
+            itineraryDays.add(new TripShareItineraryDayResponse(
+                    day.getId(),
+                    day.getDayDate(),
+                    day.getDayNumber(),
+                    dayItems.stream()
+                            .map(item -> new TripShareItineraryItemResponse(
+                                    item.getId(),
+                                    item.getPlaceId(),
+                                    item.getTitle(),
+                                    item.getType(),
+                                    item.getStartTime(),
+                                    item.getEndTime(),
+                                    item.getDurationMinutes(),
+                                    item.getSortOrder(),
+                                    item.getStatus(),
+                                    item.getNotes(),
+                                    item.getPlaceNameSnapshot(),
+                                    item.getPlaceAddressSnapshot(),
+                                    item.getLatSnapshot(),
+                                    item.getLngSnapshot(),
+                                    day.getDayNumber()
+                            ))
+                            .toList()
+            ));
+        }
+
+        return new TripShareSnapshotResponse(
+                trip.getId(),
+                trip.getName(),
+                trip.getDestinationName(),
+                trip.getStartDate(),
+                trip.getEndDate(),
+                trip.getCoverImageUrl(),
+                trip.getTravelerCount() != null ? trip.getTravelerCount() : 1,
+                dayCount,
+                allItems.size(),
+                highlights,
+                itineraryDays,
+                trip.getStatus(),
+                trip.getUpdatedAt()
+        );
+    }
+
     private Trip getOwnedTrip(UUID userId, UUID tripId) {
         return tripRepository.findByIdAndOwnerUserIdAndArchivedAtIsNull(tripId, userId)
                 .orElseThrow(() -> new NotFoundException("TRIP_NOT_FOUND", "Trip not found"));

@@ -1,14 +1,21 @@
 package fu.tripsense.socialservice.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.tripsense.socialservice.client.TripServiceClient;
+import fu.tripsense.socialservice.client.TripSnapshotClientResponse;
 import fu.tripsense.socialservice.dto.request.CreateCommentRequest;
 import fu.tripsense.socialservice.dto.request.CreatePostRequest;
+import fu.tripsense.socialservice.dto.request.CreateTripShareRequest;
 import fu.tripsense.socialservice.dto.request.PostMediaInput;
+import fu.tripsense.socialservice.dto.request.UpdatePostContentRequest;
 import fu.tripsense.socialservice.dto.request.UploadSignatureRequest;
 import fu.tripsense.socialservice.dto.response.*;
 import fu.tripsense.socialservice.entity.*;
 import fu.tripsense.socialservice.exception.SocialException;
 import fu.tripsense.socialservice.repository.*;
 import fu.tripsense.socialservice.security.AuthenticatedUser;
+import fu.tripsense.socialservice.security.CurrentUserProvider;
 import fu.tripsense.socialservice.service.SocialPostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +43,10 @@ public class SocialPostServiceImpl implements SocialPostService {
     private final PostLikeRepository postLikes;
     private final SocialCommentRepository comments;
     private final CommentLikeRepository commentLikes;
+    private final SocialTripShareRepository tripShares;
+    private final TripServiceClient tripServiceClient;
+    private final CurrentUserProvider currentUserProvider;
+    private final ObjectMapper objectMapper;
 
     @Value("${cloudinary.cloud-name:}")
     private String cloudName;
@@ -56,9 +68,19 @@ public class SocialPostServiceImpl implements SocialPostService {
     public SocialPostPageResponse listPosts(UUID userId, int page, int size, AuthenticatedUser viewer) {
         validatePage(page, size);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
-        Page<SocialPost> result = (userId == null)
-                ? posts.findByDeletedAtIsNull(pageable)
-                : posts.findByAuthorIdAndDeletedAtIsNull(userId, pageable);
+
+        Page<SocialPost> result;
+        if (userId == null) {
+            result = viewer == null
+                    ? posts.findPublicFeed(pageable)
+                    : posts.findVisibleFeedForViewer(viewer.id(), pageable);
+        } else if (viewer != null && viewer.id().equals(userId)) {
+            result = posts.findByAuthorIdAndDeletedAtIsNull(userId, pageable);
+        } else {
+            result = viewer == null
+                    ? posts.findPublicPostsByAuthorId(userId, pageable)
+                    : posts.findVisiblePostsByAuthorId(userId, viewer.id(), pageable);
+        }
 
         return new SocialPostPageResponse(
                 toPosts(result.getContent(), viewer),
@@ -72,7 +94,20 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     @Transactional(readOnly = true)
     public SocialPostResponse getPost(UUID postId, AuthenticatedUser viewer) {
-        return toPosts(List.of(activePost(postId)), viewer).getFirst();
+        SocialPost post = activePost(postId);
+        if ("TRIP_SHARE".equals(post.getPostType())) {
+            SocialTripShare share = tripShares.findById(postId)
+                    .filter(s -> s.getRemovedAt() == null)
+                    .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found"));
+            if ("PRIVATE".equals(share.getVisibility())) {
+                if (viewer == null || !viewer.id().equals(post.getAuthorId())) {
+                    throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+                }
+            } else if ("UNLISTED".equals(share.getVisibility()) && viewer == null) {
+                throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+            }
+        }
+        return toPosts(List.of(post), viewer).getFirst();
     }
 
     @Override
@@ -98,6 +133,7 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .authorId(user.id())
                 .authorDisplayName(authorName)
                 .authorEmail(user.email())
+                .postType("STANDARD")
                 .idempotencyKey(idempotencyKey)
                 .content(content)
                 .likeCount(0)
@@ -113,6 +149,7 @@ public class SocialPostServiceImpl implements SocialPostService {
                 user.email(),
                 idempotencyKey,
                 content,
+                "STANDARD",
                 now,
                 now
         );
@@ -143,6 +180,182 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     @Override
     @Transactional
+    public SocialPostResponse updateContent(UUID postId, AuthenticatedUser user, UpdatePostContentRequest request) {
+        SocialPost post = lockedPost(postId);
+        if (!post.getAuthorId().equals(user.id())) {
+            throw new SocialException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Only post owner can edit content");
+        }
+
+        String content = request.content() == null ? "" : request.content().trim();
+        if ("STANDARD".equals(post.getPostType()) && content.isBlank()) {
+            throw validation("A standard post needs content");
+        }
+        if (content.length() > 5000) {
+            throw validation("Content must be at most 5,000 characters");
+        }
+
+        post.setContent(content);
+        post.setUpdatedAt(Instant.now());
+        return toPosts(List.of(post), user).getFirst();
+    }
+
+    @Override
+    @Transactional
+    public SocialPostResponse createTripShare(AuthenticatedUser user, CreateTripShareRequest request, UUID idempotencyKey) {
+        if (idempotencyKey == null) {
+            throw validation("Idempotency-Key header is required");
+        }
+        if (request.tripId() == null) {
+            throw validation("tripId is required");
+        }
+        String visibility = request.visibility() == null || request.visibility().isBlank()
+                ? "PUBLIC"
+                : request.visibility().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("PUBLIC", "UNLISTED", "PRIVATE").contains(visibility)) {
+            throw new SocialException(HttpStatus.BAD_REQUEST, "INVALID_VISIBILITY", "Visibility must be PUBLIC, UNLISTED, or PRIVATE");
+        }
+        String caption = request.caption() == null ? "" : request.caption().trim();
+        if (caption.length() > 5000) {
+            throw validation("Caption must be at most 5,000 characters");
+        }
+
+        // Check if active share already exists for this author and trip
+        Optional<SocialTripShare> existingShare = tripShares.findByAuthorIdAndSourceTripIdAndRemovedAtIsNull(user.id(), request.tripId());
+        if (existingShare.isPresent()) {
+            SocialPost existingPost = posts.findByIdAndDeletedAtIsNull(existingShare.get().getPostId())
+                    .orElse(null);
+            if (existingPost != null && idempotencyKey.equals(existingPost.getIdempotencyKey())) {
+                return toPosts(List.of(existingPost), user).getFirst();
+            }
+            throw new SocialException(HttpStatus.CONFLICT, "DUPLICATE_ACTIVE_TRIP_SHARE", "An active shared post already exists for this trip");
+        }
+
+        // Synchronously fetch safe snapshot from trip-service
+        TripSnapshotClientResponse snapshot = tripServiceClient.fetchShareSnapshot(request.tripId(), currentUserProvider.bearerToken());
+
+        Instant now = Instant.now();
+        UUID postId = UUID.randomUUID();
+        String authorName = displayName(user);
+
+        UUID insertedId = posts.insertPostIfAbsent(
+                postId,
+                user.id(),
+                authorName,
+                user.email(),
+                idempotencyKey,
+                caption,
+                "TRIP_SHARE",
+                now,
+                now
+        );
+
+        if (insertedId == null) {
+            SocialPost existing = posts.findByAuthorIdAndIdempotencyKey(user.id(), idempotencyKey)
+                    .orElseThrow(() -> new IllegalStateException("Idempotent post was not found"));
+            return toPosts(List.of(existing), user).getFirst();
+        }
+
+        String highlightsJson = "[]";
+        if (snapshot.highlights() != null && !snapshot.highlights().isEmpty()) {
+            try {
+                highlightsJson = objectMapper.writeValueAsString(snapshot.highlights());
+            } catch (Exception ignored) {}
+        }
+        String itineraryJson = "[]";
+        if (snapshot.itineraryDays() != null && !snapshot.itineraryDays().isEmpty()) {
+            try {
+                itineraryJson = objectMapper.writeValueAsString(snapshot.itineraryDays());
+            } catch (Exception ignored) {}
+        }
+
+        SocialTripShare share = SocialTripShare.builder()
+                .postId(postId)
+                .authorId(user.id())
+                .sourceTripId(snapshot.tripId())
+                .visibility(visibility)
+                .tripName(snapshot.name())
+                .destinationName(snapshot.destinationName())
+                .startDate(snapshot.startDate())
+                .endDate(snapshot.endDate())
+                .coverImageUrl(snapshot.coverImageUrl())
+                .travelerCount(snapshot.travelerCount())
+                .dayCount(snapshot.dayCount())
+                .itineraryItemCount(snapshot.itineraryItemCount())
+                .highlightsJson(highlightsJson)
+                .itineraryJson(itineraryJson)
+                .snapshotCreatedAt(snapshot.updatedAt() != null ? snapshot.updatedAt() : now)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        tripShares.save(share);
+
+        SocialPost createdPost = SocialPost.builder()
+                .id(postId)
+                .authorId(user.id())
+                .authorDisplayName(authorName)
+                .authorEmail(user.email())
+                .postType("TRIP_SHARE")
+                .idempotencyKey(idempotencyKey)
+                .content(caption)
+                .likeCount(0)
+                .commentCount(0)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        return toPosts(List.of(createdPost), user).getFirst();
+    }
+
+    @Override
+    @Transactional
+    public SocialPostResponse updateVisibility(UUID postId, AuthenticatedUser user, String rawVisibility) {
+        if (rawVisibility == null || rawVisibility.isBlank()) {
+            throw validation("Visibility is required");
+        }
+        String visibility = rawVisibility.trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("PUBLIC", "UNLISTED", "PRIVATE").contains(visibility)) {
+            throw new SocialException(HttpStatus.BAD_REQUEST, "INVALID_VISIBILITY", "Visibility must be PUBLIC, UNLISTED, or PRIVATE");
+        }
+
+        SocialPost post = lockedPost(postId);
+        if (!post.getAuthorId().equals(user.id())) {
+            throw new SocialException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Only post owner can change visibility");
+        }
+
+        SocialTripShare share = tripShares.findById(postId)
+                .filter(s -> s.getRemovedAt() == null)
+                .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Trip share not found"));
+
+        share.setVisibility(visibility);
+        share.setUpdatedAt(Instant.now());
+        tripShares.save(share);
+
+        return toPosts(List.of(post), user).getFirst();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TripShareDetailResponse getTripShareDetail(UUID postId, AuthenticatedUser viewer) {
+        SocialPost post = activePost(postId);
+        SocialTripShare share = tripShares.findById(postId)
+                .filter(s -> s.getRemovedAt() == null)
+                .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Trip share not found"));
+
+        if ("PRIVATE".equals(share.getVisibility())) {
+            if (viewer == null || !viewer.id().equals(post.getAuthorId())) {
+                throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+            }
+        } else if ("UNLISTED".equals(share.getVisibility()) && viewer == null) {
+            throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+        }
+
+        SocialPostResponse postResponse = toPosts(List.of(post), viewer).getFirst();
+        return new TripShareDetailResponse(postResponse, false, "SNAPSHOT_ONLY");
+    }
+
+    @Override
+    @Transactional
     public void deletePost(UUID postId, AuthenticatedUser user) {
         SocialPost post = lockedPost(postId);
         boolean isOwner = post.getAuthorId().equals(user.id());
@@ -156,6 +369,12 @@ public class SocialPostServiceImpl implements SocialPostService {
         post.setDeletedAt(now);
         post.setDeletedByUserId(user.id());
         post.setUpdatedAt(now);
+
+        tripShares.findById(postId).ifPresent(share -> {
+            share.setRemovedAt(now);
+            share.setUpdatedAt(now);
+            tripShares.save(share);
+        });
     }
 
     @Override
@@ -210,31 +429,32 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Transactional
     public PostCommentResponse createComment(UUID postId, AuthenticatedUser user, CreateCommentRequest request) {
         SocialPost post = lockedPost(postId);
-        String content = request.content().trim();
+        String content = request.content() == null ? "" : request.content().trim();
         if (content.isBlank()) {
             throw validation("Comment content is required");
         }
+        if (content.length() > 2000) {
+            throw validation("Comment must be at most 2,000 characters");
+        }
 
         UUID parentId = request.parentId();
-        String replyName = null;
+        String replyToAuthorName = null;
         if (parentId != null) {
             SocialComment parent = comments.findByIdAndPostIdAndDeletedAtIsNull(parentId, postId)
-                    .orElseThrow(() -> new SocialException(
-                            HttpStatus.BAD_REQUEST,
-                            "PARENT_COMMENT_INVALID",
-                            "Parent comment does not belong to this post"
-                    ));
-            replyName = parent.getAuthorDisplayName();
+                    .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "COMMENT_NOT_FOUND", "Parent comment not found"));
+            if (parent.getParentCommentId() != null) {
+                throw validation("TripSense only supports one nesting level of replies");
+            }
+            replyToAuthorName = parent.getAuthorDisplayName();
         }
 
         Instant now = Instant.now();
-        String authorName = displayName(user);
         SocialComment comment = comments.save(SocialComment.builder()
                 .id(UUID.randomUUID())
                 .postId(postId)
                 .parentCommentId(parentId)
                 .authorId(user.id())
-                .authorDisplayName(authorName)
+                .authorDisplayName(displayName(user))
                 .authorEmail(user.email())
                 .content(content)
                 .likeCount(0)
@@ -243,18 +463,17 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .build());
 
         post.setCommentCount(post.getCommentCount() + 1);
-        post.setUpdatedAt(now);
 
         return new PostCommentResponse(
                 comment.getId(),
-                postId,
-                parentId,
-                author(user.id(), authorName),
-                content,
-                now,
+                comment.getPostId(),
+                comment.getParentCommentId(),
+                author(comment.getAuthorId(), comment.getAuthorDisplayName()),
+                comment.getContent(),
+                comment.getCreatedAt(),
                 0,
                 false,
-                replyName
+                replyToAuthorName
         );
     }
 
@@ -291,9 +510,11 @@ public class SocialPostServiceImpl implements SocialPostService {
 
         long timestamp = Instant.now().getEpochSecond();
         String folder = folderPrefix + "/" + user.id();
-        List<String> formats = List.of("avif", "jpeg", "jpg", "png", "webp");
-        String allowedFormats = String.join(",", formats);
-        String toSign = "allowed_formats=" + allowedFormats + "&folder=" + folder + "&timestamp=" + timestamp + cloudinaryApiSecret;
+        List<String> formats = List.of("jpg", "jpeg", "png", "webp", "avif");
+
+        String toSign = "folder=" + folder
+                + "&timestamp=" + timestamp
+                + cloudinaryApiSecret;
 
         return new UploadSignatureResponse(
                 cloudName,
@@ -324,17 +545,63 @@ public class SocialPostServiceImpl implements SocialPostService {
                         .map(x -> x.getId().getPostId())
                         .collect(Collectors.toSet());
 
-        return postList.stream().map(p -> new SocialPostResponse(
-                p.getId(),
-                author(p.getAuthorId(), p.getAuthorDisplayName()),
-                p.getContent(),
-                urls.getOrDefault(p.getId(), List.of()),
-                p.getCreatedAt(),
-                p.getUpdatedAt(),
-                p.getLikeCount(),
-                p.getCommentCount(),
-                liked.contains(p.getId())
-        )).toList();
+        Map<UUID, SocialTripShare> sharesByPostId = tripShares.findByPostIdIn(ids).stream()
+                .collect(Collectors.toMap(SocialTripShare::getPostId, Function.identity()));
+
+        return postList.stream().map(p -> {
+            SocialTripShare share = sharesByPostId.get(p.getId());
+            SharedTripSummaryResponse tripSummary = share != null ? toTripSummary(share) : null;
+            String visibility = share != null ? share.getVisibility() : "PUBLIC";
+            String postType = p.getPostType() != null ? p.getPostType() : "STANDARD";
+            return new SocialPostResponse(
+                    p.getId(),
+                    postType,
+                    author(p.getAuthorId(), p.getAuthorDisplayName()),
+                    p.getContent(),
+                    urls.getOrDefault(p.getId(), List.of()),
+                    visibility,
+                    tripSummary,
+                    p.getCreatedAt(),
+                    p.getUpdatedAt(),
+                    p.getLikeCount(),
+                    p.getCommentCount(),
+                    liked.contains(p.getId())
+            );
+        }).toList();
+    }
+
+    private SharedTripSummaryResponse toTripSummary(SocialTripShare s) {
+        List<SharedTripHighlightResponse> highlights = List.of();
+        if (s.getHighlightsJson() != null && !s.getHighlightsJson().isBlank()) {
+            try {
+                highlights = objectMapper.readValue(
+                        s.getHighlightsJson(),
+                        new TypeReference<List<SharedTripHighlightResponse>>() {}
+                );
+            } catch (Exception ignored) {}
+        }
+        List<SharedTripItineraryDayResponse> itineraryDays = List.of();
+        if (s.getItineraryJson() != null && !s.getItineraryJson().isBlank()) {
+            try {
+                itineraryDays = objectMapper.readValue(
+                        s.getItineraryJson(),
+                        new TypeReference<List<SharedTripItineraryDayResponse>>() {}
+                );
+            } catch (Exception ignored) {}
+        }
+        return new SharedTripSummaryResponse(
+                s.getSourceTripId(),
+                s.getTripName(),
+                s.getDestinationName(),
+                s.getStartDate(),
+                s.getEndDate(),
+                s.getCoverImageUrl(),
+                s.getTravelerCount(),
+                s.getDayCount(),
+                s.getItineraryItemCount(),
+                highlights,
+                itineraryDays
+        );
     }
 
     private SocialPost activePost(UUID id) {

@@ -2,6 +2,7 @@ package fu.tripsense.socialservice.controller;
 
 import fu.tripsense.socialservice.dto.request.CreateCommentRequest;
 import fu.tripsense.socialservice.dto.request.CreatePostRequest;
+import fu.tripsense.socialservice.dto.request.UpdatePostContentRequest;
 import fu.tripsense.socialservice.dto.request.UploadSignatureRequest;
 import fu.tripsense.socialservice.dto.response.ApiResponse;
 import fu.tripsense.socialservice.dto.response.PostCommentResponse;
@@ -49,6 +50,38 @@ public class SocialPostController {
     ) {
         SocialPostResponse created = service.createPost(currentUser.requiredUser(), request, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Post created", created));
+    }
+
+    @PatchMapping("/posts/{postId}")
+    public ApiResponse<SocialPostResponse> updatePostContent(
+            @PathVariable UUID postId,
+            @Valid @RequestBody UpdatePostContentRequest request
+    ) {
+        SocialPostResponse updated = service.updateContent(postId, currentUser.requiredUser(), request);
+        return ApiResponse.success("Post updated", updated);
+    }
+
+    @PostMapping("/trip-shares")
+    public ResponseEntity<ApiResponse<SocialPostResponse>> createTripShare(
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @Valid @RequestBody fu.tripsense.socialservice.dto.request.CreateTripShareRequest request
+    ) {
+        SocialPostResponse created = service.createTripShare(currentUser.requiredUser(), request, idempotencyKey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Trip shared successfully", created));
+    }
+
+    @PatchMapping("/posts/{postId}/visibility")
+    public ApiResponse<SocialPostResponse> updateVisibility(
+            @PathVariable UUID postId,
+            @Valid @RequestBody fu.tripsense.socialservice.dto.request.UpdatePostVisibilityRequest request
+    ) {
+        SocialPostResponse updated = service.updateVisibility(postId, currentUser.requiredUser(), request.visibility());
+        return ApiResponse.success("Post visibility updated", updated);
+    }
+
+    @GetMapping("/trip-shares/{postId}")
+    public ApiResponse<fu.tripsense.socialservice.dto.response.TripShareDetailResponse> getTripShareDetail(@PathVariable UUID postId) {
+        return ApiResponse.success(service.getTripShareDetail(postId, currentUser.optionalUser().orElse(null)));
     }
 
     @DeleteMapping("/posts/{postId}")

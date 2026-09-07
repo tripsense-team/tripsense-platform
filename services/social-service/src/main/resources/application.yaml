@@ -30,6 +30,8 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:}
   folder-prefix: ${CLOUDINARY_SOCIAL_FOLDER:tripsense/social}
   signature-algorithm: ${CLOUDINARY_SIGNATURE_ALGORITHM:sha256}
+trip-service:
+  url: ${TRIP_SERVICE_URL:http://localhost:${TRIP_SERVICE_PORT:8084}}
 management:
   endpoints:
     web:

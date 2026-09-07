@@ -1,8 +1,9 @@
 import * as React from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowDown, ArrowLeft, ArrowUp, Briefcase, Calendar, ChevronDown, ChevronRight, ClipboardCheck, Edit3, File, GripVertical, Info, Lightbulb, Mic, Plus, Send, Share, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Briefcase, Calendar, Check, ChevronDown, ChevronRight, ClipboardCheck, Edit3, File, GripVertical, Info, Lightbulb, Link2, Mic, Plus, Send, Share, Sparkles, Trash2, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ export function TripDetailScreen({
   onCreateTrip: () => void;
 }) {
   const [activePanel, setActivePanel] = React.useState<TripDetailPanel>("overview");
+  const [copiedInviteLink, setCopiedInviteLink] = React.useState(false);
 
   const mapPlaces: Place[] = React.useMemo(() => {
     const places: Place[] = [];
@@ -102,6 +104,31 @@ export function TripDetailScreen({
   const destination = titleCaseDestination(trip.destinationName);
   const title = displayTripTitle(trip);
 
+  const copyInviteLink = async () => {
+    const inviteLink = typeof window !== "undefined" ? window.location.href : "";
+
+    if (!inviteLink) {
+      return;
+    }
+
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(inviteLink);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = inviteLink;
+      textArea.setAttribute("readonly", "");
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+    }
+
+    setCopiedInviteLink(true);
+    window.setTimeout(() => setCopiedInviteLink(false), 2000);
+  };
+
   return (
     <section className="min-h-screen px-6 py-6 sm:px-8 lg:px-12 xl:px-16">
       <div className="flex items-center justify-between">
@@ -113,7 +140,24 @@ export function TripDetailScreen({
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">P</span>
             Invite
           </Button>
-          <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" aria-label="Share"><Share className="h-5 w-5" /></Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" aria-label="Share trip">
+                <Share className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 rounded-2xl p-2" align="end" sideOffset={8}>
+              <DropdownMenuItem className="gap-3 rounded-xl px-3 py-3 text-base" onSelect={copyInviteLink}>
+                {copiedInviteLink ? <Check className="h-5 w-5 text-primary" /> : <Link2 className="h-5 w-5" />}
+                {copiedInviteLink ? "Copied invite link" : "Copy invite link"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled className="gap-3 rounded-xl px-3 py-3 text-base">
+                <Users className="h-5 w-5" />
+                Manage co-travelers
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="icon" className="h-10 w-10 rounded-full" aria-label="Edit trip" onClick={() => onEditTrip(trip)}><Edit3 className="h-5 w-5" /></Button>
         </div>
       </div>

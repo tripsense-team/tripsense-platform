@@ -1,6 +1,6 @@
 # Trip Sharing
 
-**STATUS: WAITING_FOR_APPROVAL**
+**STATUS: IMPLEMENTING**
 
 Plan a Mindtrip-inspired trip sharing flow where a traveler can share one saved trip as a Community post with a caption, a compact trip preview, visibility controls, and a removable shared post.
 
