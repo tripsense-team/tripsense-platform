@@ -22,7 +22,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             AuthenticatedUser user = jwtService.parseAccessToken(header.substring(7));
             String role = user.role() == null ? "ROLE_USER" : user.role().startsWith("ROLE_") ? user.role() : "ROLE_" + user.role();
-            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null, List.of(new SimpleGrantedAuthority(role))));
+            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, header.substring(7), List.of(new SimpleGrantedAuthority(role))));
             chain.doFilter(request, response);
         } catch (RuntimeException ex) { SecurityContextHolder.clearContext(); response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid access token"); }
     }

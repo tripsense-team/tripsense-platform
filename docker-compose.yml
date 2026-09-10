@@ -94,7 +94,7 @@ services:
       dockerfile: services/api-gateway/Dockerfile
     container_name: api-gateway
     env_file:
-      - path: ./.env
+      - path: ./env/.env
         required: false
     environment:
       REDIS_HOST: redis
@@ -105,6 +105,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      user-service:
+        condition: service_healthy
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -119,9 +121,7 @@ services:
       dockerfile: services/place-service/Dockerfile
     container_name: place-service
     env_file:
-      - path: ./.env
-        required: false
-      - path: ./services/place-service/.env
+      - path: ./env/.env
         required: false
     environment:
       MONGODB_URI: mongodb://mongodb:27017/tripsense_places
@@ -154,8 +154,6 @@ services:
       dockerfile: services/mail-service/Dockerfile
     container_name: mail-service
     env_file:
-      - path: ./.env
-        required: false
       - path: ./env/.env
         required: false
     environment:
@@ -180,8 +178,6 @@ services:
       dockerfile: services/user-service/Dockerfile
     container_name: user-service
     env_file:
-      - path: ./.env
-        required: false
       - path: ./env/.env
         required: false
     environment:
@@ -201,6 +197,16 @@ services:
         condition: service_started
       discovery-server:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     ports:
       - "8081:8081"
     restart: unless-stopped
@@ -215,8 +221,6 @@ services:
       dockerfile: services/trip-service/Dockerfile
     container_name: trip-service
     env_file:
-      - path: ./.env
-        required: false
       - path: ./env/.env
         required: false
     environment:
@@ -260,12 +264,15 @@ services:
       SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
       SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
       SOCIAL_DB_PASS: ${SOCIAL_DB_PASS:-123456}
+      TRIP_SERVICE_URL: http://trip-service:8084
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
     depends_on:
       social-db:
+        condition: service_started
+      trip-service:
         condition: service_started
       discovery-server:
         condition: service_healthy

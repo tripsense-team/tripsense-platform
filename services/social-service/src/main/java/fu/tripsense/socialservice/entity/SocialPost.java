@@ -13,6 +13,7 @@ public class SocialPost {
     @Column(name = "author_id", nullable = false) private UUID authorId;
     @Column(name = "author_display_name", nullable = false) private String authorDisplayName;
     @Column(name = "author_email") private String authorEmail;
+    @Column(name = "post_type", nullable = false) private String postType;
     @Column(name = "idempotency_key") private UUID idempotencyKey;
     @Column(nullable = false) private String content;
     @Column(name = "like_count", nullable = false) private int likeCount;

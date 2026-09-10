@@ -4,6 +4,8 @@ export * from "./post-actions-bar";
 export * from "./delete-post-dialog";
 export * from "./post-card-skeleton";
 export * from "./post-card";
+export * from "./shared-trip-artifact-card";
+export * from "./shared-trip-detail-view";
 export * from "./post-composer";
 export * from "./comment-composer";
 export * from "./comment-item";
@@ -13,4 +15,4 @@ export * from "./post-detail-screen";
 export * from "./post-detail-modal";
 export * from "./post-detail-content";
 export * from "./user-posts-screen";
-
+export * from "./trip-sharing-workspace";

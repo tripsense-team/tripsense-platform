@@ -11,6 +11,7 @@ COPY services/place-service/pom.xml services/place-service/pom.xml
 COPY services/user-service/pom.xml services/user-service/pom.xml
 COPY services/mail-service/pom.xml services/mail-service/pom.xml
 COPY services/trip-service/pom.xml services/trip-service/pom.xml
+COPY services/social-service/pom.xml services/social-service/pom.xml
 
 RUN mvn -B -pl services/user-service -am dependency:go-offline
 
@@ -22,6 +23,10 @@ RUN mvn -B -pl services/user-service -am clean package -DskipTests
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /workspace/services/user-service/target/*.jar app.jar
 

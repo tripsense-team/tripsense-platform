@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useAuth, UserRole } from "@/features/auth";
 import type { SocialPost } from "../types";
 import { formatRelativeTime } from "../utils/format-time";
@@ -11,6 +12,7 @@ import { PostMediaGallery } from "./post-media-gallery";
 import { PostActionsMenu } from "./post-actions-menu";
 import { PostActionsBar } from "./post-actions-bar";
 import { DeletePostDialog } from "./delete-post-dialog";
+import { SharedTripArtifactCard } from "./shared-trip-artifact-card";
 import { useDeletePost } from "../hooks";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,17 @@ interface PostCardProps {
   onPostDeleted?: (postId: string) => void;
   showDetailLink?: boolean;
   className?: string;
+}
+
+function visibilityLabel(visibility?: SocialPost["visibility"]) {
+  switch (visibility) {
+    case "PRIVATE":
+      return "Only me";
+    case "UNLISTED":
+      return "Community";
+    default:
+      return "Public";
+  }
 }
 
 export function PostCard({
@@ -104,9 +117,14 @@ export function PostCard({
             >
               {post.author.name}
             </Link>
-            <p className="text-xs text-muted-foreground">
-              {formatRelativeTime(post.createdAt)}
-            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>{formatRelativeTime(post.createdAt)}</span>
+              {post.type === "TRIP_SHARE" && (
+                <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px] font-bold">
+                  {visibilityLabel(post.visibility)}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
@@ -127,17 +145,26 @@ export function PostCard({
       )}
 
       {/* Content */}
-      {showDetailLink ? (
+      {post.content && showDetailLink ? (
         <Link
           href={`/community/posts/${post.id}`}
           className="block text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4 hover:opacity-90 transition-opacity focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring rounded-lg cursor-pointer"
         >
           {post.content}
         </Link>
-      ) : (
+      ) : post.content ? (
         <div className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4">
           {post.content}
         </div>
+      ) : null}
+
+      {/* Shared trip artifact */}
+      {post.type === "TRIP_SHARE" && post.trip && (
+        <SharedTripArtifactCard
+          trip={post.trip}
+          compact={showDetailLink}
+          href={`/community/posts/${post.id}`}
+        />
       )}
 
       {/* Media gallery */}

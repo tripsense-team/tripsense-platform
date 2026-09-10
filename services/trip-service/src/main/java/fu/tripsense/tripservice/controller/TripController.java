@@ -44,6 +44,11 @@ public class TripController {
         return ApiResponse.success(tripService.getTrip(currentUserProvider.userId(), tripId));
     }
 
+    @GetMapping("/{tripId}/share-snapshot")
+    public ApiResponse<TripShareSnapshotResponse> getShareSnapshot(@PathVariable UUID tripId) {
+        return ApiResponse.success(tripService.getShareSnapshot(currentUserProvider.userId(), tripId));
+    }
+
     @PatchMapping("/{tripId}")
     public ApiResponse<TripResponse> updateTrip(@PathVariable UUID tripId, @Valid @RequestBody UpdateTripRequest request) {
         return ApiResponse.success("Trip updated", tripService.updateTrip(currentUserProvider.userId(), tripId, request));

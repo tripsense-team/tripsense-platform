@@ -11,4 +11,5 @@ import java.util.Optional;
 public class CurrentUserProvider {
     public AuthenticatedUser requiredUser() { return optionalUser().orElseThrow(() -> new SocialException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "Authentication is required")); }
     public Optional<AuthenticatedUser> optionalUser() { Authentication a = SecurityContextHolder.getContext().getAuthentication(); return a != null && a.getPrincipal() instanceof AuthenticatedUser u ? Optional.of(u) : Optional.empty(); }
+    public String bearerToken() { Authentication a = SecurityContextHolder.getContext().getAuthentication(); return a != null && a.getCredentials() instanceof String s ? s : null; }
 }

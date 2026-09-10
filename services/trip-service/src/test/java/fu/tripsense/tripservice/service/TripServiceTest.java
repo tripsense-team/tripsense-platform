@@ -37,7 +37,9 @@ class TripServiceTest extends RealInfrastructureTest {
 
     @Test
     void createTripGeneratesItineraryDays() {
-        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 26)));
+        LocalDate startDate = LocalDate.now().plusDays(10);
+        LocalDate endDate = startDate.plusDays(2);
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", startDate, endDate));
 
         ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
 
@@ -46,12 +48,14 @@ class TripServiceTest extends RealInfrastructureTest {
                 .containsExactly(1, 2, 3);
         assertThat(itinerary.days())
                 .extracting(ItineraryDayResponse::date)
-                .containsExactly(LocalDate.of(2026, 8, 24), LocalDate.of(2026, 8, 25), LocalDate.of(2026, 8, 26));
+                .containsExactly(startDate, startDate.plusDays(1), endDate);
     }
 
     @Test
     void dateShrinkIsBlockedWhenItemsWouldFallOutsideNewRange() {
-        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Hoi An", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 3)));
+        LocalDate start = LocalDate.now().plusDays(5);
+        LocalDate end = start.plusDays(2);
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Hoi An", start, end));
         ItineraryDayResponse dayThree = tripService.getItinerary(USER_ID, trip.id()).days().get(2);
         tripService.createItem(USER_ID, trip.id(), dayThree.id(), createItemRequest("Coffee stop"));
 
@@ -59,8 +63,8 @@ class TripServiceTest extends RealInfrastructureTest {
                 null,
                 null,
                 null,
-                LocalDate.of(2026, 9, 1),
-                LocalDate.of(2026, 9, 2),
+                start,
+                start.plusDays(1),
                 DateChangePolicy.BLOCK_IF_ITEMS_OUTSIDE_RANGE,
                 null,
                 null,
@@ -327,6 +331,34 @@ class TripServiceTest extends RealInfrastructureTest {
 
         ItineraryDayResponse refreshedDay = tripService.getItineraryDay(USER_ID, trip.id(), day.id());
         assertThat(refreshedDay.items()).isEmpty();
+    }
+
+    @Test
+    void getShareSnapshotReturnsCorrectSummaryForOwner() {
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 15)));
+        ItineraryDayResponse day1 = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
+        tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("Dragon Bridge"));
+        tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("My Khe Beach"));
+
+        var snapshot = tripService.getShareSnapshot(USER_ID, trip.id());
+
+        assertThat(snapshot.tripId()).isEqualTo(trip.id());
+        assertThat(snapshot.name()).isEqualTo("Da Nang Trip");
+        assertThat(snapshot.destinationName()).isEqualTo("Da Nang");
+        assertThat(snapshot.dayCount()).isEqualTo(4);
+        assertThat(snapshot.itineraryItemCount()).isEqualTo(2);
+        assertThat(snapshot.highlights()).hasSize(2);
+        assertThat(snapshot.highlights().getFirst().title()).isEqualTo("Dragon Bridge");
+        assertThat(snapshot.highlights().getFirst().dayNumber()).isEqualTo(1);
+    }
+
+    @Test
+    void getShareSnapshotThrowsNotFoundForNonOwner() {
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 15)));
+        UUID nonOwner = UUID.randomUUID();
+
+        assertThatThrownBy(() -> tripService.getShareSnapshot(nonOwner, trip.id()))
+                .isInstanceOf(fu.tripsense.tripservice.exception.NotFoundException.class);
     }
 
     private CreateTripRequest createTripRequest(String destination, LocalDate startDate, LocalDate endDate) {
