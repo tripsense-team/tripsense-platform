@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -50,10 +51,10 @@ const MapVinaContainer = dynamic(
   }
 );
 
-type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+type ShareWorkspaceVisibility = "PUBLIC" | "PRIVATE";
 
 const visibilityOptions: Array<{
-  value: Visibility;
+  value: ShareWorkspaceVisibility;
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -63,12 +64,6 @@ const visibilityOptions: Array<{
     title: "Public",
     icon: Globe2,
     description: "Anyone on TripSense can discover this shared post in Community.",
-  },
-  {
-    value: "UNLISTED",
-    title: "Unlisted",
-    icon: Users,
-    description: "Visible to signed-in TripSense community members.",
   },
   {
     value: "PRIVATE",
@@ -168,14 +163,29 @@ export function TripSharingWorkspace() {
   const [shareOpen, setShareOpen] = React.useState(false);
   const [visibilityOpen, setVisibilityOpen] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
-  const [visibility, setVisibility] = React.useState<Visibility>("PUBLIC");
+  const [visibility, setVisibility] = React.useState<ShareWorkspaceVisibility>("PUBLIC");
   const [caption, setCaption] = React.useState("");
   const [publishedPostId, setPublishedPostId] = React.useState<string | null>(null);
   const [submittingShare, setSubmittingShare] = React.useState(false);
   const [shareError, setShareError] = React.useState<string | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
+  const [savingVisibility, setSavingVisibility] = React.useState(false);
+  const [visibilityError, setVisibilityError] = React.useState<string | null>(null);
+  const [removingShare, setRemovingShare] = React.useState(false);
+  const [removeError, setRemoveError] = React.useState<string | null>(null);
 
   const places = useResolvedTripPlaces(trip, itinerary);
   const visibilityLabel = visibilityOptions.find((option) => option.value === visibility)?.title ?? "Public";
+
+  React.useEffect(() => {
+    if (!feedbackMessage) return;
+
+    const timeout = window.setTimeout(() => {
+      setFeedbackMessage(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timeout);
+  }, [feedbackMessage]);
 
   const loadTripDetails = React.useCallback(async (tripId: string) => {
     const [freshTrip, freshItinerary] = await Promise.all([getTrip(tripId), getItinerary(tripId)]);
@@ -245,6 +255,7 @@ export function TripSharingWorkspace() {
     setSwitchingTripId(tripId);
     setError(null);
     setShareError(null);
+    setFeedbackMessage(null);
     setPublishedPostId(null);
     try {
       const data = await loadTripDetails(tripId);
@@ -272,11 +283,51 @@ export function TripSharingWorkspace() {
         crypto.randomUUID()
       );
       setPublishedPostId(created.id);
+      setFeedbackMessage("Your post has been published.");
       setShareOpen(false);
     } catch (err) {
       setShareError(err instanceof Error ? err.message : "Could not share this trip");
     } finally {
       setSubmittingShare(false);
+    }
+  }
+
+  async function savePostVisibility() {
+    if (!publishedPostId) {
+      setVisibilityOpen(false);
+      return;
+    }
+
+    setSavingVisibility(true);
+    setVisibilityError(null);
+    try {
+      await socialPostRepository.updatePostVisibility(publishedPostId, visibility);
+      setFeedbackMessage(`Post visibility updated to ${visibilityLabel}.`);
+      setVisibilityOpen(false);
+    } catch (err) {
+      setVisibilityError(err instanceof Error ? err.message : "Could not update post visibility");
+    } finally {
+      setSavingVisibility(false);
+    }
+  }
+
+  async function removeSharedPost() {
+    if (!publishedPostId) {
+      setRemoveOpen(false);
+      return;
+    }
+
+    setRemovingShare(true);
+    setRemoveError(null);
+    try {
+      await socialPostRepository.deletePost(publishedPostId);
+      setPublishedPostId(null);
+      setFeedbackMessage("Shared trip post removed from Community.");
+      setRemoveOpen(false);
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : "Could not remove shared post");
+    } finally {
+      setRemovingShare(false);
     }
   }
 
@@ -302,6 +353,8 @@ export function TripSharingWorkspace() {
 
   return (
     <main className="min-h-screen bg-muted/30 pb-12">
+      {feedbackMessage && <WorkspaceNotification message={feedbackMessage} onDismiss={() => setFeedbackMessage(null)} />}
+
       <TripHero trip={trip} itinerary={itinerary} userName={user?.name} visibilityLabel={visibilityLabel} onShare={() => setShareOpen(true)} />
 
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -348,9 +401,47 @@ export function TripSharingWorkspace() {
         onPublish={publishTripShare}
       />
 
-      <VisibilityDialog open={visibilityOpen} onOpenChange={setVisibilityOpen} visibility={visibility} onVisibilityChange={setVisibility} />
-      <RemoveShareDialog open={removeOpen} onOpenChange={setRemoveOpen} tripTitle={displayTripTitle(trip)} />
+      <VisibilityDialog
+        open={visibilityOpen}
+        onOpenChange={setVisibilityOpen}
+        visibility={visibility}
+        onVisibilityChange={setVisibility}
+        publishedPostId={publishedPostId}
+        saving={savingVisibility}
+        error={visibilityError}
+        onSave={savePostVisibility}
+      />
+      <RemoveShareDialog
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+        tripTitle={displayTripTitle(trip)}
+        publishedPostId={publishedPostId}
+        removing={removingShare}
+        error={removeError}
+        onRemove={removeSharedPost}
+      />
     </main>
+  );
+}
+
+function WorkspaceNotification({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-6 right-6 z-50 flex max-w-sm items-start gap-3 rounded-2xl border border-primary/20 bg-card p-4 text-card-foreground shadow-md"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <Check className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-black">Post published</p>
+        <p className="mt-1 text-sm text-muted-foreground">{message}</p>
+      </div>
+      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onDismiss} aria-label="Dismiss notification">
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
   );
 }
 
@@ -680,8 +771,8 @@ function ShareTripDialog({
   itinerary: ItineraryResponse | null;
   caption: string;
   onCaptionChange: (value: string) => void;
-  visibility: Visibility;
-  onVisibilityChange: (visibility: Visibility) => void;
+  visibility: ShareWorkspaceVisibility;
+  onVisibilityChange: (visibility: ShareWorkspaceVisibility) => void;
   userName?: string | null;
   userEmail?: string | null;
   submitting: boolean;
@@ -792,12 +883,12 @@ function TripArtifact({ trip, itinerary }: { trip: TripResponse; itinerary: Itin
   );
 }
 
-function VisibilityPicker({ visibility, onVisibilityChange }: { visibility: Visibility; onVisibilityChange: (visibility: Visibility) => void }) {
+function VisibilityPicker({ visibility, onVisibilityChange }: { visibility: ShareWorkspaceVisibility; onVisibilityChange: (visibility: ShareWorkspaceVisibility) => void }) {
   return (
     <section>
       <h3 className="text-sm font-black uppercase tracking-normal">Who can see this post?</h3>
       <p className="text-sm text-muted-foreground">Control who can discover this shared copy in the community feed.</p>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
         {visibilityOptions.map((option) => {
           const Icon = option.icon;
           const selected = visibility === option.value;
@@ -826,7 +917,25 @@ function VisibilityPicker({ visibility, onVisibilityChange }: { visibility: Visi
   );
 }
 
-function VisibilityDialog({ open, onOpenChange, visibility, onVisibilityChange }: { open: boolean; onOpenChange: (open: boolean) => void; visibility: Visibility; onVisibilityChange: (visibility: Visibility) => void }) {
+function VisibilityDialog({
+  open,
+  onOpenChange,
+  visibility,
+  onVisibilityChange,
+  publishedPostId,
+  saving,
+  error,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  visibility: ShareWorkspaceVisibility;
+  onVisibilityChange: (visibility: ShareWorkspaceVisibility) => void;
+  publishedPostId: string | null;
+  saving: boolean;
+  error: string | null;
+  onSave: () => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl rounded-3xl p-0">
@@ -835,7 +944,13 @@ function VisibilityDialog({ open, onOpenChange, visibility, onVisibilityChange }
           <DialogDescription>Choose who can see this shared trip in their feed and search results.</DialogDescription>
         </DialogHeader>
         <div className="px-7 py-6">
+          {error && <ErrorState message={error} />}
           <VisibilityPicker visibility={visibility} onVisibilityChange={onVisibilityChange} />
+          {!publishedPostId && (
+            <div className="mt-5 rounded-2xl border border-border bg-muted p-4 text-sm font-semibold text-muted-foreground">
+              Publish this trip before saving visibility changes to Community.
+            </div>
+          )}
           <div className="mt-5 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm">
             <p className="font-black text-primary">Data integrity guarantee</p>
             <p className="mt-1 text-muted-foreground">Changing post visibility only affects the social feed post, not your private trip data.</p>
@@ -843,14 +958,32 @@ function VisibilityDialog({ open, onOpenChange, visibility, onVisibilityChange }
         </div>
         <footer className="flex justify-end gap-3 border-t border-border px-7 py-5">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => onOpenChange(false)} className="rounded-xl">Save Changes</Button>
+          <Button onClick={onSave} disabled={saving || !publishedPostId} className="rounded-xl">
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
         </footer>
       </DialogContent>
     </Dialog>
   );
 }
 
-function RemoveShareDialog({ open, onOpenChange, tripTitle }: { open: boolean; onOpenChange: (open: boolean) => void; tripTitle: string }) {
+function RemoveShareDialog({
+  open,
+  onOpenChange,
+  tripTitle,
+  publishedPostId,
+  removing,
+  error,
+  onRemove,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tripTitle: string;
+  publishedPostId: string | null;
+  removing: boolean;
+  error: string | null;
+  onRemove: () => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-3xl">
@@ -866,13 +999,21 @@ function RemoveShareDialog({ open, onOpenChange, tripTitle }: { open: boolean; o
           <p className="font-black text-primary">Your original itinerary is protected</p>
           <p className="mt-1 text-muted-foreground">Only the shared social post, comments, and reactions are removed.</p>
         </div>
+        {error && <ErrorState message={error} />}
+        {!publishedPostId && (
+          <div className="rounded-2xl border border-border bg-muted p-4 text-sm font-semibold text-muted-foreground">
+            Publish this trip before removing a Community post.
+          </div>
+        )}
         <div className="space-y-2 text-sm text-muted-foreground">
           <p className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> My Trips data remains unchanged.</p>
           <p className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Private notes and bookings stay in your trip workspace.</p>
         </div>
         <div className="flex justify-end gap-3">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="destructive" onClick={() => onOpenChange(false)} className="rounded-xl">Remove Post</Button>
+          <Button variant="destructive" onClick={onRemove} disabled={removing || !publishedPostId} className="rounded-xl">
+            {removing ? "Removing..." : "Remove Post"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
