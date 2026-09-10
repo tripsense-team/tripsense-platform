@@ -249,6 +249,50 @@ export function TripSharingWorkspace() {
     };
   }, [applyWorkspaceData]);
 
+  React.useEffect(() => {
+    let ignore = false;
+
+    async function loadExistingShare() {
+      if (!trip || !user?.id) {
+        setPublishedPostId(null);
+        return;
+      }
+
+      try {
+        const userPosts = await socialPostRepository.getUserPosts(user.id, { page: 0, size: 100 });
+        if (ignore) return;
+
+        const existingShare = userPosts.items.find((post) => post.type === "TRIP_SHARE" && post.trip?.tripId === trip.id);
+        setPublishedPostId(existingShare?.id ?? null);
+        if (existingShare?.visibility) {
+          setVisibility(existingShare.visibility === "PRIVATE" ? "PRIVATE" : "PUBLIC");
+        }
+      } catch {
+        if (!ignore) {
+          setPublishedPostId(null);
+        }
+      }
+    }
+
+    void loadExistingShare();
+
+    return () => {
+      ignore = true;
+    };
+  }, [trip, user?.id]);
+
+  async function refreshPublishedShare(tripId: string) {
+    if (!user?.id) return null;
+
+    const userPosts = await socialPostRepository.getUserPosts(user.id, { page: 0, size: 100 });
+    const existingShare = userPosts.items.find((post) => post.type === "TRIP_SHARE" && post.trip?.tripId === tripId) ?? null;
+    if (existingShare) {
+      setPublishedPostId(existingShare.id);
+      setVisibility(existingShare.visibility === "PRIVATE" ? "PRIVATE" : "PUBLIC");
+    }
+    return existingShare;
+  }
+
   async function selectTrip(tripId: string) {
     if (tripId === trip?.id || switchingTripId) return;
 
@@ -286,6 +330,16 @@ export function TripSharingWorkspace() {
       setFeedbackMessage("Your post has been published.");
       setShareOpen(false);
     } catch (err) {
+      try {
+        const existingShare = await refreshPublishedShare(trip.id);
+        if (existingShare) {
+          setFeedbackMessage("This trip has already been published.");
+          setShareOpen(false);
+          return;
+        }
+      } catch {
+        // Keep the original share error visible if duplicate recovery cannot load.
+      }
       setShareError(err instanceof Error ? err.message : "Could not share this trip");
     } finally {
       setSubmittingShare(false);
