@@ -24,6 +24,10 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /workspace/services/user-service/target/*.jar app.jar
 
 EXPOSE 8081

@@ -71,15 +71,11 @@ public class SocialPostServiceImpl implements SocialPostService {
 
         Page<SocialPost> result;
         if (userId == null) {
-            result = viewer == null
-                    ? posts.findPublicFeed(pageable)
-                    : posts.findVisibleFeedForViewer(viewer.id(), pageable);
+            result = posts.findPublicFeed(pageable);
         } else if (viewer != null && viewer.id().equals(userId)) {
             result = posts.findByAuthorIdAndDeletedAtIsNull(userId, pageable);
         } else {
-            result = viewer == null
-                    ? posts.findPublicPostsByAuthorId(userId, pageable)
-                    : posts.findVisiblePostsByAuthorId(userId, viewer.id(), pageable);
+            result = posts.findPublicPostsByAuthorId(userId, pageable);
         }
 
         return new SocialPostPageResponse(
@@ -94,19 +90,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     @Transactional(readOnly = true)
     public SocialPostResponse getPost(UUID postId, AuthenticatedUser viewer) {
-        SocialPost post = activePost(postId);
-        if ("TRIP_SHARE".equals(post.getPostType())) {
-            SocialTripShare share = tripShares.findById(postId)
-                    .filter(s -> s.getRemovedAt() == null)
-                    .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found"));
-            if ("PRIVATE".equals(share.getVisibility())) {
-                if (viewer == null || !viewer.id().equals(post.getAuthorId())) {
-                    throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
-                }
-            } else if ("UNLISTED".equals(share.getVisibility()) && viewer == null) {
-                throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
-            }
-        }
+        SocialPost post = requireViewablePost(postId, viewer);
         return toPosts(List.of(post), viewer).getFirst();
     }
 
@@ -337,18 +321,10 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     @Transactional(readOnly = true)
     public TripShareDetailResponse getTripShareDetail(UUID postId, AuthenticatedUser viewer) {
-        SocialPost post = activePost(postId);
+        SocialPost post = requireViewablePost(postId, viewer);
         SocialTripShare share = tripShares.findById(postId)
                 .filter(s -> s.getRemovedAt() == null)
                 .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Trip share not found"));
-
-        if ("PRIVATE".equals(share.getVisibility())) {
-            if (viewer == null || !viewer.id().equals(post.getAuthorId())) {
-                throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
-            }
-        } else if ("UNLISTED".equals(share.getVisibility()) && viewer == null) {
-            throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
-        }
 
         SocialPostResponse postResponse = toPosts(List.of(post), viewer).getFirst();
         return new TripShareDetailResponse(postResponse, false, "SNAPSHOT_ONLY");
@@ -380,7 +356,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     @Transactional
     public ToggleLikeResponse setPostLike(UUID postId, AuthenticatedUser user, boolean liked) {
-        SocialPost post = lockedPost(postId);
+        SocialPost post = requireViewableLockedPost(postId, user);
         PostLike.PostLikeId id = new PostLike.PostLikeId(postId, user.id());
         boolean exists = postLikes.existsById(id);
 
@@ -399,7 +375,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     @Transactional(readOnly = true)
     public List<PostCommentResponse> listComments(UUID postId, AuthenticatedUser viewer) {
-        activePost(postId);
+        requireViewablePost(postId, viewer);
         List<SocialComment> list = comments.findByPostIdAndDeletedAtIsNullOrderByCreatedAtAsc(postId);
 
         Set<UUID> liked = (viewer == null)
@@ -428,7 +404,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     @Transactional
     public PostCommentResponse createComment(UUID postId, AuthenticatedUser user, CreateCommentRequest request) {
-        SocialPost post = lockedPost(postId);
+        SocialPost post = requireViewableLockedPost(postId, user);
         String content = request.content() == null ? "" : request.content().trim();
         if (content.isBlank()) {
             throw validation("Comment content is required");
@@ -480,7 +456,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     @Override
     @Transactional
     public ToggleLikeResponse setCommentLike(UUID postId, UUID commentId, AuthenticatedUser user, boolean liked) {
-        lockedPost(postId);
+        requireViewableLockedPost(postId, user);
         SocialComment comment = comments.lockActiveByIdAndPostId(commentId, postId)
                 .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "COMMENT_NOT_FOUND", "Comment not found"));
 
@@ -612,6 +588,35 @@ public class SocialPostServiceImpl implements SocialPostService {
     private SocialPost lockedPost(UUID id) {
         return posts.lockActiveById(id)
                 .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found"));
+    }
+
+    private SocialPost requireViewablePost(UUID id, AuthenticatedUser viewer) {
+        SocialPost post = activePost(id);
+        requireViewablePost(post, viewer);
+        return post;
+    }
+
+    private SocialPost requireViewableLockedPost(UUID id, AuthenticatedUser viewer) {
+        SocialPost post = lockedPost(id);
+        requireViewablePost(post, viewer);
+        return post;
+    }
+
+    private void requireViewablePost(SocialPost post, AuthenticatedUser viewer) {
+        if (!"TRIP_SHARE".equals(post.getPostType())) {
+            return;
+        }
+
+        SocialTripShare share = tripShares.findById(post.getId())
+                .filter(s -> s.getRemovedAt() == null)
+                .orElseThrow(() -> new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found"));
+
+        if ("PRIVATE".equals(share.getVisibility()) && (viewer == null || !viewer.id().equals(post.getAuthorId()))) {
+            throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+        }
+        if ("UNLISTED".equals(share.getVisibility()) && viewer == null) {
+            throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+        }
     }
 
     private void validatePage(int page, int size) {

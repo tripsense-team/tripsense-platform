@@ -25,24 +25,6 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
 
     @Query("""
             SELECT p FROM SocialPost p
-            WHERE p.deletedAt IS NULL
-            AND (
-                p.postType = 'STANDARD'
-                OR p.id IN (
-                    SELECT s.postId FROM SocialTripShare s
-                    WHERE s.removedAt IS NULL
-                    AND (
-                        s.visibility = 'PUBLIC'
-                        OR s.visibility = 'UNLISTED'
-                        OR (s.visibility = 'PRIVATE' AND s.authorId = :viewerId)
-                    )
-                )
-            )
-            """)
-    Page<SocialPost> findVisibleFeedForViewer(@Param("viewerId") UUID viewerId, Pageable pageable);
-
-    @Query("""
-            SELECT p FROM SocialPost p
             WHERE p.authorId = :authorId AND p.deletedAt IS NULL
             AND (
                 p.postType = 'STANDARD'
@@ -53,24 +35,6 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
             )
             """)
     Page<SocialPost> findPublicPostsByAuthorId(@Param("authorId") UUID authorId, Pageable pageable);
-
-    @Query("""
-            SELECT p FROM SocialPost p
-            WHERE p.authorId = :authorId AND p.deletedAt IS NULL
-            AND (
-                p.postType = 'STANDARD'
-                OR p.id IN (
-                    SELECT s.postId FROM SocialTripShare s
-                    WHERE s.removedAt IS NULL
-                    AND (
-                        s.visibility = 'PUBLIC'
-                        OR s.visibility = 'UNLISTED'
-                        OR (s.visibility = 'PRIVATE' AND s.authorId = :viewerId)
-                    )
-                )
-            )
-            """)
-    Page<SocialPost> findVisiblePostsByAuthorId(@Param("authorId") UUID authorId, @Param("viewerId") UUID viewerId, Pageable pageable);
 
     Page<SocialPost> findByAuthorIdAndDeletedAtIsNull(UUID authorId, Pageable pageable);
 

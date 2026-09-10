@@ -152,6 +152,8 @@ class SocialPostServiceImplTest {
 
         when(posts.findByIdAndDeletedAtIsNull(postId)).thenReturn(Optional.of(post));
         when(tripShares.findById(postId)).thenReturn(Optional.of(share));
+        when(media.findByPostIdInOrderBySortOrderAsc(anyCollection())).thenReturn(List.of());
+        when(tripShares.findByPostIdIn(anyCollection())).thenReturn(List.of(share));
 
         AuthenticatedUser viewer = new AuthenticatedUser(UUID.randomUUID(), "viewer@tripsense.app", "ROLE_USER");
         assertThatThrownBy(() -> service.getTripShareDetail(postId, viewer))
@@ -161,6 +163,57 @@ class SocialPostServiceImplTest {
         TripShareDetailResponse detail = service.getTripShareDetail(postId, user);
         assertThat(detail.post()).isNotNull();
         assertThat(detail.tripUnavailableReason()).isEqualTo("SNAPSHOT_ONLY");
+    }
+
+    @Test void privateTripShareRejectsNonOwnerPostLike() {
+        UUID postId = UUID.randomUUID();
+        SocialPost post = SocialPost.builder().id(postId).authorId(user.id()).postType("TRIP_SHARE").likeCount(0).createdAt(Instant.now()).updatedAt(Instant.now()).build();
+        SocialTripShare share = SocialTripShare.builder().postId(postId).authorId(user.id()).visibility("PRIVATE").build();
+        AuthenticatedUser viewer = new AuthenticatedUser(UUID.randomUUID(), "viewer@tripsense.app", "ROLE_USER");
+
+        when(posts.lockActiveById(postId)).thenReturn(Optional.of(post));
+        when(tripShares.findById(postId)).thenReturn(Optional.of(share));
+
+        assertThatThrownBy(() -> service.setPostLike(postId, viewer, true))
+                .isInstanceOf(SocialException.class)
+                .hasMessageContaining("Post not found");
+        verify(postLikes, never()).save(any());
+    }
+
+    @Test void privateTripShareRejectsNonOwnerComments() {
+        UUID postId = UUID.randomUUID();
+        SocialPost post = SocialPost.builder().id(postId).authorId(user.id()).postType("TRIP_SHARE").commentCount(0).createdAt(Instant.now()).updatedAt(Instant.now()).build();
+        SocialTripShare share = SocialTripShare.builder().postId(postId).authorId(user.id()).visibility("PRIVATE").build();
+        AuthenticatedUser viewer = new AuthenticatedUser(UUID.randomUUID(), "viewer@tripsense.app", "ROLE_USER");
+
+        when(posts.findByIdAndDeletedAtIsNull(postId)).thenReturn(Optional.of(post));
+        when(posts.lockActiveById(postId)).thenReturn(Optional.of(post));
+        when(tripShares.findById(postId)).thenReturn(Optional.of(share));
+
+        assertThatThrownBy(() -> service.listComments(postId, viewer))
+                .isInstanceOf(SocialException.class)
+                .hasMessageContaining("Post not found");
+        assertThatThrownBy(() -> service.createComment(postId, viewer, new CreateCommentRequest("Nice trip", null)))
+                .isInstanceOf(SocialException.class)
+                .hasMessageContaining("Post not found");
+        verify(comments, never()).findByPostIdAndDeletedAtIsNullOrderByCreatedAtAsc(any());
+        verify(comments, never()).save(any());
+    }
+
+    @Test void privateTripShareRejectsNonOwnerCommentLike() {
+        UUID postId = UUID.randomUUID();
+        UUID commentId = UUID.randomUUID();
+        SocialPost post = SocialPost.builder().id(postId).authorId(user.id()).postType("TRIP_SHARE").createdAt(Instant.now()).updatedAt(Instant.now()).build();
+        SocialTripShare share = SocialTripShare.builder().postId(postId).authorId(user.id()).visibility("PRIVATE").build();
+        AuthenticatedUser viewer = new AuthenticatedUser(UUID.randomUUID(), "viewer@tripsense.app", "ROLE_USER");
+
+        when(posts.lockActiveById(postId)).thenReturn(Optional.of(post));
+        when(tripShares.findById(postId)).thenReturn(Optional.of(share));
+
+        assertThatThrownBy(() -> service.setCommentLike(postId, commentId, viewer, true))
+                .isInstanceOf(SocialException.class)
+                .hasMessageContaining("Post not found");
+        verify(commentLikes, never()).save(any());
     }
 
     @Test void deletePostSoftRemovesTripShare() {
