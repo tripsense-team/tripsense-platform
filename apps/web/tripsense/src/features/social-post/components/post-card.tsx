@@ -12,6 +12,7 @@ import { PostActionsMenu } from "./post-actions-menu";
 import { PostActionsBar } from "./post-actions-bar";
 import { DeletePostDialog } from "./delete-post-dialog";
 import { useDeletePost } from "../hooks";
+import { useUserProfile } from "@/features/profile";
 import { cn } from "@/lib/utils";
 
 
@@ -33,6 +34,10 @@ export function PostCard({
   const { remove, deleting } = useDeletePost();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  // Fetch author profile to get the avatar dynamically
+  const { data: authorProfile } = useUserProfile(post.author.id);
+  const authorAvatar = authorProfile?.avatarUrl || post.author.avatar;
 
   const handleCommentClick = () => {
     if (showDetailLink) {
@@ -90,7 +95,7 @@ export function PostCard({
             aria-label={`Xem bài viết của ${post.author.name}`}
           >
             <Avatar className="h-10 w-10 border border-border">
-              <AvatarImage src={post.author.avatar} alt={post.author.name} />
+              <AvatarImage src={authorAvatar} alt={post.author.name} />
               <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
                 {authorInitials}
               </AvatarFallback>
