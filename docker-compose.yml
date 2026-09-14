@@ -94,7 +94,8 @@ services:
       dockerfile: services/api-gateway/Dockerfile
     container_name: api-gateway
     env_file:
-      - ./env/.env
+      - path: ./.env
+        required: false
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -118,7 +119,10 @@ services:
       dockerfile: services/place-service/Dockerfile
     container_name: place-service
     env_file:
-      - ./services/place-service/.env
+      - path: ./.env
+        required: false
+      - path: ./services/place-service/.env
+        required: false
     environment:
       MONGODB_URI: mongodb://mongodb:27017/tripsense_places
       REDIS_HOST: redis
@@ -150,7 +154,10 @@ services:
       dockerfile: services/mail-service/Dockerfile
     container_name: mail-service
     env_file:
-      - ./env/.env
+      - path: ./.env
+        required: false
+      - path: ./env/.env
+        required: false
     environment:
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
@@ -173,7 +180,10 @@ services:
       dockerfile: services/user-service/Dockerfile
     container_name: user-service
     env_file:
-      - ./env/.env
+      - path: ./.env
+        required: false
+      - path: ./env/.env
+        required: false
     environment:
       USER_DB_HOST: db
       USER_DB_PORT: "5432"
@@ -205,7 +215,10 @@ services:
       dockerfile: services/trip-service/Dockerfile
     container_name: trip-service
     env_file:
-      - ./env/.env
+      - path: ./.env
+        required: false
+      - path: ./env/.env
+        required: false
     environment:
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: "5432"
@@ -239,7 +252,8 @@ services:
       dockerfile: services/social-service/Dockerfile
     container_name: social-service
     env_file:
-      - ./env/.env
+      - path: ./env/.env
+        required: true
     environment:
       SOCIAL_DB_HOST: social-db
       SOCIAL_DB_PORT: "5432"
