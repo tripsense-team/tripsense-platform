@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatRelativeTime } from "../utils/format-time";
 import { CommentComposer } from "./comment-composer";
 import type { FlattenedCommentNode } from "../utils/comment-tree";
+import { useUserProfile } from "@/features/profile";
 import { cn } from "@/lib/utils";
 
 interface CommentItemProps {
@@ -26,6 +27,9 @@ export function CommentItem({
 }: CommentItemProps) {
   const { comment, visualDepth, replyToAuthorName } = node;
   const [isReplying, setIsReplying] = React.useState(false);
+
+  const { data: authorProfile } = useUserProfile(comment.author.id);
+  const authorAvatar = authorProfile?.avatarUrl || comment.author.avatar;
 
   const authorInitials = (() => {
     if (!comment.author.name) return "U";
@@ -55,7 +59,7 @@ export function CommentItem({
           aria-label={`Xem trang của ${comment.author.name}`}
         >
           <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border">
-            <AvatarImage src={comment.author.avatar} alt={comment.author.name} />
+            <AvatarImage src={authorAvatar} alt={comment.author.name} />
             <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-[10px] sm:text-xs">
               {authorInitials}
             </AvatarFallback>

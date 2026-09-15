@@ -24,6 +24,7 @@ public record TripResponse(
         String budgetCurrency,
         String notes,
         String coverImageUrl,
+        String visibility,
         Long version,
         Instant createdAt,
         Instant updatedAt

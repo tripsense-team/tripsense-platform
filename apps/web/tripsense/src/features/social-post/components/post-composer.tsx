@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/features/auth";
+import { useUserProfile } from "@/features/profile";
 import { useCreatePost } from "../hooks";
 import type { SocialPost, SocialPostMedia } from "../types";
 import { socialPostRepository } from "../services";
@@ -21,6 +22,10 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
   const { user } = useAuth();
   const { create, submitting, error, feedback, clearError, beginNewDraft } = useCreatePost();
 
+  const { data: userProfile } = useUserProfile(user?.id || "");
+  const authorAvatar = userProfile?.avatarUrl || user?.avatar;
+  const displayName = userProfile?.email ? (userProfile.email.split("@")[0] || user?.name) : user?.name;
+
   const [content, setContent] = React.useState("");
   const [mediaFiles, setMediaFiles] = React.useState<Array<{ file: File; previewUrl: string }>>([]);
   const [processingSubmit, setProcessingSubmit] = React.useState(false);
@@ -30,13 +35,13 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const authorInitials = React.useMemo(() => {
-    if (!user?.name) return user?.email?.slice(0, 2).toUpperCase() || "U";
-    const parts = user.name.trim().split(" ");
+    if (!displayName) return user?.email?.slice(0, 2).toUpperCase() || "U";
+    const parts = displayName.trim().split(" ");
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
     }
-    return user.name.slice(0, 2).toUpperCase();
-  }, [user]);
+    return displayName.slice(0, 2).toUpperCase();
+  }, [user, displayName]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -129,7 +134,7 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
         {/* Top: Avatar + Textarea */}
         <div className="flex gap-3">
           <Avatar className="h-10 w-10 border border-border shrink-0 mt-0.5">
-            <AvatarImage src={user?.avatar} alt={user?.name || "User"} />
+            <AvatarImage src={authorAvatar} alt={displayName || "User"} />
             <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
               {authorInitials}
             </AvatarFallback>

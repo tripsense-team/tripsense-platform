@@ -1,5 +1,6 @@
 import { apiClient } from "@/services/api-client";
 import { useAuthStore } from "../store/use-auth-store";
+import { profileService } from "@/features/profile";
 import type {
   ApiResponse,
   LoginRequest,
@@ -45,6 +46,15 @@ export const authApi = {
 
     if (response.success && response.data?.accessToken && response.data?.user) {
       useAuthStore.getState().setAuth(response.data.user, response.data.accessToken);
+      
+      // Fetch profile to populate avatar in global store
+      profileService.getUserProfile(response.data.user.id).then((profile) => {
+        if (profile?.avatarUrl) {
+          useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+        }
+      }).catch(() => {
+        // Ignore background fetch error
+      });
     }
 
     return response;
