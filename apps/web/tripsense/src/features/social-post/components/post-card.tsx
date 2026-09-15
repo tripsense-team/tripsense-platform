@@ -10,6 +10,8 @@ import { formatRelativeTime } from "../utils/format-time";
 import { PostMediaGallery } from "./post-media-gallery";
 import { PostActionsMenu } from "./post-actions-menu";
 import { PostActionsBar } from "./post-actions-bar";
+import { SharedTripCard } from "./shared-trip-card";
+import { parsePostContent } from "../utils/parse-trip-metadata";
 import { DeletePostDialog } from "./delete-post-dialog";
 import { useDeletePost } from "../hooks";
 import { cn } from "@/lib/utils";
@@ -62,6 +64,12 @@ export function PostCard({
     }
     return post.author.name.slice(0, 2).toUpperCase();
   }, [post.author.name]);
+
+  const { cleanContent, tripSummary: parsedTrip } = React.useMemo(
+    () => parsePostContent(post.content),
+    [post.content]
+  );
+  const activeTrip = post.tripSummary || parsedTrip;
 
   const handleDeleteConfirm = async () => {
     setDeleteError(null);
@@ -132,11 +140,11 @@ export function PostCard({
           href={`/community/posts/${post.id}`}
           className="block text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4 hover:opacity-90 transition-opacity focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring rounded-lg cursor-pointer"
         >
-          {post.content}
+          {cleanContent}
         </Link>
       ) : (
         <div className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4">
-          {post.content}
+          {cleanContent}
         </div>
       )}
 
@@ -147,6 +155,13 @@ export function PostCard({
         </div>
       )}
 
+      {/* Attached Shared Trip (TF-65) */}
+      {activeTrip && (
+        <div className="mb-3">
+          <SharedTripCard trip={activeTrip} />
+        </div>
+      )}
+
       {/* Post Actions Bar: Like, Comment, Share */}
       <div className="mt-2">
         <PostActionsBar
@@ -154,7 +169,7 @@ export function PostCard({
           initialLiked={post.isLiked}
           initialLikeCount={post.likeCount}
           commentCount={post.commentCount}
-          postContent={post.content}
+          postContent={cleanContent}
           onCommentClick={handleCommentClick}
         />
       </div>

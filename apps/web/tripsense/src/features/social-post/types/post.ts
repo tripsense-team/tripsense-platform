@@ -5,11 +5,26 @@ export interface SocialPostAuthor {
   email?: string;
 }
 
+export interface SharedTripSummary {
+  id: string;
+  name: string;
+  destinationName: string;
+  startDate?: string;
+  endDate?: string;
+  durationDays?: number;
+  coverImageUrl?: string;
+  budgetAmount?: number;
+  budgetCurrency?: string;
+  placeCount?: number;
+}
+
 export interface SocialPost {
   id: string;
   author: SocialPostAuthor;
   content: string;
   mediaUrls?: string[];
+  tripId?: string;
+  tripSummary?: SharedTripSummary;
   createdAt: string;
   updatedAt?: string;
   likeCount: number;
@@ -20,6 +35,7 @@ export interface SocialPost {
 export interface CreateSocialPostRequest {
   content: string;
   media?: SocialPostMedia[];
+  tripId?: string;
 }
 
 export interface SocialPostMedia {
