@@ -11,6 +11,7 @@ COPY services/place-service/pom.xml services/place-service/pom.xml
 COPY services/user-service/pom.xml services/user-service/pom.xml
 COPY services/mail-service/pom.xml services/mail-service/pom.xml
 COPY services/trip-service/pom.xml services/trip-service/pom.xml
+COPY services/social-service/pom.xml services/social-service/pom.xml
 
 RUN mvn -B -pl services/user-service -am dependency:go-offline
 
