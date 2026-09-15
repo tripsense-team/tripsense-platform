@@ -17,4 +17,6 @@ public interface TripRepository extends JpaRepository<Trip, UUID>, JpaSpecificat
     Page<Trip> findByOwnerUserIdAndArchivedAtIsNull(UUID ownerUserId, Pageable pageable);
 
     Page<Trip> findByOwnerUserIdAndStatusAndArchivedAtIsNull(UUID ownerUserId, TripStatus status, Pageable pageable);
+
+    Page<Trip> findByOwnerUserIdAndVisibilityAndArchivedAtIsNull(UUID ownerUserId, String visibility, Pageable pageable);
 }

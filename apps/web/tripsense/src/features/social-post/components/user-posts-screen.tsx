@@ -2,13 +2,16 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Edit, FileText, Users, UserPlus, Globe, Link as LinkIcon } from "lucide-react";
+import { ArrowLeft, MapPin, Edit, FileText, Users, UserPlus, Globe, Link as LinkIcon, Briefcase } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { EmptyState, ErrorState } from "@/components/shared";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { useUserPosts } from "../hooks";
+import { useUserSharedTrips } from "../hooks/use-user-shared-trips";
 import { PostCard } from "./post-card";
 import { PostCardSkeleton } from "./post-card-skeleton";
+import { SharedTripCard } from "./shared-trip-card";
 import { useUserProfile, EditProfileModal } from "@/features/profile";
 import { useAuth } from "@/features/auth/context/auth-context";
 
@@ -23,6 +26,7 @@ export function UserPostsScreen({ userId }: UserPostsScreenProps) {
 
   const { posts, author, loading: postsLoading, error: postsError, refetch: refetchPosts, removePost } = useUserPosts(userId);
   const { data: profile, isLoading: profileLoading, refetch: refetchProfile } = useUserProfile(userId);
+  const { trips, isLoading: tripsLoading } = useUserSharedTrips(userId);
 
   const authorName = author?.name || "Người dùng";
   const authorInitials = React.useMemo(() => {
@@ -148,39 +152,65 @@ export function UserPostsScreen({ userId }: UserPostsScreenProps) {
         </div>
       </div>
 
-      {/* Section Header */}
-      <div className="pt-2 flex items-center gap-2">
-        <FileText className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">
-          Bài viết đã đăng
-        </h2>
-      </div>
+      <Tabs defaultValue="posts" className="w-full">
+        <TabsList className="w-full flex justify-start mb-6 rounded-none border-b border-border bg-transparent p-0">
+          <TabsTrigger 
+            value="posts" 
+            className="rounded-none border-b-2 border-transparent px-4 py-3 font-semibold data-[state=active]:border-primary data-[state=active]:text-primary"
+          >
+            Bài viết đã đăng
+          </TabsTrigger>
+          <TabsTrigger 
+            value="trips" 
+            className="rounded-none border-b-2 border-transparent px-4 py-3 font-semibold data-[state=active]:border-primary data-[state=active]:text-primary"
+          >
+            Chuyến đi đã chia sẻ
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Posts List / States */}
-      <div className="space-y-4">
-        {postsLoading ? (
-          <div className="space-y-4">
-            <PostCardSkeleton />
-            <PostCardSkeleton />
-          </div>
-        ) : postsError ? (
-          <ErrorState message={postsError} onRetry={refetchPosts} />
-        ) : posts.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title="Chưa có bài viết nào"
-            description="Chưa có bài viết nào từ người dùng này."
-          />
-        ) : (
-          posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onPostDeleted={removePost}
+        <TabsContent value="posts" className="space-y-4 outline-none">
+          {postsLoading ? (
+            <div className="space-y-4">
+              <PostCardSkeleton />
+              <PostCardSkeleton />
+            </div>
+          ) : postsError ? (
+            <ErrorState message={postsError} onRetry={refetchPosts} />
+          ) : posts.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="Chưa có bài viết nào"
+              description="Chưa có bài viết nào từ người dùng này."
             />
-          ))
-        )}
-      </div>
+          ) : (
+            posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                onPostDeleted={removePost}
+              />
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="trips" className="outline-none">
+          {tripsLoading ? (
+            <LoadingState text="Đang tải chuyến đi..." />
+          ) : trips.length === 0 ? (
+            <EmptyState
+              icon={Briefcase}
+              title="Chưa có chuyến đi nào"
+              description="Người dùng này chưa chia sẻ chuyến đi nào công khai."
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {trips.map((trip) => (
+                <SharedTripCard key={trip.id} trip={trip} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <EditProfileModal
         isOpen={isEditModalOpen}
