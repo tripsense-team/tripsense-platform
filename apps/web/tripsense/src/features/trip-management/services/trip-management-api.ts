@@ -13,6 +13,11 @@ import type {
   UpdateTripRequest,
 } from "../types";
 
+export interface ListSharedTripsParams {
+  page?: number;
+  size?: number;
+}
+
 interface ListTripsParams {
   status?: string;
   from?: string;
@@ -39,6 +44,17 @@ export function listTrips(params: ListTripsParams = {}): Promise<PageResponse<Tr
 
 export function createTrip(payload: CreateTripRequest): Promise<TripResponse> {
   return unwrap(apiClient<ApiResponse<TripResponse>>("/api/trips", { method: "POST", body: JSON.stringify(payload) }));
+}
+
+export function shareTrip(tripId: string): Promise<TripResponse> {
+  return unwrap(apiClient<ApiResponse<TripResponse>>(`/api/trips/${tripId}/share`, { method: "PATCH" }));
+}
+
+export function getSharedTrips(userId: string, params: ListSharedTripsParams = {}): Promise<PageResponse<TripResponse>> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("size", String(params.size ?? 20));
+  if (params.page !== undefined) searchParams.set("page", String(params.page));
+  return unwrap(apiClient<ApiResponse<PageResponse<TripResponse>>>(`/api/trips/shared/${userId}?${searchParams.toString()}`));
 }
 
 export function getTrip(tripId: string): Promise<TripResponse> {

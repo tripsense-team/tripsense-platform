@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -11,29 +12,110 @@ import {
   Copy,
   ExternalLink,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { SharedTripSummary } from "../types";
+import type { TripResponse } from "@/features/trip-management/types";
+import {
+  coverImageForTrip,
+  displayTripTitle,
+  formatShortRange,
+  titleCaseDestination,
+} from "@/features/trip-management/utils/format";
 import { cn } from "@/lib/utils";
 
-interface SharedTripCardProps {
-  trip: SharedTripSummary;
+export interface SharedTripCardProps {
+  trip: SharedTripSummary | TripResponse;
   className?: string;
   isCompact?: boolean;
+  variant?: "feed" | "grid";
 }
 
-export function SharedTripCard({
+function GridTripCard({
+  trip,
+  className,
+}: {
+  trip: TripResponse | SharedTripSummary;
+  className?: string;
+}) {
+  const destination = trip.destinationName
+    ? titleCaseDestination(trip.destinationName)
+    : "Điểm đến";
+  const coverImage =
+    "coverImageUrl" in trip && trip.coverImageUrl
+      ? trip.coverImageUrl
+      : "id" in trip && typeof trip.id === "string"
+        ? coverImageForTrip(trip as TripResponse)
+        : "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80";
+  const title =
+    "name" in trip && trip.name
+      ? "status" in trip
+        ? displayTripTitle(trip as TripResponse)
+        : trip.name
+      : `Chuyến đi ${destination}`;
+  const dateRange =
+    trip.startDate && trip.endDate
+      ? formatShortRange(trip.startDate, trip.endDate)
+      : "";
+
+  return (
+    <article
+      className={cn(
+        "group relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-xs transition-all duration-300 hover:shadow-md",
+        className
+      )}
+    >
+      <Link
+        href={`/trips/${trip.id}`}
+        className="absolute inset-0 z-10"
+        aria-label={`Open ${title}`}
+      />
+
+      <Image
+        src={coverImage}
+        alt={trip.destinationName || "Trip cover"}
+        fill
+        sizes="(max-width: 768px) 90vw, 320px"
+        unoptimized={coverImage.startsWith("data:")}
+        className="object-cover transition-transform duration-300 group-hover:scale-105"
+        priority={false}
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/10 to-transparent" />
+
+      <div className="absolute left-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+        <Sparkles className="h-4 w-4 fill-primary-foreground stroke-primary-foreground" />
+      </div>
+
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 p-5 text-primary-foreground">
+        <h3 className="text-base font-black tracking-normal line-clamp-1">
+          {title}
+        </h3>
+        <p className="mt-1.5 text-sm font-medium opacity-90 line-clamp-1">
+          {destination} {dateRange ? `• ${dateRange}` : ""}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function FeedTripCard({
   trip,
   className,
   isCompact = false,
-}: SharedTripCardProps) {
+}: {
+  trip: SharedTripSummary | TripResponse;
+  className?: string;
+  isCompact?: boolean;
+}) {
   const router = useRouter();
   const [cloning, setCloning] = React.useState(false);
   const [cloned, setCloned] = React.useState(false);
 
   const formatDuration = React.useMemo(() => {
-    if (trip.durationDays) {
+    if ("durationDays" in trip && trip.durationDays) {
       return `${trip.durationDays} ngày ${Math.max(1, trip.durationDays - 1)} đêm`;
     }
     if (trip.startDate && trip.endDate) {
@@ -44,7 +126,7 @@ export function SharedTripCard({
       return `${diffDays} ngày ${Math.max(1, diffDays - 1)} đêm`;
     }
     return null;
-  }, [trip.durationDays, trip.startDate, trip.endDate]);
+  }, [trip]);
 
   const formatBudget = React.useMemo(() => {
     if (!trip.budgetAmount) return null;
@@ -75,6 +157,8 @@ export function SharedTripCard({
     router.push(`/trips/${trip.id}`);
   };
 
+  const coverImage = trip.coverImageUrl;
+
   return (
     <div
       onClick={handleViewTrip}
@@ -85,11 +169,10 @@ export function SharedTripCard({
       )}
     >
       <div className="flex flex-col sm:flex-row gap-4">
-        {/* Cover Thumbnail */}
-        {trip.coverImageUrl ? (
+        {coverImage ? (
           <div className="relative h-32 sm:h-28 sm:w-40 shrink-0 overflow-hidden rounded-xl bg-muted">
             <Image
-              src={trip.coverImageUrl}
+              src={coverImage}
               alt={trip.name}
               fill
               className="object-cover transition-transform duration-300 group-hover/trip:scale-105"
@@ -116,7 +199,6 @@ export function SharedTripCard({
           </div>
         )}
 
-        {/* Details & Action */}
         <div className="flex flex-1 flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -144,7 +226,6 @@ export function SharedTripCard({
             )}
           </div>
 
-          {/* Quick Actions */}
           <div className="mt-3 pt-2 border-t border-border/60 flex items-center justify-between gap-2">
             <Button
               type="button"
@@ -181,5 +262,25 @@ export function SharedTripCard({
         </div>
       </div>
     </div>
+  );
+}
+
+export function SharedTripCard(props: SharedTripCardProps) {
+  const isGrid =
+    props.variant === "grid" ||
+    (!props.isCompact &&
+      "status" in props.trip &&
+      !("durationDays" in props.trip));
+
+  if (isGrid) {
+    return <GridTripCard trip={props.trip} className={props.className} />;
+  }
+
+  return (
+    <FeedTripCard
+      trip={props.trip}
+      className={props.className}
+      isCompact={props.isCompact}
+    />
   );
 }

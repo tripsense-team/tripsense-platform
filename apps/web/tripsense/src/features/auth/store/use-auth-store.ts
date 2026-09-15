@@ -33,6 +33,7 @@ export interface AuthState {
   setAuth: (user: User, accessToken: string) => void;
   setAccessToken: (accessToken: string | null) => void;
   clearAuth: () => void;
+  updateUserAvatar: (avatarUrl: string | undefined) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -94,6 +95,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       authVersion: state.authVersion + 1,
       isAuthenticated: false,
       isLoading: false,
+    }));
+  },
+
+  updateUserAvatar: (avatarUrl) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, avatar: avatarUrl } : null,
     }));
   },
 }));

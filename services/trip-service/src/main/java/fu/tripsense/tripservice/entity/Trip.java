@@ -59,6 +59,10 @@ public class Trip {
     @Column(name = "cover_image_url", columnDefinition = "TEXT")
     private String coverImageUrl;
 
+    @Column(nullable = false, length = 32)
+    @Builder.Default
+    private String visibility = "PRIVATE";
+
     @Version
     private Long version;
 

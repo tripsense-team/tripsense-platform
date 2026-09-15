@@ -38,4 +38,8 @@ public interface TripService {
     void deleteItem(UUID userId, UUID tripId, UUID itemId);
 
     ItineraryDayResponse reorderItems(UUID userId, UUID tripId, UUID dayId, ReorderItemsRequest request);
+
+    TripResponse shareTrip(UUID userId, UUID tripId);
+
+    TripListResponse getSharedTrips(UUID userId, int page, int size);
 }
