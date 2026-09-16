@@ -10,8 +10,11 @@ import { formatRelativeTime } from "../utils/format-time";
 import { PostMediaGallery } from "./post-media-gallery";
 import { PostActionsMenu } from "./post-actions-menu";
 import { PostActionsBar } from "./post-actions-bar";
+import { SharedTripCard } from "./shared-trip-card";
+import { parsePostContent } from "../utils/parse-trip-metadata";
 import { DeletePostDialog } from "./delete-post-dialog";
 import { useDeletePost } from "../hooks";
+import { useUserProfile } from "@/features/profile";
 import { cn } from "@/lib/utils";
 
 
@@ -33,6 +36,10 @@ export function PostCard({
   const { remove, deleting } = useDeletePost();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  // Fetch author profile to get the avatar dynamically
+  const { data: authorProfile } = useUserProfile(post.author.id);
+  const authorAvatar = authorProfile?.avatarUrl || post.author.avatar;
 
   const handleCommentClick = () => {
     if (showDetailLink) {
@@ -63,6 +70,12 @@ export function PostCard({
     return post.author.name.slice(0, 2).toUpperCase();
   }, [post.author.name]);
 
+  const { cleanContent, tripSummary: parsedTrip } = React.useMemo(
+    () => parsePostContent(post.content),
+    [post.content]
+  );
+  const activeTrip = post.tripSummary || parsedTrip;
+
   const handleDeleteConfirm = async () => {
     setDeleteError(null);
     try {
@@ -90,7 +103,7 @@ export function PostCard({
             aria-label={`Xem bài viết của ${post.author.name}`}
           >
             <Avatar className="h-10 w-10 border border-border">
-              <AvatarImage src={post.author.avatar} alt={post.author.name} />
+              <AvatarImage src={authorAvatar} alt={post.author.name} />
               <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
                 {authorInitials}
               </AvatarFallback>
@@ -132,11 +145,11 @@ export function PostCard({
           href={`/community/posts/${post.id}`}
           className="block text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4 hover:opacity-90 transition-opacity focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring rounded-lg cursor-pointer"
         >
-          {post.content}
+          {cleanContent}
         </Link>
       ) : (
         <div className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4">
-          {post.content}
+          {cleanContent}
         </div>
       )}
 
@@ -147,6 +160,13 @@ export function PostCard({
         </div>
       )}
 
+      {/* Attached Shared Trip (TF-65) */}
+      {activeTrip && (
+        <div className="mb-3">
+          <SharedTripCard trip={activeTrip} />
+        </div>
+      )}
+
       {/* Post Actions Bar: Like, Comment, Share */}
       <div className="mt-2">
         <PostActionsBar
@@ -154,7 +174,7 @@ export function PostCard({
           initialLiked={post.isLiked}
           initialLikeCount={post.likeCount}
           commentCount={post.commentCount}
-          postContent={post.content}
+          postContent={cleanContent}
           onCommentClick={handleCommentClick}
         />
       </div>

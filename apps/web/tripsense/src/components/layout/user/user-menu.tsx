@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth, LogoutModal } from "@/features/auth";
+import { useUserProfile } from "@/features/profile";
 
 interface UserMenuProps {
   user?: {
@@ -28,6 +29,10 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
   const [logoutModalOpen, setLogoutModalOpen] = React.useState(false);
   const activeUser = customUser || authUser;
 
+  const { data: userProfile } = useUserProfile(authUser?.id || "");
+  const displayAvatar = userProfile?.avatarUrl || activeUser?.avatar;
+  const displayName = userProfile?.email ? (userProfile.email.split("@")[0] || activeUser?.name) : activeUser?.name;
+
   const initials = activeUser?.email
     ? activeUser.email.slice(0, 2).toUpperCase()
     : "TS";
@@ -38,7 +43,7 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <button className="rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={activeUser?.avatar} alt={activeUser?.name || activeUser?.email || "User Avatar"} />
+              <AvatarImage src={displayAvatar} alt={displayName || activeUser?.email || "User Avatar"} />
               <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{initials}</AvatarFallback>
             </Avatar>
           </button>
@@ -47,7 +52,7 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none text-foreground truncate">
-                {activeUser?.name || activeUser?.email || "Guest User"}
+                {displayName || activeUser?.email || "Guest User"}
               </p>
               <p className="text-xs leading-none text-muted-foreground truncate">
                 {activeUser?.email || "guest@tripsense.app"}

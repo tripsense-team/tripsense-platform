@@ -30,6 +30,7 @@ interface TripsScreenProps {
   onRequestEditTrip: (trip: TripResponse) => void;
   onRequestDeleteTrip: (trip: TripResponse) => void;
   onRequestChangePhoto: (trip: TripResponse) => void;
+  onRequestShareTrip: (trip: TripResponse) => void;
 }
 
 export function TripsScreen({
@@ -42,6 +43,7 @@ export function TripsScreen({
   onRequestEditTrip,
   onRequestDeleteTrip,
   onRequestChangePhoto,
+  onRequestShareTrip,
 }: TripsScreenProps) {
   const [filter, setFilter] = React.useState<TripListFilter>("all");
   const displayTrips = React.useMemo(() => {
@@ -105,6 +107,7 @@ export function TripsScreen({
                 onRequestEdit={onRequestEditTrip}
                 onRequestDelete={onRequestDeleteTrip}
                 onRequestChangePhoto={onRequestChangePhoto}
+                onRequestShare={onRequestShareTrip}
               />
             ))}
           </div>
@@ -120,12 +123,14 @@ function TripPoster({
   onRequestEdit,
   onRequestDelete,
   onRequestChangePhoto,
+  onRequestShare,
 }: {
   trip: TripResponse;
   deleting: boolean;
   onRequestEdit: (trip: TripResponse) => void;
   onRequestDelete: (trip: TripResponse) => void;
   onRequestChangePhoto: (trip: TripResponse) => void;
+  onRequestShare: (trip: TripResponse) => void;
 }) {
   const destination = titleCaseDestination(trip.destinationName);
   const coverImage = coverImageForTrip(trip);
@@ -164,9 +169,9 @@ function TripPoster({
             <Link2 className="h-5 w-5" />
             Invite co-travelers
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-3 rounded-xl px-3 py-3 text-base">
+          <DropdownMenuItem className="gap-3 rounded-xl px-3 py-3 text-base" onSelect={() => onRequestShare(trip)}>
             <Share className="h-5 w-5" />
-            Share trip
+            Share trip {trip.visibility === 'PUBLIC' && "(Shared)"}
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-3 rounded-xl px-3 py-3 text-base" onSelect={() => onRequestEdit(trip)}>
             <Edit3 className="h-5 w-5" />

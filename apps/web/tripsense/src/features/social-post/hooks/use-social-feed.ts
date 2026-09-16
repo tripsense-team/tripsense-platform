@@ -3,6 +3,9 @@
 import * as React from "react";
 import type { SocialPost } from "../types";
 import { socialPostRepository } from "../services";
+import { parsePostContent } from "../utils/parse-trip-metadata";
+
+export type FeedFilterTab = "all" | "newest" | "trips";
 
 export function useSocialFeed() {
   const [posts, setPosts] = React.useState<SocialPost[]>([]);
@@ -11,6 +14,7 @@ export function useSocialFeed() {
   const [error, setError] = React.useState<string | null>(null);
   const [page, setPage] = React.useState(0);
   const [hasMore, setHasMore] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<FeedFilterTab>("all");
 
   const fetchPosts = React.useCallback(async (targetPage = 0, isInitial = false) => {
     if (!isInitial) {
@@ -82,12 +86,28 @@ export function useSocialFeed() {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
   }, []);
 
+  // Filtered/Sorted posts based on activeTab (TF-65, TF-66)
+  const displayedPosts = React.useMemo(() => {
+    if (activeTab === "trips") {
+      return posts.filter((p) => Boolean(p.tripSummary || p.tripId || parsePostContent(p.content).tripSummary));
+    }
+    if (activeTab === "newest") {
+      return [...posts].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+    return posts;
+  }, [posts, activeTab]);
+
   return {
-    posts,
+    posts: displayedPosts,
+    rawPosts: posts,
     loading,
     loadingMore,
     error,
     hasMore,
+    activeTab,
+    setActiveTab,
     loadMore,
     refetch,
     prependPost,
