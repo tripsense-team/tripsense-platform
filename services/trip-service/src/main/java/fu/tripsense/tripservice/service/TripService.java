@@ -10,6 +10,7 @@ import fu.tripsense.tripservice.dto.response.ItineraryItemResponse;
 import fu.tripsense.tripservice.dto.response.ItineraryResponse;
 import fu.tripsense.tripservice.dto.response.TripListResponse;
 import fu.tripsense.tripservice.dto.response.TripResponse;
+import fu.tripsense.tripservice.dto.response.TripShareSnapshotResponse;
 import fu.tripsense.tripservice.enums.TripStatus;
 
 import java.time.LocalDate;
@@ -38,6 +39,8 @@ public interface TripService {
     void deleteItem(UUID userId, UUID tripId, UUID itemId);
 
     ItineraryDayResponse reorderItems(UUID userId, UUID tripId, UUID dayId, ReorderItemsRequest request);
+
+    TripShareSnapshotResponse getShareSnapshot(UUID userId, UUID tripId);
 
     TripResponse shareTrip(UUID userId, UUID tripId);
 

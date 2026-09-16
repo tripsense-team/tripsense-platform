@@ -10,6 +10,7 @@ import { usePostComments } from "../hooks/use-post-comments";
 import { PostCard } from "./post-card";
 import { PostCardSkeleton } from "./post-card-skeleton";
 import { CommentSection } from "./comment-section";
+import { SharedTripDetailView } from "./shared-trip-detail-view";
 import type { SocialPost } from "../types";
 
 export interface PostDetailContentProps {
@@ -111,11 +112,15 @@ export function PostDetailContent({
 
   return (
     <div className="space-y-6 pb-2">
-      <PostCard
-        post={post}
-        showDetailLink={false}
-        onPostDeleted={onPostDeleted}
-      />
+      {post.type === "TRIP_SHARE" && post.trip ? (
+        <SharedTripDetailView post={post} onUpdated={refetch} />
+      ) : (
+        <PostCard
+          post={post}
+          showDetailLink={false}
+          onPostDeleted={onPostDeleted}
+        />
+      )}
 
       <CommentSection
         postId={post.id}

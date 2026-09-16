@@ -29,19 +29,40 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
 
     env:
       DB_HOST: localhost
       DB_USER: postgres
       DB_PASS: ci-placeholder
+      TRIP_DB_HOST: localhost
+      TRIP_DB_PORT: 5432
+      TRIP_DB_NAME: tripsense_trip
+      TRIP_DB_USER: postgres
+      TRIP_DB_PASS: ci-placeholder
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
       JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
       JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
       RESEND_API_KEY: ci-placeholder
       EMAIL_SERVICE_URL: http://localhost:8082
+      ZIOMAP_API_KEY: ci-placeholder
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Create TripSense test databases
+        env:
+          PGPASSWORD: ci-placeholder
+        run: psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_trip;"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -70,11 +91,13 @@ jobs:
 
           DB_USER: postgres
           DB_PASS: ci-placeholder
-
+          TRIP_DB_USER: postgres
+          TRIP_DB_PASS: ci-placeholder
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
 
           RESEND_API_KEY: ci-placeholder
+          ZIOMAP_API_KEY: ci-placeholder
 
         run: docker compose -f deploy/docker-compose.prod.yml config
 
@@ -85,9 +108,12 @@ jobs:
             echo "DB_HOST=db"
             echo "DB_USER=postgres"
             echo "DB_PASS=ci-placeholder"
+            echo "TRIP_DB_USER=postgres"
+            echo "TRIP_DB_PASS=ci-placeholder"
             echo "JWT_ACCESS_SECRET=ci-placeholder-access-secret-12345678901234567890"
             echo "JWT_REFRESH_SECRET=ci-placeholder-refresh-secret-12345678901234567890"
             echo "RESEND_API_KEY=ci-placeholder"
+            echo "ZIOMAP_API_KEY=ci-placeholder"
           } > env/.env
 
       - name: Build Docker images
@@ -99,8 +125,11 @@ jobs:
 
           DB_USER: postgres
           DB_PASS: ci-placeholder
+          TRIP_DB_USER: postgres
+          TRIP_DB_PASS: ci-placeholder
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
           RESEND_API_KEY: ci-placeholder
+          ZIOMAP_API_KEY: ci-placeholder
 
         run: docker compose build

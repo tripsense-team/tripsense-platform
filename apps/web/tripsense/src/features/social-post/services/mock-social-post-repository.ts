@@ -2,11 +2,13 @@ import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import type {
   CreateCommentRequest,
   CreateSocialPostRequest,
+  CreateTripShareRequest,
   ListPostsParams,
   PostComment,
   SocialPost,
   SocialPostPageResponse,
   ToggleLikeResponse,
+  TripShareDetailResponse,
   UploadSignatureResponse,
 } from "../types";
 import type { ISocialPostRepository } from "./social-post-repository";
@@ -373,6 +375,73 @@ export class MockSocialPostRepository implements ISocialPostRepository {
     return {
       liked: comment.isLiked,
       likeCount: comment.likeCount,
+    };
+  }
+
+  async createTripShare(payload: CreateTripShareRequest, idempotencyKey: string): Promise<SocialPost> {
+    void idempotencyKey;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const currentUser = useAuthStore.getState().user;
+    const newPost: SocialPost = {
+      id: "post-" + Date.now(),
+      type: "TRIP_SHARE",
+      author: {
+        id: currentUser?.id || "mock-user-1",
+        name: currentUser?.name || "Bạn",
+        avatar: currentUser?.avatar,
+        email: currentUser?.email,
+      },
+      content: payload.caption || "",
+      mediaUrls: [],
+      visibility: payload.visibility || "PUBLIC",
+      trip: {
+        tripId: payload.tripId,
+        name: "Chuyến đi mẫu",
+        destinationName: "Đà Nẵng",
+        startDate: "2026-10-10",
+        endDate: "2026-10-14",
+        coverImageUrl: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=800&auto=format&fit=crop&q=80",
+        travelerCount: 2,
+        dayCount: 4,
+        itineraryItemCount: 6,
+        highlights: [
+          { title: "Cầu Rồng", placeName: "Cầu Rồng", dayNumber: 1 },
+          { title: "Bãi biển Mỹ Khê", placeName: "Bãi biển Mỹ Khê", dayNumber: 2 }
+        ],
+      },
+      createdAt: new Date().toISOString(),
+      likeCount: 0,
+      commentCount: 0,
+      isLiked: false,
+    };
+    this.posts.unshift(newPost);
+    return newPost;
+  }
+
+  async updatePostVisibility(postId: string, visibility: "PUBLIC" | "UNLISTED" | "PRIVATE"): Promise<SocialPost> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const post = this.posts.find((p) => p.id === postId);
+    if (!post) throw new Error("Không tìm thấy bài viết");
+    post.visibility = visibility;
+    return post;
+  }
+
+  async updatePostContent(postId: string, payload: { content: string }): Promise<SocialPost> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const post = this.posts.find((p) => p.id === postId);
+    if (!post) throw new Error("Không tìm thấy bài viết");
+    post.content = payload.content.trim();
+    post.updatedAt = new Date().toISOString();
+    return post;
+  }
+
+  async getTripShareDetail(postId: string): Promise<TripShareDetailResponse> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const post = this.posts.find((p) => p.id === postId);
+    if (!post) throw new Error("Không tìm thấy bài viết");
+    return {
+      post,
+      canOpenTrip: true,
     };
   }
 }

@@ -15,6 +15,7 @@ import {
   Settings,
   HelpCircle,
   LucideIcon,
+  MessageCircle,
   MessageSquareQuote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,11 @@ const mainNavItems: NavItem[] = [
     title: "Community",
     href: "/community",
     icon: MessageSquareQuote,
+  },
+  {
+    title: "Chat",
+    href: "/chat",
+    icon: MessageCircle,
   },
   {
     title: "Places & Map",

@@ -7,6 +7,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -16,6 +17,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -29,12 +31,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class TripControllerIntegrationTest extends RealInfrastructureTest {
 
-    private static final String SECRET = "test-access-secret-key-that-is-long-enough-for-hs256";
     private static final UUID USER_A = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID USER_B = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Value("${jwt.access-secret}")
+    private String accessSecret;
 
     @Test
     void rejectsUnauthenticatedTripRequests() throws Exception {
@@ -44,7 +48,8 @@ class TripControllerIntegrationTest extends RealInfrastructureTest {
 
     @Test
     void createsTripWithJwtAndPersistsGeneratedDaysThroughFlywayPostgres() throws Exception {
-        String tripId = createTrip(USER_A, "Da Nang", "2026-08-24", "2026-08-26");
+        LocalDate startDate = LocalDate.now().plusDays(10);
+        String tripId = createTrip(USER_A, "Da Nang", startDate.toString(), startDate.plusDays(2).toString());
 
         mockMvc.perform(get("/api/trips/{tripId}/itinerary", tripId)
                         .header("Authorization", bearer(USER_A)))
@@ -305,6 +310,6 @@ class TripControllerIntegrationTest extends RealInfrastructureTest {
     }
 
     private Key signingKey() {
-        return Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+        return Keys.hmacShaKeyFor(accessSecret.getBytes(StandardCharsets.UTF_8));
     }
 }
