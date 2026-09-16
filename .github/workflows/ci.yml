@@ -82,19 +82,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - image: web
+            context: apps/web/tripsense
+            dockerfile: apps/web/tripsense/Dockerfile
           - image: api-gateway
+            context: .
             dockerfile: services/api-gateway/Dockerfile
           - image: discovery-server
+            context: .
             dockerfile: services/discovery-server/Dockerfile
           - image: place-service
+            context: .
             dockerfile: services/place-service/Dockerfile
           - image: user-service
+            context: .
             dockerfile: services/user-service/Dockerfile
           - image: mail-service
+            context: .
             dockerfile: services/mail-service/Dockerfile
           - image: trip-service
+            context: .
             dockerfile: services/trip-service/Dockerfile
           - image: social-service
+            context: .
             dockerfile: services/social-service/Dockerfile
 
     steps:
@@ -135,7 +145,7 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: false
           load: false

@@ -84,6 +84,10 @@ jobs:
 
       matrix:
         include:
+          - image: web
+            context: apps/web/tripsense
+            dockerfile: apps/web/tripsense/Dockerfile
+
           - image: api-gateway
             context: .
             dockerfile: services/api-gateway/Dockerfile
