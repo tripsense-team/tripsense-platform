@@ -36,6 +36,9 @@ docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" pull
 echo "=== Start containers ==="
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --remove-orphans
 
+echo "=== Reload reverse proxy ==="
+docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --force-recreate --no-deps nginx
+
 echo "=== Deployment status ==="
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" ps
 
