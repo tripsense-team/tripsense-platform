@@ -170,6 +170,31 @@ public class TripServiceImpl implements TripService {
         tripRepository.save(trip);
     }
 
+    @Transactional
+    @CacheEvict(cacheNames = {"trip-detail", "trip-list", "trip-itinerary"}, allEntries = true)
+    @Override
+    public TripResponse shareTrip(UUID userId, UUID tripId) {
+        Trip trip = getOwnedTrip(userId, tripId);
+        ensureNotArchived(trip);
+        trip.setVisibility("PUBLIC");
+        return toTripResponse(tripRepository.save(trip));
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public TripListResponse getSharedTrips(UUID userId, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, Math.min(size, 100), Sort.by("startDate").ascending());
+        Page<Trip> trips = tripRepository.findByOwnerUserIdAndVisibilityAndArchivedAtIsNull(userId, "PUBLIC", pageRequest);
+
+        return new TripListResponse(
+                trips.getContent().stream().map(this::toTripResponse).toList(),
+                trips.getNumber(),
+                trips.getSize(),
+                trips.getTotalElements(),
+                trips.getTotalPages()
+        );
+    }
+
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "trip-itinerary", key = "#userId + ':' + #tripId")
     @Override
@@ -562,6 +587,7 @@ public class TripServiceImpl implements TripService {
                 trip.getBudgetCurrency(),
                 trip.getNotes(),
                 trip.getCoverImageUrl(),
+                trip.getVisibility(),
                 trip.getVersion(),
                 trip.getCreatedAt(),
                 trip.getUpdatedAt()

@@ -103,4 +103,18 @@ public class TripController {
     ) {
         return ApiResponse.success("Itinerary items reordered", tripService.reorderItems(currentUserProvider.userId(), tripId, dayId, request));
     }
+
+    @PatchMapping("/{tripId}/share")
+    public ApiResponse<TripResponse> shareTrip(@PathVariable UUID tripId) {
+        return ApiResponse.success("Trip shared", tripService.shareTrip(currentUserProvider.userId(), tripId));
+    }
+
+    @GetMapping("/shared/{userId}")
+    public ApiResponse<TripListResponse> getSharedTrips(
+            @PathVariable UUID userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.success(tripService.getSharedTrips(userId, page, size));
+    }
 }

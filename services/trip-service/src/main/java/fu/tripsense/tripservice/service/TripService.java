@@ -41,4 +41,8 @@ public interface TripService {
     ItineraryDayResponse reorderItems(UUID userId, UUID tripId, UUID dayId, ReorderItemsRequest request);
 
     TripShareSnapshotResponse getShareSnapshot(UUID userId, UUID tripId);
+
+    TripResponse shareTrip(UUID userId, UUID tripId);
+
+    TripListResponse getSharedTrips(UUID userId, int page, int size);
 }

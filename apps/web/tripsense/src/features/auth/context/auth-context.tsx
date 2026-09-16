@@ -3,6 +3,7 @@
 import * as React from "react";
 import { authApi } from "../services/auth-api";
 import { useAuthStore } from "../store/use-auth-store";
+import { profileService } from "@/features/profile";
 import { hasLoggedInCookie, setLoggedInCookie, clearLoggedInCookie } from "../utils/cookie-indicator";
 import {
   User,
@@ -86,6 +87,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             };
 
             setAuth(recoveredUser, response.data.accessToken);
+            
+            // Background fetch to restore avatar/name from user-service
+            // We ignore isMounted here because setAuth triggers a re-render that resets it,
+            // and we still want to populate the global store with the profile data.
+            profileService.getUserProfile(recoveredUser.id).then((profile) => {
+              if (profile?.avatarUrl) {
+                useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+              }
+            }).catch(() => {
+              // Ignore background fetch error
+            });
           }
         } else if (isMounted) {
           clearLoggedInCookie();

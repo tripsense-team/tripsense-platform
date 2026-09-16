@@ -37,14 +37,19 @@ export interface SharedTripItineraryDay {
 }
 
 export interface SharedTripSummary {
-  tripId: string;
+  id?: string;
+  tripId?: string;
   name: string;
   destinationName: string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
   coverImageUrl?: string;
   travelerCount?: number;
+  durationDays?: number;
   dayCount?: number;
+  budgetAmount?: number;
+  budgetCurrency?: string;
+  placeCount?: number;
   itineraryItemCount?: number;
   highlights?: SharedTripHighlight[];
   itineraryDays?: SharedTripItineraryDay[];
@@ -58,6 +63,8 @@ export interface SocialPost {
   mediaUrls?: string[];
   visibility?: "PUBLIC" | "UNLISTED" | "PRIVATE";
   trip?: SharedTripSummary | null;
+  tripId?: string;
+  tripSummary?: SharedTripSummary;
   createdAt: string;
   updatedAt?: string;
   likeCount: number;
@@ -68,6 +75,7 @@ export interface SocialPost {
 export interface CreateSocialPostRequest {
   content: string;
   media?: SocialPostMedia[];
+  tripId?: string;
 }
 
 export interface CreateTripShareRequest {

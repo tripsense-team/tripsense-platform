@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/features/auth";
+import { useUserProfile } from "@/features/profile";
 import { cn } from "@/lib/utils";
 
 interface CommentComposerProps {
@@ -28,6 +29,10 @@ export function CommentComposer({
   className,
 }: CommentComposerProps) {
   const { user } = useAuth();
+  const { data: userProfile } = useUserProfile(user?.id || "");
+  const authorAvatar = userProfile?.avatarUrl || user?.avatar;
+  const displayName = userProfile?.email ? (userProfile.email.split("@")[0] || user?.name) : user?.name;
+
   const [content, setContent] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -40,12 +45,12 @@ export function CommentComposer({
   }, [autoFocus, parentId]);
 
   const userInitials = (() => {
-    if (!user?.name) return "U";
-    const parts = user.name.trim().split(" ");
+    if (!displayName) return user?.email?.slice(0, 2).toUpperCase() || "U";
+    const parts = displayName.trim().split(" ");
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
     }
-    return user.name.slice(0, 2).toUpperCase();
+    return displayName.slice(0, 2).toUpperCase();
   })();
 
 
@@ -105,7 +110,7 @@ export function CommentComposer({
       {/* Input area */}
       <form onSubmit={handleSubmit} className="flex gap-2.5 sm:gap-3 items-start">
         <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 border border-border mt-0.5">
-          <AvatarImage src={user?.avatar} alt={user?.name || "Bạn"} />
+          <AvatarImage src={authorAvatar} alt={displayName || "Bạn"} />
           <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
             {userInitials}
           </AvatarFallback>

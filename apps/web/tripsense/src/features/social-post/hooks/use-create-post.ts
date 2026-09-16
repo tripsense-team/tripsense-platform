@@ -49,6 +49,7 @@ export function useCreatePost() {
     submitting,
     error,
     feedback,
+    dismissFeedback: () => setFeedback(null),
     clearError: () => setError(null),
     beginNewDraft,
   };

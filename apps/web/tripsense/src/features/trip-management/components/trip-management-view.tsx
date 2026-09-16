@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Check, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/shared";
 import { ApiError } from "@/services/api-client";
@@ -23,6 +23,7 @@ import {
   reorderItineraryItems,
   updateItineraryItem,
   updateTrip,
+  shareTrip,
 } from "../services/trip-management-api";
 import type {
   CreateItineraryItemRequest,
@@ -96,8 +97,14 @@ export function TripManagementView({
   const [editItemDraft, setEditItemDraft] = React.useState<UpdateItineraryItemRequest | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [authModalOpen, setAuthModalOpen] = React.useState(false);
+  const [toast, setToast] = React.useState<{ message: string; type: "success" | "error" } | null>(null);
   const [chatText, setChatText] = React.useState("");
   const [chatMessages, setChatMessages] = React.useState(["Setting Up My Travel Assistant"]);
+
+  function showToast(message: string, type: "success" | "error" = "success") {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }
 
   const loadTrips = React.useCallback(async () => {
     if (!isAuthenticated) return;
@@ -418,9 +425,28 @@ export function TripManagementView({
         onRequestEditTrip={handleStartEditTrip}
         onRequestDeleteTrip={setDeleteTrip}
         onRequestChangePhoto={setPhotoTrip}
+        onRequestShareTrip={handleShareTrip}
       />
     );
   })();
+
+  async function handleShareTrip(tripToShare: TripResponse) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await shareTrip(tripToShare.id);
+      setTrips((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      if (trip?.id === updated.id) {
+        setTrip(updated);
+      }
+      showToast("Chia sẻ chuyến đi thành công");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not share trip");
+      showToast("Lỗi khi share: " + (err instanceof Error ? err.message : "Thử lại sau"), "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleConfirmDeleteTrip() {
     if (!deleteTrip) return;
@@ -597,6 +623,22 @@ export function TripManagementView({
         onOpenChange={setAuthModalOpen}
         initialMode="signin"
       />
+
+      {/* Beautiful Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-slate-900 px-6 py-3.5 text-sm font-medium text-white shadow-2xl ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-6 duration-300">
+          {toast.type === "success" ? (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20 text-green-400">
+              <Check className="h-4 w-4" />
+            </div>
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+          )}
+          {toast.message}
+        </div>
+      )}
     </>
   );
 }

@@ -16,3 +16,5 @@ export * from "./post-detail-modal";
 export * from "./post-detail-content";
 export * from "./user-posts-screen";
 export * from "./trip-sharing-workspace";
+export * from "./shared-trip-card";
+export * from "./community-empty-state";
