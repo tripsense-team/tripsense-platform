@@ -332,6 +332,34 @@ class TripServiceTest extends RealInfrastructureTest {
         assertThat(refreshedDay.items()).isEmpty();
     }
 
+    @Test
+    void getShareSnapshotReturnsCorrectSummaryForOwner() {
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 15)));
+        ItineraryDayResponse day1 = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
+        tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("Dragon Bridge"));
+        tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("My Khe Beach"));
+
+        var snapshot = tripService.getShareSnapshot(USER_ID, trip.id());
+
+        assertThat(snapshot.tripId()).isEqualTo(trip.id());
+        assertThat(snapshot.name()).isEqualTo("Da Nang Trip");
+        assertThat(snapshot.destinationName()).isEqualTo("Da Nang");
+        assertThat(snapshot.dayCount()).isEqualTo(4);
+        assertThat(snapshot.itineraryItemCount()).isEqualTo(2);
+        assertThat(snapshot.highlights()).hasSize(2);
+        assertThat(snapshot.highlights().getFirst().title()).isEqualTo("Dragon Bridge");
+        assertThat(snapshot.highlights().getFirst().dayNumber()).isEqualTo(1);
+    }
+
+    @Test
+    void getShareSnapshotThrowsNotFoundForNonOwner() {
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 15)));
+        UUID nonOwner = UUID.randomUUID();
+
+        assertThatThrownBy(() -> tripService.getShareSnapshot(nonOwner, trip.id()))
+                .isInstanceOf(fu.tripsense.tripservice.exception.NotFoundException.class);
+    }
+
     private CreateTripRequest createTripRequest(String destination, LocalDate startDate, LocalDate endDate) {
         return new CreateTripRequest(
                 destination + " Trip",

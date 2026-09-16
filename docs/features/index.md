@@ -8,6 +8,7 @@ Track every feature that enters the multi-agent workflow.
 | `manage-trip-itinerary` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service`, `services/place-service`, `services/ai-service`, `services/user-service` | [Docs](./manage-trip-itinerary/index.md) |
 | `places-maps-integration` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./places-maps-integration/index.md) |
 | `social-post-management` | DONE | `apps/web/tripsense`, `services/social-service`, `services/api-gateway`, `services/user-service` (profile snapshot) | [Docs](./social-post-management/index.md) |
+| `trip-sharing` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/social-service`, `services/trip-service` | [Docs](./trip-sharing/index.md) |
 
 ## Statuses
 

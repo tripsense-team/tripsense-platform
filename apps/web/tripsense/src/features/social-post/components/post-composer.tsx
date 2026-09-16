@@ -116,7 +116,11 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
     const signature = await socialPostRepository.getUploadSignature();
     return Promise.all(mediaFiles.map(async ({ file }, sortOrder) => {
       const body = new FormData();
-      body.set("file", file); body.set("api_key", signature.apiKey); body.set("timestamp", String(signature.timestamp)); body.set("signature", signature.signature); body.set("folder", signature.folder); body.set("allowed_formats", signature.allowedFormats.join(","));
+      body.set("file", file);
+      body.set("api_key", signature.apiKey);
+      body.set("timestamp", String(signature.timestamp));
+      body.set("signature", signature.signature);
+      body.set("folder", signature.folder);
       const response = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, { method: "POST", body });
       if (!response.ok) throw new Error("Upload ảnh thất bại.");
       const data = await response.json();
