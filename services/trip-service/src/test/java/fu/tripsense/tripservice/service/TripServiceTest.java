@@ -31,13 +31,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TripServiceTest extends RealInfrastructureTest {
 
     private static final UUID USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final LocalDate TEST_TODAY = LocalDate.of(2026, 9, 1);
 
     @Autowired
     private TripService tripService;
 
     @Test
     void createTripGeneratesItineraryDays() {
-        LocalDate startDate = LocalDate.now().plusDays(10);
+        LocalDate startDate = TEST_TODAY.plusDays(10);
         LocalDate endDate = startDate.plusDays(2);
         TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Da Nang", startDate, endDate));
 
@@ -53,7 +54,7 @@ class TripServiceTest extends RealInfrastructureTest {
 
     @Test
     void dateShrinkIsBlockedWhenItemsWouldFallOutsideNewRange() {
-        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Hoi An", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 3)));
+        TripResponse trip = tripService.createTrip(USER_ID, createTripRequest("Hoi An", TEST_TODAY, TEST_TODAY.plusDays(2)));
         ItineraryDayResponse dayThree = tripService.getItinerary(USER_ID, trip.id()).days().get(2);
         tripService.createItem(USER_ID, trip.id(), dayThree.id(), createItemRequest("Coffee stop"));
 
@@ -61,8 +62,8 @@ class TripServiceTest extends RealInfrastructureTest {
                 null,
                 null,
                 null,
-                LocalDate.of(2026, 9, 1),
-                LocalDate.of(2026, 9, 2),
+                TEST_TODAY,
+                TEST_TODAY.plusDays(1),
                 DateChangePolicy.BLOCK_IF_ITEMS_OUTSIDE_RANGE,
                 null,
                 null,

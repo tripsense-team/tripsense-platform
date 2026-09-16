@@ -1,6 +1,10 @@
 package fu.tripsense.tripservice.support;
 
 import org.junit.jupiter.api.TestInstance;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -8,7 +12,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Import(RealInfrastructureTest.TestClockConfig.class)
 public abstract class RealInfrastructureTest {
 
     private static final boolean TESTCONTAINERS_ENABLED = Boolean.parseBoolean(
@@ -53,5 +62,15 @@ public abstract class RealInfrastructureTest {
     private static String env(String name, String fallback) {
         String value = System.getenv(name);
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    @TestConfiguration
+    static class TestClockConfig {
+
+        @Bean
+        @Primary
+        Clock clock() {
+            return Clock.fixed(Instant.parse("2026-09-01T00:00:00Z"), ZoneOffset.UTC);
+        }
     }
 }
