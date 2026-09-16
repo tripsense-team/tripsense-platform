@@ -14,10 +14,55 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: tripsense_user
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d tripsense_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASS: ci-placeholder
+      TRIPSENSE_TESTCONTAINERS_ENABLED: "false"
+      TRIP_DB_HOST: localhost
+      TRIP_DB_PORT: 5432
+      TRIP_DB_NAME: tripsense_trip
+      TRIP_DB_USER: postgres
+      TRIP_DB_PASS: ci-placeholder
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+      JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+      RESEND_API_KEY: ci-placeholder
+      EMAIL_SERVICE_URL: http://localhost:8082
+      ZIOMAP_API_KEY: ci-placeholder
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Create TripSense test databases
+        env:
+          PGPASSWORD: ci-placeholder
+        run: psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_trip;"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -27,7 +72,7 @@ jobs:
           cache: maven
 
       - name: Build and test all services
-        run: mvn -B clean verify
+        run: mvn -B -T 1C verify
 
   publish:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
@@ -71,6 +116,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Validate production compose
         env:
           IMAGE_REGISTRY: docker.io
@@ -79,6 +127,8 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
           DB_USER: postgres
           DB_PASS: ci-placeholder
+          USER_DB_USER: postgres
+          USER_DB_PASS: ci-placeholder
           TRIP_DB_USER: postgres
           TRIP_DB_PASS: ci-placeholder
           SOCIAL_DB_NAME: tripsense_social
@@ -110,6 +160,8 @@ jobs:
           tags: |
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:${{ github.sha }}
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
 
   deploy:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ci-cd'
