@@ -30,3 +30,7 @@ Thumbs.db
 # Scripts (keep only deploy.sh)
 scripts/*
 !scripts/deploy.sh
+
+# SSH / deployment private keys
+deploy/tripsense-dev-vm-key.pem
+*.pem

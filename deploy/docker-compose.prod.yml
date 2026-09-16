@@ -1,7 +1,16 @@
+x-java-small: &java-small
+  JAVA_TOOL_OPTIONS: >-
+    -XX:InitialRAMPercentage=20
+    -XX:MaxRAMPercentage=55
+    -XX:ActiveProcessorCount=1
+    -XX:+UseSerialGC
+
 services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    mem_limit: 64m
+    cpus: "0.25"
     depends_on:
       - api-gateway
     ports:
@@ -12,68 +21,124 @@ services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
     environment:
       POSTGRES_DB: tripsense_user
       POSTGRES_USER: ${USER_DB_USER}
       POSTGRES_PASSWORD: ${USER_DB_PASS}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER_DB_USER} -d tripsense_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   trip-db:
     image: postgres:17-alpine
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
     environment:
       POSTGRES_DB: tripsense_trip
       POSTGRES_USER: ${TRIP_DB_USER}
       POSTGRES_PASSWORD: ${TRIP_DB_PASS}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TRIP_DB_USER} -d tripsense_trip"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     volumes:
       - trip_postgres_data:/var/lib/postgresql/data
 
   mongodb:
     image: mongo:7.0
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
+    command: ["mongod", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.25"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     volumes:
       - mongodb_data:/data/db
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: 96m
+    cpus: "0.25"
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     volumes:
       - redis_data:/data
 
   social-db:
     image: postgres:17-alpine
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
     environment:
       POSTGRES_DB: ${SOCIAL_DB_NAME:-tripsense_social}
       POSTGRES_USER: ${SOCIAL_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${SOCIAL_DB_PASS}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SOCIAL_DB_USER:-postgres} -d ${SOCIAL_DB_NAME:-tripsense_social}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     volumes:
       - social_postgres_data:/var/lib/postgresql/data
 
   discovery-server:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-discovery-server:${IMAGE_TAG}
     restart: unless-stopped
+    mem_limit: 384m
+    cpus: "0.50"
     environment:
+      <<: *java-small
       EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
       EUREKA_CLIENT_FETCH_REGISTRY: "false"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://localhost:8761/eureka/
+      EUREKA_SERVER_ENABLE_SELF_PRESERVATION: "false"
+      EUREKA_SERVER_PEER_NODE_READ_TIMEOUT_MS: "10000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
 
   mail-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-mail-service:${IMAGE_TAG}
     restart: unless-stopped
+    mem_limit: 320m
+    cpus: "0.50"
     environment:
+      <<: *java-small
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       RESEND_API_KEY: ${RESEND_API_KEY}
     depends_on:
-      - discovery-server
+      discovery-server:
+        condition: service_healthy
 
   place-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-place-service:${IMAGE_TAG}
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
     environment:
+      <<: *java-small
       MONGODB_URI: mongodb://mongodb:27017/tripsense_places
       MONGODB_DATABASE: tripsense_places
       REDIS_HOST: redis
@@ -86,14 +151,20 @@ services:
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
     depends_on:
-      - discovery-server
-      - mongodb
-      - redis
+      discovery-server:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   user-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-user-service:${IMAGE_TAG}
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
     environment:
+      <<: *java-small
       USER_DB_HOST: db
       USER_DB_PORT: "5432"
       USER_DB_USER: ${USER_DB_USER}
@@ -106,13 +177,18 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      - db
-      - mail-service
+      db:
+        condition: service_healthy
+      mail-service:
+        condition: service_started
 
   trip-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-trip-service:${IMAGE_TAG}
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
     environment:
+      <<: *java-small
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: 5432
       TRIP_DB_USER: ${TRIP_DB_USER}
@@ -126,15 +202,22 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      - trip-db
-      - redis
-      - place-service
-      - discovery-server
+      trip-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      place-service:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
 
   social-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-social-service:${IMAGE_TAG}
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
     environment:
+      <<: *java-small
       SOCIAL_DB_HOST: social-db
       SOCIAL_DB_PORT: "5432"
       SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
@@ -150,24 +233,36 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      - social-db
-      - discovery-server
+      social-db:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
 
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
     environment:
+      <<: *java-small
       REDIS_HOST: redis
       REDIS_PORT: 6379
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      - discovery-server
-      - redis
-      - user-service
-      - place-service
-      - mail-service
-      - trip-service
-      - social-service
+      discovery-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      place-service:
+        condition: service_started
+      mail-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+      social-service:
+        condition: service_started
 
 volumes:
   postgres_data:
