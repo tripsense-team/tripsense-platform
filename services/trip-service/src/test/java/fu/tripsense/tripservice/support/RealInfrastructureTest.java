@@ -64,12 +64,12 @@ public abstract class RealInfrastructureTest {
         return value == null || value.isBlank() ? fallback : value;
     }
 
-    @TestConfiguration
+    @TestConfiguration(proxyBeanMethods = false)
     static class TestClockConfig {
 
         @Bean
         @Primary
-        Clock clock() {
+        Clock fixedTestClock() {
             return Clock.fixed(Instant.parse("2026-09-01T00:00:00Z"), ZoneOffset.UTC);
         }
     }
