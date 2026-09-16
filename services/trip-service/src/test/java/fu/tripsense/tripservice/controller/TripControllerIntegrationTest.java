@@ -33,6 +33,7 @@ class TripControllerIntegrationTest extends RealInfrastructureTest {
 
     private static final UUID USER_A = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID USER_B = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private static final LocalDate TEST_TODAY = LocalDate.of(2026, 9, 1);
 
     @Autowired
     private MockMvc mockMvc;
@@ -48,7 +49,7 @@ class TripControllerIntegrationTest extends RealInfrastructureTest {
 
     @Test
     void createsTripWithJwtAndPersistsGeneratedDaysThroughFlywayPostgres() throws Exception {
-        LocalDate startDate = LocalDate.now().plusDays(10);
+        LocalDate startDate = TEST_TODAY.plusDays(10);
         String tripId = createTrip(USER_A, "Da Nang", startDate.toString(), startDate.plusDays(2).toString());
 
         mockMvc.perform(get("/api/trips/{tripId}/itinerary", tripId)
@@ -61,7 +62,7 @@ class TripControllerIntegrationTest extends RealInfrastructureTest {
 
     @Test
     void hidesAnotherUsersTripAsNotFound() throws Exception {
-        String tripId = createTrip(USER_A, "Hue", "2026-09-01", "2026-09-02");
+        String tripId = createTrip(USER_A, "Hue", TEST_TODAY.toString(), TEST_TODAY.plusDays(1).toString());
 
         mockMvc.perform(get("/api/trips/{tripId}", tripId)
                         .header("Authorization", bearer(USER_B)))

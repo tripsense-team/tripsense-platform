@@ -1,5 +1,6 @@
 export type TripStatus = "DRAFT" | "CONFIRMED" | "CANCELLED" | "ARCHIVED";
 export type DisplayStatus = "DRAFT" | "UPCOMING" | "ONGOING" | "COMPLETED" | "CANCELLED" | "ARCHIVED";
+export type TripVisibility = "PRIVATE" | "PUBLIC";
 export type DateChangePolicy = "BLOCK_IF_ITEMS_OUTSIDE_RANGE";
 export type ItineraryItemType = "PLACE" | "MEAL" | "HOTEL" | "FLIGHT" | "TRANSFER" | "ACTIVITY" | "NOTE";
 export type ItineraryItemStatus = "PLANNED" | "DONE" | "SKIPPED" | "CANCELLED";
@@ -28,6 +29,7 @@ export interface TripResponse {
   endDate: string;
   status: TripStatus;
   displayStatus: DisplayStatus;
+  visibility: TripVisibility;
   ownerId: string;
   travelerCount: number | null;
   budgetAmount: number | null;

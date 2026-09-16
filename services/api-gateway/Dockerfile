@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Stage 1: Build stage
 FROM maven:3.9-eclipse-temurin-21 AS builder
 
@@ -12,10 +13,10 @@ COPY services/mail-service/pom.xml services/mail-service/pom.xml
 COPY services/trip-service/pom.xml services/trip-service/pom.xml
 COPY services/social-service/pom.xml services/social-service/pom.xml
 
-RUN mvn -B -pl services/api-gateway -am dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 mvn -B -pl services/api-gateway -am dependency:go-offline
 
 COPY services/api-gateway/src services/api-gateway/src
-RUN mvn -B -pl services/api-gateway -am clean package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 mvn -B -pl services/api-gateway -am package -DskipTests
 
 # Stage 2: Runtime stage
 FROM eclipse-temurin:21-jre

@@ -25,6 +25,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -44,6 +45,7 @@ public class TripServiceImpl implements TripService {
     private final ItineraryDayRepository dayRepository;
     private final ItineraryItemRepository itemRepository;
     private final PlaceClient placeClient;
+    private final Clock clock;
 
     @Transactional
     @CacheEvict(cacheNames = {"trip-list"}, allEntries = true)
@@ -138,7 +140,7 @@ public class TripServiceImpl implements TripService {
             validateStatusChange(trip.getStatus(), request.status());
             trip.setStatus(request.status());
             if (request.status() == TripStatus.ARCHIVED) {
-                trip.setArchivedAt(Instant.now());
+                trip.setArchivedAt(Instant.now(clock));
             }
         }
         if (request.travelerCount() != null) {
@@ -166,7 +168,7 @@ public class TripServiceImpl implements TripService {
     public void archiveTrip(UUID userId, UUID tripId) {
         Trip trip = getOwnedTrip(userId, tripId);
         trip.setStatus(TripStatus.ARCHIVED);
-        trip.setArchivedAt(Instant.now());
+        trip.setArchivedAt(Instant.now(clock));
         tripRepository.save(trip);
     }
 
@@ -339,7 +341,7 @@ public class TripServiceImpl implements TripService {
             item.setSortOrder((i + 1) * SORT_ORDER_STEP);
         }
         List<ItineraryItem> saved = itemRepository.saveAll(items);
-        day.setUpdatedAt(Instant.now());
+        day.setUpdatedAt(Instant.now(clock));
         dayRepository.save(day);
 
         return toDayResponse(day, saved.stream().sorted(Comparator.comparing(ItineraryItem::getSortOrder)).toList());
@@ -421,7 +423,7 @@ public class TripServiceImpl implements TripService {
     }
 
     private void validateDateRange(LocalDate startDate, LocalDate endDate) {
-        if (startDate.isBefore(LocalDate.now())) {
+        if (startDate.isBefore(LocalDate.now(clock))) {
             throw new ValidationException("INVALID_TRIP_DATE_RANGE", "startDate cannot be in the past");
         }
         if (endDate.isBefore(startDate)) {
@@ -636,7 +638,7 @@ public class TripServiceImpl implements TripService {
         if (trip.getStatus() == TripStatus.DRAFT) {
             return DisplayStatus.DRAFT;
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         if (today.isBefore(trip.getStartDate())) {
             return DisplayStatus.UPCOMING;
         }
