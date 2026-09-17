@@ -186,6 +186,7 @@ function useItineraryItemPhotoCache(trip: TripResponse | null, itinerary: Itiner
       return;
     }
 
+    const currentTrip = trip;
     const controller = new AbortController();
     const items = itineraryItems(itinerary).filter((item) => item.placeId || item.placeNameSnapshot || item.title);
     const missingItems = items.filter((item) => !resolvedItemIdsRef.current.has(item.id)).slice(0, 12);
@@ -212,7 +213,7 @@ function useItineraryItemPhotoCache(trip: TripResponse | null, itinerary: Itiner
               );
               place = details.data;
             } else {
-              const query = [item.placeNameSnapshot || item.title, trip.destinationName].filter(Boolean).join(", ");
+              const query = [item.placeNameSnapshot || item.title, currentTrip.destinationName].filter(Boolean).join(", ");
               const search = await searchPlaces({ q: query, limit: 1, signal: controller.signal });
               place = search.data[0] ?? null;
             }
