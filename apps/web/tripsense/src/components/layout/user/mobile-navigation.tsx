@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, MapPin, Heart, FolderBookmark, Sparkles } from "lucide-react";
+import { Compass, MapPin, Heart, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const mobileItems = [
   { name: "Explore", href: "/explore", icon: Compass },
+  { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Trips", href: "/trips", icon: MapPin },
   { name: "Planner", href: "/ai-planner", icon: Sparkles },
   { name: "Saved", href: "/saved", icon: Heart },
-  { name: "Collections", href: "/collections", icon: FolderBookmark },
 ];
 
 export function MobileNavigation() {

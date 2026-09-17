@@ -1,5 +1,5 @@
-import { TripSharingWorkspace } from "@/features/social-post";
+import { UserChatWorkspace } from "@/features/chat";
 
 export default function ChatPage() {
-  return <TripSharingWorkspace />;
+  return <UserChatWorkspace />;
 }

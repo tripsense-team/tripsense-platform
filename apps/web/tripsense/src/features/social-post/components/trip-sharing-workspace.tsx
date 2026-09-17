@@ -21,6 +21,7 @@ import {
   Share2,
   ShieldCheck,
   Trash2,
+  Pencil,
   Users,
   X,
 } from "lucide-react";
@@ -30,13 +31,17 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
+import { ApiError } from "@/services/api-client";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { socialPostRepository } from "@/features/social-post/services";
-import { getItinerary, getTrip, listTrips } from "@/features/trip-management/services/trip-management-api";
-import type { ItineraryItemResponse, ItineraryResponse, TripResponse } from "@/features/trip-management/types";
-import { countTripDays, displayTripTitle, formatShortRange, titleCaseDestination } from "@/features/trip-management/utils/format";
-import { searchPlaces } from "@/features/places/services/places-api";
+import { AddItemDialog, EditItemDialog } from "@/features/trip-management/components/trip-dialogs";
+import { createItineraryItem, deleteItineraryItem, getItinerary, getTrip, listTrips, reorderItineraryItems, updateItineraryItem } from "@/features/trip-management/services/trip-management-api";
+import type { CreateItineraryItemRequest, ItineraryDayResponse, ItineraryItemResponse, ItineraryResponse, TripResponse, UpdateItineraryItemRequest } from "@/features/trip-management/types";
+import { countTripDays, coverImageForTrip, displayTripTitle, formatShortRange, titleCaseDestination, tripCoverOptions } from "@/features/trip-management/utils/format";
+import { chainItineraryItemsTimes, chainItineraryResponse, formatDisplayTimeRange, itemDurationMinutes } from "@/features/trip-management/utils/time";
+import { getPlaceDetails, searchPlaces } from "@/features/places/services/places-api";
 import type { Place } from "@/features/places/types";
+import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
 import { cn } from "@/lib/utils";
 
 const MapVinaContainer = dynamic(
@@ -113,6 +118,26 @@ function itineraryItems(itinerary: ItineraryResponse | null) {
   return itinerary?.days.flatMap((day) => day.items) ?? [];
 }
 
+function hashString(value: string): number {
+  return [...value].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
+function fallbackImageForItineraryItem(item: ItineraryItemResponse, trip: TripResponse): string {
+  const seed = [trip.id, trip.destinationName, item.placeId, item.placeNameSnapshot, item.title, item.id].filter(Boolean).join("|");
+  return tripCoverOptions[hashString(seed) % tripCoverOptions.length];
+}
+
+function newItemDraft(): CreateItineraryItemRequest {
+  return {
+    type: "ACTIVITY",
+    title: "",
+    startTime: "",
+    endTime: "",
+    durationMinutes: null,
+    notes: "",
+  };
+}
+
 function useResolvedTripPlaces(trip: TripResponse | null, itinerary: ItineraryResponse | null) {
   const [places, setPlaces] = React.useState<Place[]>([]);
 
@@ -152,7 +177,80 @@ function useResolvedTripPlaces(trip: TripResponse | null, itinerary: ItineraryRe
   return places;
 }
 
-export function TripSharingWorkspace() {
+function useItineraryItemPhotoCache(trip: TripResponse | null, itinerary: ItineraryResponse | null) {
+  const [photoUrls, setPhotoUrls] = React.useState<Record<string, string>>({});
+  const resolvedItemIdsRef = React.useRef<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (!trip || !itinerary) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const items = itineraryItems(itinerary).filter((item) => item.placeId || item.placeNameSnapshot || item.title);
+    const missingItems = items.filter((item) => !resolvedItemIdsRef.current.has(item.id)).slice(0, 12);
+
+    if (missingItems.length === 0) {
+      return () => controller.abort();
+    }
+
+    missingItems.forEach((item) => resolvedItemIdsRef.current.add(item.id));
+
+    async function resolvePhotos() {
+      const resolvedEntries = await Promise.all(
+        missingItems.map(async (item) => {
+          try {
+            let place: Place | null = null;
+
+            if (item.placeId) {
+              const details = await getPlaceDetails(
+                item.placeId,
+                item.placeNameSnapshot || item.title,
+                item.latSnapshot ?? undefined,
+                item.lngSnapshot ?? undefined,
+                controller.signal
+              );
+              place = details.data;
+            } else {
+              const query = [item.placeNameSnapshot || item.title, trip.destinationName].filter(Boolean).join(", ");
+              const search = await searchPlaces({ q: query, limit: 1, signal: controller.signal });
+              place = search.data[0] ?? null;
+            }
+
+            const photoUrl = place ? getPlacePhotoUrl(place) : null;
+            return photoUrl ? ([item.id, photoUrl] as const) : null;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (controller.signal.aborted) return;
+
+      const photoEntries = resolvedEntries.filter((entry): entry is readonly [string, string] => Boolean(entry));
+      if (photoEntries.length === 0) return;
+
+      setPhotoUrls((current) => {
+        const next = { ...current };
+        photoEntries.forEach(([itemId, photoUrl]) => {
+          next[itemId] = photoUrl;
+        });
+        return next;
+      });
+    }
+
+    void resolvePhotos();
+    return () => controller.abort();
+  }, [trip, itinerary]);
+
+  return photoUrls;
+}
+
+interface TripSharingWorkspaceProps {
+  initialTripId?: string;
+}
+
+export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProps = {}) {
   const user = useAuthStore((state) => state.user);
   const [trips, setTrips] = React.useState<TripResponse[]>([]);
   const [trip, setTrip] = React.useState<TripResponse | null>(null);
@@ -173,8 +271,17 @@ export function TripSharingWorkspace() {
   const [visibilityError, setVisibilityError] = React.useState<string | null>(null);
   const [removingShare, setRemovingShare] = React.useState(false);
   const [removeError, setRemoveError] = React.useState<string | null>(null);
+  const [addItemDay, setAddItemDay] = React.useState<ItineraryDayResponse | null>(null);
+  const [itemDraft, setItemDraft] = React.useState<CreateItineraryItemRequest>(() => newItemDraft());
+  const [submittingItem, setSubmittingItem] = React.useState(false);
+  const [itemError, setItemError] = React.useState<string | null>(null);
+  const [submittingReorder, setSubmittingReorder] = React.useState(false);
+  const [editingItem, setEditingItem] = React.useState<ItineraryItemResponse | null>(null);
+  const [editItemDraft, setEditItemDraft] = React.useState<UpdateItineraryItemRequest | null>(null);
+  const [submittingEdit, setSubmittingEdit] = React.useState(false);
 
   const places = useResolvedTripPlaces(trip, itinerary);
+  const itemPhotoUrls = useItineraryItemPhotoCache(trip, itinerary);
   const visibilityLabel = visibilityOptions.find((option) => option.value === visibility)?.title ?? "Public";
 
   React.useEffect(() => {
@@ -189,13 +296,13 @@ export function TripSharingWorkspace() {
 
   const loadTripDetails = React.useCallback(async (tripId: string) => {
     const [freshTrip, freshItinerary] = await Promise.all([getTrip(tripId), getItinerary(tripId)]);
-    return { trip: freshTrip, itinerary: freshItinerary };
+    return { trip: freshTrip, itinerary: chainItineraryResponse(freshItinerary) };
   }, []);
 
   const applyWorkspaceData = React.useCallback(async () => {
     const page = await listTrips({ size: 20 });
     const availableTrips = page.content;
-    const firstTrip = availableTrips[0] ?? null;
+    const firstTrip = availableTrips.find((candidate) => candidate.id === initialTripId) ?? availableTrips[0] ?? null;
 
     if (!firstTrip) {
       return { trips: availableTrips, trip: null, itinerary: null };
@@ -203,7 +310,7 @@ export function TripSharingWorkspace() {
 
     const details = await loadTripDetails(firstTrip.id);
     return { trips: availableTrips, ...details };
-  }, [loadTripDetails]);
+  }, [initialTripId, loadTripDetails]);
 
   const loadWorkspace = React.useCallback(async () => {
     setLoading(true);
@@ -312,6 +419,200 @@ export function TripSharingWorkspace() {
     }
   }
 
+  async function handleAddItem(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!trip || !addItemDay) return;
+
+    setSubmittingItem(true);
+    setItemError(null);
+    try {
+      await createItineraryItem(trip.id, addItemDay.id, {
+        ...itemDraft,
+        startTime: itemDraft.startTime || null,
+        endTime: itemDraft.endTime || null,
+        durationMinutes: itemDurationMinutes(itemDraft),
+      });
+      const freshItinerary = await getItinerary(trip.id);
+      setItinerary(freshItinerary);
+      setFeedbackMessage(`Added to Day ${addItemDay.dayNumber}.`);
+      setAddItemDay(null);
+      setItemDraft(newItemDraft());
+    } catch (err) {
+      setItemError(err instanceof Error ? err.message : "Could not add place to this day");
+    } finally {
+      setSubmittingItem(false);
+    }
+  }
+
+  async function handleQuickAddItem(payload: CreateItineraryItemRequest) {
+    if (!trip || !addItemDay) return;
+
+    setSubmittingItem(true);
+    setItemError(null);
+    try {
+      await createItineraryItem(trip.id, addItemDay.id, {
+        ...payload,
+        startTime: payload.startTime || null,
+        endTime: payload.endTime || null,
+        durationMinutes: itemDurationMinutes(payload),
+      });
+      const freshItinerary = await getItinerary(trip.id);
+      setItinerary(freshItinerary);
+      setFeedbackMessage(`Added to Day ${addItemDay.dayNumber}.`);
+      setAddItemDay(null);
+      setItemDraft(newItemDraft());
+    } catch (err) {
+      setItemError(err instanceof Error ? err.message : "Could not add place to this day");
+    } finally {
+      setSubmittingItem(false);
+    }
+  }
+
+  async function handleReorderItems(day: ItineraryDayResponse, orderedItemIds: string[], retryOnConflict = true) {
+    if (!trip) return;
+
+    const currentOrder = day.items.map((candidate) => candidate.id).join("|");
+    const nextOrder = orderedItemIds.join("|");
+    if (currentOrder === nextOrder) return;
+
+    const itemMap = new Map(day.items.map((item) => [item.id, item]));
+    const reorderedRaw = orderedItemIds
+      .map((id) => itemMap.get(id))
+      .filter((item): item is ItineraryItemResponse => Boolean(item));
+    const optimisticItems = chainItineraryItemsTimes(reorderedRaw);
+
+    setItinerary((current) =>
+      current
+        ? {
+            ...current,
+            days: current.days.map((candidate) =>
+              candidate.id === day.id ? { ...candidate, items: optimisticItems } : candidate
+            ),
+          }
+        : current
+    );
+
+    setSubmittingReorder(true);
+    setError(null);
+    try {
+      const nextDay = await reorderItineraryItems(trip.id, day.id, { orderedItemIds, version: day.version });
+      const chainedDay = {
+        ...nextDay,
+        items: chainItineraryItemsTimes(nextDay.items),
+      };
+
+      setItinerary((current) =>
+        current
+          ? {
+              ...current,
+              days: current.days.map((candidate) => (candidate.id === chainedDay.id ? chainedDay : candidate)),
+            }
+          : current
+      );
+    } catch (err) {
+      if (retryOnConflict && err instanceof ApiError && err.status === 409) {
+        try {
+          const freshItinerary = await getItinerary(trip.id);
+          setItinerary(freshItinerary);
+          const freshDay = freshItinerary.days.find((candidate) => candidate.id === day.id);
+          if (freshDay) {
+            await handleReorderItems(freshDay, orderedItemIds, false);
+            return;
+          }
+        } catch (retryErr) {
+          setError(retryErr instanceof Error ? retryErr.message : "Could not reorder itinerary items");
+          return;
+        }
+      }
+      setError(err instanceof Error ? err.message : "Could not reorder itinerary items");
+    } finally {
+      setSubmittingReorder(false);
+    }
+  }
+
+  async function handleDeleteItem(item: ItineraryItemResponse) {
+    if (!trip) return;
+
+    setItinerary((current) => {
+      if (!current) return null;
+      const updatedDays = current.days.map((d) => ({
+        ...d,
+        items: d.items.filter((it) => it.id !== item.id),
+      }));
+      return chainItineraryResponse({
+        ...current,
+        days: updatedDays,
+      });
+    });
+
+    try {
+      await deleteItineraryItem(trip.id, item.id);
+      const details = await loadTripDetails(trip.id);
+      setItinerary(details.itinerary);
+      setFeedbackMessage("Đã xóa địa điểm khỏi lịch trình.");
+    } catch (err) {
+      const details = await loadTripDetails(trip.id);
+      setItinerary(details.itinerary);
+      setError(err instanceof Error ? err.message : "Could not delete itinerary item");
+    }
+  }
+
+  function handleStartEditItem(item: ItineraryItemResponse) {
+    setEditingItem(item);
+    setEditItemDraft({
+      placeId: item.placeId,
+      type: item.type,
+      title: item.title,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      durationMinutes: item.durationMinutes,
+      status: item.status,
+      notes: item.notes,
+      version: item.version,
+    });
+  }
+
+  async function handleUpdateItem(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!trip || !editingItem || !editItemDraft) return;
+
+    setSubmittingEdit(true);
+    setError(null);
+    try {
+      const updatedPayload = {
+        ...editItemDraft,
+        title: editItemDraft.title?.trim() || editingItem.title,
+        durationMinutes: itemDurationMinutes(editItemDraft),
+      };
+
+      setItinerary((current) => {
+        if (!current) return null;
+        return chainItineraryResponse({
+          ...current,
+          days: current.days.map((day) => ({
+            ...day,
+            items: day.items.map((it) =>
+              it.id === editingItem.id ? { ...it, ...updatedPayload } : it
+            ),
+          })),
+        });
+      });
+
+      await updateItineraryItem(trip.id, editingItem.id, updatedPayload);
+      setEditingItem(null);
+      setEditItemDraft(null);
+      const details = await loadTripDetails(trip.id);
+      setItinerary(details.itinerary);
+      setFeedbackMessage("Đã cập nhật thông tin địa điểm.");
+    } catch (err) {
+      const details = await loadTripDetails(trip.id);
+      setItinerary(details.itinerary);
+      setError(err instanceof Error ? err.message : "Could not update itinerary item");
+    } finally {
+      setSubmittingEdit(false);
+    }
+  }
+
   async function publishTripShare() {
     if (!trip) return;
 
@@ -409,7 +710,14 @@ export function TripSharingWorkspace() {
     <main className="min-h-screen bg-muted/30 pb-12">
       {feedbackMessage && <WorkspaceNotification message={feedbackMessage} onDismiss={() => setFeedbackMessage(null)} />}
 
-      <TripHero trip={trip} itinerary={itinerary} userName={user?.name} visibilityLabel={visibilityLabel} onShare={() => setShareOpen(true)} />
+      <TripHero
+        trip={trip}
+        itinerary={itinerary}
+        userName={user?.name}
+        visibilityLabel={visibilityLabel}
+        onShare={() => setShareOpen(true)}
+        onAddPlace={() => setAddItemDay(itinerary?.days[0] ?? null)}
+      />
 
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
@@ -422,7 +730,16 @@ export function TripSharingWorkspace() {
             ))}
             <Badge variant="secondary" className="ml-auto rounded-full">{itineraryItemCount(itinerary)} selected</Badge>
           </div>
-          <ItineraryList itinerary={itinerary} />
+          <ItineraryList
+            trip={trip}
+            itinerary={itinerary}
+            itemPhotoUrls={itemPhotoUrls}
+            submitting={submittingReorder}
+            onAddItem={setAddItemDay}
+            onReorderItems={handleReorderItems}
+            onDeleteItem={handleDeleteItem}
+            onEditItem={handleStartEditItem}
+          />
         </div>
 
         <aside className="space-y-5">
@@ -474,6 +791,36 @@ export function TripSharingWorkspace() {
         error={removeError}
         onRemove={removeSharedPost}
       />
+      <AddItemDialog
+        trip={trip}
+        day={addItemDay}
+        draft={itemDraft}
+        error={itemError}
+        submitting={submittingItem}
+        onOpenChange={(open) => {
+          setAddItemDay(open ? addItemDay : null);
+          if (!open) {
+            setItemError(null);
+            setItemDraft(newItemDraft());
+          }
+        }}
+        onDraftChange={setItemDraft}
+        onSubmit={handleAddItem}
+        onQuickSubmit={handleQuickAddItem}
+      />
+      <EditItemDialog
+        item={editingItem}
+        draft={editItemDraft}
+        submitting={submittingEdit}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingItem(null);
+            setEditItemDraft(null);
+          }
+        }}
+        onDraftChange={setEditItemDraft}
+        onSubmit={handleUpdateItem}
+      />
     </main>
   );
 }
@@ -500,15 +847,19 @@ function WorkspaceNotification({ message, onDismiss }: { message: string; onDism
 }
 
 function TripCover({ trip, className, priority = false }: { trip: TripResponse; className?: string; priority?: boolean }) {
-  if (!trip.coverImageUrl) {
-    return (
-      <div className={cn("absolute inset-0 flex items-center justify-center bg-muted text-sm font-bold text-muted-foreground", className)}>
-        No cover image
-      </div>
-    );
-  }
+  const coverImage = coverImageForTrip(trip);
 
-  return <Image src={trip.coverImageUrl} alt={displayTripTitle(trip)} fill priority={priority} sizes="(max-width: 1024px) 100vw, 900px" className={cn("object-cover", className)} />;
+  return (
+    <Image
+      src={coverImage}
+      alt={displayTripTitle(trip)}
+      fill
+      priority={priority}
+      sizes="(max-width: 1024px) 100vw, 900px"
+      unoptimized={coverImage.startsWith("data:")}
+      className={cn("object-cover", className)}
+    />
+  );
 }
 
 function TripHero({
@@ -517,12 +868,14 @@ function TripHero({
   userName,
   visibilityLabel,
   onShare,
+  onAddPlace,
 }: {
   trip: TripResponse;
   itinerary: ItineraryResponse | null;
   userName?: string | null;
   visibilityLabel: string;
   onShare: () => void;
+  onAddPlace: () => void;
 }) {
   return (
     <section className="relative isolate overflow-hidden">
@@ -562,11 +915,9 @@ function TripHero({
               <Share2 className="h-4 w-4" />
               Share Trip
             </Button>
-            <Button asChild variant="secondary" className="rounded-full font-bold">
-              <Link href={`/trips/${trip.id}`}>
-                <Plus className="h-4 w-4" />
-                Add Place
-              </Link>
+            <Button type="button" variant="secondary" className="rounded-full font-bold" onClick={onAddPlace} disabled={!itinerary?.days.length}>
+              <Plus className="h-4 w-4" />
+              Add Place
             </Button>
             <Button variant="secondary" className="rounded-full font-bold">
               <Users className="h-4 w-4" />
@@ -650,7 +1001,66 @@ function TripSwitcher({
   );
 }
 
-function ItineraryList({ itinerary }: { itinerary: ItineraryResponse | null }) {
+function ItineraryList({
+  trip,
+  itinerary,
+  itemPhotoUrls,
+  submitting,
+  onAddItem,
+  onReorderItems,
+  onDeleteItem,
+  onEditItem,
+}: {
+  trip: TripResponse;
+  itinerary: ItineraryResponse | null;
+  itemPhotoUrls: Record<string, string>;
+  submitting: boolean;
+  onAddItem: (day: ItineraryDayResponse) => void;
+  onReorderItems: (day: ItineraryDayResponse, orderedItemIds: string[]) => Promise<void>;
+  onDeleteItem?: (item: ItineraryItemResponse) => void;
+  onEditItem?: (item: ItineraryItemResponse) => void;
+}) {
+  const [draggingItemId, setDraggingItemId] = React.useState<string | null>(null);
+  const [dropTarget, setDropTarget] = React.useState<{ itemId: string; position: "before" | "after" } | null>(null);
+
+  function updateDropTarget(event: React.DragEvent<HTMLElement>, itemId: string) {
+    if (!draggingItemId || draggingItemId === itemId) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+    setDropTarget({ itemId, position });
+  }
+
+  async function handleItemDrop(day: ItineraryDayResponse, targetItemId: string) {
+    if (!draggingItemId || draggingItemId === targetItemId || submitting) {
+      setDraggingItemId(null);
+      setDropTarget(null);
+      return;
+    }
+
+    const draggedItem = day.items.find((item) => item.id === draggingItemId);
+    const targetPosition = dropTarget?.itemId === targetItemId ? dropTarget.position : "before";
+    if (!draggedItem) {
+      setDraggingItemId(null);
+      setDropTarget(null);
+      return;
+    }
+
+    const reorderedItems = day.items.filter((item) => item.id !== draggingItemId);
+    const targetIndex = reorderedItems.findIndex((item) => item.id === targetItemId);
+    if (targetIndex < 0) {
+      setDraggingItemId(null);
+      setDropTarget(null);
+      return;
+    }
+
+    const insertIndex = targetPosition === "after" ? targetIndex + 1 : targetIndex;
+    reorderedItems.splice(insertIndex, 0, draggedItem);
+    await onReorderItems(day, reorderedItems.map((item) => item.id));
+    setDraggingItemId(null);
+    setDropTarget(null);
+  }
+
   if (!itinerary || itinerary.days.length === 0) {
     return <EmptyState icon={Route} title="No itinerary yet" description="Add places in My Trips to build a shareable itinerary." />;
   }
@@ -670,10 +1080,52 @@ function ItineraryList({ itinerary }: { itinerary: ItineraryResponse | null }) {
                 <p className="text-sm text-muted-foreground">{day.date}</p>
               </div>
             </div>
-            <Badge variant="secondary" className="rounded-full text-primary">{day.items.length} stops</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="rounded-full text-primary">{day.items.length} stops</Badge>
+              <Button type="button" size="sm" variant="outline" className="rounded-full" onClick={() => onAddItem(day)}>
+                <Plus className="h-4 w-4" />
+                Add
+              </Button>
+            </div>
           </div>
           <div className="space-y-4">
-            {day.items.map((item) => <ItineraryCard key={item.id} item={item} />)}
+            {day.items.map((item) => (
+              <ItineraryCard
+                key={item.id}
+                item={item}
+                photoUrl={itemPhotoUrls[item.id] ?? fallbackImageForItineraryItem(item, trip)}
+                dragging={draggingItemId === item.id}
+                dropPosition={dropTarget?.itemId === item.id ? dropTarget.position : null}
+                draggable={!submitting}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", item.id);
+                  setDraggingItemId(item.id);
+                }}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  updateDropTarget(event, item.id);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  updateDropTarget(event, item.id);
+                }}
+                onDragLeave={() => {
+                  if (dropTarget?.itemId === item.id) setDropTarget(null);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void handleItemDrop(day, item.id);
+                }}
+                onDragEnd={() => {
+                  setDraggingItemId(null);
+                  setDropTarget(null);
+                }}
+                onDelete={onDeleteItem}
+                onEdit={onEditItem}
+              />
+            ))}
           </div>
         </section>
       ))}
@@ -681,20 +1133,121 @@ function ItineraryList({ itinerary }: { itinerary: ItineraryResponse | null }) {
   );
 }
 
-function ItineraryCard({ item }: { item: ItineraryItemResponse }) {
+interface ItineraryCardProps {
+  item: ItineraryItemResponse;
+  photoUrl?: string;
+  dragging?: boolean;
+  dropPosition?: "before" | "after" | null;
+  draggable?: boolean;
+  onDragStart?: (event: React.DragEvent<HTMLElement>) => void;
+  onDragEnter?: (event: React.DragEvent<HTMLElement>) => void;
+  onDragOver?: (event: React.DragEvent<HTMLElement>) => void;
+  onDragLeave?: (event: React.DragEvent<HTMLElement>) => void;
+  onDrop?: (event: React.DragEvent<HTMLElement>) => void;
+  onDragEnd?: (event: React.DragEvent<HTMLElement>) => void;
+  onDelete?: (item: ItineraryItemResponse) => void;
+  onEdit?: (item: ItineraryItemResponse) => void;
+}
+
+function ItineraryCard({
+  item,
+  photoUrl,
+  dragging,
+  dropPosition,
+  draggable,
+  onDragStart,
+  onDragEnter,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  onDelete,
+  onEdit,
+}: ItineraryCardProps) {
   return (
-    <article className="relative rounded-2xl border border-border bg-card p-3 shadow-xs">
+    <article
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "relative rounded-2xl border border-border bg-card p-3 shadow-xs transition-all duration-200 cursor-grab active:cursor-grabbing group",
+        dragging && "scale-[0.99] opacity-50",
+        dropPosition === "before" && "ring-2 ring-ring ring-offset-2 ring-offset-background",
+        dropPosition === "after" && "ring-2 ring-ring ring-offset-2 ring-offset-background"
+      )}
+    >
       <span className="absolute -left-[1.45rem] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-primary ring-4 ring-background" />
       <div className="grid gap-4 sm:grid-cols-[12rem_minmax(0,1fr)]">
-        <div className="flex aspect-[16/10] items-center justify-center rounded-xl bg-muted text-muted-foreground">
-          <MapPin className="h-8 w-8" />
+        <div className="relative flex aspect-[16/10] items-center justify-center overflow-hidden rounded-xl bg-muted text-muted-foreground">
+          {photoUrl ? (
+            <Image
+              src={photoUrl}
+              alt={item.placeNameSnapshot || item.title}
+              fill
+              sizes="(max-width: 768px) 90vw, 192px"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <MapPin className="h-8 w-8" />
+          )}
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Badge variant="secondary" className="rounded-md text-primary">
-              {[item.startTime, item.endTime].filter(Boolean).join(" - ") || item.type}
+            <Badge
+              variant="secondary"
+              className={cn(
+                "rounded-md text-primary transition-colors",
+                onEdit && "cursor-pointer hover:bg-primary/20"
+              )}
+              onClick={(e) => {
+                if (onEdit) {
+                  e.stopPropagation();
+                  onEdit(item);
+                }
+              }}
+              title={onEdit ? "Bấm để sửa giờ" : undefined}
+            >
+              {formatDisplayTimeRange(item.startTime, item.endTime) || item.type}
             </Badge>
-            <span className="text-xs font-semibold text-muted-foreground">{item.status}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground">{item.status}</span>
+              {onEdit && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(item);
+                  }}
+                  title="Chỉnh sửa thời gian / địa điểm"
+                  aria-label="Chỉnh sửa địa điểm"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(item);
+                  }}
+                  title="Xóa khỏi lịch trình"
+                  aria-label="Xóa địa điểm này"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
           <h3 className="mt-2 text-lg font-black tracking-normal text-foreground">{item.title}</h3>
           <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
