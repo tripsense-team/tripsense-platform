@@ -33,4 +33,6 @@ scripts/*
 
 # SSH / deployment private keys
 deploy/tripsense-dev-vm-key.pem
+deploy/nginx/certs/
+deploy/certbot/
 *.pem
