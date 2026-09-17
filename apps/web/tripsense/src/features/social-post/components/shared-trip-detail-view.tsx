@@ -14,6 +14,7 @@ import { socialPostRepository } from "../services";
 import type { SocialPost } from "../types";
 import type { Place } from "@/features/places/types";
 import { resolveSharedTripMapPlaces, sharedTripItemCount } from "../utils/shared-trip";
+import { chainItineraryItemsTimes } from "@/features/trip-management/utils/time";
 
 type Visibility = NonNullable<SocialPost["visibility"]>;
 
@@ -187,7 +188,13 @@ export function SharedTripDetailView({ post, onUpdated }: SharedTripDetailViewPr
 
   if (!trip) return null;
 
-  const itineraryDays = trip.itineraryDays ?? [];
+  const rawDays = trip.itineraryDays ?? [];
+  const itineraryDays = React.useMemo(() => {
+    return rawDays.map((day) => ({
+      ...day,
+      items: chainItineraryItemsTimes(day.items),
+    }));
+  }, [rawDays]);
   const snapshotItemCount = sharedTripItemCount(itineraryDays) || trip.itineraryItemCount || 0;
   const isOwner = user?.id === post.author.id;
   const highlights = trip.highlights ?? [];

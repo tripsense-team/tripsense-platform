@@ -1,5 +1,5 @@
-import { TripManagementView } from "@/features/trip-management";
+import { TripSharingWorkspace } from "@/features/social-post";
 
 export default function TripsPage() {
-  return <TripManagementView screen="trips" />;
+  return <TripSharingWorkspace />;
 }
