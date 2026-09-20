@@ -97,6 +97,21 @@ export function chainItineraryItemsTimes<T extends { startTime?: string | null; 
   });
 }
 
+export function chainItineraryResponse<
+  T extends { days: Array<D> },
+  D extends { items: Array<I> },
+  I extends { startTime?: string | null; endTime?: string | null; durationMinutes?: number | null }
+>(itinerary: T | null): T | null {
+  if (!itinerary) return null;
+  return {
+    ...itinerary,
+    days: itinerary.days.map((day) => ({
+      ...day,
+      items: chainItineraryItemsTimes(day.items),
+    })),
+  };
+}
+
 export function formatDisplayTimeRange(startTime?: string | null, endTime?: string | null): string {
   const start = formatHHMM(startTime);
   const end = formatHHMM(endTime);
@@ -114,3 +129,4 @@ export const TIME_OPTIONS_24H = Array.from({ length: 48 }, (_, i) => {
   const m = i % 2 === 0 ? "00" : "30";
   return `${h}:${m}`;
 }).concat(["23:59"]);
+
