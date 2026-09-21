@@ -97,12 +97,14 @@ export async function getPlaceDetails(
   name?: string,
   lat?: number,
   lng?: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  includePhoto = false
 ): Promise<PlaceDetailsResponse> {
   const url = new URL(`/api/places/${encodeURIComponent(id)}`, window.location.origin);
   if (name) url.searchParams.set("name", name);
   if (lat !== undefined) url.searchParams.set("lat", lat.toString());
   if (lng !== undefined) url.searchParams.set("lng", lng.toString());
+  if (includePhoto) url.searchParams.set("includePhoto", "true");
 
   const response = await fetch(url, { signal });
   const parsed = await parseResponse<PlaceDetailsResponse>(response);

@@ -5,6 +5,13 @@ target/
 *.war
 *.ear
 .tools/
+.m2/
+
+# Python caches and test databases
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.db
 
 # pnpm local content-addressable cache
 /.pnpm-store/

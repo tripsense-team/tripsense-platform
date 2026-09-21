@@ -18,6 +18,7 @@ spring:
               - GET
               - POST
               - PUT
+              - PATCH
               - DELETE
               - OPTIONS
             allowedHeaders: "*"
@@ -61,5 +62,7 @@ tripsense:
       enabled: ${SOCIAL_RATE_LIMIT_ENABLED:false}
       replenish-rate: ${SOCIAL_RATE_LIMIT_REPLENISH_RATE:30}
       burst-capacity: ${SOCIAL_RATE_LIMIT_BURST_CAPACITY:60}
+    ai:
+      response-timeout: ${AI_RESPONSE_TIMEOUT:120s}
     client-ip:
       trusted-proxies: ${TRUSTED_PROXY_CIDRS:127.0.0.1/32,::1/128}

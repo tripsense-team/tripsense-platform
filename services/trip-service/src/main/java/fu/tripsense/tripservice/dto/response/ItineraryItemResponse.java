@@ -13,6 +13,7 @@ public record ItineraryItemResponse(
         UUID id,
         UUID dayId,
         UUID placeId,
+        String placeRef,
         String title,
         ItineraryItemType type,
         LocalTime startTime,

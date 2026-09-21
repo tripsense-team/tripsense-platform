@@ -32,6 +32,9 @@ public class ItineraryItem {
     @Column(name = "place_id")
     private UUID placeId;
 
+    @Column(name = "place_ref", length = 200)
+    private String placeRef;
+
     @Column(nullable = false, length = 200)
     private String title;
 

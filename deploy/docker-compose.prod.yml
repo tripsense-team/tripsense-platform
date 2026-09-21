@@ -70,6 +70,23 @@ services:
     volumes:
       - trip_postgres_data:/var/lib/postgresql/data
 
+  ai-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME:-tripsense_ai}
+      POSTGRES_USER: ${AI_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${AI_DB_PASS}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-postgres} -d ${AI_DB_NAME:-tripsense_ai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - ai_postgres_data:/var/lib/postgresql/data
+
   mongodb:
     image: mongo:7.0
     restart: unless-stopped
@@ -164,6 +181,7 @@ services:
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_API_KEY: ${ZIOMAP_API_KEY}
+      ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-false}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -256,6 +274,33 @@ services:
       discovery-server:
         condition: service_healthy
 
+  ai-service:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-ai-service:${IMAGE_TAG}
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
+    environment:
+      AI_DATABASE_URL: postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
+      PLACE_SERVICE_URL: http://place-service:8082
+      TRIP_SERVICE_URL: http://trip-service:8084
+      WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
+      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
+      EUREKA_SERVER: http://discovery-server:8761/eureka/
+      AI_SERVICE_PORT: 8085
+    depends_on:
+      ai-db:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      place-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
@@ -281,6 +326,8 @@ services:
         condition: service_started
       social-service:
         condition: service_started
+      ai-service:
+        condition: service_started
 
 volumes:
   postgres_data:
@@ -288,3 +335,4 @@ volumes:
   mongodb_data:
   redis_data:
   social_postgres_data:
+  ai_postgres_data:

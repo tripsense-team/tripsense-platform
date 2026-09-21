@@ -18,35 +18,37 @@ Read:
 3. `docs/workflows/multi-agent-feature-workflow.md`
 4. `docs/architecture/tripsense-architecture.md`
 5. `docs/architecture/service-boundaries.md`
-6. Existing related files under `docs/features/`
+6. Existing related plans under `docs/features/`
 7. Relevant source files only for inspection, not editing
 
-## Process
+## Process (Unified Expert Planning — Token Optimized)
 
-1. Capture the feature request.
-2. Find relevant knowledge graph nodes: services, domains, architecture docs, workflows, ADRs, and related features.
-3. If the runtime supports subagents or parallel agents, delegate to separate subagents and use parallel execution where supported:
-   - Round 1: Product Agent, Domain Agent, Architecture Agent.
-   - Wait for Round 1 results.
-   - Round 2: API / Backend Agent, Database Agent, Security Agent.
-   - Wait for Round 2 results.
-   - Round 3: Devil's Advocate Agent.
-   - Wait for Round 3 results.
-   - Main Orchestrator / Lead Architect performs final synthesis.
-4. If subagents are unavailable, label the plan mode `SINGLE-AGENT ROLE SIMULATION`.
-5. Preserve the required planning sequence:
-   Feature Request -> Product -> Domain -> Architecture -> API -> Database -> Security -> Devil's Advocate -> Synthesis -> Human Approval -> STOP
-6. Create or update `docs/features/<feature-name>/` from `docs/features/_template/`.
-7. Update `docs/features/index.md`.
-8. Validate relative Markdown links.
-9. Stop with `STATUS: WAITING_FOR_HUMAN_APPROVAL`.
+To ensure maximum token efficiency without sacrificing engineering rigor, perform a **Unified Multi-Perspective Synthesis** in a single pass (acting as Lead Full-Stack Architect):
 
-## Output
+1. **Capture & Inspect**: Understand feature requirements, inspect existing codebase, models, and endpoints.
+2. **Synthesize Perspectives**: Address all 6 core engineering domains:
+   - **Product & Domain**: Core flow, in-scope, out-of-scope, acceptance criteria, domain invariants.
+   - **Architecture & Boundaries**: Service ownership, sync REST vs async Kafka, no cross-service DB/JPA.
+   - **API & Event Contracts**: Endpoints, HTTP methods, request/response DTOs, Kafka topic schemas.
+   - **Database & Persistence**: Tables, types, indexes, and migration/rollback strategy.
+   - **Security & Trust Boundaries**: JWT auth, RBAC, ownership checks (anti-IDOR), secrets backend-only.
+   - **Devil's Advocate & Trade-offs**: Failure modes, race conditions, rejected alternatives & rationale.
+3. **Generate Single Specification File**:
+   - Create or update **exactly ONE file**: `docs/features/<feature-name>.md` using `docs/features/_template/feature-plan-template.md` as reference.
+   - Do NOT create a folder with 9 separate files. Keep all details unified in this single document.
+4. **Update Feature Index**:
+   - Add/update the row in `docs/features/index.md` with status `WAITING_FOR_APPROVAL` linking to `[Docs](./<feature-name>.md)`.
+5. **Stop at Approval Gate**:
+   - Present the concise summary and link to `docs/features/<feature-name>.md`.
+   - Conclude with `STATUS: WAITING_FOR_HUMAN_APPROVAL`.
 
-Use the concise planning format from `docs/workflows/multi-agent-feature-workflow.md`.
+## Output Style
 
-Expose only conclusions, disagreements, findings, decisions, and tradeoffs. Do not expose private chain-of-thought or dump full internal reasoning for each agent.
+- Be direct, technical, and concrete. Provide exact schemas, DTOs, endpoint paths, and SQL/Flyway snippets.
+- Avoid verbose narrative, filler prose, or simulated chit-chat between agents.
+- Expose decisions, trade-offs, and critical guards cleanly in tables and code blocks.
 
 ## Approval Gate
 
-Do not implement until the user explicitly says the equivalent of `Approved`, `Implement`, or `Proceed`.
+Do not write or modify application code until the user explicitly says the equivalent of `Approved`, `Implement`, or `Proceed`.
+
