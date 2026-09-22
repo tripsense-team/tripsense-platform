@@ -53,6 +53,31 @@ describe("places API client", () => {
     expect((fetchMock.mock.calls[1][0] as URL).pathname).toBe(
       "/api/places/provider%2Fid",
     );
+    expect(
+      (fetchMock.mock.calls[1][0] as URL).searchParams.has("includePhoto"),
+    ).toBe(false);
+  });
+
+  it("requests photos only when the caller explicitly opts in", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ success: true, data: { id: "p1", name: "Cafe" } }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getPlaceDetails(
+      "p1",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(
+      (fetchMock.mock.calls[0][0] as URL).searchParams.get("includePhoto"),
+    ).toBe("true");
   });
 
   it("preserves structured API errors", async () => {

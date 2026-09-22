@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, MapPin, Heart, FolderBookmark, Sparkles } from "lucide-react";
+import { Compass, MapPin, Heart, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 
@@ -13,19 +13,29 @@ const mobileItemDefs = [
     href: "/explore",
     icon: Compass,
   },
-  { key: "nav.trips", fallbackName: "Trips", href: "/trips", icon: MapPin },
+  {
+    key: "nav.chat",
+    fallbackName: "Chat",
+    href: "/chat",
+    icon: MessageSquare,
+  },
+  {
+    key: "nav.trips",
+    fallbackName: "Trips",
+    href: "/trips",
+    icon: MapPin,
+  },
   {
     key: "nav.planner",
     fallbackName: "Planner",
     href: "/ai-planner",
     icon: Sparkles,
   },
-  { key: "nav.saved", fallbackName: "Saved", href: "/saved", icon: Heart },
   {
-    key: "nav.collections",
-    fallbackName: "Collections",
-    href: "/collections",
-    icon: FolderBookmark,
+    key: "nav.saved",
+    fallbackName: "Saved",
+    href: "/saved",
+    icon: Heart,
   },
 ];
 

@@ -15,8 +15,8 @@ import {
   Settings,
   HelpCircle,
   LucideIcon,
-  MessageCircle,
   MessageSquareQuote,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,9 +46,9 @@ const mainNavDefs: NavItemDef[] = [
   },
   {
     key: "nav.chat",
-    fallbackTitle: "Chat",
+    fallbackTitle: "Chat & Messages",
     href: "/chat",
-    icon: MessageCircle,
+    icon: MessageSquare,
   },
   {
     key: "nav.places",

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Send, Paperclip } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -43,16 +43,6 @@ export function ChatInput({
         className,
       )}
     >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-      >
-        <Paperclip className="h-4 w-4" />
-        <span className="sr-only">Attach file</span>
-      </Button>
-
       <Textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}

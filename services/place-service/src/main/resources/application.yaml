@@ -22,6 +22,9 @@ ziomap:
   base-url: ${ZIOMAP_BASE_URL:https://ziomap-api.socibi.com}
   api-key: ${ZIOMAP_API_KEY}
   timeout-ms: ${ZIOMAP_TIMEOUT_MS:8000}
+  photo-display-approved: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:false}
+  photo-max-width-px: ${ZIOMAP_PHOTO_MAX_WIDTH_PX:640}
+  photo-allowed-hosts: ${ZIOMAP_PHOTO_ALLOWED_HOSTS:lh3.googleusercontent.com,ziomap-api.socibi.com}
 
 tripsense:
   places:

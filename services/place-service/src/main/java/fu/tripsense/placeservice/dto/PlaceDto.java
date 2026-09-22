@@ -2,6 +2,7 @@ package fu.tripsense.placeservice.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.io.Serializable;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -33,6 +34,12 @@ public class PlaceDto implements Serializable {
 
   @Builder.Default private List<String> photos = new ArrayList<>();
 
+  /** Optional, short-lived display evidence; not stored in Mongo or Redis. */
+  private PlacePhotoDto primaryPhoto;
+
+  /** Optional, bounded display-only gallery; not stored in Mongo or Redis. */
+  private List<PlacePhotoDto> photoGallery;
+
   private String phone;
   private String website;
 
@@ -41,6 +48,11 @@ public class PlaceDto implements Serializable {
   private String openingHours;
   private String businessStatus;
   private String description;
+
+  /** Additive evidence fields used by grounded recommendation consumers. */
+  private String source;
+  private Instant fetchedAt;
+  private String freshness;
 
   @Builder.Default private List<PlaceReviewDto> reviews = new ArrayList<>();
 }

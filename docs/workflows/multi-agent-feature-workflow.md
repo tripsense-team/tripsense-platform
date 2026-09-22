@@ -1,86 +1,90 @@
-# Multi-Agent Feature Workflow
+# TripSense Feature Planning & Implementation Workflow
 
-Every new feature must pass through planning, challenge, approval, implementation, and review. The orchestrator coordinates the work but does not make implementation decisions alone.
+This workflow standardizes how features are planned, challenged, approved, implemented, and verified in TripSense.
+It is engineered for **high technical rigor with maximum token efficiency**, producing a **single, comprehensive review file** for human approval.
 
 ## Status Flow
 
-`DRAFT` -> `IN_REVIEW` -> `WAITING_FOR_APPROVAL` -> `APPROVED` -> `IMPLEMENTING` -> `DONE`
+`DRAFT` -> `WAITING_FOR_APPROVAL` -> `APPROVED` -> `IMPLEMENTING` -> `DONE`
 
-## Roles
+---
 
-- Orchestrator: reads [AGENTS.md](../../AGENTS.md), finds related knowledge graph nodes, coordinates agents, and keeps the process moving.
-- Product Agent: user goal, use cases, acceptance criteria, business rules, edge cases, out-of-scope items.
-- Domain Agent: domain concepts, entities, value objects, ownership, state transitions, invariants.
-- Architect Agent: affected services, service boundaries, sync vs async communication, dependencies, existing constraints, need for new service.
-- API/Backend Agent: endpoints, DTOs, validation, errors, service calls, events, backward compatibility.
-- Database Agent: schema, migrations, indexes, data ownership, transaction boundaries, migration risks.
-- Security Agent: auth, authorization, ownership validation, input validation, secrets, abuse cases, IDOR, trust boundaries.
-- Devil's Advocate: attacks complexity, ownership, coupling, duplication, races, consistency, security, missing edge cases, sync calls, DB design, unclear requirements, maintainability.
-- Synthesizer: resolves conflicts, documents tradeoffs, produces one final design, rejects unnecessary alternatives.
+## Unified Expert Planning (Token-Optimized)
 
-## Debate Process
+Instead of spawning multiple rounds of subagents (which causes massive token waste, redundant context loading, and API timeouts), the planning agent acts as a **Lead Full-Stack Architect** performing a **Unified Multi-Perspective Synthesis** in a single context pass.
 
-When the runtime supports subagents or parallel agents, the orchestrator must delegate specialist analysis to separate agents. If subagents are unavailable, the orchestrator may simulate the roles in one agent, but the output must clearly label the mode as `SINGLE-AGENT ROLE SIMULATION`.
+The analysis synthesizes 6 critical engineering perspectives:
 
-Required planning sequence:
+1. **Product & Domain**: User goals, core flows, in-scope vs out-of-scope, acceptance criteria, domain invariants.
+2. **Architecture & Service Boundaries**: Affected services, data ownership, synchronous REST (via API Gateway) vs asynchronous messaging (Kafka), respecting no cross-service DB/JPA guardrails.
+3. **API & Event Contracts**: Endpoints, HTTP verbs, request/response DTOs, Kafka topics and event schemas.
+4. **Database & Persistence**: Tables/collections, schema, fields, types, indexes, and migration/rollback strategies.
+5. **Security & Trust Boundaries**: Authentication, RBAC, ownership verification (IDOR prevention), input validation, secret hygiene.
+6. **Devil's Advocate & Trade-offs**: Concurrency, eventual consistency lag, failure modes, rejected alternatives with rationale.
 
-Feature Request -> Product -> Domain -> Architecture -> API -> Database -> Security -> Devil's Advocate -> Synthesis -> Human Approval -> STOP
+---
 
-Product, Domain, and Architecture may run in parallel only when their inputs are independent and the synthesizer preserves the required review order in the final plan. API, Database, and Security may also run in parallel after the architecture draft exists.
+## Single-File Specification (`docs/features/<feature-name>.md`)
 
-## Real Subagent Delegation
+Every feature produces **exactly ONE markdown document** under `docs/features/<feature-name>.md` (or `docs/features/<feature-name>/plan.md` if bundled with dedicated assets).
+This file serves as the **Single Source of Truth (SSOT)** for human review, approval, implementation, and testing.
 
-When subagents are available, use this execution model:
+### Standard Structure of `<feature-name>.md`
 
-1. Main Orchestrator receives the feature request and gathers context.
-2. Round 1 runs parallel subagents:
-   - Product Agent
-   - Domain Agent
-   - Architecture Agent
-3. Main Orchestrator waits for Round 1 results.
-4. Round 2 runs parallel subagents:
-   - API / Backend Agent
-   - Database Agent
-   - Security Agent
-5. Main Orchestrator waits for Round 2 results.
-6. Round 3 runs a Devil's Advocate Agent.
-7. Main Orchestrator acts as Lead Architect, synthesizes the final design, writes feature docs, and stops for human approval.
+```markdown
+# [Feature Name] — Specification & Implementation Plan
 
-Do not expose private chain-of-thought. Expose only conclusions, findings, disagreements, decisions, and tradeoffs.
+`STATUS: WAITING_FOR_HUMAN_APPROVAL`
 
-Do not invent artificial debate. Raise only meaningful engineering disagreements. Do not decide by majority vote.
+- **Owner Service**: `services/<service-name>`
+- **Affected Components**: `apps/web/tripsense`, `services/api-gateway`, ...
+- **Date**: YYYY-MM-DD
 
-## Planning Output
+## 1. Goal & Requirements
 
-During planning, use this concise output shape:
+- User journey & problem solved
+- In-Scope & Out-of-Scope
+- Acceptance Criteria
 
-```text
-FEATURE
-STATUS
+## 2. Architecture & Service Boundaries
 
-REQUIREMENTS
+- System interaction / data flow
+- Service ownership & boundaries (no cross-service DB/JPA)
+- Communication: Sync (Gateway REST) vs Async (Kafka)
 
-AFFECTED SERVICES
+## 3. API & Event Contracts
 
-FLOW
+- REST Endpoints (method, path, auth, request DTO, response DTO, status codes)
+- Kafka Events (topic, event key, payload schema)
 
-API
+## 4. Data Model & Migrations
 
-DATABASE
+- Schema/Tables, columns, data types, indexes
+- Foreign keys (internal to service only)
+- Migration & rollback strategy
 
-SECURITY
+## 5. Security & Trust Boundaries
 
-EVENTS / INTEGRATIONS
+- Auth & authorization rules
+- Ownership checks (anti-IDOR)
+- Input validation & secrets backend-only
 
-REVIEW FINDINGS
+## 6. Devil's Advocate & Technical Tradeoffs
 
-FINAL DECISIONS
+- Concurrency / race conditions / failure handling
+- Rejected alternatives & why
 
-IMPLEMENTATION TASKS
+## 7. Phased Implementation Tasks & Verification
 
-OPEN QUESTIONS
+- Atomic phases / PR boundaries
+- Unit & integration test plan
+- Exact verification commands
 
-HUMAN APPROVAL REQUIRED
+---
+
+## Human Approval Gate
+
+Stop at `STATUS: WAITING_FOR_HUMAN_APPROVAL`. Awaiting human review.
 ```
 
 After planning, stop with:
@@ -105,16 +109,26 @@ Each feature must create:
 - `docs/features/<feature-name>/implementation-plan.md`
 - `docs/features/<feature-name>/test-plan.md`
 
-Use [docs/features/\_template/](../features/_template/index.md) as the starting structure. Do not create filler content.
+# Use [docs/features/\_template/](../features/_template/index.md) as the starting structure. Do not create filler content.
+
+-
 
 ## Human Approval Gate
 
-Implementation may begin only after the user explicitly says the equivalent of `Approved`, `Implement`, or `Proceed`.
+Implementation is strictly blocked until a human reviews the single file and explicitly responds with `Approved`, `Implement`, or `Proceed` (or status is changed to `STATUS: APPROVED`).
 
-If implementation discovers a design problem, stop and request a planning revision instead of silently changing the approved architecture.
+If implementation reveals architectural blockers or scope changes:
 
-## Related
+1. Stop implementation immediately.
+2. Update the single `<feature-name>.md` file.
+3. Request human approval for the revision.
 
+---
+
+## Related Documents
+
+- [Root Agent Rules](../../AGENTS.md)
 - [TripSense Architecture](../architecture/tripsense-architecture.md)
 - [Service Boundaries](../architecture/service-boundaries.md)
 - [Feature Index](../features/index.md)
+- [Feature Plan Template](../features/_template/feature-plan-template.md)

@@ -5,6 +5,10 @@ import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlacePhotoDto;
+import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
+import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
+import fu.tripsense.placeservice.dto.RetrievalEvidenceDto;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
 import fu.tripsense.placeservice.service.PlaceCacheService;
@@ -15,11 +19,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -74,7 +81,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     if (cached.isPresent() && !cached.get().isEmpty()) {
       List<PlaceDto> rankedCached = ranking.rank(cached.get(), query, effectiveLat, effectiveLng);
       if (!rankedCached.isEmpty()) {
-        return rankedCached;
+        return enrichPhotosForPlaces(rankedCached);
       }
     }
 
@@ -119,7 +126,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
           effectiveRadius,
           effectiveLimit,
           rankedLocal);
-      return rankedLocal;
+      return enrichPhotosForPlaces(rankedLocal);
     }
 
     List<PlaceDto> providerResults;
@@ -141,7 +148,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             effectiveRadius,
             effectiveLimit,
             rankedLocal);
-        return rankedLocal;
+        return enrichPhotosForPlaces(rankedLocal);
       }
       throw exception;
     }
@@ -159,7 +166,246 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
         effectiveRadius,
         effectiveLimit,
         rankedResults);
-    return rankedResults;
+    return enrichPhotosForPlaces(rankedResults);
+  }
+
+  @Override
+  public PlaceRecommendationResult recommend(PlaceRecommendationRequest request) {
+    String query = request.query().trim();
+    String normalizedQuery = query.toLowerCase(Locale.ROOT);
+    // A missing anchor cannot be replaced with the service's legacy Da Nang default.
+    // Text-only local matches may be shown as evidence, but cannot establish geographic fit.
+    if (request.lat() == null || request.lng() == null) {
+      List<PlaceDto> local =
+          findLocalPlaces(normalizedQuery, request.effectiveTargetCount()).stream()
+              .map(persistence::toDto)
+              .toList();
+      local.forEach(
+          place ->
+              decorate(
+                  place,
+                  "LOCAL",
+                  place.getFetchedAt(),
+                  request.effectiveMaximumAgeSeconds()));
+      RetrievalEvidenceDto assessed =
+          assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, Instant.now());
+      List<String> reasons = new ArrayList<>(assessed.reasonCodes());
+      reasons.add("LOCATION_ANCHOR_UNRESOLVED");
+      RetrievalEvidenceDto evidence =
+          new RetrievalEvidenceDto(
+              "INSUFFICIENT",
+              assessed.queryResolved(),
+              assessed.candidateCount(),
+              assessed.eligibleCount(),
+              assessed.requiredFieldCoverage(),
+              0.0,
+              assessed.freshness(),
+              assessed.sourceSet(),
+              assessed.retrievedAt(),
+              "NOT_CALLED",
+              false,
+              reasons.stream().distinct().toList(),
+              assessed.rankingVersion());
+      return new PlaceRecommendationResult(enrichPhotosForPlaces(local), evidence);
+    }
+    double lat = request.lat() != null ? request.lat() : properties.getDefaultLat();
+    double lng = request.lng() != null ? request.lng() : properties.getDefaultLng();
+    int radius = request.radiusMeters() != null ? request.radiusMeters() : 15_000;
+    int target = request.effectiveTargetCount();
+    Instant retrievedAt = Instant.now();
+
+    Optional<List<PlaceDto>> cached =
+        cache.getSearchResults(normalizedQuery, lat, lng, radius, target);
+    if (cached.isPresent() && !cached.get().isEmpty()) {
+      List<PlaceDto> values = ranking.rank(cached.get(), query, lat, lng);
+      values.forEach(
+          place ->
+              decorate(
+                  place,
+                  "CACHE",
+                  place.getFetchedAt(),
+                  request.effectiveMaximumAgeSeconds()));
+      RetrievalEvidenceDto evidence =
+          assess(values, request, Set.of("CACHE"), "NOT_CALLED", false, retrievedAt);
+      if ("SUFFICIENT".equals(evidence.status())) {
+        return new PlaceRecommendationResult(
+            enrichPhotosForPlaces(values.stream().limit(target).toList()), evidence);
+      }
+    }
+
+    List<PlaceDto> local =
+        ranking.rank(
+            findLocalPlaces(normalizedQuery, Math.max(target * 2, target)).stream()
+                .map(persistence::toDto)
+                .toList(),
+            query,
+            lat,
+            lng);
+    local.forEach(
+        place ->
+            decorate(
+                place,
+                "LOCAL",
+                place.getFetchedAt(),
+                request.effectiveMaximumAgeSeconds()));
+    RetrievalEvidenceDto localEvidence =
+        assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, retrievedAt);
+    if ("SUFFICIENT".equals(localEvidence.status())) {
+      cache.putSearchResults(normalizedQuery, lat, lng, radius, target, local);
+      return new PlaceRecommendationResult(
+          enrichPhotosForPlaces(local.stream().limit(target).toList()), localEvidence);
+    }
+    if (!request.externalRefreshAllowed()) {
+      return new PlaceRecommendationResult(
+          enrichPhotosForPlaces(local.stream().limit(target).toList()), localEvidence);
+    }
+
+    try {
+      List<PlaceDto> external =
+          provider.textSearch(
+              enrichQueryForProvider(query, lat, lng),
+              lat,
+              lng,
+              radius,
+              Math.min(50, Math.max(target * 2, target)));
+      List<PlaceDto> persisted =
+          external.stream()
+              .map(item -> persistence.upsertProviderPlace(item, provider.getProviderName()))
+              .peek(
+                  item ->
+                      decorate(
+                          item,
+                          "PROVIDER",
+                          retrievedAt,
+                          request.effectiveMaximumAgeSeconds()))
+              .toList();
+      List<PlaceDto> merged = ranking.rank(mergeResults(persisted, local), query, lat, lng);
+      RetrievalEvidenceDto evidence =
+          assess(
+              merged,
+              request,
+              new LinkedHashSet<>(List.of("LOCAL", "PROVIDER:" + provider.getProviderName())),
+              "AVAILABLE",
+              true,
+              retrievedAt);
+      cache.putSearchResults(normalizedQuery, lat, lng, radius, target, merged);
+      return new PlaceRecommendationResult(
+          enrichPhotosForPlaces(merged.stream().limit(target).toList()), evidence);
+    } catch (PlaceProviderException exception) {
+      RetrievalEvidenceDto evidence =
+          assess(local, request, Set.of("LOCAL"), "UNAVAILABLE", true, retrievedAt);
+      List<String> reasons = new ArrayList<>(evidence.reasonCodes());
+      reasons.add("PROVIDER_UNAVAILABLE");
+      evidence =
+          new RetrievalEvidenceDto(
+              "INSUFFICIENT",
+              evidence.queryResolved(),
+              evidence.candidateCount(),
+              evidence.eligibleCount(),
+              evidence.requiredFieldCoverage(),
+              evidence.geographicCoverage(),
+              evidence.freshness(),
+              evidence.sourceSet(),
+              evidence.retrievedAt(),
+              "UNAVAILABLE",
+              true,
+              reasons.stream().distinct().toList(),
+              evidence.rankingVersion());
+      return new PlaceRecommendationResult(
+          enrichPhotosForPlaces(local.stream().limit(target).toList()), evidence);
+    }
+  }
+
+  private RetrievalEvidenceDto assess(
+      List<PlaceDto> candidates,
+      PlaceRecommendationRequest request,
+      Set<String> sources,
+      String providerStatus,
+      boolean refreshed,
+      Instant retrievedAt) {
+    List<String> required =
+        request.requiredFields().stream()
+            .map(String::trim)
+            .filter(StringUtils::hasText)
+            .distinct()
+            .toList();
+    Map<String, Double> coverage = new HashMap<>();
+    List<String> reasons = new ArrayList<>();
+    for (String field : required) {
+      long present = candidates.stream().filter(place -> hasField(place, field)).count();
+      double value = candidates.isEmpty() ? 0.0 : (double) present / candidates.size();
+      coverage.put(field, value);
+      if (value < 1.0) reasons.add("MANDATORY_FIELD_MISSING:" + field);
+    }
+    if (candidates.size() < request.effectiveTargetCount()) reasons.add("TOO_FEW_CANDIDATES");
+    double geographic =
+        candidates.isEmpty()
+            ? 0.0
+            : (double) candidates.stream().filter(item -> item.getLocation() != null).count()
+                / candidates.size();
+    if (request.lat() != null && geographic < 1.0) reasons.add("WEAK_GEOGRAPHIC_COVERAGE");
+    if (candidates.stream().anyMatch(item -> "STALE".equals(item.getFreshness()))
+        && !required.isEmpty()) {
+      reasons.add("STALE_REQUIRED_EVIDENCE");
+    }
+    int eligible =
+        (int)
+            candidates.stream()
+                .filter(place -> required.stream().allMatch(field -> hasField(place, field)))
+                .count();
+    String status =
+        reasons.isEmpty()
+            ? "SUFFICIENT"
+            : request.externalRefreshAllowed() && !refreshed ? "REFRESHABLE" : "INSUFFICIENT";
+    String freshness =
+        candidates.isEmpty()
+            ? "UNKNOWN"
+            : candidates.stream().allMatch(item -> "FRESH".equals(item.getFreshness()))
+                ? "FRESH"
+                : candidates.stream().anyMatch(item -> "STALE".equals(item.getFreshness()))
+                    ? "STALE"
+                    : "UNKNOWN";
+    return new RetrievalEvidenceDto(
+        status,
+        !candidates.isEmpty(),
+        candidates.size(),
+        eligible,
+        coverage,
+        geographic,
+        freshness,
+        sources,
+        retrievedAt,
+        providerStatus,
+        refreshed,
+        reasons.stream().distinct().toList(),
+        "place-rank-v2");
+  }
+
+  private boolean hasField(PlaceDto place, String field) {
+    return switch (field) {
+      case "id", "canonicalId" -> StringUtils.hasText(place.getId());
+      case "location", "coordinates" -> place.getLocation() != null;
+      case "openingHours" -> StringUtils.hasText(place.getOpeningHours());
+      // The current source stores an unparsed string; it cannot prove time-specific opening claims.
+      case "normalizedOpeningHours" -> false;
+      case "businessStatus" -> StringUtils.hasText(place.getBusinessStatus());
+      case "category", "categories" -> place.getCategories() != null
+          && !place.getCategories().isEmpty();
+      case "rating" -> place.getRating() != null;
+      case "price", "priceAmount" -> false;
+      default -> false;
+    };
+  }
+
+  private void decorate(
+      PlaceDto place, String source, Instant fetchedAt, long maximumAgeSeconds) {
+    place.setSource(source);
+    if (place.getFetchedAt() == null) place.setFetchedAt(fetchedAt);
+    Instant observed = place.getFetchedAt();
+    place.setFreshness(
+        observed == null
+            ? "UNKNOWN"
+            : Instant.now().isAfter(observed.plusSeconds(maximumAgeSeconds)) ? "STALE" : "FRESH");
   }
 
   @Override
@@ -335,5 +581,90 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     if (lat >= 16.08 && lat <= 16.16 && lng >= 108.11 && lng <= 108.18) return "Liên Chiểu";
     if (lat >= 15.99 && lat <= 16.04 && lng >= 108.17 && lng <= 108.22) return "Cẩm Lệ";
     return "";
+  }
+
+  private List<PlaceDto> enrichPhotosForPlaces(List<PlaceDto> places) {
+    if (places == null || places.isEmpty()) {
+      return List.of();
+    }
+    for (PlaceDto place : places) {
+      if (place.getPrimaryPhoto() != null && StringUtils.hasText(place.getPrimaryPhoto().url())) {
+        continue;
+      }
+      if (place.getPhotos() != null && !place.getPhotos().isEmpty()) {
+        PlacePhotoDto photo =
+            new PlacePhotoDto(
+                place.getPhotos().get(0),
+                StringUtils.hasText(place.getProvider())
+                    ? place.getProvider()
+                    : provider.getProviderName(),
+                List.of(),
+                place.getFetchedAt() != null ? place.getFetchedAt() : Instant.now(),
+                true);
+        place.setPrimaryPhoto(photo);
+        if (place.getPhotoGallery() == null || place.getPhotoGallery().isEmpty()) {
+          place.setPhotoGallery(
+              place.getPhotos().stream()
+                  .map(
+                      url ->
+                          new PlacePhotoDto(
+                              url,
+                              StringUtils.hasText(place.getProvider())
+                                  ? place.getProvider()
+                                  : provider.getProviderName(),
+                              List.of(),
+                              place.getFetchedAt() != null ? place.getFetchedAt() : Instant.now(),
+                              true))
+                  .toList());
+        }
+        continue;
+      }
+      if (StringUtils.hasText(place.getProviderPlaceId())
+          && (place.getProvider() == null
+              || place.getProvider().equalsIgnoreCase(provider.getProviderName()))) {
+        try {
+          List<PlacePhotoDto> gallery = provider.getPhotoGallery(place.getProviderPlaceId(), 3);
+          if (!gallery.isEmpty()) {
+            place.setPhotoGallery(gallery);
+            place.setPrimaryPhoto(gallery.get(0));
+            List<String> urls =
+                gallery.stream().map(PlacePhotoDto::url).filter(StringUtils::hasText).toList();
+            if (!urls.isEmpty()) {
+              place.setPhotos(new ArrayList<>(urls));
+              persistPhotoUrls(place, urls);
+            }
+          }
+        } catch (Exception ex) {
+          log.warn(
+              "Failed to enrich photo gallery for place '{}': {}",
+              place.getName(),
+              ex.getMessage());
+        }
+      }
+    }
+    return places;
+  }
+
+  private void persistPhotoUrls(PlaceDto place, List<String> photoUrls) {
+    try {
+      Optional<Place> stored = Optional.empty();
+      if (StringUtils.hasText(place.getId())) {
+        stored = repository.findById(place.getId());
+      }
+      if (stored.isEmpty()
+          && StringUtils.hasText(place.getProvider())
+          && StringUtils.hasText(place.getProviderPlaceId())) {
+        stored =
+            repository.findByProviderAndProviderPlaceId(
+                place.getProvider(), place.getProviderPlaceId());
+      }
+      if (stored.isPresent()) {
+        Place entity = stored.get();
+        entity.setPhotos(new ArrayList<>(photoUrls));
+        repository.save(entity);
+      }
+    } catch (Exception ex) {
+      log.warn("Failed to persist photo URLs for place '{}': {}", place.getId(), ex.getMessage());
+    }
   }
 }

@@ -3,17 +3,23 @@ package fu.tripsense.placeservice.controller;
 import fu.tripsense.placeservice.dto.ApiResponse;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
+import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
 import fu.tripsense.placeservice.service.PlaceDetailsService;
 import fu.tripsense.placeservice.service.PlaceSearchService;
+import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -82,6 +88,22 @@ public class PlaceController {
     return ResponseEntity.ok(ApiResponse.ok(results, meta));
   }
 
+  @PostMapping("/recommendations")
+  public ResponseEntity<ApiResponse<PlaceRecommendationResult>> recommendations(
+      @Valid @RequestBody PlaceRecommendationRequest request) {
+    if ((request.lat() == null) != (request.lng() == null)) {
+      return ResponseEntity.badRequest()
+          .body(
+              ApiResponse.error(
+                  "INVALID_COORDINATES", "Latitude and longitude must be provided together"));
+    }
+    PlaceRecommendationResult result = placeSearchService.recommend(request);
+    Map<String, Object> meta = new HashMap<>();
+    meta.put("retrievalStatus", result.evidence().status());
+    meta.put("refreshPerformed", result.evidence().refreshPerformed());
+    return ResponseEntity.ok(ApiResponse.ok(result, meta));
+  }
+
   @GetMapping("/autocomplete")
   public ResponseEntity<ApiResponse<List<AutocompleteSuggestionDto>>> autocomplete(
       @RequestParam(name = "q", required = false) String query,
@@ -124,19 +146,28 @@ public class PlaceController {
       @PathVariable("id") String id,
       @RequestParam(name = "name", required = false) String name,
       @RequestParam(name = "lat", required = false) Double lat,
-      @RequestParam(name = "lng", required = false) Double lng) {
+      @RequestParam(name = "lng", required = false) Double lng,
+      @RequestParam(name = "includePhoto", required = false, defaultValue = "false")
+          boolean includePhoto) {
     if (!StringUtils.hasText(id) || !id.matches("[A-Za-z0-9._:-]{1,200}")) {
       return ResponseEntity.badRequest()
           .body(ApiResponse.error("INVALID_ID", "Place ID must not be blank"));
     }
 
-    Optional<PlaceDto> place = placeDetailsService.getDetails(id, name, lat, lng);
+    Optional<PlaceDto> place =
+        includePhoto
+            ? placeDetailsService.getDetails(id, name, lat, lng, true)
+            : placeDetailsService.getDetails(id, name, lat, lng);
     if (place.isEmpty()) {
       return ResponseEntity.status(404)
           .body(ApiResponse.error("PLACE_NOT_FOUND", "No place found with ID: " + id));
     }
 
-    return ResponseEntity.ok(ApiResponse.ok(place.get()));
+    return includePhoto
+        ? ResponseEntity.ok()
+            .cacheControl(CacheControl.noStore())
+            .body(ApiResponse.ok(place.get()))
+        : ResponseEntity.ok(ApiResponse.ok(place.get()));
   }
 
   @GetMapping("/nearby")

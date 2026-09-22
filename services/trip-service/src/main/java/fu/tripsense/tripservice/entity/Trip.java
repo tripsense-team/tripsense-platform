@@ -33,6 +33,13 @@ public class Trip {
   @Column(name = "destination_place_id")
   private UUID destinationPlaceId;
 
+  @Column(name = "destination_place_ref", length = 200)
+  private String destinationPlaceRef;
+
+  @Column(name = "aggregate_revision", nullable = false)
+  @Builder.Default
+  private Long aggregateRevision = 0L;
+
   @Column(name = "start_date", nullable = false)
   private LocalDate startDate;
 

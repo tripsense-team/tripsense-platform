@@ -109,6 +109,7 @@ export async function getPlaceDetails(
   lat?: number,
   lng?: number,
   signal?: AbortSignal,
+  includePhoto = false,
 ): Promise<PlaceDetailsResponse> {
   const url = new URL(
     `/api/places/${encodeURIComponent(id)}`,
@@ -117,6 +118,7 @@ export async function getPlaceDetails(
   if (name) url.searchParams.set("name", name);
   if (lat !== undefined) url.searchParams.set("lat", lat.toString());
   if (lng !== undefined) url.searchParams.set("lng", lng.toString());
+  if (includePhoto) url.searchParams.set("includePhoto", "true");
 
   const response = await fetch(url, { signal });
   const parsed = await parseResponse<PlaceDetailsResponse>(response);

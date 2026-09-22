@@ -810,6 +810,7 @@ public class TripServiceImpl implements TripService {
         trip.getName(),
         trip.getDestinationName(),
         trip.getDestinationPlaceId(),
+        trip.getDestinationPlaceRef(),
         trip.getStartDate(),
         trip.getEndDate(),
         trip.getStatus(),
@@ -822,6 +823,7 @@ public class TripServiceImpl implements TripService {
         trip.getCoverImageUrl(),
         trip.getVisibility(),
         trip.getVersion(),
+        trip.getAggregateRevision(),
         trip.getCreatedAt(),
         trip.getUpdatedAt());
   }
@@ -840,6 +842,7 @@ public class TripServiceImpl implements TripService {
         item.getId(),
         item.getDayId(),
         item.getPlaceId(),
+        item.getPlaceRef(),
         item.getTitle(),
         item.getType(),
         item.getStartTime(),

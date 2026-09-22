@@ -46,4 +46,19 @@ describe("MapVina popup", () => {
     expect(hrefs).not.toContain("data:text/html,bad");
     expect(hrefs.some((href) => href?.startsWith("tel:"))).toBe(false);
   });
+
+  it("does not show place photos in the map popup", () => {
+    const approved = createMapVinaPopup(place({ primaryPhoto: {
+      url: "https://lh3.googleusercontent.com/photo-1", source: "ziomap",
+      attribution: [{ displayName: "Photo author", uri: "https://example.com/author" }],
+      fetchedAt: "2026-09-19T00:00:00Z", displayApproved: true,
+    } }), false);
+    expect(approved.querySelector("figure img")).toBeNull();
+
+    const unapproved = createMapVinaPopup(place({ primaryPhoto: {
+      url: "https://lh3.googleusercontent.com/photo-1", source: "ziomap",
+      attribution: [], fetchedAt: "2026-09-19T00:00:00Z", displayApproved: false,
+    } }), false);
+    expect(unapproved.querySelector("figure img")).toBeNull();
+  });
 });

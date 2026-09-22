@@ -12,10 +12,8 @@ Use this skill to define or verify tests for an approved TripSense feature.
 Read:
 
 1. `AGENTS.md`
-2. The feature `requirements.md`
-3. The feature `implementation-plan.md`
-4. The feature `test-plan.md`
-5. Relevant service or app test conventions
+2. The feature plan at `docs/features/<feature-name>.md` (especially Section 1: Requirements and Section 7: Phased Tasks & Verification, or legacy docs)
+3. Relevant service or app test conventions
 
 ## Test Scope
 

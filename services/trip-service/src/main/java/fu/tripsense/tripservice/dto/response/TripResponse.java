@@ -13,6 +13,7 @@ public record TripResponse(
     String name,
     String destinationName,
     UUID destinationPlaceId,
+    String destinationPlaceRef,
     LocalDate startDate,
     LocalDate endDate,
     TripStatus status,
@@ -25,6 +26,7 @@ public record TripResponse(
     String coverImageUrl,
     String visibility,
     Long version,
+    Long aggregateRevision,
     Instant createdAt,
     Instant updatedAt)
     implements Serializable {}

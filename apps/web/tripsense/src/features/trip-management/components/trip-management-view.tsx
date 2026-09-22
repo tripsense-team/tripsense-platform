@@ -43,7 +43,7 @@ import type {
 } from "../types";
 import { titleCaseDestination } from "../utils/format";
 import { isoDateFromToday } from "../utils/date";
-import { chainItineraryItemsTimes, itemDurationMinutes } from "../utils/time";
+import { chainItineraryItemsTimes, chainItineraryResponse, itemDurationMinutes } from "../utils/time";
 
 type TripScreen = "trips" | "calendar" | "detail";
 
@@ -144,7 +144,7 @@ export function TripManagementView({
         getItinerary(tripId),
       ]);
       setTrip(nextTrip);
-      setItinerary(nextItinerary);
+      setItinerary(chainItineraryResponse(nextItinerary));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not load trip detail",

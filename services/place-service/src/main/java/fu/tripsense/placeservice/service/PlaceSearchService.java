@@ -2,6 +2,8 @@ package fu.tripsense.placeservice.service;
 
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
+import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
 import java.util.List;
 
 public interface PlaceSearchService {
@@ -13,4 +15,7 @@ public interface PlaceSearchService {
 
   List<PlaceDto> getNearbyPlaces(
       Double lat, Double lng, Integer radius, String category, Integer limit);
+
+  PlaceRecommendationResult recommend(PlaceRecommendationRequest request);
 }
+

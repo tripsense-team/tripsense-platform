@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { UserChatWorkspace } from "@/features/chat";
 
 export default function ChatPage() {
-  redirect("/community?composer=trip");
+  return <UserChatWorkspace />;
 }

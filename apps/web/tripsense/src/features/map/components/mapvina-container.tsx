@@ -312,9 +312,10 @@ function createMarkerWrapper(
   place: Place,
   isSelected: boolean,
   currentZoom: number,
+  totalPlaces: number = 0,
 ): HTMLDivElement {
   const { svg, bg } = getCategoryIcon(place.categories);
-  const isHighZoom = currentZoom >= 13.5;
+  const isHighZoom = currentZoom >= 11.5 || totalPlaces <= 15;
   const isSelectedOrHigh = isSelected || isHighZoom;
 
   const wrapper = document.createElement("div");
@@ -413,6 +414,8 @@ export function MapVinaContainer({
   center = [108.2208, 16.0678], // Da Nang center [lng, lat]
   zoom = 13,
   className,
+  autoFitBounds = false,
+  fitBoundsTrigger,
 }: MapVinaContainerProps) {
   const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
   const mapRef = React.useRef<mapvinagl.Map | null>(null);
@@ -425,6 +428,8 @@ export function MapVinaContainer({
   const isUserInteractingRef = React.useRef(false);
   const initialCenterRef = React.useRef(center);
   const initialZoomRef = React.useRef(zoom);
+  const lastFittedPlaceIdsRef = React.useRef<string>("");
+  const lastSelectedPlaceIdRef = React.useRef<string | null>(null);
 
   const lastQueriedRef = React.useRef<{
     lat: number;
@@ -519,7 +524,7 @@ export function MapVinaContainer({
       isUserInteractingRef.current = true;
     });
 
-    mapInstance.on("zoom", () => {
+    mapInstance.on("zoomend", () => {
       setCurrentZoom(mapInstance.getZoom());
     });
 
@@ -749,7 +754,12 @@ export function MapVinaContainer({
       const isSelected =
         place.id === selectedPlaceId ||
         (!!place.providerPlaceId && place.providerPlaceId === selectedPlaceId);
-      const innerWrapper = createMarkerWrapper(place, isSelected, currentZoom);
+      const innerWrapper = createMarkerWrapper(
+        place,
+        isSelected,
+        currentZoom,
+        validPlaces.length,
+      );
 
       if (markersRef.current[place.id]) {
         const marker = markersRef.current[place.id];
@@ -782,6 +792,49 @@ export function MapVinaContainer({
     });
   }, [places, selectedPlaceId, isLoaded, currentZoom]);
 
+  // Auto-fit camera bounds when places dataset changes (only when autoFitBounds is enabled)
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isLoaded || !autoFitBounds) return;
+    if (selectedPlaceId || isUserInteractingRef.current) return;
+
+    const validPlaces = places.filter(
+      (p) => p.location && typeof p.location.lat === "number" && typeof p.location.lng === "number"
+    );
+    if (validPlaces.length === 0) return;
+
+    const currentPlaceIds = validPlaces.map((p) => p.id).sort().join(",");
+    if (currentPlaceIds === lastFittedPlaceIdsRef.current) return;
+    lastFittedPlaceIdsRef.current = currentPlaceIds;
+
+    if (validPlaces.length > 1) {
+      const bounds = new mapvinagl.LngLatBounds();
+      validPlaces.forEach((p) => bounds.extend([p.location!.lng, p.location!.lat]));
+      map.fitBounds(bounds, { padding: 60, maxZoom: 14.5, duration: 600 });
+    } else if (validPlaces.length === 1 && validPlaces[0].location) {
+      map.flyTo({ center: [validPlaces[0].location.lng, validPlaces[0].location.lat], zoom: 14, duration: 500 });
+    }
+  }, [places, selectedPlaceId, isLoaded, autoFitBounds]);
+
+  // Manual fit bounds trigger (e.g. user clicks "Xem tất cả")
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isLoaded || fitBoundsTrigger === undefined || fitBoundsTrigger === 0) return;
+
+    const validPlaces = places.filter(
+      (p) => p.location && typeof p.location.lat === "number" && typeof p.location.lng === "number"
+    );
+    if (validPlaces.length === 0) return;
+
+    if (validPlaces.length > 1) {
+      const bounds = new mapvinagl.LngLatBounds();
+      validPlaces.forEach((p) => bounds.extend([p.location!.lng, p.location!.lat]));
+      map.fitBounds(bounds, { padding: 60, maxZoom: 14.5, duration: 600 });
+    } else if (validPlaces.length === 1 && validPlaces[0].location) {
+      map.flyTo({ center: [validPlaces[0].location.lng, validPlaces[0].location.lat], zoom: 14, duration: 500 });
+    }
+  }, [fitBoundsTrigger, places, isLoaded]);
+
   // Update Selected Place / Popup
   React.useEffect(() => {
     const map = mapRef.current;
@@ -792,7 +845,10 @@ export function MapVinaContainer({
       popupRef.current = null;
     }
 
-    if (!selectedPlaceId) return;
+    if (!selectedPlaceId) {
+      lastSelectedPlaceIdRef.current = null;
+      return;
+    }
 
     const place = places.find(
       (p) =>
@@ -801,14 +857,18 @@ export function MapVinaContainer({
     );
     if (!place || !place.location) return;
 
-    const targetZoom = Math.max(map.getZoom(), 15.5);
-    map.flyTo({
-      center: [place.location.lng, place.location.lat],
-      offset: [0, 95],
-      zoom: targetZoom,
-      duration: 800,
-      essential: true,
-    });
+    // Only flyTo when selectedPlaceId actually changes to avoid jarring map re-centering during background updates
+    if (lastSelectedPlaceIdRef.current !== selectedPlaceId) {
+      lastSelectedPlaceIdRef.current = selectedPlaceId;
+      const targetZoom = Math.max(map.getZoom(), 15.5);
+      map.flyTo({
+        center: [place.location.lng, place.location.lat],
+        offset: [0, 95],
+        zoom: targetZoom,
+        duration: 800,
+        essential: true,
+      });
+    }
 
     const isFav = !!favorites[place.id];
     const container = createMapVinaPopup(place, isFav);

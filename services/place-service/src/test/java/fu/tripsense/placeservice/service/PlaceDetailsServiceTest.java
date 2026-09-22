@@ -1,7 +1,9 @@
 package fu.tripsense.placeservice.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -11,6 +13,7 @@ import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceReview;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceReviewDto;
 import fu.tripsense.placeservice.providers.PlaceEnrichmentProvider;
 import fu.tripsense.placeservice.providers.PlaceProvider;
@@ -55,6 +58,69 @@ class PlaceDetailsServiceTest {
 
     assertEquals(dto, result);
     verify(enrichmentProvider, never()).enrichPlace(any(), any(), any());
+  }
+
+  @Test
+  void fetchesAndPersistsPhotosWhenNotYetInPlaceStorage() {
+    Place entity = completeEntity(Instant.now());
+    PlaceDto dto = completeDto();
+    dto.setProvider("ziomap");
+    dto.setProviderPlaceId("provider-1");
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+    when(provider.getProviderName()).thenReturn("ziomap");
+    when(provider.getPhotoGallery("provider-1", 5))
+        .thenReturn(
+            List.of(
+                new PlacePhotoDto(
+                    "https://lh3.googleusercontent.com/photo",
+                    "ziomap",
+                    List.of(),
+                    Instant.now(),
+                    true)));
+
+    PlaceDto result = service.getDetails("place-1", null, null, null, true).orElseThrow();
+
+    assertEquals("https://lh3.googleusercontent.com/photo", result.getPrimaryPhoto().url());
+    assertEquals(1, result.getPhotoGallery().size());
+    verify(provider).getPhotoGallery("provider-1", 5);
+    verify(repository).save(entity);
+    assertEquals(List.of("https://lh3.googleusercontent.com/photo"), entity.getPhotos());
+  }
+
+  @Test
+  void usesExistingStoredPhotosWithoutSpendingProviderCredits() {
+    Place entity = completeEntity(Instant.now());
+    entity.setPhotos(List.of("https://lh3.googleusercontent.com/existing-photo"));
+    PlaceDto dto = completeDto();
+    dto.setProvider("ziomap");
+    dto.setProviderPlaceId("provider-1");
+    dto.setPhotos(List.of("https://lh3.googleusercontent.com/existing-photo"));
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+
+    PlaceDto result = service.getDetails("place-1", null, null, null, true).orElseThrow();
+
+    assertEquals(
+        "https://lh3.googleusercontent.com/existing-photo", result.getPrimaryPhoto().url());
+    assertEquals(1, result.getPhotoGallery().size());
+    verify(provider, never()).getPhotoGallery(any(), anyInt());
+    verify(repository, never()).save(any());
+  }
+
+  @Test
+  void ordinaryDetailsDoNotSpendPhotoCredits() {
+    Place entity = completeEntity(Instant.now());
+    PlaceDto dto = completeDto();
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+
+    service.getDetails("place-1", null, null, null).orElseThrow();
+
+    verify(provider, never()).getPhotoGallery(any(), anyInt());
   }
 
   @Test

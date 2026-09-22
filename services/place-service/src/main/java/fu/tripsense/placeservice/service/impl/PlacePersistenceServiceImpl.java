@@ -6,6 +6,7 @@ import fu.tripsense.placeservice.domain.model.PlaceReview;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceReviewDto;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
 import java.time.Instant;
@@ -50,7 +51,14 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
       Place entity =
           repository
               .findByProviderAndProviderPlaceId(provider, dto.getProviderPlaceId())
-              .orElseGet(() -> newPlace(dto, provider));
+              .orElse(null);
+      if (entity == null) {
+        Place duplicate = unambiguousDuplicate(dto);
+        if (duplicate != null) {
+          return toDto(duplicate);
+        }
+        entity = newPlace(dto, provider);
+      }
       applyProviderData(entity, dto);
       return toDto(repository.save(entity));
     } catch (Exception ex) {
@@ -61,6 +69,41 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
       }
       return dto;
     }
+  }
+
+  private Place unambiguousDuplicate(PlaceDto incoming) {
+    if (!StringUtils.hasText(incoming.getName())
+        || !StringUtils.hasText(incoming.getAddress())
+        || incoming.getLocation() == null) {
+      return null;
+    }
+    List<Place> matches =
+        repository.findByNormalizedName(normalize(incoming.getName())).stream()
+            .filter(
+                existing ->
+                    existing.getLocation() != null
+                        && StringUtils.hasText(existing.getAddress())
+                        && normalize(existing.getAddress()).equals(normalize(incoming.getAddress()))
+                        && distanceMeters(
+                                existing.getLocation().getY(),
+                                existing.getLocation().getX(),
+                                incoming.getLocation().getLat(),
+                                incoming.getLocation().getLng())
+                            <= 100)
+            .toList();
+    return matches.size() == 1 ? matches.get(0) : null;
+  }
+
+  private static double distanceMeters(double lat1, double lon1, double lat2, double lon2) {
+    double lat = Math.toRadians(lat2 - lat1);
+    double lon = Math.toRadians(lon2 - lon1);
+    double arc =
+        Math.sin(lat / 2) * Math.sin(lat / 2)
+            + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lon / 2)
+                * Math.sin(lon / 2);
+    return 12_742_000 * Math.asin(Math.min(1, Math.sqrt(arc)));
   }
 
   @Override
@@ -96,6 +139,35 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
             ? new ArrayList<>()
             : place.getReviews().stream().map(this::toReviewDto).toList();
 
+    PlacePhotoDto primaryPhoto =
+        (place.getPhotos() != null && !place.getPhotos().isEmpty())
+            ? new PlacePhotoDto(
+                place.getPhotos().get(0),
+                StringUtils.hasText(place.getProvider()) ? place.getProvider() : "ziomap",
+                List.of(),
+                place.getLastFetchedAt() != null ? place.getLastFetchedAt() : Instant.now(),
+                true)
+            : null;
+
+    List<PlacePhotoDto> photoGallery =
+        (place.getPhotos() != null && !place.getPhotos().isEmpty())
+            ? place.getPhotos().stream()
+                .filter(StringUtils::hasText)
+                .map(
+                    url ->
+                        new PlacePhotoDto(
+                            url,
+                            StringUtils.hasText(place.getProvider())
+                                ? place.getProvider()
+                                : "ziomap",
+                            List.of(),
+                            place.getLastFetchedAt() != null
+                                ? place.getLastFetchedAt()
+                                : Instant.now(),
+                            true))
+                .toList()
+            : List.of();
+
     return PlaceDto.builder()
         .id(place.getId())
         .provider(place.getProvider())
@@ -110,12 +182,17 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .rating(place.getRating())
         .userRatingCount(place.getUserRatingCount())
         .photos(place.getPhotos() == null ? List.of() : place.getPhotos())
+        .primaryPhoto(primaryPhoto)
+        .photoGallery(photoGallery)
         .phone(place.getPhone())
         .website(place.getWebsite())
         .socials(place.getSocials() == null ? List.of() : place.getSocials())
         .openingHours(place.getOpeningHours())
         .businessStatus(place.getBusinessStatus())
         .description(place.getDescription())
+        .source("LOCAL")
+        .fetchedAt(place.getLastFetchedAt())
+        .freshness(freshness(place.getLastFetchedAt()))
         .reviews(reviews)
         .build();
   }
@@ -168,6 +245,13 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
 
   private String normalize(String value) {
     return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private String freshness(Instant fetchedAt) {
+    if (fetchedAt == null) return "UNKNOWN";
+    return Instant.now().isAfter(fetchedAt.plusSeconds(properties.getCache().getProviderTtlSeconds()))
+        ? "STALE"
+        : "FRESH";
   }
 
   private PlaceReview toReviewEntity(PlaceReviewDto review) {

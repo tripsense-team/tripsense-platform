@@ -37,6 +37,10 @@ class GatewayRoutesConfig {
   static final String CONTEXT_SERVICE_PATH = "/api/context/**";
   static final String CONTEXT_SERVICE_URI = "lb://context-service";
 
+  static final String AI_SERVICE_ROUTE_ID = "ai-service";
+  static final String AI_SERVICE_PATH = "/api/ai/**";
+  static final String AI_SERVICE_URI = "lb://ai-service";
+
   @Bean
   RouteLocator tripSenseRoutes(
       RouteLocatorBuilder routes,
@@ -71,6 +75,17 @@ class GatewayRoutesConfig {
                 route.path(USER_SERVICE_AUTH_PATH, USER_SERVICE_USERS_PATH).uri(USER_SERVICE_URI))
         .route(MAIL_SERVICE_ROUTE_ID, route -> route.path(MAIL_SERVICE_PATH).uri(MAIL_SERVICE_URI))
         .route(TRIP_SERVICE_ROUTE_ID, route -> route.path(TRIP_SERVICE_PATH).uri(TRIP_SERVICE_URI))
+        .route(
+            AI_SERVICE_ROUTE_ID,
+            route ->
+                route
+                    .path(AI_SERVICE_PATH)
+                    .filters(
+                        filters ->
+                            filters
+                                .setResponseHeader("Cache-Control", "no-store")
+                                .setResponseHeader("X-Accel-Buffering", "no"))
+                    .uri(AI_SERVICE_URI))
         .route(
             SOCIAL_SERVICE_ROUTE_ID,
             route -> {

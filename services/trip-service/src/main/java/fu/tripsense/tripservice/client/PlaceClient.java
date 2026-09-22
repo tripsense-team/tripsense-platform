@@ -6,8 +6,10 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.server.ResponseStatusException;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +32,10 @@ public class PlaceClient {
   public record PlaceLocation(BigDecimal lat, BigDecimal lng) {}
 
   public PlaceSnapshot validatePlace(UUID placeId) {
+    return placeId == null ? null : validatePlace(placeId.toString());
+  }
+
+  public PlaceSnapshot validatePlace(String placeId) {
     if (placeId == null) {
       return null;
     }
@@ -57,6 +63,42 @@ public class PlaceClient {
           "Failed to validate place with place-service: {}. Continuing without snapshot.",
           ex.getMessage());
       return new PlaceSnapshot(placeId, null, null, null, null);
+    }
+  }
+
+  /** Batch mutations must never persist an unresolved provider or fabricated place ID. */
+  public PlaceSnapshot requireCanonicalPlace(String placeId) {
+    if (placeId == null || placeId.isBlank()) {
+      throw new ResponseStatusException(
+          HttpStatus.UNPROCESSABLE_ENTITY, "Canonical place ID is required");
+    }
+    try {
+      PlaceApiResponse envelope =
+          restClientBuilder
+              .build()
+              .get()
+              .uri(placeServiceUrl + "/api/places/{placeId}", placeId)
+              .retrieve()
+              .body(PlaceApiResponse.class);
+      if (envelope == null
+          || !envelope.success()
+          || envelope.data() == null
+          || !placeId.equals(envelope.data().id())) {
+        throw new ResponseStatusException(
+            HttpStatus.UNPROCESSABLE_ENTITY, "Canonical place could not be resolved");
+      }
+      PlaceApiData data = envelope.data();
+      return new PlaceSnapshot(
+          data.id(),
+          data.name(),
+          data.address(),
+          data.location() == null ? null : data.location().lat(),
+          data.location() == null ? null : data.location().lng());
+    } catch (ResponseStatusException exception) {
+      throw exception;
+    } catch (Exception exception) {
+      throw new ResponseStatusException(
+          HttpStatus.SERVICE_UNAVAILABLE, "Place validation unavailable", exception);
     }
   }
 }

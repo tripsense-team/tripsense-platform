@@ -3,6 +3,7 @@ package fu.tripsense.placeservice.service.impl;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.providers.PlaceEnrichmentProvider;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
@@ -11,8 +12,11 @@ import fu.tripsense.placeservice.service.PlaceDetailsService;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -44,10 +48,110 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
   @Override
   public Optional<PlaceDto> getDetails(
       String id, String fallbackName, Double fallbackLat, Double fallbackLng) {
-    if (!StringUtils.hasText(id)) return Optional.empty();
+    return getDetails(id, fallbackName, fallbackLat, fallbackLng, false);
+  }
+
+  @Override
+  public Optional<PlaceDto> getDetails(
+      String id,
+      String fallbackName,
+      Double fallbackLat,
+      Double fallbackLng,
+      boolean includePhoto) {
+    Optional<PlaceDto> result = getDetailsWithoutPhoto(id, fallbackName, fallbackLat, fallbackLng);
+    if (!includePhoto) {
+      return result;
+    }
+    return result.map(
+        base -> {
+          PlaceDto place = new PlaceDto();
+          BeanUtils.copyProperties(base, place);
+
+          // If photos already exist in database, use them immediately to save credits and load fast
+          if (base.getPhotos() != null && !base.getPhotos().isEmpty()) {
+            List<PlacePhotoDto> existingGallery =
+                base.getPhotos().stream()
+                    .filter(StringUtils::hasText)
+                    .map(
+                        url ->
+                            new PlacePhotoDto(
+                                url,
+                                StringUtils.hasText(place.getProvider())
+                                    ? place.getProvider()
+                                    : provider.getProviderName(),
+                                List.of(),
+                                Instant.now(),
+                                true))
+                    .toList();
+            if (!existingGallery.isEmpty()) {
+              place.setPhotoGallery(existingGallery);
+              place.setPrimaryPhoto(existingGallery.get(0));
+              return place;
+            }
+          }
+
+          place.setPrimaryPhoto(null);
+          place.setPhotoGallery(null);
+          if (StringUtils.hasText(place.getProvider())
+              && place.getProvider().equalsIgnoreCase(provider.getProviderName())
+              && StringUtils.hasText(place.getProviderPlaceId())) {
+            var gallery = provider.getPhotoGallery(place.getProviderPlaceId(), 5);
+            if (!gallery.isEmpty()) {
+              place.setPhotoGallery(gallery);
+              place.setPrimaryPhoto(gallery.get(0));
+
+              List<String> photoUrls =
+                  gallery.stream()
+                      .map(PlacePhotoDto::url)
+                      .filter(StringUtils::hasText)
+                      .toList();
+              if (!photoUrls.isEmpty()) {
+                place.setPhotos(new ArrayList<>(photoUrls));
+                persistPhotoUrls(place, photoUrls);
+              }
+            }
+          }
+          return place;
+        });
+  }
+
+  private void persistPhotoUrls(PlaceDto place, List<String> photoUrls) {
+    try {
+      Optional<Place> stored = Optional.empty();
+      if (StringUtils.hasText(place.getId())) {
+        stored = repository.findById(place.getId());
+      }
+      if (stored.isEmpty()
+          && StringUtils.hasText(place.getProvider())
+          && StringUtils.hasText(place.getProviderPlaceId())) {
+        stored =
+            repository.findByProviderAndProviderPlaceId(
+                place.getProvider(), place.getProviderPlaceId());
+      }
+      if (stored.isPresent()) {
+        Place entity = stored.get();
+        entity.setPhotos(new ArrayList<>(photoUrls));
+        repository.save(entity);
+      }
+      cacheDetails(place.getId(), place);
+      if (StringUtils.hasText(place.getProviderPlaceId())) {
+        cacheDetails(place.getProviderPlaceId(), place);
+      }
+    } catch (Exception ex) {
+      log.warn("Failed to persist photo URLs for place '{}': {}", place.getId(), ex.getMessage());
+    }
+  }
+
+  private Optional<PlaceDto> getDetailsWithoutPhoto(
+      String id, String fallbackName, Double fallbackLat, Double fallbackLng) {
+    if (!StringUtils.hasText(id)) {
+      return Optional.empty();
+    }
 
     Optional<PlaceDto> cached = cache.getPlaceDetails(id);
-    if (cached.filter(this::hasCompleteDetails).isPresent()) return cached;
+    if (cached.filter(this::hasCompleteDetails).isPresent()) {
+      return cached;
+    }
 
     try {
       Optional<Place> stored =
@@ -95,7 +199,9 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
             "Failed to find fallback place details for '{}': {}", fallbackName, ex.getMessage());
       }
     }
-    if (providerDetails.isEmpty()) return Optional.empty();
+    if (providerDetails.isEmpty()) {
+      return Optional.empty();
+    }
 
     PlaceDto saved =
         persistence.upsertProviderPlace(providerDetails.get(), provider.getProviderName());

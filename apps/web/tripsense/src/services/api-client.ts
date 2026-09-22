@@ -129,6 +129,30 @@ function createSanitizedApiError(
   );
 }
 
+export async function authenticatedFetch(
+  endpoint: string,
+  options: RequestInit = {},
+  retried = false,
+): Promise<Response> {
+  const requestUrl = endpoint.startsWith("http")
+    ? endpoint
+    : `${API_GATEWAY_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  const token = useAuthStore.getState().accessToken;
+  const headers = new Headers(options.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(requestUrl, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+  if (response.status !== 401 || retried || isAuthEndpoint(endpoint)) {
+    return response;
+  }
+  if (!refreshPromise) refreshPromise = performSilentRefresh();
+  await refreshPromise;
+  return authenticatedFetch(endpoint, options, true);
+}
+
 export async function apiClient<T>(
   endpoint: string,
   options: ApiClientOptions = {},

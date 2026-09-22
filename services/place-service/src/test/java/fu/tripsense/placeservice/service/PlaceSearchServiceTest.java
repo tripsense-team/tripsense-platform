@@ -15,6 +15,7 @@ import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
 import fu.tripsense.placeservice.service.impl.PlaceRankingServiceImpl;
@@ -121,5 +122,20 @@ class PlaceSearchServiceTest {
 
     assertThrows(
         PlaceProviderException.class, () -> service.searchPlaces("missing", null, null, null, 10));
+  }
+
+  @Test
+  void recommendationWithoutAnchorDoesNotUseDefaultCityOrCallProvider() {
+    when(repository.searchByText(eq("cafe hanoi"), any(Pageable.class)))
+        .thenReturn(Collections.emptyList());
+
+    var result =
+        service.recommend(
+            new PlaceRecommendationRequest(
+                "cafe hanoi", null, null, null, 5, List.of(), null, true));
+
+    assertEquals("INSUFFICIENT", result.evidence().status());
+    assertEquals("NOT_CALLED", result.evidence().providerStatus());
+    verify(provider, never()).textSearch(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt());
   }
 }

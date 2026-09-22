@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { getPlaceDetails } from "../services/places-api";
 import type { Place } from "../types";
+import { PlacePhotoGallery } from "./place-photo-gallery";
 
 export interface PlaceDetailModalProps {
   place: Place | null;
@@ -37,10 +38,8 @@ export function PlaceDetailModal({
   const [isLoadingReviews, setIsLoadingReviews] = React.useState(false);
 
   const currentPlace =
-    refreshedPlace &&
-    initialPlace &&
-    (refreshedPlace.id === initialPlace.id ||
-      refreshedPlace.providerPlaceId === initialPlace.providerPlaceId)
+    refreshedPlace && initialPlace && (refreshedPlace.id === initialPlace.id
+      || (Boolean(refreshedPlace.providerPlaceId) && refreshedPlace.providerPlaceId === initialPlace.providerPlaceId))
       ? refreshedPlace
       : initialPlace;
 
@@ -59,10 +58,17 @@ export function PlaceDetailModal({
         currentPlace.name,
         currentPlace.location?.lat,
         currentPlace.location?.lng,
+        undefined,
+        false,
       );
 
       if (response?.success && response.data) {
-        setRefreshedPlace(response.data);
+        setRefreshedPlace({
+          ...currentPlace,
+          ...response.data,
+          primaryPhoto: currentPlace.primaryPhoto,
+          photoGallery: currentPlace.photoGallery,
+        });
       }
     } catch (error) {
       console.error("Error fetching Google reviews:", error);
@@ -71,45 +77,6 @@ export function PlaceDetailModal({
     }
   }, [currentPlace]);
 
-  React.useEffect(() => {
-    let ignore = false;
-    if (
-      isOpen &&
-      currentPlace &&
-      (!currentPlace.reviews || currentPlace.reviews.length === 0)
-    ) {
-      const targetId =
-        currentPlace.providerPlaceId &&
-        !currentPlace.providerPlaceId.startsWith("poi_")
-          ? currentPlace.providerPlaceId
-          : currentPlace.id;
-
-      Promise.resolve().then(() => {
-        if (!ignore) setIsLoadingReviews(true);
-      });
-
-      getPlaceDetails(
-        targetId,
-        currentPlace.name,
-        currentPlace.location?.lat,
-        currentPlace.location?.lng,
-      )
-        .then((res) => {
-          if (!ignore && res && res.success && res.data) {
-            setRefreshedPlace(res.data);
-          }
-        })
-        .catch((err) => {
-          if (!ignore) console.error("Error fetching Google reviews:", err);
-        })
-        .finally(() => {
-          if (!ignore) setIsLoadingReviews(false);
-        });
-    }
-    return () => {
-      ignore = true;
-    };
-  }, [isOpen, currentPlace]);
 
   if (!currentPlace) return null;
 
@@ -121,22 +88,21 @@ export function PlaceDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0 rounded-3xl border border-border bg-card shadow-2xl">
-        {/* Header Block - Clean, Modern, Never Overlaps */}
-        <div className="w-full p-6 bg-gradient-to-br from-zinc-100 via-zinc-50 to-zinc-100 dark:from-zinc-900 dark:via-zinc-950 dark:to-zinc-900 border-b border-border">
-          <div className="flex items-center gap-2 text-primary font-medium text-xs mb-1">
+      <DialogContent className="max-w-4xl max-h-[90vh] gap-0 overflow-y-auto p-0 rounded-2xl border border-border bg-card shadow-2xl [&>button]:text-card-foreground">
+        <div className="w-full p-6 bg-card text-card-foreground border-b border-border">
+          <div className="flex items-center gap-2 text-muted-foreground font-medium text-xs mb-1">
             <Sparkles className="h-4 w-4" />
             <span className="capitalize">
               {primaryCategory?.replace(/_/g, " ") || "Địa điểm khám phá"}
             </span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
             {place.name}
           </h2>
           {typeof place.rating === "number" && place.rating > 0 && (
             <div className="flex items-center gap-1.5 pt-2 text-xs font-bold text-amber-500">
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-              <span className="text-foreground">{place.rating.toFixed(1)}</span>
+              <span>{place.rating.toFixed(1)}</span>
               {typeof place.userRatingCount === "number" && (
                 <span className="text-muted-foreground font-normal">
                   ({place.userRatingCount.toLocaleString()} đánh giá)
@@ -145,6 +111,8 @@ export function PlaceDetailModal({
             </div>
           )}
         </div>
+
+        <PlacePhotoGallery key={place.id} place={place} loading={isLoadingDetails} />
 
         <div className="p-6 space-y-6">
           {isLoadingDetails ? (

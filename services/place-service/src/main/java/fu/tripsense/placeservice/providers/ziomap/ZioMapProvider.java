@@ -4,18 +4,25 @@ import fu.tripsense.placeservice.config.ZioMapProperties;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.providers.PlaceEnrichmentProvider;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapAutocompleteResponse;
+import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPhotoDetailsResponse;
+import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPhotoResponse;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPlaceResult;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchPlace;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchResponse;
+import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -226,6 +233,145 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
           providerPlaceId,
           ex.getMessage());
       throw new PlaceProviderException("ZioMap place details are unavailable", ex);
+    }
+  }
+
+  @Override
+  public Optional<PlacePhotoDto> getPrimaryPhoto(String providerPlaceId) {
+    return getPhotoGallery(providerPlaceId, 1).stream().findFirst();
+  }
+
+  @Override
+  public List<PlacePhotoDto> getPhotoGallery(String providerPlaceId, int limit) {
+    if (!properties.isPhotoDisplayApproved()
+        || !StringUtils.hasText(properties.getApiKey())
+        || providerPlaceId == null
+        || !providerPlaceId.matches("[A-Za-z0-9._:-]{1,200}")
+        || limit <= 0) {
+      return List.of();
+    }
+    try {
+      String detailsUri =
+          UriComponentsBuilder.fromPath("/api/v1/places/{id}")
+              .queryParam("fields", "photos")
+              .buildAndExpand(providerPlaceId)
+              .encode()
+              .toUriString();
+      ZioMapPhotoDetailsResponse details =
+          restClient
+              .get()
+              .uri(detailsUri)
+              .header("x-api-key", properties.getApiKey())
+              .retrieve()
+              .body(ZioMapPhotoDetailsResponse.class);
+      if (details == null || details.photos() == null || details.photos().isEmpty()) {
+        return List.of();
+      }
+      List<PlacePhotoDto> gallery = new ArrayList<>();
+      Set<String> seenNames = new HashSet<>();
+      Set<String> seenUrls = new HashSet<>();
+      int photoRequests = 0;
+      for (ZioMapPhotoDetailsResponse.Photo photo : details.photos()) {
+        if (photoRequests >= Math.min(limit, 5)) {
+          break;
+        }
+        if (photo == null
+            || photo.name() == null
+            || !photo.name().startsWith("places/" + providerPlaceId + "/photos/")
+            || !seenNames.add(photo.name())) {
+          continue;
+        }
+        try {
+          photoRequests++;
+          String photoUri =
+              UriComponentsBuilder.fromPath("/api/place/photos")
+                  .queryParam("name", photo.name())
+                  .queryParam(
+                      "maxWidthPx", Math.max(1, Math.min(1200, properties.getPhotoMaxWidthPx())))
+                  .build()
+                  .encode()
+                  .toUriString();
+          ZioMapPhotoResponse response =
+              restClient
+                  .get()
+                  .uri(photoUri)
+                  .header("x-api-key", properties.getApiKey())
+                  .retrieve()
+                  .body(ZioMapPhotoResponse.class);
+          if (response == null
+              || !safePhotoUrl(response.photoUri())
+              || !seenUrls.add(response.photoUri())) {
+            continue;
+          }
+          List<PlacePhotoDto.Attribution> attribution =
+              photo.authorAttributions() == null
+                  ? List.of()
+                  : photo.authorAttributions().stream()
+                      .filter(item -> item != null && StringUtils.hasText(item.displayName()))
+                      .limit(4)
+                      .map(
+                          item ->
+                              new PlacePhotoDto.Attribution(
+                                  item.displayName(),
+                                  safeAttributionUrl(item.uri()) ? item.uri() : null))
+                      .toList();
+          gallery.add(
+              new PlacePhotoDto(
+                  response.photoUri(), PROVIDER_NAME, attribution, Instant.now(), true));
+        } catch (Exception ex) {
+          log.debug("One ZioMap gallery image unavailable; type={}", ex.getClass().getSimpleName());
+        }
+      }
+      return List.copyOf(gallery);
+    } catch (Exception ex) {
+      log.warn("ZioMap photo unavailable for place; type={}", ex.getClass().getSimpleName());
+      return List.of();
+    }
+  }
+
+  private boolean safePhotoUrl(String value) {
+    if (!StringUtils.hasText(value) || value.length() > 2048) {
+      return false;
+    }
+    try {
+      URI uri = URI.create(value);
+      if (!"https".equalsIgnoreCase(uri.getScheme())
+          || uri.getUserInfo() != null
+          || uri.getHost() == null) {
+        return false;
+      }
+      String query = uri.getRawQuery();
+      if (query != null) {
+        for (String parameter : query.split("&")) {
+          String name = parameter.split("=", 2)[0];
+          if (name.matches("(?i)key|api_key|token|secret")) {
+            return false;
+          }
+        }
+      }
+      String host = uri.getHost().toLowerCase(Locale.ROOT);
+      for (String allowed : properties.getPhotoAllowedHosts().split(",")) {
+        if (host.equals(allowed.trim().toLowerCase(Locale.ROOT))) {
+          return true;
+        }
+      }
+      return false;
+    } catch (IllegalArgumentException ex) {
+      return false;
+    }
+  }
+
+  private boolean safeAttributionUrl(String value) {
+    if (!StringUtils.hasText(value) || value.length() > 2048) {
+      return false;
+    }
+    try {
+      URI uri = URI.create(value);
+      return "https".equalsIgnoreCase(uri.getScheme())
+          && uri.getHost() != null
+          && uri.getUserInfo() == null;
+    } catch (IllegalArgumentException ex) {
+      return false;
     }
   }
 

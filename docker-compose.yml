@@ -55,6 +55,19 @@ services:
       - context_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  ai-db:
+    image: postgres:17-alpine
+    container_name: ai-postgres
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME:-tripsense_ai}
+      POSTGRES_USER: ${AI_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${AI_DB_PASS:-123456}
+    ports:
+      - "5436:5432"
+    volumes:
+      - ai_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   mongodb:
     image: mongo:7.0
     container_name: place-mongodb
@@ -144,6 +157,7 @@ services:
       REDIS_PORT: 6379
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
+      ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -321,6 +335,45 @@ services:
     restart: unless-stopped
 
   # =========================
+  # AI SERVICE
+  # =========================
+
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+    container_name: ai-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      AI_DATABASE_URL: postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-${OPENAI_MODEL:-gpt-4o-mini}}
+      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
+      PLACE_SERVICE_URL: http://place-service:8082
+      TRIP_SERVICE_URL: http://trip-service:8084
+      WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
+      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
+      EUREKA_SERVER: http://discovery-server:8761/eureka/
+      AI_SERVICE_PORT: 8085
+    depends_on:
+      ai-db:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+      place-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./services/ai-service/app:/app/app
+    restart: unless-stopped
+
+  # =========================
   # DOCKER WEB UI (PORTAINER)
   # =========================
 
@@ -342,3 +395,4 @@ volumes:
   mongodb_data:
   redis_data:
   portainer_data:
+  ai_postgres_data:

@@ -6,6 +6,7 @@ export interface ChatMessageProps {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  contentNode?: React.ReactNode;
   timestamp?: string;
   richContent?: React.ReactNode;
   actions?: React.ReactNode;
@@ -15,6 +16,7 @@ export interface ChatMessageProps {
 export function ChatMessage({
   role,
   content,
+  contentNode,
   timestamp,
   richContent,
   actions,
@@ -47,12 +49,7 @@ export function ChatMessage({
         </AvatarFallback>
       </Avatar>
 
-      <div
-        className={cn(
-          "flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]",
-          isUser && "items-end",
-        )}
-      >
+      <div className={cn("flex min-w-0 flex-col gap-2", isUser ? "max-w-[85%] items-end sm:max-w-[75%]" : "w-full max-w-full")}>
         <div
           className={cn(
             "rounded-2xl px-4 py-3 shadow-2xs leading-relaxed text-sm",
@@ -61,7 +58,7 @@ export function ChatMessage({
               : "bg-card border border-border text-card-foreground rounded-tl-xs",
           )}
         >
-          <p className="whitespace-pre-wrap">{content}</p>
+          {contentNode ?? <p className="whitespace-pre-wrap">{content}</p>}
         </div>
 
         {richContent && <div className="w-full mt-1">{richContent}</div>}

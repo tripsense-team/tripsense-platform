@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "datasetVersion": "2026-09-18.1",
+  "fixedClock": "2026-09-18T09:00:00Z",
+  "cases": [
+    {"id": "vi-quiet-work", "text": "Gợi ý quán cà phê yên tĩnh để làm việc ở Đà Nẵng", "expectedSubjects": ["CAFE"], "expectedSoft": ["QUIETNESS", "WORK_SUITABILITY"], "unsupported": ["QUIETNESS", "WORK_SUITABILITY"]},
+    {"id": "en-romantic", "text": "Recommend a romantic café in Da Nang", "expectedSubjects": ["CAFE"], "expectedSoft": ["AMBIENCE_ROMANTIC"], "unsupported": ["AMBIENCE_ROMANTIC"]},
+    {"id": "vi-cheap", "text": "Nhà hàng dưới 200k ở Đà Nẵng", "expectedSubjects": ["RESTAURANT"], "expectedHard": ["PRICE_AMOUNT"], "unsupported": ["NORMALIZED_PRICE"]},
+    {"id": "en-open-late", "text": "I need a cafe open after 23:00 in Da Nang", "expectedSubjects": ["CAFE"], "expectedHard": ["OPEN_AT"]},
+    {"id": "en-near-hotel", "text": "quiet cafe near my hotel", "context": {"hotelPlaceId": "hotel-1"}, "expectedSubjects": ["CAFE"], "expectedObjectives": ["PROXIMITY"]}
+  ]
+}
