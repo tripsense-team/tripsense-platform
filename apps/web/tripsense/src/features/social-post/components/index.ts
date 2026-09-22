@@ -20,3 +20,6 @@ export * from "./community-moderation-screen";
 export * from "./destination-weather-widget";
 export * from "./suggested-creators-widget";
 export * from "./trending-destinations-widget";
+export * from "./image-lightbox";
+export * from "./report-post-dialog";
+export * from "./trip-sharing-workspace";

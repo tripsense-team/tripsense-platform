@@ -10,6 +10,8 @@ spring:
     password: ${CONTEXT_DB_PASS:}
   flyway:
     enabled: true
+    baseline-on-migrate: true
+    out-of-order: true
   jpa:
     hibernate:
       ddl-auto: validate
