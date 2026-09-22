@@ -73,6 +73,12 @@ class TravelGoal(BaseModel):
     preferredAreas: list[str] = Field(default_factory=list)
     routePreference: Literal["EFFICIENT", "FLEXIBLE"] = "EFFICIENT"
     explicitPriorities: list[str] = Field(default_factory=list)
+    # Agent-centric reasoning enhancements
+    raw_request: str = ""
+    subgoals: list[str] = Field(default_factory=list)
+    semantic_desires: list[str] = Field(default_factory=list)
+    mode: Literal["DISCOVERY", "ACTION"] = "DISCOVERY"
+    traveler_profile: dict[str, Any] = Field(default_factory=dict)
 
 
 _KNOWN_LOCATION_SCOPES: dict[str, dict[str, Any]] = {
@@ -447,6 +453,40 @@ class RecommendationGoalNormalizer:
             if "local_food" not in experiences:
                 experiences.append("local_food")
 
+        # Subgoals extraction
+        subgoals: list[str] = []
+        if any(term in lowered for term in ("mưa", "nắng", "thời tiết", "weather", "trời")):
+            subgoals.append("check_weather")
+        if any(term in lowered for term in ("cà phê", "cafe", "coffee")):
+            subgoals.append("find_cafe")
+        if any(term in lowered for term in ("khách sạn", "hotel", "resort", "homestay")):
+            subgoals.append("hotel_nearby")
+        if any(term in lowered for term in ("lịch", "itinerary", "kế hoạch", "tour")):
+            subgoals.append("plan_itinerary")
+        if any(term in lowered for term in ("đổi lịch", "sửa lịch", "thay đổi", "adjust")):
+            subgoals.append("modify_itinerary")
+
+        # Semantic desires (nuance preserving)
+        semantic_desires: list[str] = []
+        if any(term in lowered for term in ("chill", "thư giãn", "slow", "nhẹ nhàng", "relax")):
+            semantic_desires.append("chill_relaxed")
+        if any(term in lowered for term in ("sunset", "hoàng hôn", "chiều tà")):
+            semantic_desires.append("sunset")
+        if any(term in lowered for term in ("ít đông", "vắng", "yên tĩnh", "quiet", "tránh đông")):
+            semantic_desires.append("quiet_uncrowded")
+        if any(term in lowered for term in ("tránh tourist trap", "không tourist trap", "local", "bản địa", "quán ruột")):
+            semantic_desires.append("authentic_local")
+        if any(term in lowered for term in ("gia đình", "bố mẹ", "trẻ em", "family")):
+            semantic_desires.append("family_friendly")
+        if any(term in lowered for term in ("view đẹp", "sống ảo", "check-in", "aesthetic", "đẹp")):
+            semantic_desires.append("aesthetic_view")
+
+        # Mode detection (Discovery vs Action)
+        is_action_mode = any(phrase in lowered for phrase in (
+            "thêm vào lịch", "cho vào lịch", "chốt lịch", "lưu vào chuyến đi", "save trip", "thêm quán này"
+        ))
+        mode = "ACTION" if is_action_mode else "DISCOVERY"
+
         return TravelGoal(
             destination=dest,
             geographicScope=geo_scope,
@@ -456,6 +496,10 @@ class RecommendationGoalNormalizer:
             requestedExperiences=experiences,
             mealRequirements=["breakfast", "lunch", "dinner"] if (foods or local_specialties or "ăn uống" in lowered) else [],
             exclusions=list(prior_goal.exclusions if prior_goal else []),
+            raw_request=text,
+            subgoals=subgoals,
+            semantic_desires=semantic_desires,
+            mode=mode,
         )
 
 

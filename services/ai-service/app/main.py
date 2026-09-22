@@ -439,7 +439,8 @@ def bounded_prompts(messages: list[dict], max_input_tokens: int) -> list[dict]:
 
 def compact_grounding_for_prompt(results: list[dict]) -> list[dict]:
     allowed_place_fields = {"id", "name", "address", "city", "district", "categories", "rating",
-                            "userRatingCount", "location", "openingHours", "businessStatus", "description"}
+                            "userRatingCount", "location", "openingHours", "businessStatus", "description",
+                            "trustTier", "isExternal", "semanticMatchReason"}
     compact: list[dict] = []
     for result in results:
         item = {"tool": result.get("tool"), "provenance": result.get("provenance"), "error": result.get("error")}
@@ -451,6 +452,8 @@ def compact_grounding_for_prompt(results: list[dict]) -> list[dict]:
                 if not isinstance(place, dict):
                     continue
                 entry = {key: value for key, value in place.items() if key in allowed_place_fields}
+                if "trustTier" not in entry:
+                    entry["trustTier"] = "TIER_B_GROUNDED_EXTERNAL" if str(place.get("id", "")).startswith("web-") or place.get("isExternal") else "TIER_A_CANONICAL"
                 raw_reviews = place.get("reviews")
                 if isinstance(raw_reviews, list) and raw_reviews:
                     entry["topReviews"] = [
@@ -586,18 +589,26 @@ def apply_goal_to_place_calls(calls: list[dict], goal, user_text: str = "", loca
     return calls
 
 
-def allowed_tools(action: ActionType) -> set[str]:
+def allowed_tools(action: ActionType, travel_goal: TravelGoal | None = None) -> set[str]:
+    tools: set[str] = set()
     if action == ActionType.CURRENT_RESEARCH:
-        return {"web_search", "open_web_result"}
-    if action in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION}:
-        return {"search_places", "nearby_places", "get_place_details", "recommend_places", "get_preferences",
-                "web_search", "open_web_result"}
-    if action == ActionType.TRIP_QA:
-        return {"get_trip", "get_itinerary"}
-    if action in {ActionType.PLAN_ITINERARY, ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN}:
-        return {"search_places", "nearby_places", "get_place_details", "recommend_places", "get_trip", "get_itinerary", "get_preferences",
-                "web_search", "open_web_result"}
-    return set()
+        tools.update({"web_search", "open_web_result"})
+    elif action in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION}:
+        tools.update({"search_places", "nearby_places", "get_place_details", "recommend_places", "get_preferences",
+                      "web_search", "open_web_result"})
+    elif action == ActionType.TRIP_QA:
+        tools.update({"get_trip", "get_itinerary", "search_places", "recommend_places", "web_search", "open_web_result"})
+    elif action in {ActionType.PLAN_ITINERARY, ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN}:
+        tools.update({"search_places", "nearby_places", "get_place_details", "recommend_places", "get_trip", "get_itinerary", "get_preferences",
+                      "web_search", "open_web_result"})
+    if travel_goal:
+        if any(sg in travel_goal.subgoals for sg in ("check_weather", "web_search", "research")):
+            tools.update({"web_search", "open_web_result"})
+        if any(sg in travel_goal.subgoals for sg in ("find_cafe", "places", "food")):
+            tools.update({"search_places", "nearby_places", "recommend_places", "get_place_details"})
+        if any(sg in travel_goal.subgoals for sg in ("plan_itinerary", "modify_itinerary", "hotel_nearby")):
+            tools.update({"get_trip", "get_itinerary", "search_places", "recommend_places"})
+    return tools
 
 
 
@@ -778,15 +789,20 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
             async with asyncio.timeout(min(settings.run_timeout_seconds, budget.wall_seconds)):
                 prompts = bounded_prompts(prompts, budget.input_tokens)
                 selected: list[dict] = []
-                allowed = allowed_tools(run.action_type)
+                allowed = allowed_tools(run.action_type, travel_goal)
                 if allowed:
                     is_explicit_web_requested = any(k in tool_request_text.casefold() for k in ("search đi", "tìm trên mạng", "search online", "search web", "tìm kiếm online"))
+                    is_weather_or_live_requested = bool(
+                        travel_goal and any(sg in travel_goal.subgoals for sg in ("check_weather", "web_search"))
+                        or any(w in tool_request_text.casefold() for w in ("mưa", "thời tiết", "weather", "sự kiện", "event"))
+                    )
                     try:
                         selected = (fallback_tool_calls(run.action_type, tool_request_text, trip_id)
                                     if refinement_base is not None else
                                     [call for call in await adapter.select_tools(prompts, 1)
                                      if call["name"] in allowed and (run.action_type == ActionType.CURRENT_RESEARCH
                                                                      or is_explicit_web_requested
+                                                                     or is_weather_or_live_requested
                                                                      or call["name"] not in {"web_search", "open_web_result"})
                                      and (settings.brave_search_api_key or call["name"] not in {"web_search", "open_web_result"})])
                     except Exception as exc:
@@ -1161,15 +1177,39 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                         ),
                     })
                     if run.action_type in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION}:
+                        all_candidates = [
+                            p for item in grounding_results
+                            if item.get("tool") in {"search_places", "nearby_places", "recommend_places"}
+                            and isinstance(item.get("data"), list)
+                            for p in item["data"] if isinstance(p, dict) and p.get("id")
+                        ]
+                        if all_candidates and hasattr(adapter, "semantic_rerank"):
+                            try:
+                                reranked_places = await adapter.semantic_rerank(
+                                    all_candidates,
+                                    trigger.content,
+                                    travel_goal.semantic_desires if travel_goal else [],
+                                    top_k=min(len(all_candidates), 6)
+                                )
+                                for art in artifacts:
+                                    if art.get("type") == "PLACE_LIST" and isinstance(art.get("data"), dict):
+                                        art["data"]["places"] = reranked_places
+                                        await publish(run_id, conversation_id, "artifact.upsert", art)
+                            except Exception as exc:
+                                logger.info("semantic_rerank_step_error run_id=%s error=%s", run_id, type(exc).__name__)
                         prompts.append({
                             "role": "system",
                             "content": (
                                 "RECOMMENDATION_REASONING_INSTRUCTIONS:\n"
                                 "- Inspect the grounded places and customer reviews (topReviews) in GROUNDING_RESULTS_JSON.\n"
-                                "- Compare the top places side-by-side: highlight their unique culinary/flavor profile (sauce, crust, filling), "
-                                "customer feedback/sentiment from actual reviews, atmosphere, wait times, and who each spot is best suited for.\n"
-                                "- Provide a clear, thoughtful conclusion explaining your recommended choice(s) with practical tips (e.g. best time to visit to avoid crowds).\n"
-                                "- Always provide the exact verified street address for each recommended place."
+                                "- 3-TIER TRUST MODEL & DISCOVERY TRANSPARENCY:\n"
+                                "  • Freely present both canonical TripSense places (Tier A) and external verified options (Tier B).\n"
+                                "  • State clearly if an option is verified in TripSense or discovered from reputable external travel sources.\n"
+                                "  • Do not invent opening hours or prices for external places; note if hours remain unverified.\n"
+                                "- Nuance Alignment: Deeply address user's requested vibes (chill atmosphere, sunset view, authentic local, uncrowded, family-friendly, avoiding tourist traps).\n"
+                                "- Compare the top places side-by-side: highlight their unique culinary/flavor profile, atmosphere, wait times, and who each spot is best suited for.\n"
+                                "- Provide a clear, thoughtful conclusion explaining your recommended choice(s) with practical tips.\n"
+                                "- Always provide the street address for each recommended place."
                             )
                         })
                 if run.action_type in {ActionType.PLAN_ITINERARY, ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN}:
@@ -1193,6 +1233,19 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                     if revision_preview:
                         preview = planner.revise_preview(revision_preview, preview, grounding_results,
                                                          trigger.content, draft_failed)
+                    # 1-Pass Critic Review
+                    if hasattr(adapter, "critic_review") and travel_goal and not draft_failed:
+                        try:
+                            critic_result = await adapter.critic_review(preview, trigger.content, travel_goal)
+                            if not critic_result.get("passed", True) and critic_result.get("revision_notes"):
+                                for note in critic_result["revision_notes"][:3]:
+                                    preview.setdefault("issues", []).append({
+                                        "code": "CRITIC_NOTE",
+                                        "severity": "WARNING",
+                                        "message": f"Góp ý lịch trình: {note}"
+                                    })
+                        except Exception as exc:
+                            logger.info("critic_review_step_error run_id=%s error=%s", run_id, type(exc).__name__)
                     build_done_label = "Itinerary revised" if revision_preview else "Draft itinerary created"
                     await complete_activity(run_id, conversation_id, build_done_label,
                                             "Structure and timing are ready.")

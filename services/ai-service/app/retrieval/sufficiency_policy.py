@@ -6,11 +6,12 @@ from ..recommendation import RecommendationGoal
 
 
 class RetrievalAssessment(BaseModel):
-    status: Literal["SUFFICIENT", "REFRESHABLE", "INSUFFICIENT"]
+    status: Literal["SUFFICIENT", "REFRESHABLE", "INSUFFICIENT", "PARTIALLY_SUFFICIENT"]
     reasonCodes: list[str] = Field(default_factory=list)
     candidateCount: int = 0
     eligibleCount: int = 0
     requiredFieldCoverage: dict[str, float] = Field(default_factory=dict)
+    is_discovery_usable: bool = True
 
 
 class RetrievalSufficiencyPolicy:
@@ -48,11 +49,13 @@ class RetrievalSufficiencyPolicy:
             reasons.append("STALE_REQUIRED_EVIDENCE")
         if not reasons:
             return RetrievalAssessment(status="SUFFICIENT", candidateCount=len(candidates), eligibleCount=len(candidates),
-                                       requiredFieldCoverage=coverage)
+                                       requiredFieldCoverage=coverage, is_discovery_usable=True)
         status = "REFRESHABLE" if refresh_available else "INSUFFICIENT"
+        has_mandatory_failure = any(r.startswith("MANDATORY_FIELD_MISSING") for r in reasons)
+        is_discovery_usable = bool(candidates and (not has_mandatory_failure or len(candidates) >= 1))
         return RetrievalAssessment(status=status, reasonCodes=reasons, candidateCount=len(candidates),
                                    eligibleCount=sum(1 for item in candidates if all(self._supports(item, f) for f in required)),
-                                   requiredFieldCoverage=coverage)
+                                   requiredFieldCoverage=coverage, is_discovery_usable=is_discovery_usable)
 
     @staticmethod
     def _supports(candidate: dict[str, Any], feature: str) -> bool:

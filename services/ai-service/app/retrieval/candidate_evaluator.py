@@ -35,16 +35,26 @@ class FoodEvidence(BaseModel):
     excerpt: str | None = None
 
 
+class TrustTier(str, Enum):
+    TIER_A_CANONICAL = "TIER_A_CANONICAL"
+    TIER_B_GROUNDED_EXTERNAL = "TIER_B_GROUNDED_EXTERNAL"
+    TIER_C_MODEL_KNOWLEDGE = "TIER_C_MODEL_KNOWLEDGE"
+
+
 class CandidateEvaluation(BaseModel):
     canonical_place_id: str
     eligible: bool
     satisfies_requirement_ids: list[str] = Field(default_factory=list)
     rejection_reasons: list[str] = Field(default_factory=list)
+    soft_penalties: list[str] = Field(default_factory=list)
+    explanation_notes: list[str] = Field(default_factory=list)
     unknown_fields: list[str] = Field(default_factory=list)
     food_evidences: list[FoodEvidence] = Field(default_factory=list)
     semantic_score: float = 0.0
     geographic_score: float | None = None
     route_score: float | None = None
+    trust_tier: TrustTier = TrustTier.TIER_A_CANONICAL
+    is_external: bool = False
 
 
 # Specific local specialty catalog by administrative destination
@@ -133,13 +143,40 @@ class CandidateEvaluator:
                 if target_name in place_name or place_name in target_name:
                     satisfies_ids.append(req.id)
 
-        # Semantic Score calculation
+        # Detect trust tier and external source
+        is_external = bool(
+            place.get("source") in ("WEB", "EXTERNAL")
+            or place.get("isExternal")
+            or place_id.startswith("web-")
+            or str(place.get("canonicalPlaceId", "")).startswith("web-")
+        )
+        trust_tier = TrustTier.TIER_B_GROUNDED_EXTERNAL if is_external else TrustTier.TIER_A_CANONICAL
+
+        # Check fatal status (Hard Reject)
+        if str(place.get("businessStatus", "")).upper() in ("CLOSED_PERMANENTLY", "PERMANENTLY_CLOSED"):
+            rejection_reasons.append("PERMANENTLY_CLOSED")
+
+        # Soft penalties and explanation notes
+        soft_penalties: list[str] = []
+        explanation_notes: list[str] = []
+        if not place.get("openingHours") and not place.get("normalizedOpeningHours"):
+            soft_penalties.append("OPENING_HOURS_UNVERIFIED")
+            explanation_notes.append("Chưa có giờ mở cửa xác minh cho hôm nay")
+        if is_external:
+            soft_penalties.append("EXTERNAL_SOURCE")
+            explanation_notes.append("Thông tin từ nguồn trực tuyến ngoài hệ thống")
+        if place.get("userRatingCount") is not None and int(place.get("userRatingCount") or 0) < 5:
+            soft_penalties.append("FEW_REVIEWS")
+
+        # Semantic Score calculation with soft penalties
         score = 0.5
         if satisfies_ids:
             score += 0.3
         rating = place.get("rating")
         if isinstance(rating, (int, float)) and 0 <= rating <= 5:
             score += (rating / 5.0) * 0.2
+        if soft_penalties:
+            score = max(0.1, round(score - len(soft_penalties) * 0.05, 4))
 
         eligible = len(rejection_reasons) == 0
 
@@ -148,10 +185,14 @@ class CandidateEvaluator:
             eligible=eligible,
             satisfies_requirement_ids=satisfies_ids,
             rejection_reasons=rejection_reasons,
+            soft_penalties=soft_penalties,
+            explanation_notes=explanation_notes,
             unknown_fields=list(set(unknown_fields)),
             food_evidences=food_evidences,
             semantic_score=score,
             geographic_score=geo_score,
+            trust_tier=trust_tier,
+            is_external=is_external,
         )
 
     def _evaluate_geography(self, place: dict[str, Any], scope: GeographicScope) -> tuple[bool, float, str]:
