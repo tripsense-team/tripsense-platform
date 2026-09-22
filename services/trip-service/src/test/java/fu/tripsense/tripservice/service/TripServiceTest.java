@@ -406,6 +406,11 @@ class TripServiceTest extends RealInfrastructureTest {
     return createItemRequest(title, LocalTime.of(9, 0), LocalTime.of(10, 0));
   }
 
+  private CreateItineraryItemRequest createItemRequest(String title, ItineraryItemType type) {
+    return new CreateItineraryItemRequest(
+        null, type, title, LocalTime.of(9, 0), LocalTime.of(10, 0), 60, null);
+  }
+
   private CreateItineraryItemRequest createItemRequest(
       String title, LocalTime startTime, LocalTime endTime) {
     Integer durationMinutes =
@@ -413,6 +418,6 @@ class TripServiceTest extends RealInfrastructureTest {
             ? Math.toIntExact(java.time.temporal.ChronoUnit.MINUTES.between(startTime, endTime))
             : null;
     return new CreateItineraryItemRequest(
-        null, ItineraryItemType.NOTE, title, startTime, endTime, durationMinutes, null);
+        null, ItineraryItemType.PLACE, title, startTime, endTime, durationMinutes, null);
   }
 }
