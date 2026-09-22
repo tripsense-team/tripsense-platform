@@ -385,12 +385,7 @@ export function AuthModal({
                         "[Auth] Google OAuth is unavailable because NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.",
                       );
                     }
-                    setErrorMsg(
-                      t(
-                        "errors.googleNotConfigured",
-                        "Đăng nhập Google hiện chưa khả dụng. Vui lòng thử phương thức khác.",
-                      ),
-                    );
+                    setErrorMsg(t("errors.googleNotConfigured"));
                   }}
                   className="w-full h-12 rounded-full border-border bg-card hover:bg-accent text-foreground text-sm font-semibold gap-3 justify-center shadow-2xs"
                 >

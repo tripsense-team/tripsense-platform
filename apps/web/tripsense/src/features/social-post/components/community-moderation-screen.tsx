@@ -18,7 +18,7 @@ import { socialPostRepository } from "../services";
 import type { ModerationReport } from "../types";
 
 export function CommunityModerationScreen() {
-  const { t, language } = useTranslation();
+  const { t, locale } = useTranslation();
   const [reports, setReports] = React.useState<ModerationReport[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -37,7 +37,7 @@ export function CommunityModerationScreen() {
       setError(
         getSafeErrorMessage(
           cause,
-          t("social.moderationLoadFailed", "Không thể tải hàng đợi kiểm duyệt."),
+          t("social.moderationLoadFailed"),
         ),
       );
     } finally {
@@ -63,7 +63,7 @@ export function CommunityModerationScreen() {
       setError(
         getSafeErrorMessage(
           cause,
-          t("social.moderationFailed", "Không thể ghi nhận quyết định."),
+          t("social.moderationFailed"),
         ),
       );
       throw cause;
@@ -76,17 +76,13 @@ export function CommunityModerationScreen() {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <header className="rounded-3xl border border-border bg-card p-6 shadow-sm">
         <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-primary">
-          <ShieldAlert className="h-4 w-4" />{" "}
-          {t("social.moderation", "Community moderation")}
+          <ShieldAlert className="h-4 w-4" /> {t("social.moderation")}
         </p>
         <h1 className="mt-2 text-3xl font-black">
-          {t("social.moderationQueueTitle", "Hàng đợi báo cáo")}
+          {t("social.moderationQueueTitle")}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {t(
-            "social.moderationAuditNotice",
-            "Chỉ tài khoản ROLE_MODERATOR hoặc ROLE_ADMIN được đọc và xử lý. Mọi quyết định đều được lưu audit.",
-          )}
+          {t("social.moderationAuditNotice")}
         </p>
       </header>
       {error && (
@@ -97,13 +93,13 @@ export function CommunityModerationScreen() {
       {loading ? (
         <div className="mt-8 flex items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />{" "}
-          {t("social.moderationLoading", "Đang tải báo cáo...")}
+          {t("social.moderationLoading")}
         </div>
       ) : reports.length === 0 ? (
         <div className="mt-6 rounded-3xl border border-dashed border-border bg-card p-10 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
           <h2 className="mt-3 font-black">
-            {t("social.moderationEmpty", "Không có báo cáo đang chờ")}
+            {t("social.moderationEmpty")}
           </h2>
         </div>
       ) : (
@@ -120,16 +116,12 @@ export function CommunityModerationScreen() {
                     <Badge variant="secondary">{report.reason}</Badge>
                   </div>
                   <p className="mt-3 text-sm text-muted-foreground">
-                    {report.details ||
-                      t(
-                        "social.moderationNoDetails",
-                        "Người báo cáo không cung cấp mô tả thêm.",
-                      )}
+                    {report.details || t("social.moderationNoDetails")}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     Reporter: {report.reporterId} ·{" "}
                     {new Date(report.createdAt).toLocaleString(
-                      language === "vi" ? "vi-VN" : "en-US",
+                      locale === "vi" ? "vi-VN" : "en-US",
                     )}
                   </p>
                 </div>
@@ -141,7 +133,7 @@ export function CommunityModerationScreen() {
                 >
                   <Link href={`/community/posts/${report.postId}`}>
                     <ExternalLink className="h-4 w-4" />{" "}
-                    {t("social.moderationViewContent", "Xem nội dung")}
+                    {t("social.moderationViewContent")}
                   </Link>
                 </Button>
               </div>
@@ -153,7 +145,7 @@ export function CommunityModerationScreen() {
                     void decide(report, "DISMISS").catch(() => undefined)
                   }
                 >
-                  {t("social.moderationDismiss", "Bỏ qua")}
+                  {t("social.moderationDismiss")}
                 </Button>
                 <Button
                   variant="destructive"
@@ -165,7 +157,7 @@ export function CommunityModerationScreen() {
                   ) : (
                     <Trash2 className="h-4 w-4" />
                   )}{" "}
-                  {t("social.moderationRemove", "Gỡ nội dung")}
+                  {t("social.moderationRemove")}
                 </Button>
               </div>
             </article>
@@ -177,13 +169,10 @@ export function CommunityModerationScreen() {
         onOpenChange={(open) => {
           if (!open) setPendingRemoval(null);
         }}
-        title={t("social.moderationConfirmDeleteTitle", "Gỡ nội dung này?")}
-        description={t(
-          "social.moderationConfirmDeleteDesc",
-          "Nội dung sẽ biến mất khỏi feed và trang chi tiết. Quyết định cùng người thực hiện vẫn được lưu trong audit.",
-        )}
-        confirmText={t("social.moderationRemove", "Gỡ nội dung")}
-        cancelText={t("common.cancel", "Hủy")}
+        title={t("social.moderationConfirmDeleteTitle")}
+        description={t("social.moderationConfirmDeleteDesc")}
+        confirmText={t("social.moderationRemove")}
+        cancelText={t("common.cancel")}
         variant="destructive"
         loading={pendingRemoval ? actingId === pendingRemoval.id : false}
         onConfirm={async () => {

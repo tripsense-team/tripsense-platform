@@ -13,6 +13,7 @@ export interface SharedTripHighlight {
 }
 
 export interface SharedTripSummary {
+  tripId?: string;
   name: string;
   destinationName: string;
   startDate?: string;

@@ -69,26 +69,26 @@ function visibilityLabel(value?: Visibility) {
 }
 
 function getLocalizedPublicItemTitle(
-  item: { title: string; type: string },
-  t: (key: string, def?: string) => string,
+  item: { title: string; type?: string },
+  t: (key: string, ...args: any[]) => string,
 ): string {
   if (
     item.type === "HOTEL" &&
     (item.title === "Nơi lưu trú" || item.title === "HOTEL")
   ) {
-    return t("trip.hotel", "Nơi lưu trú");
+    return t("trip.hotel");
   }
   if (
     item.type === "FLIGHT" &&
     (item.title === "Di chuyển bằng máy bay" || item.title === "FLIGHT")
   ) {
-    return t("trip.flight", "Di chuyển bằng máy bay");
+    return t("trip.flight");
   }
   if (
     item.type === "TRANSFER" &&
     (item.title === "Di chuyển" || item.title === "TRANSFER")
   ) {
-    return t("trip.transfer", "Di chuyển");
+    return t("trip.transfer");
   }
   return item.title;
 }

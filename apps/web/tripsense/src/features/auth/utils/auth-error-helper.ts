@@ -7,9 +7,13 @@ import { ApiError } from "@/services/api-client";
 export function getAuthErrorMessage(
   err: unknown,
   fallback = "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
-  t?: (key: string, defaultMessage?: string) => string,
+  t?: (key: string, ...args: any[]) => string,
 ): string {
-  const tr = (key: string, def: string) => (t ? t(key, def) : def);
+  const tr = (key: string, def: string) => {
+    if (!t) return def;
+    const res = t(key);
+    return res && res !== key ? res : def;
+  };
 
   if (err instanceof ApiError) {
     if (err.status === 401) {

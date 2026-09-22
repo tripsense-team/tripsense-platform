@@ -362,7 +362,7 @@ export function OnboardingWizard() {
         : undefined;
 
       const saved = await onboardingApi.save({
-        version: profile.version,
+        version: profile?.version ?? 0,
         selections: cleanSelections,
         places: cleanPlaces,
         attributes: cleanAttributes,
