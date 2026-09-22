@@ -35,6 +35,10 @@ class GatewayRoutesConfig {
     static final String SOCIAL_SERVICE_PATH = "/api/social/**";
     static final String SOCIAL_SERVICE_URI = "lb://social-service";
 
+    static final String AI_SERVICE_ROUTE_ID = "ai-service";
+    static final String AI_SERVICE_PATH = "/api/ai/**";
+    static final String AI_SERVICE_URI = "lb://ai-service";
+
     @Bean
     RouteLocator tripSenseRoutes(
             RouteLocatorBuilder routes,
@@ -65,6 +69,12 @@ class GatewayRoutesConfig {
                 .route(TRIP_SERVICE_ROUTE_ID, route -> route
                         .path(TRIP_SERVICE_PATH)
                         .uri(TRIP_SERVICE_URI))
+                .route(AI_SERVICE_ROUTE_ID, route -> route
+                        .path(AI_SERVICE_PATH)
+                        .filters(filters -> filters
+                                .setResponseHeader("Cache-Control", "no-store")
+                                .setResponseHeader("X-Accel-Buffering", "no"))
+                        .uri(AI_SERVICE_URI))
                 .route(SOCIAL_SERVICE_ROUTE_ID, route -> {
                     var r = route.path(SOCIAL_SERVICE_PATH);
                     if (socialRateLimitingEnabled) {

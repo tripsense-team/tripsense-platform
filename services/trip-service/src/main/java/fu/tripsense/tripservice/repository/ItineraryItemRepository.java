@@ -20,6 +20,10 @@ public interface ItineraryItemRepository extends JpaRepository<ItineraryItem, UU
 
     Optional<ItineraryItem> findByIdAndTripId(UUID id, UUID tripId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from ItineraryItem i where i.id = :id and i.tripId = :tripId")
+    Optional<ItineraryItem> findByIdAndTripIdForUpdate(@Param("id") UUID id, @Param("tripId") UUID tripId);
+
     boolean existsByTripIdAndDayIdIn(UUID tripId, Collection<UUID> dayIds);
 
     @Query("select coalesce(max(i.sortOrder), 0) from ItineraryItem i where i.tripId = :tripId and i.dayId = :dayId")

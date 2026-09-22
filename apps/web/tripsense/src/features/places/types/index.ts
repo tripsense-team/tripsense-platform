@@ -12,6 +12,14 @@ export interface PlaceReview {
   time?: number;
 }
 
+export interface PlacePhotoEvidence {
+  url: string;
+  source: string;
+  attribution: Array<{ displayName: string; uri?: string | null }>;
+  fetchedAt: string;
+  displayApproved: boolean;
+}
+
 export interface Place {
   id: string;
   provider?: string;
@@ -26,6 +34,8 @@ export interface Place {
   rating?: number;
   userRatingCount?: number;
   photos: string[];
+  primaryPhoto?: PlacePhotoEvidence;
+  photoGallery?: PlacePhotoEvidence[];
   phone?: string;
   website?: string;
   socials?: string[];

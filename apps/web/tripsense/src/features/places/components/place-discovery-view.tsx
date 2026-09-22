@@ -7,6 +7,7 @@ import { SearchBar } from "./search-bar";
 import { PlaceDetailModal } from "./place-detail-modal";
 import { searchPlaces, getPlaceDetails } from "../services/places-api";
 import type { Place, AutocompleteSuggestion } from "../types";
+import { approvedPhotoGallery, hasFreshPhotoLookup } from "../utils/approved-photo";
 
 // Dynamically import MapVina container with ssr disabled
 const MapVinaContainer = dynamic(
@@ -48,6 +49,7 @@ export function PlaceDiscoveryView() {
 
   // In-memory cache for deep details to avoid redundant API calls and prevent layout jumps
   const detailsCacheRef = React.useRef<Record<string, Place>>({});
+  const photoCheckedAtRef = React.useRef<Record<string, number>>({});
   const inflightRef = React.useRef<Set<string>>(new Set());
 
   const executeSearch = React.useCallback(
@@ -297,8 +299,11 @@ export function PlaceDiscoveryView() {
     });
 
     // Check if we already have deep details in cache
-    if (lookupId && detailsCacheRef.current[lookupId]) {
-      setDetailPlace(detailsCacheRef.current[lookupId]);
+    const cached = lookupId ? detailsCacheRef.current[lookupId] : undefined;
+    const photoEnabled = process.env.NEXT_PUBLIC_PLACE_PHOTOS_ENABLED === "true";
+    const photoCheckedAt = lookupId ? photoCheckedAtRef.current[lookupId] : undefined;
+    if (cached && (!photoEnabled || hasFreshPhotoLookup(cached, photoCheckedAt))) {
+      setDetailPlace(cached);
       setIsDetailOpen(true);
       setIsLoadingDetails(false);
       return;
@@ -309,10 +314,16 @@ export function PlaceDiscoveryView() {
     setIsDetailOpen(true);
 
     // If place already has full rich reviews and opening hours, cache and finish
-    const hasFullRichData = place.reviews && place.reviews.length > 0 && place.openingHours;
+    const existingPhoto = approvedPhotoGallery(place.photoGallery, place.primaryPhoto)[0];
+    const existingPhotoCheckedAt = existingPhoto ? Date.parse(existingPhoto.fetchedAt) : undefined;
+    const hasFullRichData = place.reviews && place.reviews.length > 0 && place.openingHours
+      && (!photoEnabled || hasFreshPhotoLookup(place, existingPhotoCheckedAt));
     if (hasFullRichData) {
       if (lookupId) {
         detailsCacheRef.current[lookupId] = place;
+        if (photoEnabled && existingPhotoCheckedAt !== undefined) {
+          photoCheckedAtRef.current[lookupId] = existingPhotoCheckedAt;
+        }
       }
       setIsLoadingDetails(false);
       return;
@@ -327,10 +338,14 @@ export function PlaceDiscoveryView() {
     setIsLoadingDetails(true);
 
     try {
-      const res = await getPlaceDetails(lookupId, place.name, place.location?.lat, place.location?.lng);
+      const res = await getPlaceDetails(lookupId, place.name, place.location?.lat, place.location?.lng,
+        undefined, photoEnabled);
       if (res && res.success && res.data) {
-        const enriched = { ...place, ...res.data };
+        const enriched = photoEnabled
+          ? { ...place, ...res.data, primaryPhoto: res.data.primaryPhoto, photoGallery: res.data.photoGallery }
+          : { ...place, ...res.data };
         detailsCacheRef.current[lookupId] = enriched;
+        if (photoEnabled) photoCheckedAtRef.current[lookupId] = Date.now();
 
         // Smoothly update detail place only if user is still looking at this place
         setDetailPlace((prev) => (prev && (prev.id === place.id || prev.providerPlaceId === place.providerPlaceId) ? enriched : prev));
@@ -427,7 +442,9 @@ export function PlaceDiscoveryView() {
       </div>
 
       {/* Full-Width Unobstructed Discovery Map Canvas with Google Maps Style Viewport Discovery */}
-      <div className="flex-1 min-h-[500px] h-full w-full overflow-hidden rounded-3xl">
+      <div className={`flex-1 min-h-[500px] h-full w-full overflow-hidden rounded-3xl ${
+        isDetailOpen && process.env.NEXT_PUBLIC_PLACE_PHOTOS_ENABLED === "true" ? "invisible" : ""
+      }`} aria-hidden={isDetailOpen && process.env.NEXT_PUBLIC_PLACE_PHOTOS_ENABLED === "true"}>
         <MapVinaContainer
           places={places}
           selectedPlaceId={selectedPlaceId}

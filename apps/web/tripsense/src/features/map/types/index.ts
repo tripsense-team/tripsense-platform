@@ -21,6 +21,8 @@ export interface MapVinaContainerProps {
   center?: [number, number]; // [lng, lat]
   zoom?: number;
   className?: string;
+  autoFitBounds?: boolean;
+  fitBoundsTrigger?: number;
 }
 
 // Backward compatibility alias

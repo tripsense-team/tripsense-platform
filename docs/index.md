@@ -4,14 +4,14 @@ This knowledge base stores reusable planning, architecture, and review context f
 
 ## Start Here
 
-- [Multi-Agent Feature Workflow](workflows/multi-agent-feature-workflow.md)
+- [Feature Planning Workflow](workflows/multi-agent-feature-workflow.md)
 - [TripSense Architecture](architecture/tripsense-architecture.md)
 - [Service Boundaries](architecture/service-boundaries.md)
 - [Services](services/index.md)
 - [Domains](domain/index.md)
 - [ADRs](adr/index.md)
 - [Feature Index](features/index.md)
-- [Feature Documentation Template](features/_template/index.md)
+- [Feature Plan Template](features/_template/feature-plan-template.md)
 - [UX Feedback & Toast Guidelines](UX_FEEDBACK_GUIDELINES.md)
 
 
@@ -19,7 +19,7 @@ This knowledge base stores reusable planning, architecture, and review context f
 
 Feature work moves through:
 
-Feature Request -> Planning -> Specialist Review -> Challenge -> Final Architecture -> Human Approval -> Implementation -> Review -> PR-ready result.
+Feature Request -> Unified Expert Planning (`docs/features/<feature-name>.md`) -> Human Approval (`STATUS: APPROVED`) -> Implementation -> Review -> PR-ready result.
 
 No application implementation starts until the feature status is `APPROVED`.
 

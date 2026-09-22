@@ -16,6 +16,8 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
 
     Optional<Place> findByProviderAndProviderPlaceId(String provider, String providerPlaceId);
 
+    List<Place> findByNormalizedName(String normalizedName);
+
     List<Place> findByLocationNear(Point point, Distance distance, Pageable pageable);
 
     @Query("{ 'name': { $regex: ?0, $options: 'i' } }")

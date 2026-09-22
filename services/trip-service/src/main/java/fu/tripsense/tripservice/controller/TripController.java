@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -21,6 +22,7 @@ public class TripController {
 
     private final TripService tripService;
     private final CurrentUserProvider currentUserProvider;
+    private final fu.tripsense.tripservice.service.ItineraryBatchService itineraryBatchService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<TripResponse>> createTrip(@Valid @RequestBody CreateTripRequest request) {
@@ -102,6 +104,18 @@ public class TripController {
             @Valid @RequestBody ReorderItemsRequest request
     ) {
         return ApiResponse.success("Itinerary items reordered", tripService.reorderItems(currentUserProvider.userId(), tripId, dayId, request));
+    }
+
+    @PostMapping("/{tripId}/itinerary/batch")
+    public ApiResponse<ItineraryBatchResponse> applyItineraryBatch(
+            @PathVariable UUID tripId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody ItineraryBatchRequest request) {
+        // A user bearer token proves trip ownership, not that the batch came from an
+        // immutable READY AI proposal. Keep the route fail-closed until that proof
+        // can be verified inside trip-service before any transaction starts.
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "AI batch commit is unavailable until proposal verification is enforced");
     }
 
     @PatchMapping("/{tripId}/share")

@@ -7,4 +7,6 @@ import java.util.Optional;
 public interface PlaceDetailsService {
 
     Optional<PlaceDto> getDetails(String id, String fallbackName, Double fallbackLat, Double fallbackLng);
+
+    Optional<PlaceDto> getDetails(String id, String fallbackName, Double fallbackLat, Double fallbackLng, boolean includePhoto);
 }
