@@ -20,6 +20,7 @@ import { getAuthErrorMessage } from "../utils/auth-error-helper";
 import { GoogleLogin } from "@react-oauth/google";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/services/api-client";
+import { useTranslation } from "@/i18n";
 
 interface AuthModalProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function AuthModal({
   initialMode = "signin",
 }: AuthModalProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { login, loginWithGoogle, register, verifyEmail, resendCode } =
     useAuth();
 
@@ -113,6 +115,7 @@ export function AuthModal({
       const errorText = getAuthErrorMessage(
         err,
         "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
+        t,
       );
       setErrorMsg(errorText);
 
@@ -157,6 +160,7 @@ export function AuthModal({
         getAuthErrorMessage(
           err,
           "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
+          t,
         ),
       );
     } finally {
@@ -187,6 +191,7 @@ export function AuthModal({
         getAuthErrorMessage(
           err,
           "Đăng ký không thành công. Email có thể đã được sử dụng.",
+          t,
         ),
       );
     } finally {
@@ -212,7 +217,7 @@ export function AuthModal({
       }, 1200);
     } catch (err: unknown) {
       setErrorMsg(
-        getAuthErrorMessage(err, "Mã xác thực không hợp lệ hoặc đã hết hạn."),
+        getAuthErrorMessage(err, "Mã xác thực không hợp lệ hoặc đã hết hạn.", t),
       );
     } finally {
       setLoading(false);
@@ -232,6 +237,7 @@ export function AuthModal({
         getAuthErrorMessage(
           err,
           "Không thể gửi lại mã xác thực. Vui lòng thử lại sau.",
+          t,
         ),
       );
     } finally {
@@ -374,8 +380,16 @@ export function AuthModal({
                   type="button"
                   variant="outline"
                   onClick={() => {
+                    if (process.env.NODE_ENV === "development") {
+                      console.warn(
+                        "[Auth] Google OAuth is unavailable because NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.",
+                      );
+                    }
                     setErrorMsg(
-                      "Vui lòng cấu hình NEXT_PUBLIC_GOOGLE_CLIENT_ID trong file .env",
+                      t(
+                        "errors.googleNotConfigured",
+                        "Đăng nhập Google hiện chưa khả dụng. Vui lòng thử phương thức khác.",
+                      ),
                     );
                   }}
                   className="w-full h-12 rounded-full border-border bg-card hover:bg-accent text-foreground text-sm font-semibold gap-3 justify-center shadow-2xs"

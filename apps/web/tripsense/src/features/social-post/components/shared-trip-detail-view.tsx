@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { useTranslation } from "@/i18n";
 import { socialPostRepository } from "../services";
 import type {
   SocialPost,
@@ -67,11 +68,37 @@ function visibilityLabel(value?: Visibility) {
   );
 }
 
+function getLocalizedPublicItemTitle(
+  item: { title: string; type: string },
+  t: (key: string, def?: string) => string,
+): string {
+  if (
+    item.type === "HOTEL" &&
+    (item.title === "Nơi lưu trú" || item.title === "HOTEL")
+  ) {
+    return t("trip.hotel", "Nơi lưu trú");
+  }
+  if (
+    item.type === "FLIGHT" &&
+    (item.title === "Di chuyển bằng máy bay" || item.title === "FLIGHT")
+  ) {
+    return t("trip.flight", "Di chuyển bằng máy bay");
+  }
+  if (
+    item.type === "TRANSFER" &&
+    (item.title === "Di chuyển" || item.title === "TRANSFER")
+  ) {
+    return t("trip.transfer", "Di chuyển");
+  }
+  return item.title;
+}
+
 export function SharedTripDetailView({
   post,
   detail,
   onUpdated,
 }: SharedTripDetailViewProps) {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const trip = post.trip;
   const [editing, setEditing] = React.useState(false);
@@ -324,7 +351,7 @@ export function SharedTripDetailView({
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div>
                               <p className="font-black">
-                                {item.order}. {item.title}
+                                {item.order}. {getLocalizedPublicItemTitle(item, t)}
                               </p>
                               {item.placeName && (
                                 <p className="mt-1 text-sm text-muted-foreground">
@@ -432,7 +459,7 @@ export function SharedTripDetailView({
                     Ngày {item.dayNumber}
                   </p>
                   <p className="mt-1 font-bold">
-                    {item.placeName || item.title}
+                    {item.placeName || getLocalizedPublicItemTitle(item, t)}
                   </p>
                 </div>
               ))}

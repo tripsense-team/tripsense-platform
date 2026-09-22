@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { profileService } from "@/features/profile";
-import { useAuth } from "@/features/auth";
+import { useAuth, useAuthStore } from "@/features/auth";
 import { cn } from "@/lib/utils";
 import { onboardingApi } from "../services/onboarding-api";
 import type { OnboardingProfile, PlaceIntent } from "../types";
@@ -168,6 +168,7 @@ export function OnboardingWizard() {
       .then((loadedProfile) => {
         if (!active) return;
         if (loadedProfile.status === "COMPLETED") {
+          useAuthStore.getState().setOnboardingCompleted(true);
           router.replace("/explore");
           return;
         }
@@ -371,6 +372,7 @@ export function OnboardingWizard() {
       const completed = await onboardingApi.complete(saved.version);
       setProfile(completed);
       await onboardingApi.markProfileComplete();
+      useAuthStore.getState().setOnboardingCompleted(true);
       router.replace("/explore");
     } catch (err) {
       setError(getSafeErrorMessage(err, t("errors.generic")));

@@ -24,3 +24,8 @@ eureka:
 
 jwt:
   access-secret: ${JWT_ACCESS_SECRET}
+
+context:
+  encryption:
+    secret: ${CONTEXT_ENCRYPTION_SECRET:tripsense-context-onboarding-secure-key-32b}
+

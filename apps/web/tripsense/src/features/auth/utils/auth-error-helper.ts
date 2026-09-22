@@ -7,48 +7,88 @@ import { ApiError } from "@/services/api-client";
 export function getAuthErrorMessage(
   err: unknown,
   fallback = "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
+  t?: (key: string, defaultMessage?: string) => string,
 ): string {
+  const tr = (key: string, def: string) => (t ? t(key, def) : def);
+
   if (err instanceof ApiError) {
     if (err.status === 401) {
-      return "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.";
+      return tr(
+        "errors.badCredentials",
+        "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.",
+      );
     }
     if (err.status === 403) {
-      return "Tài khoản của bạn chưa được kích hoạt hoặc đã bị tạm khóa.";
+      return tr(
+        "errors.forbidden",
+        "Tài khoản của bạn chưa được kích hoạt hoặc đã bị tạm khóa.",
+      );
     }
     if (err.status === 404) {
-      return "Không tìm thấy tài khoản với email này.";
+      return tr(
+        "errors.notFound",
+        "Không tìm thấy tài khoản với email này.",
+      );
     }
     if (err.status === 409) {
       const raw = (err.message || "").trim();
-      if (raw.includes("tài khoản thường") || raw.includes("đã tồn tại")) {
-        return raw;
+      const errorCode =
+        err.data && typeof err.data === "object" && "error" in err.data
+          ? String((err.data as { error?: unknown }).error)
+          : "";
+
+      if (
+        errorCode === "OAUTH_ACCOUNT_CONFLICT" ||
+        raw.includes("tài khoản thường") ||
+        raw.includes("đã tồn tại") ||
+        raw.includes("OAUTH_ACCOUNT_CONFLICT")
+      ) {
+        return tr(
+          "errors.oauthConflict",
+          "Tài khoản đã tồn tại trong hệ thống. Vui lòng đăng nhập bằng tài khoản thường.",
+        );
       }
-      return "Email này đã được sử dụng bởi một tài khoản khác.";
+      return tr(
+        "errors.emailInUse",
+        "Email này đã được sử dụng bởi một tài khoản khác.",
+      );
     }
     if (err.status === 429) {
-      return "Bạn đã thử quá nhiều lần. Vui lòng đợi trong giây lát rồi thử lại.";
+      return tr(
+        "errors.tooManyRequests",
+        "Bạn đã thử quá nhiều lần. Vui lòng đợi trong giây lát rồi thử lại.",
+      );
     }
     if (err.status >= 500) {
-      return "Hệ thống đang bận hoặc gián đoạn kết nối. Vui lòng thử lại sau ít phút.";
+      return tr(
+        "errors.serverBusy",
+        "Hệ thống đang bận hoặc gián đoạn kết nối. Vui lòng thử lại sau ít phút.",
+      );
     }
 
     const message = (err.message || "").trim();
     if (isTechnicalErrorMessage(message)) {
-      return "Hệ thống đang bận hoặc gián đoạn kết nối. Vui lòng thử lại sau ít phút.";
+      return tr(
+        "errors.serverBusy",
+        "Hệ thống đang bận hoặc gián đoạn kết nối. Vui lòng thử lại sau ít phút.",
+      );
     }
 
-    return message || fallback;
+    return message || tr("errors.generic", fallback);
   }
 
   if (err instanceof Error) {
     const message = (err.message || "").trim();
     if (isTechnicalErrorMessage(message)) {
-      return "Không thể kết nối đến máy chủ. Vui lòng kiểm tra đường truyền và thử lại.";
+      return tr(
+        "errors.network",
+        "Không thể kết nối đến máy chủ. Vui lòng kiểm tra đường truyền và thử lại.",
+      );
     }
-    return message || fallback;
+    return message || tr("errors.generic", fallback);
   }
 
-  return fallback;
+  return tr("errors.generic", fallback);
 }
 
 /**

@@ -143,6 +143,7 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().status()).isEqualTo(409);
+    assertThat(response.getBody().error()).isEqualTo("OAUTH_ACCOUNT_CONFLICT");
     assertThat(response.getBody().message())
         .isEqualTo(
             "Tài khoản đã tồn tại trong hệ thống. Vui lòng đăng nhập bằng tài khoản thường.");

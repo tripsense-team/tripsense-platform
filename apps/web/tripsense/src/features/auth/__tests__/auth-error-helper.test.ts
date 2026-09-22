@@ -73,4 +73,24 @@ describe("auth-error-helper unit tests", () => {
     const msg = getAuthErrorMessage(null, "Thông tin không hợp lệ.");
     expect(msg).toBe("Thông tin không hợp lệ.");
   });
+
+  it("should translate error using t function when provided", () => {
+    const mockT = (key: string, def?: string) => {
+      if (key === "errors.badCredentials") return "English invalid credentials";
+      if (key === "errors.oauthConflict") return "English oauth conflict";
+      return def || key;
+    };
+
+    const error401 = new ApiError("Bad credentials", 401, {});
+    expect(getAuthErrorMessage(error401, undefined, mockT)).toBe(
+      "English invalid credentials",
+    );
+
+    const errorConflict = new ApiError("Conflict", 409, {
+      error: "OAUTH_ACCOUNT_CONFLICT",
+    });
+    expect(getAuthErrorMessage(errorConflict, undefined, mockT)).toBe(
+      "English oauth conflict",
+    );
+  });
 });

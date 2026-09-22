@@ -33,12 +33,14 @@ export interface AuthState {
   // Reactive properties for component selectors
   isAuthenticated: boolean;
   isLoading: boolean;
+  onboardingCompleted: boolean;
 
   // Essential Actions
   setAuth: (user: User, accessToken: string) => void;
   setAccessToken: (accessToken: string | null) => void;
   clearAuth: () => void;
   updateUserAvatar: (avatarUrl: string | undefined) => void;
+  setOnboardingCompleted: (completed: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -48,6 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   authVersion: 0,
   isAuthenticated: false,
   isLoading: true,
+  onboardingCompleted: false,
 
   setAuth: (user, accessToken) => {
     setLoggedInCookie();
@@ -57,6 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       status: "authenticated",
       isAuthenticated: true,
       isLoading: false,
+      onboardingCompleted: user.role === UserRole.ADMIN,
     });
   },
 
@@ -70,6 +74,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           status: "unauthenticated",
           isAuthenticated: false,
           isLoading: false,
+          onboardingCompleted: false,
         };
       }
 
@@ -93,6 +98,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         status: "authenticated",
         isAuthenticated: true,
         isLoading: false,
+        onboardingCompleted:
+          user?.role === UserRole.ADMIN || state.onboardingCompleted,
       };
     }),
 
@@ -105,6 +112,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       authVersion: state.authVersion + 1,
       isAuthenticated: false,
       isLoading: false,
+      onboardingCompleted: false,
     }));
   },
 
@@ -112,5 +120,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set((state) => ({
       user: state.user ? { ...state.user, avatar: avatarUrl } : null,
     }));
+  },
+
+  setOnboardingCompleted: (completed) => {
+    set({ onboardingCompleted: completed });
   },
 }));

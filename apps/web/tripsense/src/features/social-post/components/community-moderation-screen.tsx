@@ -12,10 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmationDialog, ErrorState } from "@/components/shared";
+import { useTranslation } from "@/i18n";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { socialPostRepository } from "../services";
 import type { ModerationReport } from "../types";
 
 export function CommunityModerationScreen() {
+  const { t, language } = useTranslation();
   const [reports, setReports] = React.useState<ModerationReport[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -32,14 +35,15 @@ export function CommunityModerationScreen() {
       );
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Không thể tải hàng đợi kiểm duyệt.",
+        getSafeErrorMessage(
+          cause,
+          t("social.moderationLoadFailed", "Không thể tải hàng đợi kiểm duyệt."),
+        ),
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
@@ -57,9 +61,10 @@ export function CommunityModerationScreen() {
       setReports((current) => current.filter((item) => item.id !== report.id));
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Không thể ghi nhận quyết định.",
+        getSafeErrorMessage(
+          cause,
+          t("social.moderationFailed", "Không thể ghi nhận quyết định."),
+        ),
       );
       throw cause;
     } finally {
@@ -71,12 +76,17 @@ export function CommunityModerationScreen() {
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <header className="rounded-3xl border border-border bg-card p-6 shadow-sm">
         <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-primary">
-          <ShieldAlert className="h-4 w-4" /> Community moderation
+          <ShieldAlert className="h-4 w-4" />{" "}
+          {t("social.moderation", "Community moderation")}
         </p>
-        <h1 className="mt-2 text-3xl font-black">Hàng đợi báo cáo</h1>
+        <h1 className="mt-2 text-3xl font-black">
+          {t("social.moderationQueueTitle", "Hàng đợi báo cáo")}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Chỉ tài khoản ROLE_MODERATOR được đọc và xử lý. Mọi quyết định đều
-          được lưu audit.
+          {t(
+            "social.moderationAuditNotice",
+            "Chỉ tài khoản ROLE_MODERATOR hoặc ROLE_ADMIN được đọc và xử lý. Mọi quyết định đều được lưu audit.",
+          )}
         </p>
       </header>
       {error && (
@@ -86,12 +96,15 @@ export function CommunityModerationScreen() {
       )}
       {loading ? (
         <div className="mt-8 flex items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" /> Đang tải báo cáo...
+          <Loader2 className="h-5 w-5 animate-spin" />{" "}
+          {t("social.moderationLoading", "Đang tải báo cáo...")}
         </div>
       ) : reports.length === 0 ? (
         <div className="mt-6 rounded-3xl border border-dashed border-border bg-card p-10 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
-          <h2 className="mt-3 font-black">Không có báo cáo đang chờ</h2>
+          <h2 className="mt-3 font-black">
+            {t("social.moderationEmpty", "Không có báo cáo đang chờ")}
+          </h2>
         </div>
       ) : (
         <div className="mt-6 space-y-4">
@@ -108,11 +121,16 @@ export function CommunityModerationScreen() {
                   </div>
                   <p className="mt-3 text-sm text-muted-foreground">
                     {report.details ||
-                      "Người báo cáo không cung cấp mô tả thêm."}
+                      t(
+                        "social.moderationNoDetails",
+                        "Người báo cáo không cung cấp mô tả thêm.",
+                      )}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     Reporter: {report.reporterId} ·{" "}
-                    {new Date(report.createdAt).toLocaleString("vi-VN")}
+                    {new Date(report.createdAt).toLocaleString(
+                      language === "vi" ? "vi-VN" : "en-US",
+                    )}
                   </p>
                 </div>
                 <Button
@@ -122,7 +140,8 @@ export function CommunityModerationScreen() {
                   className="rounded-full"
                 >
                   <Link href={`/community/posts/${report.postId}`}>
-                    <ExternalLink className="h-4 w-4" /> Xem nội dung
+                    <ExternalLink className="h-4 w-4" />{" "}
+                    {t("social.moderationViewContent", "Xem nội dung")}
                   </Link>
                 </Button>
               </div>
@@ -134,7 +153,7 @@ export function CommunityModerationScreen() {
                     void decide(report, "DISMISS").catch(() => undefined)
                   }
                 >
-                  Bỏ qua
+                  {t("social.moderationDismiss", "Bỏ qua")}
                 </Button>
                 <Button
                   variant="destructive"
@@ -146,7 +165,7 @@ export function CommunityModerationScreen() {
                   ) : (
                     <Trash2 className="h-4 w-4" />
                   )}{" "}
-                  Gỡ nội dung
+                  {t("social.moderationRemove", "Gỡ nội dung")}
                 </Button>
               </div>
             </article>
@@ -158,10 +177,13 @@ export function CommunityModerationScreen() {
         onOpenChange={(open) => {
           if (!open) setPendingRemoval(null);
         }}
-        title="Gỡ nội dung này?"
-        description="Nội dung sẽ biến mất khỏi feed và trang chi tiết. Quyết định cùng người thực hiện vẫn được lưu trong audit."
-        confirmText="Gỡ nội dung"
-        cancelText="Hủy"
+        title={t("social.moderationConfirmDeleteTitle", "Gỡ nội dung này?")}
+        description={t(
+          "social.moderationConfirmDeleteDesc",
+          "Nội dung sẽ biến mất khỏi feed và trang chi tiết. Quyết định cùng người thực hiện vẫn được lưu trong audit.",
+        )}
+        confirmText={t("social.moderationRemove", "Gỡ nội dung")}
+        cancelText={t("common.cancel", "Hủy")}
         variant="destructive"
         loading={pendingRemoval ? actingId === pendingRemoval.id : false}
         onConfirm={async () => {

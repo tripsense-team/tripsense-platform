@@ -239,9 +239,10 @@ public class CommunityModerationService {
   }
 
   private void requireModerator(AuthenticatedUser user) {
-    if (user == null || !"ROLE_MODERATOR".equals(user.role())) {
+    if (user == null
+        || (!"ROLE_MODERATOR".equals(user.role()) && !"ROLE_ADMIN".equals(user.role()))) {
       throw new SocialException(
-          HttpStatus.FORBIDDEN, "MODERATOR_REQUIRED", "Moderator role is required");
+          HttpStatus.FORBIDDEN, "MODERATOR_REQUIRED", "Moderator or Admin role is required");
     }
   }
 

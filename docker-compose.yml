@@ -215,6 +215,7 @@ services:
       USER_DB_USER: ${USER_DB_USER:-postgres}
       USER_DB_PASS: ${USER_DB_PASS:-123456}
       EMAIL_SERVICE_URL: http://mail-service:8082
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -259,6 +260,7 @@ services:
       CONTEXT_DB_NAME: ${CONTEXT_DB_NAME:-tripsense_context}
       CONTEXT_DB_USER: ${CONTEXT_DB_USER:-postgres}
       CONTEXT_DB_PASS: ${CONTEXT_DB_PASS:-123456}
+      CONTEXT_ENCRYPTION_SECRET: ${CONTEXT_ENCRYPTION_SECRET:-tripsense-context-onboarding-secure-key-32b}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
       context-db:

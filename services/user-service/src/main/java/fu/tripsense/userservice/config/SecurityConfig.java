@@ -30,7 +30,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @EnableMethodSecurity
 public class SecurityConfig implements WebMvcConfigurer, WebSecurityCustomizer {
 
-  private static final String[] WHITE_LIST = {"/api/auth/**"};
+  private static final String[] WHITE_LIST = {
+    "/api/auth/**",
+    "/api/users/public-profiles/**",
+    "/api/users/public-profiles:batch"
+  };
 
   private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
   private final PreFilter preFilter;

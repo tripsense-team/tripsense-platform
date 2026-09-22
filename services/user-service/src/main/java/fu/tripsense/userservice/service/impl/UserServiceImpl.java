@@ -9,9 +9,15 @@ import fu.tripsense.userservice.entity.UserProfile;
 import fu.tripsense.userservice.repository.UserProfileRepository;
 import fu.tripsense.userservice.repository.UserRepository;
 import fu.tripsense.userservice.service.UserService;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -131,7 +137,39 @@ public class UserServiceImpl implements UserService {
   @Override
   @Transactional(readOnly = true)
   public List<PublicProfileDto> getPublicProfiles(List<UUID> userIds) {
-    return userIds.stream().distinct().map(this::getPublicProfile).toList();
+    if (userIds == null || userIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+    List<UUID> distinctIds = userIds.stream().filter(Objects::nonNull).distinct().toList();
+    if (distinctIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    Set<UUID> enabledUserIds =
+        userRepository.findAllById(distinctIds).stream()
+            .filter(User::isEnabled)
+            .map(User::getId)
+            .collect(Collectors.toSet());
+
+    if (enabledUserIds.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    Map<UUID, UserProfile> profilesById =
+        userProfileRepository.findAllById(enabledUserIds).stream()
+            .collect(Collectors.toMap(UserProfile::getUserId, Function.identity(), (a, b) -> a));
+
+    return distinctIds.stream()
+        .filter(enabledUserIds::contains)
+        .map(
+            id -> {
+              UserProfile profile = profilesById.get(id);
+              return new PublicProfileDto(
+                  id,
+                  publicDisplayName(profile, id),
+                  profile != null ? profile.getAvatarUrl() : null);
+            })
+        .toList();
   }
 
   private String publicDisplayName(UserProfile profile, UUID userId) {

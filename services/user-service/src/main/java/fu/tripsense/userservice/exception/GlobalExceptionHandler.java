@@ -130,7 +130,10 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.CONFLICT)
         .body(
             ErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "Conflict", ex.getMessage(), request.getRequestURI()));
+                HttpStatus.CONFLICT.value(),
+                "OAUTH_ACCOUNT_CONFLICT",
+                ex.getMessage(),
+                request.getRequestURI()));
   }
 
   @ExceptionHandler(InvalidVerificationCodeException.class)

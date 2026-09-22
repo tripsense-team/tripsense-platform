@@ -97,4 +97,38 @@ describe("Auth Store & Navigation Lifecycle", () => {
     clearLoggedInCookie();
     expect(hasLoggedInCookie()).toBe(false);
   });
+
+  it("6. tracks onboardingCompleted and automatically sets true for ADMIN role", () => {
+    expect(useAuthStore.getState().onboardingCompleted).toBe(false);
+
+    useAuthStore.getState().setOnboardingCompleted(true);
+    expect(useAuthStore.getState().onboardingCompleted).toBe(true);
+
+    useAuthStore.getState().clearAuth();
+    expect(useAuthStore.getState().onboardingCompleted).toBe(false);
+
+    // ADMIN user should automatically be marked onboarding completed
+    const adminUser = {
+      id: "admin-1",
+      email: "admin@tripsense.app",
+      role: UserRole.ADMIN,
+      status: UserStatus.ACTIVE,
+    };
+    useAuthStore.getState().setAuth(adminUser, "admin.jwt.token");
+    expect(useAuthStore.getState().onboardingCompleted).toBe(true);
+  });
+
+  it("7. resets onboardingCompleted to false when setAccessToken receives null", () => {
+    useAuthStore.getState().setOnboardingCompleted(true);
+    expect(useAuthStore.getState().onboardingCompleted).toBe(true);
+
+    useAuthStore.getState().setAccessToken(null);
+    expect(useAuthStore.getState().onboardingCompleted).toBe(false);
+  });
+
+  it("8. includes MODERATOR role in UserRole enum with correct string value", () => {
+    expect(UserRole.MODERATOR).toBe("ROLE_MODERATOR");
+    expect(UserRole.ADMIN).toBe("ROLE_ADMIN");
+    expect(UserRole.USER).toBe("ROLE_USER");
+  });
 });

@@ -34,7 +34,7 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
                     .requestMatchers("/api/social/moderation/**")
-                    .hasRole("MODERATOR")
+                    .hasAnyRole("MODERATOR", "ADMIN")
                     .requestMatchers(HttpMethod.GET, "/api/social/**")
                     .permitAll()
                     .anyRequest()

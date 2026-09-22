@@ -17,6 +17,7 @@ import fu.tripsense.socialservice.repository.SocialReportRepository;
 import fu.tripsense.socialservice.repository.SocialTripShareRepository;
 import fu.tripsense.socialservice.security.AuthenticatedUser;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,12 +109,24 @@ class CommunityModerationServiceTest {
   }
 
   @Test
-  void genericAdminCannotUseModeratorQueue() {
+  void regularUserCannotUseModeratorQueue() {
+    AuthenticatedUser user =
+        new AuthenticatedUser(UUID.randomUUID(), "user@tripsense.app", "ROLE_USER");
+    assertThatThrownBy(() -> service.listReports("PENDING", 0, 20, user))
+        .isInstanceOf(SocialException.class)
+        .hasMessageContaining("Moderator or Admin role is required");
+  }
+
+  @Test
+  void adminCanUseModeratorQueue() {
     AuthenticatedUser admin =
         new AuthenticatedUser(UUID.randomUUID(), "admin@tripsense.app", "ROLE_ADMIN");
-    assertThatThrownBy(() -> service.listReports("PENDING", 0, 20, admin))
-        .isInstanceOf(SocialException.class)
-        .hasMessageContaining("Moderator role");
+    org.springframework.data.domain.Page<SocialReport> page =
+        new org.springframework.data.domain.PageImpl<>(List.of());
+    when(reports.findByStatusOrderByCreatedAtAsc(eq("PENDING"), any())).thenReturn(page);
+
+    var response = service.listReports("PENDING", 0, 20, admin);
+    assertThat(response.items()).isEmpty();
   }
 
   @Test

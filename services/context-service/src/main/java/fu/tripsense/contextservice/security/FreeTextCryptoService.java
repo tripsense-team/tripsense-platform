@@ -34,6 +34,12 @@ public class FreeTextCryptoService {
       MessageDigest sha = MessageDigest.getInstance("SHA-256");
       byte[] keyBytes = sha.digest(secret.getBytes(StandardCharsets.UTF_8));
       this.secretKey = new SecretKeySpec(keyBytes, "AES");
+      if ("tripsense-context-onboarding-secure-key-32b".equals(secret)) {
+        log.warn(
+            "FreeTextCryptoService is using the DEFAULT insecure encryption secret. Override CONTEXT_ENCRYPTION_SECRET in production!");
+      } else {
+        log.info("FreeTextCryptoService initialized with configured encryption secret");
+      }
     } catch (Exception e) {
       throw new IllegalStateException("Failed to initialize AES key for FreeTextCryptoService", e);
     }

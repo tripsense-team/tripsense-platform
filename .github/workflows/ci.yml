@@ -50,6 +50,16 @@ jobs:
       TRIP_DB_PASS: ci-placeholder
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      SOCIAL_DB_HOST: localhost
+      SOCIAL_DB_PORT: 5432
+      SOCIAL_DB_NAME: tripsense_social
+      SOCIAL_DB_USER: postgres
+      SOCIAL_DB_PASS: ci-placeholder
+      CONTEXT_DB_HOST: localhost
+      CONTEXT_DB_PORT: 5432
+      CONTEXT_DB_NAME: tripsense_context
+      CONTEXT_DB_USER: postgres
+      CONTEXT_DB_PASS: ci-placeholder
       JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
       JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
       RESEND_API_KEY: ci-placeholder
@@ -63,7 +73,10 @@ jobs:
       - name: Create TripSense test databases
         env:
           PGPASSWORD: ci-placeholder
-        run: psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_trip;"
+        run: |
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_trip;"
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_social;"
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_context;"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -106,6 +119,9 @@ jobs:
           - image: social-service
             context: .
             dockerfile: services/social-service/Dockerfile
+          - image: context-service
+            context: .
+            dockerfile: services/context-service/Dockerfile
 
     steps:
       - name: Checkout source
@@ -127,6 +143,12 @@ jobs:
           SOCIAL_DB_NAME: tripsense_social
           SOCIAL_DB_USER: postgres
           SOCIAL_DB_PASS: ci-placeholder
+          CONTEXT_DB_NAME: tripsense_context
+          CONTEXT_DB_USER: postgres
+          CONTEXT_DB_PASS: ci-placeholder
+          CONTEXT_ENCRYPTION_SECRET: ci-placeholder-encryption-secret-32b
+          AI_DB_PASS: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
 
