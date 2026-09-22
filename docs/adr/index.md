@@ -9,4 +9,3 @@ No ADRs have been recorded yet.
 - [TripSense Architecture](../architecture/tripsense-architecture.md)
 - [Service Boundaries](../architecture/service-boundaries.md)
 - [Multi-Agent Feature Workflow](../workflows/multi-agent-feature-workflow.md)
-

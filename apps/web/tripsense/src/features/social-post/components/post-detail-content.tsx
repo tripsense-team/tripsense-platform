@@ -40,7 +40,8 @@ export function PostDetailContent({
   onClose,
   onPostLoaded,
 }: PostDetailContentProps) {
-  const { post, loading, error, isNotFound, status, refetch } = useSocialPost(postId);
+  const { post, tripDetail, loading, error, isNotFound, status, refetch } =
+    useSocialPost(postId);
 
   React.useEffect(() => {
     if (post && onPostLoaded) {
@@ -78,7 +79,10 @@ export function PostDetailContent({
         description="Bài viết này không tồn tại hoặc đã được tác giả gỡ bỏ."
         action={
           mode === "modal" && onClose ? (
-            <Button onClick={onClose} className="rounded-full px-5 text-sm font-semibold">
+            <Button
+              onClick={onClose}
+              className="rounded-full px-5 text-sm font-semibold"
+            >
               Quay lại cộng đồng
             </Button>
           ) : (
@@ -113,7 +117,11 @@ export function PostDetailContent({
   return (
     <div className="space-y-6 pb-2">
       {post.type === "TRIP_SHARE" && post.trip ? (
-        <SharedTripDetailView post={post} onUpdated={refetch} />
+        <SharedTripDetailView
+          post={post}
+          detail={tripDetail}
+          onUpdated={refetch}
+        />
       ) : (
         <PostCard
           post={post}

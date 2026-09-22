@@ -24,7 +24,11 @@ export function useUserProfile(userId?: string) {
         }
       } catch (err) {
         if (!ignore) {
-          setError(err instanceof Error ? err : new Error("Failed to fetch user profile"));
+          setError(
+            err instanceof Error
+              ? err
+              : new Error("Failed to fetch user profile"),
+          );
         }
       } finally {
         if (!ignore) {
@@ -48,7 +52,9 @@ export function useUserProfile(userId?: string) {
       const response = await profileService.getUserProfile(userId);
       setData(response);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error("Failed to fetch user profile"));
+      setError(
+        err instanceof Error ? err : new Error("Failed to fetch user profile"),
+      );
     } finally {
       setIsLoading(false);
     }

@@ -4,7 +4,12 @@ import { cn } from "@/lib/utils";
 
 export function DestinationCardSkeleton({ className }: { className?: string }) {
   return (
-    <Card className={cn("overflow-hidden rounded-xl border border-border bg-card shadow-sm flex flex-col h-full", className)}>
+    <Card
+      className={cn(
+        "overflow-hidden rounded-xl border border-border bg-card shadow-sm flex flex-col h-full",
+        className,
+      )}
+    >
       <Skeleton className="aspect-[4/3] w-full" />
       <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
         <div className="space-y-2">

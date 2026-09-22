@@ -31,7 +31,8 @@ export function LandingHero({ onOpenAuthModal }: LandingHeroProps) {
             </h1>
 
             <p className="text-base sm:text-xl text-white/90 font-medium max-w-lg leading-relaxed">
-              Plan trips, get personalized recommendations, and book all in one place with intelligent AI assistance.
+              Plan trips, get personalized recommendations, and book all in one
+              place with intelligent AI assistance.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -60,20 +61,30 @@ export function LandingHero({ onOpenAuthModal }: LandingHeroProps) {
           <div className="relative md:absolute bottom-6 right-6 md:bottom-10 md:right-10 z-10 mt-8 md:mt-0 flex flex-col sm:flex-row items-end sm:items-center gap-4 pointer-events-auto">
             {/* AI Prompt Floating Pill */}
             <div className="rounded-2xl bg-white/90 backdrop-blur-md p-3.5 text-black shadow-xl border border-white/40 flex items-center gap-3 max-w-xs animate-bounce-subtle">
-              <Avatar className="h-9 w-9 border border-black/10 shrink-0">
-                <AvatarImage src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150" alt="Traveler" />
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
+                  alt="Traveler"
+                />
                 <AvatarFallback>AI</AvatarFallback>
               </Avatar>
               <div className="text-xs">
                 <p className="font-bold text-foreground">AI Travel Assistant</p>
-                <p className="text-muted-foreground line-clamp-1">&quot;Suggesting 3-day Paris itinerary...&quot;</p>
+                <p className="text-muted-foreground line-clamp-1">
+                  &quot;Suggesting 3-day Paris itinerary...&quot;
+                </p>
               </div>
             </div>
 
             {/* Place Card Floating Badge */}
             <div className="rounded-2xl bg-black/80 backdrop-blur-md p-3 text-white shadow-2xl border border-white/20 flex items-center gap-3">
               <div className="relative h-12 w-12 rounded-xl overflow-hidden shrink-0">
-                <Image src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=300" alt="Eiffel Tower" fill className="object-cover" />
+                <Image
+                  src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=300"
+                  alt="Eiffel Tower"
+                  fill
+                  className="object-cover"
+                />
               </div>
               <div className="text-xs pr-2">
                 <div className="flex items-center gap-1 font-bold">

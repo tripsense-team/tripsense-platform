@@ -42,3 +42,7 @@ jwt:
 
 email-service:
   url: ${EMAIL_SERVICE_URL:http://localhost:${MAIL_SERVICE_PORT:${EMAIL_SERVICE_PORT:8082}}}
+
+oauth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}

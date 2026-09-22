@@ -3,9 +3,14 @@
 import * as React from "react";
 import type { SocialPost } from "../types";
 import { socialPostRepository } from "../services";
-import { parsePostContent } from "../utils/parse-trip-metadata";
 
-export type FeedFilterTab = "all" | "newest" | "trips";
+export type FeedFilterTab = "all" | "updates" | "trips";
+
+const filterType: Record<FeedFilterTab, "ALL" | "STANDARD" | "TRIP_SHARE"> = {
+  all: "ALL",
+  updates: "STANDARD",
+  trips: "TRIP_SHARE",
+};
 
 export function useSocialFeed() {
   const [posts, setPosts] = React.useState<SocialPost[]>([]);
@@ -16,35 +21,52 @@ export function useSocialFeed() {
   const [hasMore, setHasMore] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<FeedFilterTab>("all");
 
-  const fetchPosts = React.useCallback(async (targetPage = 0, isInitial = false) => {
-    if (!isInitial) {
-      setLoadingMore(true);
-    }
-    setError(null);
-
-    try {
-      const response = await socialPostRepository.listPosts({ page: targetPage, size: 10 });
-      if (targetPage === 0) {
-        setPosts(response.items);
-      } else {
-        setPosts((prev) => [...prev, ...response.items]);
+  const fetchPosts = React.useCallback(
+    async (targetPage = 0, isInitial = false) => {
+      if (!isInitial) {
+        setLoadingMore(true);
       }
-      setHasMore(response.hasMore);
-      setPage(targetPage);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải danh sách bài viết");
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, []);
+      setError(null);
+
+      try {
+        const response = await socialPostRepository.listPosts({
+          page: targetPage,
+          size: 20,
+          type: filterType[activeTab],
+        });
+        if (targetPage === 0) {
+          setPosts(response.items);
+        } else {
+          setPosts((prev) => [...prev, ...response.items]);
+        }
+        setHasMore(response.hasMore);
+        setPage(targetPage);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải danh sách bài viết",
+        );
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [activeTab],
+  );
 
   React.useEffect(() => {
     let ignore = false;
 
     async function initialLoad() {
       try {
-        const response = await socialPostRepository.listPosts({ page: 0, size: 10 });
+        setLoading(true);
+        setError(null);
+        const response = await socialPostRepository.listPosts({
+          page: 0,
+          size: 20,
+          type: filterType[activeTab],
+        });
         if (!ignore) {
           setPosts(response.items);
           setHasMore(response.hasMore);
@@ -52,7 +74,11 @@ export function useSocialFeed() {
         }
       } catch (err) {
         if (!ignore) {
-          setError(err instanceof Error ? err.message : "Không thể tải danh sách bài viết");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Không thể tải danh sách bài viết",
+          );
         }
       } finally {
         if (!ignore) {
@@ -66,7 +92,7 @@ export function useSocialFeed() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [activeTab]);
 
   const loadMore = React.useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -79,29 +105,17 @@ export function useSocialFeed() {
   }, [fetchPosts]);
 
   const prependPost = React.useCallback((newPost: SocialPost) => {
-    setPosts((prev) => [newPost, ...prev]);
+    setPosts((prev) =>
+      prev.some((p) => p.id === newPost.id) ? prev : [newPost, ...prev],
+    );
   }, []);
 
   const removePost = React.useCallback((postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
   }, []);
 
-  // Filtered/Sorted posts based on activeTab (TF-65, TF-66)
-  const displayedPosts = React.useMemo(() => {
-    if (activeTab === "trips") {
-      return posts.filter((p) => Boolean(p.tripSummary || p.tripId || parsePostContent(p.content).tripSummary));
-    }
-    if (activeTab === "newest") {
-      return [...posts].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-    }
-    return posts;
-  }, [posts, activeTab]);
-
   return {
-    posts: displayedPosts,
-    rawPosts: posts,
+    posts,
     loading,
     loadingMore,
     error,

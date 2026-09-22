@@ -1,5 +1,5 @@
-import { TripSharingWorkspace } from "@/features/social-post";
+import { redirect } from "next/navigation";
 
 export default function ChatPage() {
-  return <TripSharingWorkspace />;
+  redirect("/community?composer=trip");
 }

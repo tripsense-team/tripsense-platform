@@ -18,4 +18,3 @@ Use this folder as a copy source for `docs/features/<feature-name>/`. Replace te
 - [Feature Index](../index.md)
 - [Multi-Agent Feature Workflow](../../workflows/multi-agent-feature-workflow.md)
 - [TripSense Architecture](../../architecture/tripsense-architecture.md)
-

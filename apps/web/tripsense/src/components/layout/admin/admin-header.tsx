@@ -2,7 +2,16 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Search, Bell, Moon, Sun, Server, RefreshCw, ShieldAlert, LogOut } from "lucide-react";
+import {
+  Search,
+  Bell,
+  Moon,
+  Sun,
+  Server,
+  RefreshCw,
+  ShieldAlert,
+  LogOut,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,7 +22,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { useAuth, LogoutModal } from "@/features/auth";
+import { useTranslation } from "@/i18n";
 
 export interface AdminHeaderProps {
   systemHealth?: "healthy" | "degraded" | "error";
@@ -24,8 +35,12 @@ export interface AdminHeaderProps {
   };
 }
 
-export function AdminHeader({ systemHealth = "healthy", adminUser: customAdmin }: AdminHeaderProps) {
+export function AdminHeader({
+  systemHealth = "healthy",
+  adminUser: customAdmin,
+}: AdminHeaderProps) {
   const { user: authUser } = useAuth();
+  const { t } = useTranslation();
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
   const [logoutModalOpen, setLogoutModalOpen] = React.useState(false);
 
@@ -91,8 +106,11 @@ export function AdminHeader({ systemHealth = "healthy", adminUser: customAdmin }
             onClick={() => window.location.reload()}
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            <span>Refresh Data</span>
+            <span>{t("common.refresh")}</span>
           </Button>
+
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
           {/* Theme Toggle */}
           <Button
@@ -100,9 +118,13 @@ export function AdminHeader({ systemHealth = "healthy", adminUser: customAdmin }
             size="icon"
             onClick={toggleTheme}
             className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-            aria-label="Toggle Theme"
+            aria-label={t("common.theme")}
           >
-            {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4 text-amber-500" />}
+            {theme === "light" ? (
+              <Moon className="h-4 w-4" />
+            ) : (
+              <Sun className="h-4 w-4 text-amber-500" />
+            )}
           </Button>
 
           {/* Admin Notifications */}
@@ -120,29 +142,47 @@ export function AdminHeader({ systemHealth = "healthy", adminUser: customAdmin }
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-full p-1 outline-none focus:ring-2 focus:ring-primary">
-                <Avatar className="h-8 w-8 border border-border">
-                  <AvatarImage src={activeAdmin?.avatar} alt={activeAdmin?.name || activeAdmin?.email || "Admin"} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">AD</AvatarFallback>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage
+                    src={activeAdmin?.avatar}
+                    alt={activeAdmin?.name || activeAdmin?.email || "Admin"}
+                  />
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                    AD
+                  </AvatarFallback>
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-0.5">
-                  <p className="text-sm font-semibold text-foreground truncate">{activeAdmin?.name || activeAdmin?.email || "System Admin"}</p>
-                  <p className="text-xs text-muted-foreground truncate">{activeAdmin?.email || "admin@tripsense.app"}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {activeAdmin?.name || activeAdmin?.email || "System Admin"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {activeAdmin?.email || "admin@tripsense.app"}
+                  </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/admin/settings" className="cursor-pointer">Admin Settings</Link>
+                <Link href="/admin/settings" className="cursor-pointer">
+                  {t("nav.settings")}
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/services" className="cursor-pointer">Service Status Monitor</Link>
+                <Link href="/admin/services" className="cursor-pointer">
+                  Service Status Monitor
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/explore" className="cursor-pointer text-muted-foreground">Exit to Main Site</Link>
+                <Link
+                  href="/explore"
+                  className="cursor-pointer text-muted-foreground"
+                >
+                  Exit to Main Site
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -150,7 +190,7 @@ export function AdminHeader({ systemHealth = "healthy", adminUser: customAdmin }
                 className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Log out</span>
+                <span>{t("common.logOut")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

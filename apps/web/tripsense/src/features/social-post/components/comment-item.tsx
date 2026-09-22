@@ -2,16 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Heart } from "lucide-react";
+import { Flag, Heart } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatRelativeTime } from "../utils/format-time";
 import { CommentComposer } from "./comment-composer";
 import type { FlattenedCommentNode } from "../utils/comment-tree";
-import { useUserProfile } from "@/features/profile";
+import { useAuth } from "@/features/auth";
 import { cn } from "@/lib/utils";
+import { ReportPostDialog } from "./report-post-dialog";
+import { useTranslation } from "@/i18n";
 
 interface CommentItemProps {
   node: FlattenedCommentNode;
+  postId: string;
   onLike: (commentId: string) => Promise<void>;
   onReply: (content: string, parentId?: string | null) => Promise<void>;
   onReplyClick?: (parentId: string, authorName: string) => void;
@@ -20,16 +23,18 @@ interface CommentItemProps {
 
 export function CommentItem({
   node,
+  postId,
   onLike,
   onReply,
   onReplyClick,
   className,
 }: CommentItemProps) {
+  const { t } = useTranslation();
   const { comment, visualDepth, replyToAuthorName } = node;
   const [isReplying, setIsReplying] = React.useState(false);
-
-  const { data: authorProfile } = useUserProfile(comment.author.id);
-  const authorAvatar = authorProfile?.avatarUrl || comment.author.avatar;
+  const [reportOpen, setReportOpen] = React.useState(false);
+  const { user } = useAuth();
+  const authorAvatar = comment.author.avatar;
 
   const authorInitials = (() => {
     if (!comment.author.name) return "U";
@@ -40,14 +45,13 @@ export function CommentItem({
     return comment.author.name.slice(0, 2).toUpperCase();
   })();
 
-
   // Indentation mapping based on visualDepth (strictly clamped to 0, 1, 2)
   const indentClass =
     visualDepth === 0
       ? "ml-0"
       : visualDepth === 1
-      ? "ml-5 sm:ml-8 pl-3 border-l-2 border-border/60"
-      : "ml-8 sm:ml-14 pl-3 border-l-2 border-border/60";
+        ? "ml-5 sm:ml-8 pl-3 border-l-2 border-border/60"
+        : "ml-8 sm:ml-14 pl-3 border-l-2 border-border/60";
 
   return (
     <div className={cn("space-y-2 transition-all", indentClass, className)}>
@@ -56,9 +60,9 @@ export function CommentItem({
         <Link
           href={`/community/users/${comment.author.id}`}
           className="shrink-0 transition-opacity hover:opacity-85 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring rounded-full mt-0.5"
-          aria-label={`Xem trang của ${comment.author.name}`}
+          aria-label={t("social.authorPosts", { name: comment.author.name })}
         >
-          <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border border-border">
+          <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
             <AvatarImage src={authorAvatar} alt={comment.author.name} />
             <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-[10px] sm:text-xs">
               {authorInitials}
@@ -85,10 +89,7 @@ export function CommentItem({
             {/* Replying indicator tag if this comment is a reply */}
             {replyToAuthorName && (
               <div className="mb-1 text-xs text-muted-foreground">
-                Trả lời{" "}
-                <span className="font-semibold text-primary">
-                  @{replyToAuthorName}
-                </span>
+                {t("social.replyingTo", { name: replyToAuthorName })}
               </div>
             )}
 
@@ -104,13 +105,15 @@ export function CommentItem({
               type="button"
               onClick={() => onLike(comment.id)}
               className={cn(
-                "flex items-center gap-1 font-medium transition-colors hover:underline focus-visible:outline-hidden",
+                "flex items-center gap-1 font-medium transition-colors hover:underline focus-visible:outline-hidden cursor-pointer",
                 comment.isLiked
                   ? "text-rose-600 dark:text-rose-400 font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <span>{comment.isLiked ? "Đã thích" : "Thích"}</span>
+              <span>
+                {comment.isLiked ? t("social.liked") : t("social.like")}
+              </span>
               {comment.likeCount > 0 && (
                 <span className="flex items-center gap-0.5 ml-0.5 text-[11px]">
                   <Heart className="h-3 w-3 fill-current text-rose-500" />
@@ -128,10 +131,19 @@ export function CommentItem({
                   setIsReplying((prev) => !prev);
                 }
               }}
-              className="font-medium text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-hidden"
+              className="font-medium text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-hidden cursor-pointer"
             >
-              Trả lời
+              {t("social.reply")}
             </button>
+            {user && user.id !== comment.author.id && (
+              <button
+                type="button"
+                onClick={() => setReportOpen(true)}
+                className="flex items-center gap-1 font-medium text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+              >
+                <Flag className="h-3 w-3" /> {t("social.report")}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -142,7 +154,9 @@ export function CommentItem({
           <CommentComposer
             parentId={comment.id}
             replyToAuthorName={comment.author.name}
-            placeholder={`Trả lời ${comment.author.name}...`}
+            placeholder={
+              t("social.replyingTo", { name: comment.author.name }) + "..."
+            }
             autoFocus
             onCancelReply={() => setIsReplying(false)}
             onSubmit={async (content, parentId) => {
@@ -152,6 +166,12 @@ export function CommentItem({
           />
         </div>
       )}
+      <ReportPostDialog
+        postId={postId}
+        commentId={comment.id}
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+      />
     </div>
   );
 }

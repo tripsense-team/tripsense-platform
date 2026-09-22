@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/features/auth";
 import { useUserProfile } from "@/features/profile";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 
 interface CommentComposerProps {
   onSubmit: (content: string, parentId?: string | null) => Promise<void>;
@@ -24,14 +25,18 @@ export function CommentComposer({
   parentId,
   replyToAuthorName,
   onCancelReply,
-  placeholder = "Viết bình luận...",
+  placeholder,
   autoFocus = false,
   className,
 }: CommentComposerProps) {
+  const { t } = useTranslation();
+  const effectivePlaceholder = placeholder || t("social.commentPlaceholder");
   const { user } = useAuth();
   const { data: userProfile } = useUserProfile(user?.id || "");
   const authorAvatar = userProfile?.avatarUrl || user?.avatar;
-  const displayName = userProfile?.email ? (userProfile.email.split("@")[0] || user?.name) : user?.name;
+  const displayName = userProfile?.email
+    ? userProfile.email.split("@")[0] || user?.name
+    : user?.name;
 
   const [content, setContent] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -53,12 +58,14 @@ export function CommentComposer({
     return displayName.slice(0, 2).toUpperCase();
   })();
 
+  const isSubmittingRef = React.useRef(false);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = content.trim();
-    if (!trimmed || submitting) return;
+    if (!trimmed || submitting || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setSubmitting(true);
     setError(null);
 
@@ -69,8 +76,9 @@ export function CommentComposer({
         onCancelReply();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gửi bình luận thất bại");
+      setError(err instanceof Error ? err.message : t("errors.generic"));
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -89,17 +97,14 @@ export function CommentComposer({
         <div className="flex items-center justify-between rounded-lg bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <CornerDownRight className="h-3.5 w-3.5 text-primary" />
-            <span>
-              Đang trả lời{" "}
-              <span className="font-semibold text-foreground">@{replyToAuthorName}</span>
-            </span>
+            <span>{t("social.replyingTo", { name: replyToAuthorName })}</span>
           </div>
           {onCancelReply && (
             <button
               type="button"
               onClick={onCancelReply}
-              className="rounded-full p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Hủy trả lời"
+              className="rounded-full p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              aria-label={t("common.cancel")}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -108,9 +113,15 @@ export function CommentComposer({
       )}
 
       {/* Input area */}
-      <form onSubmit={handleSubmit} className="flex gap-2.5 sm:gap-3 items-start">
-        <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 border border-border mt-0.5">
-          <AvatarImage src={authorAvatar} alt={displayName || "Bạn"} />
+      <form
+        onSubmit={handleSubmit}
+        className="flex gap-2.5 sm:gap-3 items-start"
+      >
+        <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 mt-0.5">
+          <AvatarImage
+            src={authorAvatar}
+            alt={displayName || t("common.guestUser")}
+          />
           <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
             {userInitials}
           </AvatarFallback>
@@ -123,7 +134,9 @@ export function CommentComposer({
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              replyToAuthorName ? `Trả lời @${replyToAuthorName}...` : placeholder
+              replyToAuthorName
+                ? t("social.replyingTo", { name: replyToAuthorName }) + "..."
+                : effectivePlaceholder
             }
             disabled={submitting}
             rows={1}
@@ -134,8 +147,8 @@ export function CommentComposer({
             type="submit"
             size="icon"
             disabled={!content.trim() || submitting}
-            className="absolute right-1.5 top-1.5 h-7 w-7 rounded-lg transition-all"
-            aria-label="Gửi bình luận"
+            className="absolute right-1.5 top-1.5 h-7 w-7 rounded-lg transition-all cursor-pointer"
+            aria-label={t("social.send")}
           >
             {submitting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -147,9 +160,7 @@ export function CommentComposer({
       </form>
 
       {/* Error message */}
-      {error && (
-        <p className="text-xs text-destructive pl-11">{error}</p>
-      )}
+      {error && <p className="text-xs text-destructive pl-11">{error}</p>}
     </div>
   );
 }

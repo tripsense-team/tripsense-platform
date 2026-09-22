@@ -43,7 +43,12 @@ const adminNavGroups: AdminNavGroup[] = [
   {
     groupTitle: "Management",
     items: [
-      { title: "User Accounts", href: "/admin/users", icon: Users, badge: "12" },
+      {
+        title: "User Accounts",
+        href: "/admin/users",
+        icon: Users,
+        badge: "12",
+      },
       { title: "Destinations & Places", href: "/admin/places", icon: MapPin },
       { title: "Trips & Itineraries", href: "/admin/trips", icon: Route },
     ],
@@ -51,8 +56,17 @@ const adminNavGroups: AdminNavGroup[] = [
   {
     groupTitle: "Moderation",
     items: [
-      { title: "Reviews & Feedback", href: "/admin/reviews", icon: MessageSquare },
-      { title: "Reports & Flags", href: "/admin/reports", icon: Flag, badge: "3" },
+      {
+        title: "Reviews & Feedback",
+        href: "/admin/reviews",
+        icon: MessageSquare,
+      },
+      {
+        title: "Reports & Flags",
+        href: "/admin/reports",
+        icon: Flag,
+        badge: "3",
+      },
     ],
   },
   {
@@ -70,14 +84,17 @@ export interface AdminSidebarProps {
   onToggleCollapse?: () => void;
 }
 
-export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSidebarProps) {
+export function AdminSidebar({
+  collapsed = false,
+  onToggleCollapse,
+}: AdminSidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside
       className={cn(
         "relative flex flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out shrink-0 hidden md:flex",
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-16" : "w-64",
       )}
     >
       {/* Admin Branding Header */}
@@ -87,8 +104,12 @@ export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSideb
         </div>
         {!collapsed && (
           <div className="flex flex-col truncate">
-            <span className="font-bold text-sm tracking-tight text-foreground">TripSense Admin</span>
-            <span className="text-2xs text-muted-foreground font-mono">v1.0.0 • Control Center</span>
+            <span className="font-bold text-sm tracking-tight text-foreground">
+              TripSense Admin
+            </span>
+            <span className="text-2xs text-muted-foreground font-mono">
+              v1.0.0 • Control Center
+            </span>
           </div>
         )}
       </div>
@@ -105,7 +126,9 @@ export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSideb
             <nav className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href || (item.href !== "/admin" && pathname?.startsWith(item.href));
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/admin" && pathname?.startsWith(item.href));
 
                 return (
                   <Link
@@ -115,19 +138,21 @@ export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSideb
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 group relative",
                       isActive
                         ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                     )}
                     title={collapsed ? item.title : undefined}
                   >
                     <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
-                    {!collapsed && <span className="flex-1 truncate">{item.title}</span>}
+                    {!collapsed && (
+                      <span className="flex-1 truncate">{item.title}</span>
+                    )}
                     {!collapsed && item.badge && (
                       <span
                         className={cn(
                           "text-2xs px-1.5 py-0.5 rounded-full font-bold shrink-0",
                           isActive
                             ? "bg-primary-foreground/20 text-primary-foreground"
-                            : "bg-destructive/10 text-destructive border border-destructive/20"
+                            : "bg-destructive/10 text-destructive border border-destructive/20",
                         )}
                       >
                         {item.badge}
@@ -145,16 +170,24 @@ export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSideb
       {onToggleCollapse && (
         <div className="p-3 border-t border-border flex items-center justify-between">
           {!collapsed && (
-            <span className="text-2xs text-muted-foreground px-2">TripSense Platform</span>
+            <span className="text-2xs text-muted-foreground px-2">
+              TripSense Platform
+            </span>
           )}
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggleCollapse}
             className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground ml-auto"
-            title={collapsed ? "Expand Admin Sidebar" : "Collapse Admin Sidebar"}
+            title={
+              collapsed ? "Expand Admin Sidebar" : "Collapse Admin Sidebar"
+            }
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
         </div>
       )}

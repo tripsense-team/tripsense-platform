@@ -77,7 +77,8 @@ services:
     cpus: "0.75"
     command: ["mongod", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.25"]
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -89,7 +90,14 @@ services:
     restart: unless-stopped
     mem_limit: 96m
     cpus: "0.25"
-    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    command:
+      [
+        "redis-server",
+        "--maxmemory",
+        "64mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -108,12 +116,37 @@ services:
       POSTGRES_USER: ${SOCIAL_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${SOCIAL_DB_PASS}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${SOCIAL_DB_USER:-postgres} -d ${SOCIAL_DB_NAME:-tripsense_social}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${SOCIAL_DB_USER:-postgres} -d ${SOCIAL_DB_NAME:-tripsense_social}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
     volumes:
       - social_postgres_data:/var/lib/postgresql/data
+
+  context-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
+    environment:
+      POSTGRES_DB: ${CONTEXT_DB_NAME:-tripsense_context}
+      POSTGRES_USER: ${CONTEXT_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${CONTEXT_DB_PASS}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${CONTEXT_DB_USER:-postgres} -d ${CONTEXT_DB_NAME:-tripsense_context}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - context_postgres_data:/var/lib/postgresql/data
 
   discovery-server:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-discovery-server:${IMAGE_TAG}
@@ -128,7 +161,11 @@ services:
       EUREKA_SERVER_ENABLE_SELF_PRESERVATION: "false"
       EUREKA_SERVER_PEER_NODE_READ_TIMEOUT_MS: "10000"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"]
+      test:
+        [
+          "CMD-SHELL",
+          'curl -fsS http://localhost:8761/actuator/health | grep -q ''"status":"UP"''',
+        ]
       interval: 15s
       timeout: 5s
       retries: 20
@@ -256,6 +293,30 @@ services:
       discovery-server:
         condition: service_healthy
 
+  context-service:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-context-service:${IMAGE_TAG}
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
+    environment:
+      <<: *java-small
+      CONTEXT_SERVICE_PORT: "8087"
+      CONTEXT_DB_HOST: context-db
+      CONTEXT_DB_PORT: "5432"
+      CONTEXT_DB_NAME: ${CONTEXT_DB_NAME:-tripsense_context}
+      CONTEXT_DB_USER: ${CONTEXT_DB_USER:-postgres}
+      CONTEXT_DB_PASS: ${CONTEXT_DB_PASS}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      context-db:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
@@ -281,6 +342,8 @@ services:
         condition: service_started
       social-service:
         condition: service_started
+      context-service:
+        condition: service_started
 
 volumes:
   postgres_data:
@@ -288,3 +351,4 @@ volumes:
   mongodb_data:
   redis_data:
   social_postgres_data:
+  context_postgres_data:

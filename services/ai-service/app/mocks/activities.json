@@ -11,11 +11,7 @@
       "price_level": 2,
       "estimated_duration_hours": 4,
       "best_time": "morning",
-      "best_for": [
-        "nature",
-        "couple",
-        "family"
-      ],
+      "best_for": ["nature", "couple", "family"],
       "description": "Explore Son Tra Peninsula, Linh Ung Pagoda, and scenic viewpoints."
     },
     {
@@ -28,11 +24,7 @@
       "price_level": 3,
       "estimated_duration_hours": 8,
       "best_time": "day",
-      "best_for": [
-        "family",
-        "couple",
-        "photography"
-      ],
+      "best_for": ["family", "couple", "photography"],
       "description": "Visit Golden Bridge, French Village, and entertainment areas at Ba Na Hills."
     },
     {
@@ -45,11 +37,7 @@
       "price_level": 2,
       "estimated_duration_hours": 10,
       "best_time": "afternoon_evening",
-      "best_for": [
-        "culture",
-        "couple",
-        "photography"
-      ],
+      "best_for": ["culture", "couple", "photography"],
       "description": "Explore ancient streets, lanterns, local food, and traditional architecture."
     },
     {
@@ -62,11 +50,7 @@
       "price_level": 2,
       "estimated_duration_hours": 1.5,
       "best_time": "evening",
-      "best_for": [
-        "couple",
-        "relax",
-        "family"
-      ],
+      "best_for": ["couple", "relax", "family"],
       "description": "Enjoy Da Nang city lights and views from Han River."
     },
     {
@@ -79,11 +63,7 @@
       "price_level": 2,
       "estimated_duration_hours": 4,
       "best_time": "morning",
-      "best_for": [
-        "food",
-        "culture",
-        "experience"
-      ],
+      "best_for": ["food", "culture", "experience"],
       "description": "Learn Vietnamese cooking and explore local ingredients."
     },
     {
@@ -96,11 +76,7 @@
       "price_level": 2,
       "estimated_duration_hours": 3,
       "best_time": "morning",
-      "best_for": [
-        "beach",
-        "adventure",
-        "young_travelers"
-      ],
+      "best_for": ["beach", "adventure", "young_travelers"],
       "description": "Enjoy swimming, surfing, and beach activities at My Khe Beach."
     }
   ]

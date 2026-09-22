@@ -7,7 +7,9 @@ function safeHttpUrl(value?: string): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.toString()
+      : null;
   } catch {
     return null;
   }
@@ -18,7 +20,11 @@ function safePhoneUrl(value?: string): string | null {
   return `tel:${value.replace(/\s/g, "")}`;
 }
 
-function createActionButton(id: string, label: string, icon: string): HTMLButtonElement {
+function createActionButton(
+  id: string,
+  label: string,
+  icon: string,
+): HTMLButtonElement {
   const button = document.createElement("button");
   button.id = id;
   button.type = "button";
@@ -38,14 +44,19 @@ function createInfoRow(label: string, value: string): HTMLDivElement {
   labelNode.textContent = label;
 
   const valueNode = document.createElement("p");
-  valueNode.className = "text-xs text-foreground font-medium leading-relaxed whitespace-pre-wrap";
+  valueNode.className =
+    "text-xs text-foreground font-medium leading-relaxed whitespace-pre-wrap";
   valueNode.textContent = value;
 
   row.append(labelNode, valueNode);
   return row;
 }
 
-function createExternalInfoRow(label: string, value: string, href: string): HTMLDivElement {
+function createExternalInfoRow(
+  label: string,
+  value: string,
+  href: string,
+): HTMLDivElement {
   const row = document.createElement("div");
   row.className = "space-y-0.5";
 
@@ -54,7 +65,8 @@ function createExternalInfoRow(label: string, value: string, href: string): HTML
   labelNode.textContent = label;
 
   const link = document.createElement("a");
-  link.className = "text-xs text-primary hover:underline truncate block max-w-[260px]";
+  link.className =
+    "text-xs text-primary hover:underline truncate block max-w-[260px]";
   link.href = href;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
@@ -64,7 +76,10 @@ function createExternalInfoRow(label: string, value: string, href: string): HTML
   return row;
 }
 
-export function createMapVinaPopup(place: Place, isFavorite: boolean): HTMLDivElement {
+export function createMapVinaPopup(
+  place: Place,
+  isFavorite: boolean,
+): HTMLDivElement {
   const container = document.createElement("div");
   container.className =
     "w-[300px] sm:w-[340px] max-h-[350px] overflow-y-auto rounded-2xl bg-card text-card-foreground border border-border shadow-2xl p-4 space-y-3.5 scrollbar-thin";
@@ -75,11 +90,14 @@ export function createMapVinaPopup(place: Place, isFavorite: boolean): HTMLDivEl
   const titleColumn = document.createElement("div");
   titleColumn.className = "flex-1 min-w-0";
   const title = document.createElement("h3");
-  title.className = "font-bold text-base sm:text-lg text-foreground leading-snug line-clamp-1";
+  title.className =
+    "font-bold text-base sm:text-lg text-foreground leading-snug line-clamp-1";
   title.textContent = place.name;
   const category = document.createElement("p");
-  category.className = "text-xs text-muted-foreground font-medium capitalize mt-0.5";
-  category.textContent = place.categories?.[0]?.replace(/_/g, " ") ?? "Địa điểm";
+  category.className =
+    "text-xs text-muted-foreground font-medium capitalize mt-0.5";
+  category.textContent =
+    place.categories?.[0]?.replace(/_/g, " ") ?? "Địa điểm";
   titleColumn.append(title, category);
 
   const closeButton = createActionButton("btn-close-popup", "Đóng", "×");
@@ -110,7 +128,11 @@ export function createMapVinaPopup(place: Place, isFavorite: boolean): HTMLDivEl
     actions.appendChild(phone);
   }
 
-  const favorite = createActionButton("btn-fav-popup", "Yêu thích", isFavorite ? "♥" : "♡");
+  const favorite = createActionButton(
+    "btn-fav-popup",
+    "Yêu thích",
+    isFavorite ? "♥" : "♡",
+  );
   const share = createActionButton("btn-share-popup", "Chia sẻ", "↗");
   const details = createActionButton("btn-detail-popup", "Xem chi tiết", "ⓘ");
   actions.append(favorite, share, details);
@@ -118,16 +140,33 @@ export function createMapVinaPopup(place: Place, isFavorite: boolean): HTMLDivEl
 
   const info = document.createElement("div");
   info.className = "space-y-2.5 text-xs border-t border-border/60 pt-3";
-  info.appendChild(createInfoRow("Địa chỉ", place.address || place.district || "Thành phố Đà Nẵng"));
-  if (place.oldAddress) info.appendChild(createInfoRow("Địa chỉ cũ", place.oldAddress));
+  info.appendChild(
+    createInfoRow(
+      "Địa chỉ",
+      place.address || place.district || "Thành phố Đà Nẵng",
+    ),
+  );
+  if (place.oldAddress)
+    info.appendChild(createInfoRow("Địa chỉ cũ", place.oldAddress));
   if (place.phone) info.appendChild(createInfoRow("Điện thoại", place.phone));
-  if (place.openingHours) info.appendChild(createInfoRow("Giờ hoạt động", place.openingHours));
+  if (place.openingHours)
+    info.appendChild(createInfoRow("Giờ hoạt động", place.openingHours));
 
   const website = safeHttpUrl(place.website);
-  if (website) info.appendChild(createExternalInfoRow("Trang web", place.website ?? website, website));
+  if (website)
+    info.appendChild(
+      createExternalInfoRow("Trang web", place.website ?? website, website),
+    );
 
   const social = safeHttpUrl(place.socials?.[0]);
-  if (social) info.appendChild(createExternalInfoRow("Mạng xã hội", place.socials?.[0] ?? social, social));
+  if (social)
+    info.appendChild(
+      createExternalInfoRow(
+        "Mạng xã hội",
+        place.socials?.[0] ?? social,
+        social,
+      ),
+    );
 
   container.appendChild(info);
   return container;

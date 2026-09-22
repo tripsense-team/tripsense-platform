@@ -11,17 +11,8 @@
       "price_level": 4,
       "estimated_price_per_night": 8000000,
       "distance_to_center_km": 15,
-      "best_for": [
-        "luxury",
-        "couple",
-        "family"
-      ],
-      "amenities": [
-        "private_beach",
-        "swimming_pool",
-        "restaurant",
-        "spa"
-      ],
+      "best_for": ["luxury", "couple", "family"],
+      "amenities": ["private_beach", "swimming_pool", "restaurant", "spa"],
       "description": "Luxury beachfront resort with private beach and premium services."
     },
     {
@@ -34,17 +25,8 @@
       "price_level": 4,
       "estimated_price_per_night": 5000000,
       "distance_to_center_km": 10,
-      "best_for": [
-        "family",
-        "relax",
-        "beach"
-      ],
-      "amenities": [
-        "private_beach",
-        "pool",
-        "spa",
-        "restaurant"
-      ],
+      "best_for": ["family", "relax", "beach"],
+      "amenities": ["private_beach", "pool", "spa", "restaurant"],
       "description": "Beach resort suitable for family vacations and relaxation."
     },
     {
@@ -57,16 +39,8 @@
       "price_level": 2,
       "estimated_price_per_night": 1200000,
       "distance_to_center_km": 3,
-      "best_for": [
-        "couple",
-        "short_trip",
-        "beach"
-      ],
-      "amenities": [
-        "rooftop_pool",
-        "restaurant",
-        "gym"
-      ],
+      "best_for": ["couple", "short_trip", "beach"],
+      "amenities": ["rooftop_pool", "restaurant", "gym"],
       "description": "Modern hotel near My Khe Beach with reasonable price."
     },
     {
@@ -79,16 +53,8 @@
       "price_level": 2,
       "estimated_price_per_night": 900000,
       "distance_to_center_km": 1,
-      "best_for": [
-        "budget",
-        "city_trip",
-        "business"
-      ],
-      "amenities": [
-        "restaurant",
-        "gym",
-        "spa"
-      ],
+      "best_for": ["budget", "city_trip", "business"],
+      "amenities": ["restaurant", "gym", "spa"],
       "description": "Affordable hotel located in the city center."
     },
     {
@@ -101,15 +67,8 @@
       "price_level": 1,
       "estimated_price_per_night": 600000,
       "distance_to_center_km": 2,
-      "best_for": [
-        "budget",
-        "backpacker",
-        "short_trip"
-      ],
-      "amenities": [
-        "restaurant",
-        "coffee_shop"
-      ],
+      "best_for": ["budget", "backpacker", "short_trip"],
+      "amenities": ["restaurant", "coffee_shop"],
       "description": "Affordable accommodation suitable for travelers with limited budget."
     }
   ]

@@ -23,7 +23,10 @@ export default function TripsLoading() {
       {/* Trip Cards Grid Skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs space-y-3">
+          <div
+            key={i}
+            className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs space-y-3"
+          >
             <Skeleton className="h-44 w-full" />
             <div className="p-4 space-y-2.5">
               <div className="flex justify-between items-center">

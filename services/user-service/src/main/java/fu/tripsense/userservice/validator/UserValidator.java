@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class UserValidator {
 
-    public User validate(User user) {
-        if (user == null || user.getStatus() != UserStatus.ACTIVE || !user.isEnabled()) {
-            log.warn("User validation failed: User is null, inactive, or disabled");
-            throw new BadCredentialsException("Invalid or expired refresh token");
-        }
-
-        return user;
+  public User validate(User user) {
+    if (user == null || user.getStatus() != UserStatus.ACTIVE || !user.isEnabled()) {
+      log.warn("User validation failed: User is null, inactive, or disabled");
+      throw new BadCredentialsException("Invalid or expired refresh token");
     }
+
+    return user;
+  }
 }

@@ -2,15 +2,27 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
-import { Compass, Sparkles, Coffee, Utensils, Waves, ShoppingBag } from "lucide-react";
+import {
+  Compass,
+  Sparkles,
+  Coffee,
+  Utensils,
+  Waves,
+  ShoppingBag,
+} from "lucide-react";
 import { SearchBar } from "./search-bar";
 import { PlaceDetailModal } from "./place-detail-modal";
 import { searchPlaces, getPlaceDetails } from "../services/places-api";
 import type { Place, AutocompleteSuggestion } from "../types";
+import { useAuthStore } from "@/features/auth";
+import { prefetchUserTrips } from "@/features/trip-management";
 
 // Dynamically import MapVina container with ssr disabled
 const MapVinaContainer = dynamic(
-  () => import("@/features/map/components/mapvina-container").then((mod) => mod.MapVinaContainer),
+  () =>
+    import("@/features/map/components/mapvina-container").then(
+      (mod) => mod.MapVinaContainer,
+    ),
   {
     ssr: false,
     loading: () => (
@@ -18,29 +30,75 @@ const MapVinaContainer = dynamic(
         <span>Đang tải bản đồ MapVina khám phá...</span>
       </div>
     ),
-  }
+  },
 );
 
 const CATEGORY_CHIPS = [
-  { id: "all", label: "Tất cả", query: "địa điểm nổi tiếng ở Đà Nẵng", icon: Compass },
-  { id: "food", label: "Nhà hàng", query: "nhà hàng quán ăn ngon Đà Nẵng", icon: Utensils },
-  { id: "cafe", label: "Quán cafe", query: "quán cafe đẹp Đà Nẵng", icon: Coffee },
-  { id: "seafood", label: "Hải sản", query: "quán hải sản tươi ngon Đà Nẵng", icon: Waves },
-  { id: "attraction", label: "Tham quan", query: "điểm tham quan du lịch Đà Nẵng", icon: Sparkles },
-  { id: "shopping", label: "Mua sắm", query: "trung tâm thương mại siêu thị Đà Nẵng", icon: ShoppingBag },
+  {
+    id: "all",
+    label: "Tất cả",
+    query: "địa điểm nổi tiếng ở Đà Nẵng",
+    icon: Compass,
+  },
+  {
+    id: "food",
+    label: "Nhà hàng",
+    query: "nhà hàng quán ăn ngon Đà Nẵng",
+    icon: Utensils,
+  },
+  {
+    id: "cafe",
+    label: "Quán cafe",
+    query: "quán cafe đẹp Đà Nẵng",
+    icon: Coffee,
+  },
+  {
+    id: "seafood",
+    label: "Hải sản",
+    query: "quán hải sản tươi ngon Đà Nẵng",
+    icon: Waves,
+  },
+  {
+    id: "attraction",
+    label: "Tham quan",
+    query: "điểm tham quan du lịch Đà Nẵng",
+    icon: Sparkles,
+  },
+  {
+    id: "shopping",
+    label: "Mua sắm",
+    query: "trung tâm thương mại siêu thị Đà Nẵng",
+    icon: ShoppingBag,
+  },
 ];
 
 export function PlaceDiscoveryView() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Proactively fetch user trips on explore view and cache in React Query & Zustand for My Trips & Community
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      void prefetchUserTrips();
+    }
+  }, [isAuthenticated]);
+
   const [query, setQuery] = React.useState("");
   const [places, setPlaces] = React.useState<Place[]>([]);
-  const [selectedPlaceId, setSelectedPlaceId] = React.useState<string | null>(null);
+  const [selectedPlaceId, setSelectedPlaceId] = React.useState<string | null>(
+    null,
+  );
   const [detailPlace, setDetailPlace] = React.useState<Place | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false);
   const [activeCategory, setActiveCategory] = React.useState("all");
 
-  const currentViewportRef = React.useRef<{ lat: number; lng: number; zoom: number; radius: number } | null>(null);
+  const currentViewportRef = React.useRef<{
+    lat: number;
+    lng: number;
+    zoom: number;
+    radius: number;
+  } | null>(null);
   const activeCategoryQueryRef = React.useRef("địa điểm nổi tiếng ở Đà Nẵng");
   const viewportDebounceTimer = React.useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = React.useRef<AbortController | null>(null);
@@ -51,8 +109,15 @@ export function PlaceDiscoveryView() {
   const inflightRef = React.useRef<Set<string>>(new Set());
 
   const executeSearch = React.useCallback(
-    async (searchQuery: string, autoPinFirstMatch: boolean = false, useCurrentViewport: boolean = true) => {
-      const q = searchQuery.trim() || activeCategoryQueryRef.current || "địa điểm nổi tiếng ở Đà Nẵng";
+    async (
+      searchQuery: string,
+      autoPinFirstMatch: boolean = false,
+      useCurrentViewport: boolean = true,
+    ) => {
+      const q =
+        searchQuery.trim() ||
+        activeCategoryQueryRef.current ||
+        "địa điểm nổi tiếng ở Đà Nẵng";
       setIsLoading(true);
 
       if (abortControllerRef.current) {
@@ -85,7 +150,9 @@ export function PlaceDiscoveryView() {
           if (autoPinFirstMatch && res.data.length > 0) {
             setSelectedPlaceId(res.data[0].id);
           } else if (!autoPinFirstMatch) {
-            setSelectedPlaceId((prev) => (prev && res.data.some((p) => p.id === prev) ? prev : null));
+            setSelectedPlaceId((prev) =>
+              prev && res.data.some((p) => p.id === prev) ? prev : null,
+            );
           }
         }
       } catch (err: unknown) {
@@ -98,7 +165,7 @@ export function PlaceDiscoveryView() {
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   // Initial load: Fetch real places across Da Nang directly on open without filling search input
@@ -132,7 +199,10 @@ export function PlaceDiscoveryView() {
   const handleViewportChange = React.useCallback(
     (viewport: { lat: number; lng: number; zoom: number; radius: number }) => {
       currentViewportRef.current = viewport;
-      const activeQ = query.trim() || activeCategoryQueryRef.current || "quán ăn ẩm thực địa điểm";
+      const activeQ =
+        query.trim() ||
+        activeCategoryQueryRef.current ||
+        "quán ăn ẩm thực địa điểm";
       const gridKey = `${activeQ}_${viewport.lat.toFixed(2)}_${viewport.lng.toFixed(2)}_${Math.round(viewport.zoom)}`;
 
       // Zero network call if this specific quadrant has already been queried in this session
@@ -177,7 +247,7 @@ export function PlaceDiscoveryView() {
         }
       }, 600);
     },
-    [query]
+    [query],
   );
 
   // Synchronize selection
@@ -189,108 +259,143 @@ export function PlaceDiscoveryView() {
    * Fuzzy name match: checks if two place names are likely the same place.
    * Strips accents/diacritics, lowercases, and compares token overlap.
    */
-  const isNameMatch = React.useCallback((nameA: string, nameB: string): boolean => {
-    const normalize = (s: string) =>
-      s
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/đ/gi, "d")
-        .toLowerCase()
-        .trim();
+  const isNameMatch = React.useCallback(
+    (nameA: string, nameB: string): boolean => {
+      const normalize = (s: string) =>
+        s
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/đ/gi, "d")
+          .toLowerCase()
+          .trim();
 
-    const a = normalize(nameA);
-    const b = normalize(nameB);
+      const a = normalize(nameA);
+      const b = normalize(nameB);
 
-    // Exact or substring match
-    if (a === b || a.includes(b) || b.includes(a)) return true;
+      // Exact or substring match
+      if (a === b || a.includes(b) || b.includes(a)) return true;
 
-    // Token overlap: at least 50% of the shorter name's tokens must appear in the longer
-    const tokensA = a.split(/[\s,\-_/.]+/).filter((t) => t.length >= 2);
-    const tokensB = b.split(/[\s,\-_/.]+/).filter((t) => t.length >= 2);
-    const shorter = tokensA.length <= tokensB.length ? tokensA : tokensB;
-    const longerSet = new Set(tokensA.length > tokensB.length ? tokensA : tokensB);
+      // Token overlap: at least 50% of the shorter name's tokens must appear in the longer
+      const tokensA = a.split(/[\s,\-_/.]+/).filter((t) => t.length >= 2);
+      const tokensB = b.split(/[\s,\-_/.]+/).filter((t) => t.length >= 2);
+      const shorter = tokensA.length <= tokensB.length ? tokensA : tokensB;
+      const longerSet = new Set(
+        tokensA.length > tokensB.length ? tokensA : tokensB,
+      );
 
-    if (shorter.length === 0) return false;
+      if (shorter.length === 0) return false;
 
-    const matchCount = shorter.filter((t) => longerSet.has(t)).length;
-    return matchCount / shorter.length >= 0.5;
-  }, []);
+      const matchCount = shorter.filter((t) => longerSet.has(t)).length;
+      return matchCount / shorter.length >= 0.5;
+    },
+    [],
+  );
 
   // Add and select a base-map POI, then enrich it through the TripSense place API.
-  const handleAddAndSelectPlace = React.useCallback(async (place: Place) => {
-    setSelectedPlaceId(place.id);
+  const handleAddAndSelectPlace = React.useCallback(
+    async (place: Place) => {
+      setSelectedPlaceId(place.id);
 
-    // 1. Add to places state immediately so marker and popup card appear
-    setPlaces((prev) => {
-      if (!prev.some((p) => p.id === place.id || (p.name === place.name && Math.abs((p.location?.lat || 0) - (place.location?.lat || 0)) < 0.001))) {
-        return [place, ...prev];
-      }
-      return prev;
-    });
-
-    // 2. Enrich in the background through API Gateway/place-service.
-    if (place.name && place.location) {
-      try {
-        const res = await searchPlaces({
-          q: place.name,
-          lat: place.location.lat,
-          lng: place.location.lng,
-          radius: 2000,
-          limit: 5,
-        });
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          // Find the best match by name similarity + proximity, not just the first result
-          const match = res.data.find((candidate) => {
-            if (!candidate.name) return false;
-
-            // Must pass fuzzy name match
-            if (!isNameMatch(place.name, candidate.name)) return false;
-
-            // Must be within reasonable distance (500m)
-            if (candidate.location && place.location) {
-              const R = 6371;
-              const dLat = ((candidate.location.lat - place.location.lat) * Math.PI) / 180;
-              const dLng = ((candidate.location.lng - place.location.lng) * Math.PI) / 180;
-              const a =
-                Math.sin(dLat / 2) ** 2 +
-                Math.cos((place.location.lat * Math.PI) / 180) *
-                  Math.cos((candidate.location.lat * Math.PI) / 180) *
-                  Math.sin(dLng / 2) ** 2;
-              const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-              if (distKm > 0.5) return false;
-            }
-
-            return true;
-          });
-
-          if (match) {
-            const enriched: Place = {
-              ...place,
-              ...match,
-              id: place.id, // keep id stable for selection
-              providerPlaceId: match.providerPlaceId || match.id,
-              address: match.address || place.address,
-              categories: match.categories && match.categories.length > 0 ? match.categories : place.categories,
-            };
-            setPlaces((prev) => prev.map((p) => (p.id === place.id ? enriched : p)));
-          }
+      // 1. Add to places state immediately so marker and popup card appear
+      setPlaces((prev) => {
+        if (
+          !prev.some(
+            (p) =>
+              p.id === place.id ||
+              (p.name === place.name &&
+                Math.abs((p.location?.lat || 0) - (place.location?.lat || 0)) <
+                  0.001),
+          )
+        ) {
+          return [place, ...prev];
         }
-      } catch (e) {
-        console.debug("Background place enrichment error:", e);
+        return prev;
+      });
+
+      // 2. Enrich in the background through API Gateway/place-service.
+      if (place.name && place.location) {
+        try {
+          const res = await searchPlaces({
+            q: place.name,
+            lat: place.location.lat,
+            lng: place.location.lng,
+            radius: 2000,
+            limit: 5,
+          });
+          if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+            // Find the best match by name similarity + proximity, not just the first result
+            const match = res.data.find((candidate) => {
+              if (!candidate.name) return false;
+
+              // Must pass fuzzy name match
+              if (!isNameMatch(place.name, candidate.name)) return false;
+
+              // Must be within reasonable distance (500m)
+              if (candidate.location && place.location) {
+                const R = 6371;
+                const dLat =
+                  ((candidate.location.lat - place.location.lat) * Math.PI) /
+                  180;
+                const dLng =
+                  ((candidate.location.lng - place.location.lng) * Math.PI) /
+                  180;
+                const a =
+                  Math.sin(dLat / 2) ** 2 +
+                  Math.cos((place.location.lat * Math.PI) / 180) *
+                    Math.cos((candidate.location.lat * Math.PI) / 180) *
+                    Math.sin(dLng / 2) ** 2;
+                const distKm =
+                  R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                if (distKm > 0.5) return false;
+              }
+
+              return true;
+            });
+
+            if (match) {
+              const enriched: Place = {
+                ...place,
+                ...match,
+                id: place.id, // keep id stable for selection
+                providerPlaceId: match.providerPlaceId || match.id,
+                address: match.address || place.address,
+                categories:
+                  match.categories && match.categories.length > 0
+                    ? match.categories
+                    : place.categories,
+              };
+              setPlaces((prev) =>
+                prev.map((p) => (p.id === place.id ? enriched : p)),
+              );
+            }
+          }
+        } catch (e) {
+          console.debug("Background place enrichment error:", e);
+        }
       }
-    }
-  }, [isNameMatch]);
+    },
+    [isNameMatch],
+  );
 
   // Synchronized details opener with intelligent caching
   const handleOpenDetails = React.useCallback(async (place: Place) => {
-    const lookupId = (place.providerPlaceId && !place.providerPlaceId.startsWith("poi_"))
-      ? place.providerPlaceId
-      : place.id;
+    const lookupId =
+      place.providerPlaceId && !place.providerPlaceId.startsWith("poi_")
+        ? place.providerPlaceId
+        : place.id;
     setSelectedPlaceId(place.id);
 
     // Ensure place is present in places state so it renders a marker on the map
     setPlaces((prev) => {
-      if (!prev.some((p) => p.id === place.id || (p.name === place.name && Math.abs((p.location?.lat || 0) - (place.location?.lat || 0)) < 0.001))) {
+      if (
+        !prev.some(
+          (p) =>
+            p.id === place.id ||
+            (p.name === place.name &&
+              Math.abs((p.location?.lat || 0) - (place.location?.lat || 0)) <
+                0.001),
+        )
+      ) {
         return [place, ...prev];
       }
       return prev;
@@ -309,7 +414,8 @@ export function PlaceDiscoveryView() {
     setIsDetailOpen(true);
 
     // If place already has full rich reviews and opening hours, cache and finish
-    const hasFullRichData = place.reviews && place.reviews.length > 0 && place.openingHours;
+    const hasFullRichData =
+      place.reviews && place.reviews.length > 0 && place.openingHours;
     if (hasFullRichData) {
       if (lookupId) {
         detailsCacheRef.current[lookupId] = place;
@@ -327,17 +433,32 @@ export function PlaceDiscoveryView() {
     setIsLoadingDetails(true);
 
     try {
-      const res = await getPlaceDetails(lookupId, place.name, place.location?.lat, place.location?.lng);
+      const res = await getPlaceDetails(
+        lookupId,
+        place.name,
+        place.location?.lat,
+        place.location?.lng,
+      );
       if (res && res.success && res.data) {
         const enriched = { ...place, ...res.data };
         detailsCacheRef.current[lookupId] = enriched;
 
         // Smoothly update detail place only if user is still looking at this place
-        setDetailPlace((prev) => (prev && (prev.id === place.id || prev.providerPlaceId === place.providerPlaceId) ? enriched : prev));
+        setDetailPlace((prev) =>
+          prev &&
+          (prev.id === place.id ||
+            prev.providerPlaceId === place.providerPlaceId)
+            ? enriched
+            : prev,
+        );
 
         // Synchronize with places list
         setPlaces((prevPlaces) =>
-          prevPlaces.map((p) => (p.id === place.id || p.providerPlaceId === place.providerPlaceId ? enriched : p))
+          prevPlaces.map((p) =>
+            p.id === place.id || p.providerPlaceId === place.providerPlaceId
+              ? enriched
+              : p,
+          ),
         );
       }
     } catch (err) {
@@ -367,17 +488,20 @@ export function PlaceDiscoveryView() {
             return;
           }
         } catch (e) {
-          console.warn("Direct suggestion detail fetch error, falling back to search:", e);
+          console.warn(
+            "Direct suggestion detail fetch error, falling back to search:",
+            e,
+          );
         }
       }
 
       // 2. Fallback to search query and pin top match
       executeSearch(val, true, false);
     },
-    [executeSearch]
+    [executeSearch],
   );
 
-  const handleCategoryClick = (cat: typeof CATEGORY_CHIPS[0]) => {
+  const handleCategoryClick = (cat: (typeof CATEGORY_CHIPS)[0]) => {
     setActiveCategory(cat.id);
     activeCategoryQueryRef.current = cat.query;
     executeSearch(cat.query, false, true);

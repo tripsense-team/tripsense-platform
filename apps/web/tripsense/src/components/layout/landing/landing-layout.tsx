@@ -7,7 +7,10 @@ export interface LandingLayoutProps {
   onOpenAuthModal?: (mode: "signin" | "signup") => void;
 }
 
-export function LandingLayout({ children, onOpenAuthModal }: LandingLayoutProps) {
+export function LandingLayout({
+  children,
+  onOpenAuthModal,
+}: LandingLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <LandingHeader onOpenAuthModal={onOpenAuthModal} />

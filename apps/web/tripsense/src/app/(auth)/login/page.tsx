@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAuth, UserRole } from "@/features/auth";
+import { AlertCircle } from "lucide-react";
+import { useAuth, UserRole, getAuthErrorMessage } from "@/features/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,11 +42,12 @@ export default function LoginPage() {
         router.replace("/explore");
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Thông tin đăng nhập không chính xác. Vui lòng thử lại.";
-      setErrorMsg(message);
+      setErrorMsg(
+        getAuthErrorMessage(
+          err,
+          "Thông tin đăng nhập không chính xác. Vui lòng thử lại.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -65,9 +67,10 @@ export default function LoginPage() {
       {errorMsg && (
         <div
           role="alert"
-          className="mb-4 w-full text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-xl"
+          className="mb-4 w-full flex items-start gap-2.5 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-2xl text-left break-words"
         >
-          {errorMsg}
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+          <span className="flex-1 leading-relaxed">{errorMsg}</span>
         </div>
       )}
 

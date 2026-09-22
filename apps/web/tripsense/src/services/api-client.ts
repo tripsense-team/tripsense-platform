@@ -5,6 +5,7 @@ const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || "";
 // Auth endpoints that MUST NOT trigger 401 auto-refresh interceptor
 const AUTH_ENDPOINTS = [
   "/api/auth/login",
+  "/api/auth/google",
   "/api/auth/logout",
   "/api/auth/logout-all",
   "/api/auth/refresh",
@@ -32,7 +33,9 @@ async function performSilentRefresh(): Promise<string> {
     });
 
     if (!refreshResponse.ok) {
-      throw new Error(`Refresh token expired with status ${refreshResponse.status}`);
+      throw new Error(
+        `Refresh token expired with status ${refreshResponse.status}`,
+      );
     }
 
     const refreshData = await refreshResponse.json();
@@ -44,7 +47,10 @@ async function performSilentRefresh(): Promise<string> {
 
     // Race Condition Check: If user logged out while refresh was in-flight, DISCARD token!
     const latestStore = useAuthStore.getState();
-    if (latestStore.authVersion !== startingVersion || latestStore.status === "unauthenticated") {
+    if (
+      latestStore.authVersion !== startingVersion ||
+      latestStore.status === "unauthenticated"
+    ) {
       throw new Error("User logged out while refresh was in-flight");
     }
 
@@ -60,6 +66,12 @@ async function performSilentRefresh(): Promise<string> {
   }
 }
 
+import {
+  sanitizeErrorMessage,
+  sanitizeErrorData,
+  createIncidentReference,
+} from "./error-sanitizer";
+
 export interface ApiClientOptions extends RequestInit {
   skipAuth?: boolean;
   _retry?: boolean;
@@ -68,20 +80,65 @@ export interface ApiClientOptions extends RequestInit {
 export class ApiError extends Error {
   status: number;
   data: unknown;
+  incidentId?: string;
+  rawMessage?: string;
 
-  constructor(message: string, status: number, data: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    data: unknown,
+    incidentId?: string,
+    rawMessage?: string,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.data = data;
+    this.incidentId = incidentId;
+    this.rawMessage = rawMessage;
   }
+}
+
+function createSanitizedApiError(
+  rawMessage: string | undefined,
+  status: number,
+  rawData: unknown,
+  endpoint: string,
+): ApiError {
+  const incidentRef = createIncidentReference();
+  const sanitized = sanitizeErrorMessage(rawMessage, status, incidentRef);
+  const cleanData = sanitizeErrorData(rawData, status);
+
+  if (process.env.NODE_ENV === "development" && sanitized.isSanitized) {
+    console.warn(
+      `[TripSense Dev Guard] Intercepted and sanitized sensitive server error (${status}) on ${endpoint}:`,
+      {
+        incidentRef,
+        rawMessage,
+        sanitizedMessage: sanitized.message,
+      },
+    );
+  }
+
+  return new ApiError(
+    sanitized.message,
+    status,
+    cleanData,
+    incidentRef,
+    process.env.NODE_ENV === "development" ? rawMessage : undefined,
+  );
 }
 
 export async function apiClient<T>(
   endpoint: string,
-  options: ApiClientOptions = {}
+  options: ApiClientOptions = {},
 ): Promise<T> {
-  const { skipAuth = false, _retry = false, headers: customHeaders, ...customOptions } = options;
+  const {
+    skipAuth = false,
+    _retry = false,
+    headers: customHeaders,
+    ...customOptions
+  } = options;
 
   const requestUrl = endpoint.startsWith("http")
     ? endpoint
@@ -116,14 +173,24 @@ export async function apiClient<T>(
           useAuthStore.getState().clearAuth();
         }
         const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(errorData.message || `HTTP error! status: ${response.status}`, response.status, errorData);
+        throw createSanitizedApiError(
+          errorData.message,
+          response.status,
+          errorData,
+          endpoint,
+        );
       }
 
       // 2. Always evaluate LATEST fresh status from Zustand store (never use stale local variables!)
       const latestStatus = useAuthStore.getState().status;
       if (latestStatus === "unauthenticated") {
         const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(errorData.message || "User is unauthenticated. Request cancelled.", response.status, errorData);
+        throw createSanitizedApiError(
+          errorData.message || "User is unauthenticated. Request cancelled.",
+          response.status,
+          errorData,
+          endpoint,
+        );
       }
 
       // 3. Initiate or await Single-Flight Refresh
@@ -151,7 +218,12 @@ export async function apiClient<T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new ApiError(errorData.message || `HTTP error! status: ${response.status}`, response.status, errorData);
+      throw createSanitizedApiError(
+        errorData.message,
+        response.status,
+        errorData,
+        endpoint,
+      );
     }
 
     if (response.status === 204) {

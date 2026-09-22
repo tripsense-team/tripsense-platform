@@ -5,26 +5,31 @@ Implementation may start only when the feature status is `APPROVED`.
 ## Tasks
 
 1. TF-56 Share a trip as a social post
+
    - Add `TRIP_SHARE` post type in `social-service`.
    - Add `POST /api/social/trip-shares`.
    - Add `GET /api/trips/{tripId}/share-snapshot`.
    - Add `TripShareClient` in `social-service` with forwarded bearer token and timeout handling.
 
 2. TF-57 Add a caption or description
+
    - Use `social_posts.content` as the caption.
    - Add share dialog caption input in web trip detail.
    - Support caption edit only if existing social post edit patterns exist; otherwise defer edit and document create-time caption for MVP.
 
 3. TF-58 Display basic trip information in the shared post
+
    - Add nullable `type`, `visibility`, and `trip` fields to web social post types.
    - Render trip-share preview cards in feed/detail with cover, title, destination, dates, counts, and highlights.
 
 4. TF-59 View a shared trip
+
    - Add `GET /api/social/trip-shares/{postId}` or use enriched `GET /api/social/posts/{postId}`.
    - Add web route or modal state for shared trip snapshot detail based on existing Community post detail patterns.
    - Defer full itinerary browsing unless approved as a separate scope expansion.
 
 5. TF-60 Manage trip-sharing visibility
+
    - Add `PATCH /api/social/posts/{postId}/visibility`.
    - Add owner-only web controls for `PUBLIC`, `UNLISTED`, and `PRIVATE`.
 

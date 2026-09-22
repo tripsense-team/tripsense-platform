@@ -45,7 +45,7 @@ export function ItineraryItem({
       onClick={onClick}
       className={cn(
         "group relative flex items-start gap-4 p-3.5 rounded-xl border border-border bg-card shadow-2xs hover:shadow-xs hover:border-primary/50 transition-all cursor-pointer",
-        className
+        className,
       )}
     >
       <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
@@ -64,13 +64,18 @@ export function ItineraryItem({
           <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">
             {title}
           </h4>
-          <Badge variant="outline" className="capitalize text-[10px] px-1.5 py-0 shrink-0">
+          <Badge
+            variant="outline"
+            className="capitalize text-[10px] px-1.5 py-0 shrink-0"
+          >
             {type}
           </Badge>
         </div>
 
         {subtitle && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {subtitle}
+          </p>
         )}
 
         {location && (
@@ -89,7 +94,13 @@ export function ItineraryItem({
 
       {image && (
         <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-muted shrink-0 hidden sm:block">
-          <Image src={image} alt={title} fill sizes="64px" className="object-cover" />
+          <Image
+            src={image}
+            alt={title}
+            fill
+            sizes="64px"
+            className="object-cover"
+          />
         </div>
       )}
     </Card>

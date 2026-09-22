@@ -21,67 +21,78 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
-import { listTrips } from "@/features/trip-management/services/trip-management-api";
+import { useTranslation } from "@/i18n";
 
-export interface NavItem {
-  title: string;
+export interface NavItemDef {
+  key: string;
+  fallbackTitle: string;
   href: string;
   icon: LucideIcon;
   badge?: string;
 }
 
-const mainNavItems: NavItem[] = [
+const mainNavDefs: NavItemDef[] = [
   {
-    title: "Explore",
+    key: "nav.explore",
+    fallbackTitle: "Explore",
     href: "/explore",
     icon: Compass,
   },
   {
-    title: "Community",
+    key: "nav.community",
+    fallbackTitle: "Community",
     href: "/community",
     icon: MessageSquareQuote,
   },
   {
-    title: "Chat",
+    key: "nav.chat",
+    fallbackTitle: "Chat",
     href: "/chat",
     icon: MessageCircle,
   },
   {
-    title: "Places & Map",
+    key: "nav.places",
+    fallbackTitle: "Places & Map",
     href: "/places",
     icon: MapPin,
   },
   {
-    title: "My Trips",
+    key: "nav.trips",
+    fallbackTitle: "My Trips",
     href: "/trips",
     icon: FolderBookmark,
   },
   {
-    title: "Saved Places",
+    key: "nav.savedPlaces",
+    fallbackTitle: "Saved Places",
     href: "/saved",
     icon: Heart,
   },
   {
-    title: "Collections",
+    key: "nav.collections",
+    fallbackTitle: "Collections",
     href: "/collections",
     icon: FolderBookmark,
   },
   {
-    title: "AI Planner",
+    key: "nav.aiPlanner",
+    fallbackTitle: "AI Planner",
     href: "/ai-planner",
     icon: Sparkles,
     badge: "AI",
   },
 ];
 
-const secondaryNavItems: NavItem[] = [
+const secondaryNavDefs: NavItemDef[] = [
   {
-    title: "Settings",
+    key: "nav.settings",
+    fallbackTitle: "Settings",
     href: "/settings",
     icon: Settings,
   },
   {
-    title: "Help & Support",
+    key: "common.settings",
+    fallbackTitle: "Help & Support",
     href: "/support",
     icon: HelpCircle,
   },
@@ -92,38 +103,14 @@ export interface UserSidebarProps {
   onToggleCollapse?: () => void;
 }
 
-export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebarProps) {
+export function UserSidebar({
+  collapsed = false,
+  onToggleCollapse,
+}: UserSidebarProps) {
   const pathname = usePathname();
+  const { t } = useTranslation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [tripCount, setTripCount] = React.useState<number | null>(null);
-
-  React.useEffect(() => {
-    let ignore = false;
-
-    async function loadTripCount() {
-      if (!isAuthenticated) {
-        setTripCount(null);
-        return;
-      }
-
-      try {
-        const page = await listTrips();
-        if (!ignore) {
-          setTripCount(page.totalElements ?? page.content.length);
-        }
-      } catch {
-        if (!ignore) {
-          setTripCount(null);
-        }
-      }
-    }
-
-    void loadTripCount();
-
-    return () => {
-      ignore = true;
-    };
-  }, [isAuthenticated]);
 
   React.useEffect(() => {
     function handleTripCountChanged(event: Event) {
@@ -133,10 +120,16 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
       }
     }
 
-    window.addEventListener("trip-management:count-changed", handleTripCountChanged);
+    window.addEventListener(
+      "trip-management:count-changed",
+      handleTripCountChanged,
+    );
 
     return () => {
-      window.removeEventListener("trip-management:count-changed", handleTripCountChanged);
+      window.removeEventListener(
+        "trip-management:count-changed",
+        handleTripCountChanged,
+      );
     };
   }, []);
 
@@ -144,7 +137,7 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
     <aside
       className={cn(
         "relative flex flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out shrink-0 hidden md:flex",
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-16" : "w-64",
       )}
     >
       {/* Sidebar Header / Quick Action */}
@@ -153,12 +146,12 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
           asChild
           className={cn(
             "w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-xs transition-all",
-            collapsed ? "px-0 justify-center" : "justify-start gap-2"
+            collapsed ? "px-0 justify-center" : "justify-start gap-2",
           )}
         >
           <Link href="/trips/new">
             <Plus className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Create a Trip</span>}
+            {!collapsed && <span>{t("nav.createTrip")}</span>}
           </Link>
         </Button>
       </div>
@@ -168,14 +161,19 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
         <div>
           {!collapsed && (
             <h4 className="px-3 text-2xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Menu
+              {t("nav.menu")}
             </h4>
           )}
           <nav className="space-y-1">
-            {mainNavItems.map((item) => {
+            {mainNavDefs.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
-              const badge = item.href === "/trips" && tripCount !== null ? String(tripCount) : item.badge;
+              const isActive =
+                pathname === item.href || pathname?.startsWith(`${item.href}/`);
+              const badge =
+                item.href === "/trips" && isAuthenticated && tripCount !== null
+                  ? String(tripCount)
+                  : item.badge;
+              const title = t(item.key) || item.fallbackTitle;
 
               return (
                 <Link
@@ -185,19 +183,26 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 group relative",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-2xs"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                   )}
-                  title={collapsed ? item.title : undefined}
+                  title={collapsed ? title : undefined}
                 >
-                  <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary")} />
-                  {!collapsed && <span className="flex-1 truncate">{item.title}</span>}
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0 transition-transform group-hover:scale-110",
+                      isActive && "text-primary",
+                    )}
+                  />
+                  {!collapsed && (
+                    <span className="flex-1 truncate">{title}</span>
+                  )}
                   {!collapsed && badge && (
                     <span
                       className={cn(
                         "text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0",
                         badge === "AI"
                           ? "bg-primary/10 text-primary border border-primary/20"
-                          : "bg-muted text-muted-foreground"
+                          : "bg-muted text-muted-foreground",
                       )}
                     >
                       {badge}
@@ -212,13 +217,14 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
         <div>
           {!collapsed && (
             <h4 className="px-3 text-2xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Account
+              {t("nav.account")}
             </h4>
           )}
           <nav className="space-y-1">
-            {secondaryNavItems.map((item) => {
+            {secondaryNavDefs.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
+              const title = t(item.key) || item.fallbackTitle;
 
               return (
                 <Link
@@ -228,12 +234,14 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 group",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-2xs"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                   )}
-                  title={collapsed ? item.title : undefined}
+                  title={collapsed ? title : undefined}
                 >
                   <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
-                  {!collapsed && <span className="flex-1 truncate">{item.title}</span>}
+                  {!collapsed && (
+                    <span className="flex-1 truncate">{title}</span>
+                  )}
                 </Link>
               );
             })}
@@ -251,7 +259,11 @@ export function UserSidebar({ collapsed = false, onToggleCollapse }: UserSidebar
             className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
             title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
         </div>
       )}

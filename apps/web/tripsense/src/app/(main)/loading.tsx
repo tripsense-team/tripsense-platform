@@ -16,7 +16,10 @@ export default function MainLayoutLoading() {
       {/* Content Grid Skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {Array.from({ length: 6 }).map((_, idx) => (
-          <div key={idx} className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-2xs">
+          <div
+            key={idx}
+            className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-2xs"
+          >
             <Skeleton className="h-44 w-full rounded-xl" />
             <Skeleton className="h-5 w-3/4 rounded-lg" />
             <div className="space-y-1.5">

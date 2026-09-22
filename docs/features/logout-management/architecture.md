@@ -11,7 +11,7 @@
 ```text
 [ Web UI (Next.js) ]
        │
-       ├─► Option A: Click "Log out of this device" 
+       ├─► Option A: Click "Log out of this device"
        │      └──► POST /api/auth/logout
        │
        └─► Option B: Click "Log out of all devices"

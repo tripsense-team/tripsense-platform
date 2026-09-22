@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,17 +25,29 @@ interface EditProfileModalProps {
   onSuccess: () => void;
 }
 
-export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditProfileModalProps) {
+export function EditProfileModal({
+  isOpen,
+  onClose,
+  profile,
+  onSuccess,
+}: EditProfileModalProps) {
   const [bio, setBio] = React.useState(profile?.bio || "");
   const [location, setLocation] = React.useState(profile?.location || "");
-  const [facebook, setFacebook] = React.useState(profile?.socialPorts?.facebook || "");
-  const [instagram, setInstagram] = React.useState(profile?.socialPorts?.instagram || "");
+  const [facebook, setFacebook] = React.useState(
+    profile?.socialPorts?.facebook || "",
+  );
+  const [instagram, setInstagram] = React.useState(
+    profile?.socialPorts?.instagram || "",
+  );
   const [avatarUrl, setAvatarUrl] = React.useState(profile?.avatarUrl || "");
+  const [displayName, setDisplayName] = React.useState(
+    profile?.displayName || "",
+  );
   const [coverUrl, setCoverUrl] = React.useState(profile?.coverUrl || "");
-  
+
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
   const [isUploadingCover, setIsUploadingCover] = React.useState(false);
-  
+
   const { mutateAsync, isLoading: isSaving, error } = useUpdateProfile();
 
   React.useEffect(() => {
@@ -39,6 +57,7 @@ export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditPr
       setFacebook(profile.socialPorts?.facebook || "");
       setInstagram(profile.socialPorts?.instagram || "");
       setAvatarUrl(profile.avatarUrl || "");
+      setDisplayName(profile.displayName || "");
       setCoverUrl(profile.coverUrl || "");
     }
   }, [isOpen, profile]);
@@ -57,10 +76,13 @@ export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditPr
       body.append("folder", signature.folder);
       body.append("allowed_formats", signature.allowedFormats.join(","));
 
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, {
-        method: "POST",
-        body,
-      });
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`,
+        {
+          method: "POST",
+          body,
+        },
+      );
 
       if (!response.ok) throw new Error("Upload failed");
 
@@ -76,7 +98,10 @@ export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditPr
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isCover: boolean) => {
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    isCover: boolean,
+  ) => {
     const file = e.target.files?.[0];
     if (file) handleUploadImage(file, isCover);
   };
@@ -91,6 +116,7 @@ export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditPr
       bio,
       location,
       avatarUrl,
+      displayName,
       coverUrl,
       socialPorts,
     };
@@ -111,23 +137,41 @@ export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditPr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Chỉnh sửa thông tin cá nhân</DialogTitle>
+          <DialogTitle className="text-xl font-bold">
+            Chỉnh sửa thông tin cá nhân
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
           {/* Cover Photo */}
           <div className="relative h-40 bg-muted rounded-xl overflow-hidden flex items-center justify-center group">
             {coverUrl ? (
-              <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+              <img
+                src={coverUrl}
+                alt="Cover"
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <div className="text-muted-foreground text-sm">Chưa có ảnh bìa</div>
+              <div className="text-muted-foreground text-sm">
+                Chưa có ảnh bìa
+              </div>
             )}
-            
+
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <label className="cursor-pointer bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-sm transition-colors text-white flex items-center gap-2 px-4 text-sm font-medium">
-                {isUploadingCover ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                {isUploadingCover ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
                 <span>{isUploadingCover ? "Đang tải..." : "Đổi ảnh bìa"}</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, true)} disabled={isUploadingCover} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFileChange(e, true)}
+                  disabled={isUploadingCover}
+                />
               </label>
             </div>
           </div>
@@ -140,52 +184,77 @@ export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditPr
             </Avatar>
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
               <label className="cursor-pointer text-white">
-                {isUploadingAvatar ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, false)} disabled={isUploadingAvatar} />
+                {isUploadingAvatar ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <Camera className="w-6 h-6" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFileChange(e, false)}
+                  disabled={isUploadingAvatar}
+                />
               </label>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
+              <label className="text-sm font-semibold">
+                Tên hiển thị trên Community
+              </label>
+              <Input
+                placeholder="Ví dụ: Minh Hằng"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                maxLength={80}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tên này và ảnh đại diện có thể xuất hiện trong gợi ý Community;
+                email và vị trí của bạn không được hiển thị.
+              </p>
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-semibold">Tiểu sử</label>
-              <Textarea 
-                placeholder="Giới thiệu bản thân..." 
-                value={bio} 
+              <Textarea
+                placeholder="Giới thiệu bản thân..."
+                value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 className="resize-none h-20"
                 maxLength={500}
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-semibold">Vị trí (Location)</label>
-              <Input 
-                placeholder="Ví dụ: Đà Nẵng, Việt Nam" 
-                value={location} 
+              <Input
+                placeholder="Ví dụ: Đà Nẵng, Việt Nam"
+                value={location}
                 onChange={(e) => setLocation(e.target.value)}
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-semibold flex items-center gap-1.5">
                   <Globe className="w-4 h-4 text-blue-600" /> Facebook
                 </label>
-                <Input 
-                  placeholder="https://facebook.com/..." 
-                  value={facebook} 
+                <Input
+                  placeholder="https://facebook.com/..."
+                  value={facebook}
                   onChange={(e) => setFacebook(e.target.value)}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-semibold flex items-center gap-1.5">
                   <Globe className="w-4 h-4 text-pink-600" /> Instagram
                 </label>
-                <Input 
-                  placeholder="https://instagram.com/..." 
-                  value={instagram} 
+                <Input
+                  placeholder="https://instagram.com/..."
+                  value={instagram}
                   onChange={(e) => setInstagram(e.target.value)}
                 />
               </div>
@@ -195,13 +264,25 @@ export function EditProfileModal({ isOpen, onClose, profile, onSuccess }: EditPr
           {error && <div className="text-sm text-red-500">{error.message}</div>}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>Hủy</Button>
-            <Button type="submit" disabled={isSaving || isUploadingAvatar || isUploadingCover}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSaving}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSaving || isUploadingAvatar || isUploadingCover}
+            >
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang lưu...
                 </>
-              ) : "Lưu thay đổi"}
+              ) : (
+                "Lưu thay đổi"
+              )}
             </Button>
           </DialogFooter>
         </form>

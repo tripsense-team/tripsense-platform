@@ -2,16 +2,16 @@
 
 ## Current Decisions
 
-| Decision | Rationale |
-| --- | --- |
-| MapVina GL is the map renderer, not a browser place-data fallback | Keeps map capability while preserving Gateway policy, normalization, cache, and provider isolation. |
-| All browser place requests use relative `/api/places/**` URLs | Next.js forwards generic `/api/**` traffic to API Gateway; no service-specific bypass exists. |
-| ZioMap is behind `PlaceProvider` and `PlaceEnrichmentProvider` | Application services follow Dependency Inversion and can be tested/substituted without concrete adapter coupling. |
-| Search, details, and persistence use separate services | Keeps orchestration, refresh, and mapping/upsert responsibilities cohesive (SRP). |
-| Provider outages use local fallback or explicit `503` | Empty `200` responses must not hide an infrastructure failure. |
-| Optional provider facts remain optional | Fabricated ratings, counts, and open status mislead users and corrupt ranking. |
-| Popup content uses DOM construction and URL allowlists | Provider payloads are untrusted and must not become executable markup. |
-| Current markers use `mapvinagl.Marker` instances | Native clustering is not claimed until implemented. |
+| Decision                                                          | Rationale                                                                                                         |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| MapVina GL is the map renderer, not a browser place-data fallback | Keeps map capability while preserving Gateway policy, normalization, cache, and provider isolation.               |
+| All browser place requests use relative `/api/places/**` URLs     | Next.js forwards generic `/api/**` traffic to API Gateway; no service-specific bypass exists.                     |
+| ZioMap is behind `PlaceProvider` and `PlaceEnrichmentProvider`    | Application services follow Dependency Inversion and can be tested/substituted without concrete adapter coupling. |
+| Search, details, and persistence use separate services            | Keeps orchestration, refresh, and mapping/upsert responsibilities cohesive (SRP).                                 |
+| Provider outages use local fallback or explicit `503`             | Empty `200` responses must not hide an infrastructure failure.                                                    |
+| Optional provider facts remain optional                           | Fabricated ratings, counts, and open status mislead users and corrupt ranking.                                    |
+| Popup content uses DOM construction and URL allowlists            | Provider payloads are untrusted and must not become executable markup.                                            |
+| Current markers use `mapvinagl.Marker` instances                  | Native clustering is not claimed until implemented.                                                               |
 
 ## Tradeoffs
 

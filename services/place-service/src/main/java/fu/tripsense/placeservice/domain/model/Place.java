@@ -1,5 +1,9 @@
 package fu.tripsense.placeservice.domain.model;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,71 +18,65 @@ import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "places")
-@CompoundIndex(name = "provider_place_unique_idx", def = "{'provider': 1, 'providerPlaceId': 1}", unique = true)
+@CompoundIndex(
+    name = "provider_place_unique_idx",
+    def = "{'provider': 1, 'providerPlaceId': 1}",
+    unique = true)
 public class Place {
 
-    @Id
-    private String id;
+  @Id private String id;
 
-    private String provider;
-    private String providerPlaceId;
+  private String provider;
+  private String providerPlaceId;
 
-    @TextIndexed(weight = 5)
-    private String name;
-    private String normalizedName;
+  @TextIndexed(weight = 5)
+  private String name;
 
-    @GeoSpatialIndexed(type = GeoSpatialIndexType.GEO_2DSPHERE)
-    private GeoJsonPoint location;
+  private String normalizedName;
 
-    @TextIndexed(weight = 2)
-    private String address;
-    private String oldAddress;
+  @GeoSpatialIndexed(type = GeoSpatialIndexType.GEO_2DSPHERE)
+  private GeoJsonPoint location;
 
-    private String city;
-    private String district;
+  @TextIndexed(weight = 2)
+  private String address;
 
-    @Builder.Default
-    @TextIndexed(weight = 3)
-    private List<String> categories = new ArrayList<>();
+  private String oldAddress;
 
-    private Double rating;
-    private Integer userRatingCount;
+  private String city;
+  private String district;
 
-    @Builder.Default
-    private List<String> photos = new ArrayList<>();
+  @Builder.Default
+  @TextIndexed(weight = 3)
+  private List<String> categories = new ArrayList<>();
 
-    private String phone;
-    private String website;
+  private Double rating;
+  private Integer userRatingCount;
 
-    @Builder.Default
-    private List<String> socials = new ArrayList<>();
+  @Builder.Default private List<String> photos = new ArrayList<>();
 
-    private String openingHours;
-    private String businessStatus;
+  private String phone;
+  private String website;
 
-    @Builder.Default
-    private List<PlaceReview> reviews = new ArrayList<>();
+  @Builder.Default private List<String> socials = new ArrayList<>();
 
-    @TextIndexed(weight = 1)
-    private String description;
+  private String openingHours;
+  private String businessStatus;
 
-    private Map<String, Object> sourceData;
+  @Builder.Default private List<PlaceReview> reviews = new ArrayList<>();
 
-    @CreatedDate
-    private Instant createdAt;
+  @TextIndexed(weight = 1)
+  private String description;
 
-    @LastModifiedDate
-    private Instant updatedAt;
+  private Map<String, Object> sourceData;
 
-    private Instant lastFetchedAt;
+  @CreatedDate private Instant createdAt;
+
+  @LastModifiedDate private Instant updatedAt;
+
+  private Instant lastFetchedAt;
 }

@@ -3,16 +3,23 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertCircle, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { OtpInput } from "./otp-input";
 import { siteConfig } from "@/config/site";
 import { useAuth } from "../context/auth-context";
 import { UserRole, type AuthModalStep } from "../types";
+import { getAuthErrorMessage } from "../utils/auth-error-helper";
+import { GoogleLogin } from "@react-oauth/google";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/services/api-client";
 
 interface AuthModalProps {
   open: boolean;
@@ -20,9 +27,14 @@ interface AuthModalProps {
   initialMode?: "signin" | "signup";
 }
 
-export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthModalProps) {
+export function AuthModal({
+  open,
+  onOpenChange,
+  initialMode = "signin",
+}: AuthModalProps) {
   const router = useRouter();
-  const { login, register, verifyEmail, resendCode } = useAuth();
+  const { login, loginWithGoogle, register, verifyEmail, resendCode } =
+    useAuth();
 
   const [mode, setMode] = React.useState<"signin" | "signup">(initialMode);
   const [step, setStep] = React.useState<AuthModalStep>("email");
@@ -79,18 +91,13 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
     }
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleSuccess = async (idToken: string) => {
     if (loading) return;
-    if (!password) {
-      setErrorMsg("Please enter your password");
-      return;
-    }
     setLoading(true);
     setErrorMsg("");
     try {
-      const response = await login({ email, password });
-      setSuccessMsg("Logged in successfully!");
+      const response = await loginWithGoogle(idToken);
+      setSuccessMsg("Logged in with Google successfully!");
 
       const loggedInRole = response.data?.user?.role;
       setTimeout(() => {
@@ -103,8 +110,55 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
         }
       }, 800);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Invalid credentials. Please try again.";
-      setErrorMsg(message);
+      const errorText = getAuthErrorMessage(
+        err,
+        "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
+      );
+      setErrorMsg(errorText);
+
+      // If account exists as standard account, guide them directly to password login
+      if (
+        errorText.includes("tài khoản thường") ||
+        (err instanceof ApiError && err.status === 409)
+      ) {
+        setMode("signin");
+        setStep("login-password");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    if (!password) {
+      setErrorMsg("Vui lòng nhập mật khẩu.");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const response = await login({ email, password });
+      setSuccessMsg("Đăng nhập thành công!");
+
+      const loggedInRole = response.data?.user?.role;
+      setTimeout(() => {
+        onOpenChange(false);
+        // Role-Based Navigation: ADMIN to /admin, USER to /explore
+        if (loggedInRole === UserRole.ADMIN) {
+          router.replace("/admin");
+        } else {
+          router.replace("/explore");
+        }
+      }, 800);
+    } catch (err: unknown) {
+      setErrorMsg(
+        getAuthErrorMessage(
+          err,
+          "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -114,11 +168,11 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
     e.preventDefault();
     if (loading) return;
     if (!email.trim() || !password || !confirmPassword) {
-      setErrorMsg("Please fill in all fields");
+      setErrorMsg("Vui lòng điền đầy đủ tất cả các trường.");
       return;
     }
     if (password !== confirmPassword) {
-      setErrorMsg("Passwords do not match. Please re-enter.");
+      setErrorMsg("Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.");
       return;
     }
     setLoading(true);
@@ -127,10 +181,14 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
       await register({ email, password });
       setStep("verify-otp");
       setTimer(60);
-      setSuccessMsg("Verification code sent to your email!");
+      setSuccessMsg("Mã xác thực đã được gửi tới email của bạn!");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Registration failed. Email may already be in use.";
-      setErrorMsg(message);
+      setErrorMsg(
+        getAuthErrorMessage(
+          err,
+          "Đăng ký không thành công. Email có thể đã được sử dụng.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -140,21 +198,22 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
     e.preventDefault();
     if (loading) return;
     if (otpCode.length < 6) {
-      setErrorMsg("Please enter the complete 6-digit verification code");
+      setErrorMsg("Vui lòng nhập đầy đủ 6 chữ số mã xác thực.");
       return;
     }
     setLoading(true);
     setErrorMsg("");
     try {
       await verifyEmail({ email, code: otpCode });
-      setSuccessMsg("Email verified successfully! Please sign in to continue.");
+      setSuccessMsg("Xác thực email thành công! Vui lòng đăng nhập.");
       setTimeout(() => {
         setMode("signin");
         setStep("login-password");
       }, 1200);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Invalid or expired verification code.";
-      setErrorMsg(message);
+      setErrorMsg(
+        getAuthErrorMessage(err, "Mã xác thực không hợp lệ hoặc đã hết hạn."),
+      );
     } finally {
       setLoading(false);
     }
@@ -167,10 +226,14 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
     try {
       await resendCode({ email });
       setTimer(60);
-      setSuccessMsg("A new verification code has been sent!");
+      setSuccessMsg("Mã xác thực mới đã được gửi!");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to resend code.";
-      setErrorMsg(message);
+      setErrorMsg(
+        getAuthErrorMessage(
+          err,
+          "Không thể gửi lại mã xác thực. Vui lòng thử lại sau.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -205,7 +268,9 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
 
             <div className="space-y-1">
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                {mode === "signin" ? `Welcome to ${siteConfig.name}` : `Join ${siteConfig.name}`}
+                {mode === "signin"
+                  ? `Welcome to ${siteConfig.name}`
+                  : `Join ${siteConfig.name}`}
               </h2>
               <p className="text-xs text-muted-foreground">
                 {mode === "signin"
@@ -215,8 +280,12 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
             </div>
 
             {errorMsg && (
-              <div className="w-full text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-2.5 rounded-xl">
-                {errorMsg}
+              <div
+                role="alert"
+                className="w-full flex items-start gap-2.5 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-2xl text-left break-words"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                <span className="flex-1 leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
@@ -279,18 +348,37 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
             </div>
 
             {/* Social Login Buttons */}
-            <div className="w-full space-y-3">
-              <div className="relative w-full">
-                <Badge
-                  variant="secondary"
-                  className="absolute -top-2.5 right-6 z-10 text-[10px] font-semibold bg-amber-100 text-amber-800 border-amber-200 shadow-2xs px-2 py-0"
-                >
-                  Last used 👉
-                </Badge>
+            <div className="w-full">
+              {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
+                <div className="w-full flex justify-center [&>div]:!w-full [&>div>iframe]:!w-full [&_iframe]:!w-full overflow-hidden rounded-full">
+                  <GoogleLogin
+                    onSuccess={(credentialResponse) => {
+                      if (credentialResponse.credential) {
+                        handleGoogleSuccess(credentialResponse.credential);
+                      }
+                    }}
+                    onError={() => {
+                      setErrorMsg(
+                        "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
+                      );
+                    }}
+                    shape="pill"
+                    theme="outline"
+                    size="large"
+                    text="continue_with"
+                    width="376"
+                  />
+                </div>
+              ) : (
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-12 rounded-full border-border bg-card hover:bg-accent text-foreground text-xs font-semibold gap-3 justify-center shadow-2xs"
+                  onClick={() => {
+                    setErrorMsg(
+                      "Vui lòng cấu hình NEXT_PUBLIC_GOOGLE_CLIENT_ID trong file .env",
+                    );
+                  }}
+                  className="w-full h-12 rounded-full border-border bg-card hover:bg-accent text-foreground text-sm font-semibold gap-3 justify-center shadow-2xs"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24">
                     <path
@@ -312,18 +400,7 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
                   </svg>
                   <span>Continue with Google</span>
                 </Button>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-12 rounded-full border-border bg-card hover:bg-accent text-foreground text-xs font-semibold gap-3 justify-center shadow-2xs"
-              >
-                <svg className="h-4 w-4 fill-current text-foreground" viewBox="0 0 24 24">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.09c.68-.82 1.14-1.97.98-3.09-.98.04-2.17.65-2.87 1.47-.63.73-1.18 1.9-1.03 3.02 1.1.09 2.23-.58 2.92-1.4" />
-                </svg>
-                <span>Continue with Apple</span>
-              </Button>
+              )}
             </div>
 
             <p className="text-[11px] text-muted-foreground leading-relaxed pt-2">
@@ -343,14 +420,21 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
         {/* Step 2: Login Password */}
         {step === "login-password" && (
           <div className="flex flex-col items-center text-center space-y-6 pt-4">
-            <h3 className="text-xl font-extrabold text-foreground">Welcome back</h3>
+            <h3 className="text-xl font-extrabold text-foreground">
+              Welcome back
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Enter your password for <span className="font-semibold text-foreground">{email}</span>
+              Enter your password for{" "}
+              <span className="font-semibold text-foreground">{email}</span>
             </p>
 
             {errorMsg && (
-              <div className="w-full text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-2.5 rounded-xl">
-                {errorMsg}
+              <div
+                role="alert"
+                className="w-full flex items-start gap-2.5 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-2xl text-left break-words"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                <span className="flex-1 leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
@@ -379,14 +463,21 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
         {/* Step 2: Register Details (with Password Confirmation) */}
         {step === "register-details" && (
           <div className="flex flex-col items-center text-center space-y-6 pt-4">
-            <h3 className="text-xl font-extrabold text-foreground">Create your account</h3>
+            <h3 className="text-xl font-extrabold text-foreground">
+              Create your account
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Registering with <span className="font-semibold text-foreground">{email}</span>
+              Registering with{" "}
+              <span className="font-semibold text-foreground">{email}</span>
             </p>
 
             {errorMsg && (
-              <div className="w-full text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-2.5 rounded-xl">
-                {errorMsg}
+              <div
+                role="alert"
+                className="w-full flex items-start gap-2.5 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-2xl text-left break-words"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                <span className="flex-1 leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
@@ -428,7 +519,9 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-xl font-extrabold text-foreground">Check your email</h3>
+              <h3 className="text-xl font-extrabold text-foreground">
+                Check your email
+              </h3>
               <p className="text-xs text-muted-foreground max-w-xs">
                 We sent a 6-digit verification code to{" "}
                 <span className="font-semibold text-foreground">{email}</span>
@@ -436,8 +529,12 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
             </div>
 
             {errorMsg && (
-              <div className="w-full text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-2.5 rounded-xl">
-                {errorMsg}
+              <div
+                role="alert"
+                className="w-full flex items-start gap-2.5 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-2xl text-left break-words"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                <span className="flex-1 leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
@@ -448,7 +545,11 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
             )}
 
             <form onSubmit={handleVerifyOtpSubmit} className="w-full space-y-6">
-              <OtpInput value={otpCode} onChange={setOtpCode} disabled={loading} />
+              <OtpInput
+                value={otpCode}
+                onChange={setOtpCode}
+                disabled={loading}
+              />
 
               <Button
                 type="submit"
@@ -469,7 +570,7 @@ export function AuthModal({ open, onOpenChange, initialMode = "signin" }: AuthMo
                 disabled={timer > 0 || loading}
                 className={cn(
                   "font-bold text-foreground underline hover:text-primary transition-colors",
-                  timer > 0 && "opacity-50 cursor-not-allowed"
+                  timer > 0 && "opacity-50 cursor-not-allowed",
                 )}
               >
                 {timer > 0 ? `Resend in ${timer}s` : "Resend Code"}

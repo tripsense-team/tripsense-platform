@@ -7,6 +7,7 @@ import { CommentComposer } from "./comment-composer";
 import { CommentItem } from "./comment-item";
 import { usePostComments } from "../hooks/use-post-comments";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 
 interface CommentSectionProps {
   postId: string;
@@ -27,6 +28,7 @@ export function CommentSection({
   focusComment = false,
   onReplyClick,
 }: CommentSectionProps) {
+  const { t } = useTranslation();
   const internalCommentsState = usePostComments(postId);
   const {
     flattenedTree,
@@ -37,7 +39,10 @@ export function CommentSection({
     toggleCommentLike,
   } = externalCommentsState || internalCommentsState;
 
-  const handleCreateRootComment = async (content: string, parentId?: string | null) => {
+  const handleCreateRootComment = async (
+    content: string,
+    parentId?: string | null,
+  ) => {
     await addComment(content, parentId);
     onCommentAdded?.();
   };
@@ -45,10 +50,10 @@ export function CommentSection({
   return (
     <section
       id="comments"
-      aria-label="Khu vực bình luận"
+      aria-label={t("social.comments")}
       className={cn(
         "rounded-2xl border border-border bg-card p-5 sm:p-6 text-card-foreground shadow-xs space-y-6",
-        className
+        className,
       )}
     >
       {/* Header */}
@@ -56,7 +61,7 @@ export function CommentSection({
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-primary" />
           <h2 className="text-base font-semibold text-foreground">
-            Bình luận
+            {t("social.comments")}
             <span className="ml-2 text-sm font-normal text-muted-foreground">
               ({totalCount})
             </span>
@@ -69,7 +74,7 @@ export function CommentSection({
         <div className="pb-2">
           <CommentComposer
             onSubmit={handleCreateRootComment}
-            placeholder="Viết bình luận..."
+            placeholder={t("social.commentPlaceholder")}
             autoFocus={focusComment}
           />
         </div>
@@ -88,7 +93,7 @@ export function CommentSection({
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-start gap-3">
-                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                <Skeleton className="h-8 w-8 rounded-full border-2 border-card shadow-[0_0_0_1px_var(--border)] shrink-0" />
                 <div className="space-y-2 flex-1 max-w-md">
                   <Skeleton className="h-14 w-full rounded-2xl" />
                   <Skeleton className="h-3 w-24" />
@@ -99,9 +104,9 @@ export function CommentSection({
         ) : error ? null : flattenedTree.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
             <MessageCircleOff className="h-10 w-10 stroke-[1.5] mb-2 opacity-50" />
-            <p className="text-sm font-medium">Chưa có bình luận nào</p>
+            <p className="text-sm font-medium">{t("social.emptyComments")}</p>
             <p className="text-xs text-muted-foreground/80 mt-0.5">
-              Hãy là người đầu tiên chia sẻ cảm nghĩ về bài viết này!
+              {t("social.emptyCommentsSubtitle")}
             </p>
           </div>
         ) : (
@@ -109,6 +114,7 @@ export function CommentSection({
             <CommentItem
               key={node.comment.id}
               node={node}
+              postId={postId}
               onLike={toggleCommentLike}
               onReply={async (content, parentId) => {
                 await addComment(content, parentId);

@@ -13,12 +13,12 @@ MapVina GL is the browser map renderer. Its public, origin-restricted style toke
 
 ## Provider Matrix
 
-| Concern | Provider / implementation |
-| --- | --- |
-| Basemap and map interaction | `mapvina-gl`; MapVina style when a public token is configured, CARTO/OSM fallback otherwise |
-| Place search, autocomplete, details, enrichment | ZioMap through `place-service` |
-| Public application API | API Gateway route `/api/places/**` |
-| Persistence and cache | MongoDB and Redis owned exclusively by `place-service` |
+| Concern                                         | Provider / implementation                                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Basemap and map interaction                     | `mapvina-gl`; MapVina style when a public token is configured, CARTO/OSM fallback otherwise |
+| Place search, autocomplete, details, enrichment | ZioMap through `place-service`                                                              |
+| Public application API                          | API Gateway route `/api/places/**`                                                          |
+| Persistence and cache                           | MongoDB and Redis owned exclusively by `place-service`                                      |
 
 ## Documentation Index
 

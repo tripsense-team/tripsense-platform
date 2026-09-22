@@ -4,15 +4,15 @@
 
 All endpoints are public only through API Gateway.
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/social/trip-shares` | Create a `TRIP_SHARE` social post for an owned trip. |
-| `GET` | `/api/social/trip-shares/{postId}` | Get shared trip post detail and access state. |
-| `PATCH` | `/api/social/posts/{postId}/visibility` | Update visibility for a trip-share post. |
-| `DELETE` | `/api/social/posts/{postId}` | Remove the shared post using existing delete behavior. |
-| `GET` | `/api/social/posts` | Feed includes only active `PUBLIC` trip-share posts. |
-| `GET` | `/api/social/posts/{postId}` | Existing post detail returns trip-share fields when applicable. |
-| `GET` | `/api/trips/{tripId}/share-snapshot` | Permission-checked source trip snapshot for share creation. |
+| Method   | Path                                    | Purpose                                                         |
+| -------- | --------------------------------------- | --------------------------------------------------------------- |
+| `POST`   | `/api/social/trip-shares`               | Create a `TRIP_SHARE` social post for an owned trip.            |
+| `GET`    | `/api/social/trip-shares/{postId}`      | Get shared trip post detail and access state.                   |
+| `PATCH`  | `/api/social/posts/{postId}/visibility` | Update visibility for a trip-share post.                        |
+| `DELETE` | `/api/social/posts/{postId}`            | Remove the shared post using existing delete behavior.          |
+| `GET`    | `/api/social/posts`                     | Feed includes only active `PUBLIC` trip-share posts.            |
+| `GET`    | `/api/social/posts/{postId}`            | Existing post detail returns trip-share fields when applicable. |
+| `GET`    | `/api/trips/{tripId}/share-snapshot`    | Permission-checked source trip snapshot for share creation.     |
 
 ## Request DTOs
 

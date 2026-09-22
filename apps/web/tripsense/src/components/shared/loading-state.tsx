@@ -14,7 +14,7 @@ export function LoadingState({
     <div
       className={cn(
         "flex flex-col items-center justify-center p-8 text-center my-4",
-        className
+        className,
       )}
     >
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-3" />
@@ -25,7 +25,12 @@ export function LoadingState({
 
 export function LoadingCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-border bg-card p-4 space-y-4", className)}>
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card p-4 space-y-4",
+        className,
+      )}
+    >
       <Skeleton className="h-48 w-full rounded-lg" />
       <div className="space-y-2">
         <Skeleton className="h-4 w-3/4" />

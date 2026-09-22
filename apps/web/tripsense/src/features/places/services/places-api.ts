@@ -10,7 +10,7 @@ export class PlaceApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly code?: string
+    readonly code?: string,
   ) {
     super(message);
     this.name = "PlaceApiError";
@@ -29,7 +29,9 @@ export function normalizePlace(place: Place): Place {
   const id =
     place.id ||
     place.providerPlaceId ||
-    (place.location ? `place_${place.location.lat.toFixed(5)}_${place.location.lng.toFixed(5)}` : `place_${Math.random().toString(36).slice(2)}`);
+    (place.location
+      ? `place_${place.location.lat.toFixed(5)}_${place.location.lng.toFixed(5)}`
+      : `place_${Math.random().toString(36).slice(2)}`);
   return {
     ...place,
     id,
@@ -38,18 +40,23 @@ export function normalizePlace(place: Place): Place {
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => null)) as (T & ErrorEnvelope) | null;
+  const body = (await response.json().catch(() => null)) as
+    | (T & ErrorEnvelope)
+    | null;
   if (!response.ok || !body) {
     throw new PlaceApiError(
-      body?.error?.message ?? `Place API request failed with status ${response.status}`,
+      body?.error?.message ??
+        `Place API request failed with status ${response.status}`,
       response.status,
-      body?.error?.code
+      body?.error?.code,
     );
   }
   return body;
 }
 
-export async function searchPlaces(params: PlaceSearchParams): Promise<PlacesResponse> {
+export async function searchPlaces(
+  params: PlaceSearchParams,
+): Promise<PlacesResponse> {
   const query = params.q.trim();
   if (!query) {
     return { success: true, data: [], meta: { query, total: 0 } };
@@ -57,10 +64,14 @@ export async function searchPlaces(params: PlaceSearchParams): Promise<PlacesRes
 
   const url = new URL("/api/places/search", window.location.origin);
   url.searchParams.set("q", query);
-  if (params.lat !== undefined) url.searchParams.set("lat", params.lat.toString());
-  if (params.lng !== undefined) url.searchParams.set("lng", params.lng.toString());
-  if (params.radius !== undefined) url.searchParams.set("radius", params.radius.toString());
-  if (params.limit !== undefined) url.searchParams.set("limit", params.limit.toString());
+  if (params.lat !== undefined)
+    url.searchParams.set("lat", params.lat.toString());
+  if (params.lng !== undefined)
+    url.searchParams.set("lng", params.lng.toString());
+  if (params.radius !== undefined)
+    url.searchParams.set("radius", params.radius.toString());
+  if (params.limit !== undefined)
+    url.searchParams.set("limit", params.limit.toString());
 
   const response = await fetch(url, { signal: params.signal });
   const parsed = await parseResponse<PlacesResponse>(response);
@@ -75,7 +86,7 @@ export async function getAutocomplete(
   lat?: number,
   lng?: number,
   limit = 5,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<AutocompleteResponse> {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) {
@@ -97,9 +108,12 @@ export async function getPlaceDetails(
   name?: string,
   lat?: number,
   lng?: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<PlaceDetailsResponse> {
-  const url = new URL(`/api/places/${encodeURIComponent(id)}`, window.location.origin);
+  const url = new URL(
+    `/api/places/${encodeURIComponent(id)}`,
+    window.location.origin,
+  );
   if (name) url.searchParams.set("name", name);
   if (lat !== undefined) url.searchParams.set("lat", lat.toString());
   if (lng !== undefined) url.searchParams.set("lng", lng.toString());
@@ -118,7 +132,7 @@ export async function getNearbyPlaces(
   radius = 5000,
   category?: string,
   limit = 20,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<PlacesResponse> {
   const url = new URL("/api/places/nearby", window.location.origin);
   url.searchParams.set("lat", lat.toString());

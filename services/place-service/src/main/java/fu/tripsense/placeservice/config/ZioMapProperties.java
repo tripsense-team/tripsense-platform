@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "ziomap")
 public class ZioMapProperties {
 
-    private String baseUrl = "https://ziomap-api.socibi.com";
-    private String apiKey = "";
-    private int timeoutMs = 8000;
+  private String baseUrl = "https://ziomap-api.socibi.com";
+  private String apiKey = "";
+  private int timeoutMs = 8000;
 }

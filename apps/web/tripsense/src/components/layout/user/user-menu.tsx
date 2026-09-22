@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth, LogoutModal } from "@/features/auth";
 import { useUserProfile } from "@/features/profile";
+import { useTranslation } from "@/i18n";
 
 interface UserMenuProps {
   user?: {
@@ -26,12 +27,15 @@ interface UserMenuProps {
 
 export function UserMenu({ user: customUser }: UserMenuProps) {
   const { user: authUser } = useAuth();
+  const { t } = useTranslation();
   const [logoutModalOpen, setLogoutModalOpen] = React.useState(false);
   const activeUser = customUser || authUser;
 
   const { data: userProfile } = useUserProfile(authUser?.id || "");
   const displayAvatar = userProfile?.avatarUrl || activeUser?.avatar;
-  const displayName = userProfile?.email ? (userProfile.email.split("@")[0] || activeUser?.name) : activeUser?.name;
+  const displayName = userProfile?.email
+    ? userProfile.email.split("@")[0] || activeUser?.name
+    : activeUser?.name;
 
   const initials = activeUser?.email
     ? activeUser.email.slice(0, 2).toUpperCase()
@@ -43,8 +47,13 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <button className="rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={displayAvatar} alt={displayName || activeUser?.email || "User Avatar"} />
-              <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{initials}</AvatarFallback>
+              <AvatarImage
+                src={displayAvatar}
+                alt={displayName || activeUser?.email || t("common.guestUser")}
+              />
+              <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                {initials}
+              </AvatarFallback>
             </Avatar>
           </button>
         </DropdownMenuTrigger>
@@ -52,7 +61,7 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none text-foreground truncate">
-                {displayName || activeUser?.email || "Guest User"}
+                {displayName || activeUser?.email || t("common.guestUser")}
               </p>
               <p className="text-xs leading-none text-muted-foreground truncate">
                 {activeUser?.email || "guest@tripsense.app"}
@@ -62,21 +71,30 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <User className="h-4 w-4" />
-                <span>Profile</span>
+                <span>{t("nav.profile")}</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/collections" className="flex items-center gap-2 cursor-pointer">
+              <Link
+                href="/collections"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Bookmark className="h-4 w-4" />
-                <span>Saved Places</span>
+                <span>{t("nav.savedPlaces")}</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
+              <Link
+                href="/settings"
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Settings className="h-4 w-4" />
-                <span>Settings</span>
+                <span>{t("nav.settings")}</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -86,7 +104,7 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
             className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer"
           >
             <LogOut className="h-4 w-4" />
-            <span>Log out</span>
+            <span>{t("common.logOut")}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

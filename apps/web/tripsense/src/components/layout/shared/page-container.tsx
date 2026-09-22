@@ -1,7 +1,8 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface PageContainerProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface PageContainerProps
+  extends React.HTMLAttributes<HTMLDivElement> {
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 }
 
@@ -25,7 +26,7 @@ export function PageContainer({
       className={cn(
         "mx-auto w-full px-4 py-6 sm:px-6 lg:px-8",
         maxWidthMap[maxWidth],
-        className
+        className,
       )}
       {...props}
     >

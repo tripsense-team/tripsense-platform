@@ -12,20 +12,24 @@ export function useUpdateProfile(): UseUpdateProfileResult {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
 
-  const mutateAsync = React.useCallback(async (request: UpdateProfileRequest) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await profileService.updateProfile(request);
-      return response;
-    } catch (err) {
-      const e = err instanceof Error ? err : new Error("Failed to update profile");
-      setError(e);
-      throw e;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const mutateAsync = React.useCallback(
+    async (request: UpdateProfileRequest) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await profileService.updateProfile(request);
+        return response;
+      } catch (err) {
+        const e =
+          err instanceof Error ? err : new Error("Failed to update profile");
+        setError(e);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   return { mutateAsync, isLoading, error };
 }

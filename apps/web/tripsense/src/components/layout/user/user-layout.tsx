@@ -42,9 +42,7 @@ export function UserLayout({ children, user, onSignInClick }: UserLayoutProps) {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto pb-16 md:pb-6">{children}</main>
       </div>
 
       {/* Bottom Mobile Navigation */}

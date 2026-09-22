@@ -36,14 +36,25 @@ export function TripHeader({
     <div className={cn("space-y-4 pb-6 border-b border-border", className)}>
       {coverImage && (
         <div className="relative h-48 sm:h-64 w-full rounded-2xl overflow-hidden bg-muted">
-          <Image src={coverImage} alt={title} fill className="object-cover" priority />
+          <Image
+            src={coverImage}
+            alt={title}
+            fill
+            className="object-cover"
+            priority
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <div className="absolute bottom-4 left-4 z-10 text-white">
-            <Badge variant="secondary" className="bg-white/20 backdrop-blur text-white border-0 mb-2">
+            <Badge
+              variant="secondary"
+              className="bg-white/20 backdrop-blur text-white border-0 mb-2"
+            >
               <MapPin className="h-3 w-3 mr-1" />
               {destination}
             </Badge>
-            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">{title}</h1>
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+              {title}
+            </h1>
           </div>
         </div>
       )}
@@ -58,7 +69,9 @@ export function TripHeader({
             {title}
           </h1>
           {description && (
-            <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>
+            <p className="text-sm text-muted-foreground max-w-2xl">
+              {description}
+            </p>
           )}
         </div>
       )}
@@ -73,7 +86,10 @@ export function TripHeader({
           {members.length > 0 && (
             <div className="flex items-center -space-x-2">
               {members.slice(0, 4).map((member) => (
-                <Avatar key={member.id} className="h-7 w-7 border-2 border-background">
+                <Avatar
+                  key={member.id}
+                  className="h-7 w-7 border-2 border-background"
+                >
                   <AvatarImage src={member.avatar} alt={member.name} />
                   <AvatarFallback className="text-[10px]">
                     {member.name.charAt(0)}
@@ -90,7 +106,12 @@ export function TripHeader({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onShare} className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onShare}
+            className="gap-1.5"
+          >
             <Share2 className="h-3.5 w-3.5" />
             <span>Share Trip</span>
           </Button>

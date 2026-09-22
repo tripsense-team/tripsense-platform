@@ -9,17 +9,17 @@
 
 ## Backend Responsibilities
 
-| Component | Responsibility |
-| --- | --- |
-| `PlaceController` | HTTP validation and response envelope only |
-| `PlaceSearchService` / `PlaceSearchServiceImpl` | Search, autocomplete, nearby contract and implementation |
-| `PlaceDetailsService` / `PlaceDetailsServiceImpl` | Detail contract, stored/provider retrieval, and refresh policy |
+| Component                                                 | Responsibility                                                       |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `PlaceController`                                         | HTTP validation and response envelope only                           |
+| `PlaceSearchService` / `PlaceSearchServiceImpl`           | Search, autocomplete, nearby contract and implementation             |
+| `PlaceDetailsService` / `PlaceDetailsServiceImpl`         | Detail contract, stored/provider retrieval, and refresh policy       |
 | `PlacePersistenceService` / `PlacePersistenceServiceImpl` | Persistence contract, provider upsert, merge, and entity/DTO mapping |
-| `PlaceRankingService` / `PlaceRankingServiceImpl` | Deterministic ranking contract and implementation |
-| `PlaceCacheService` / `PlaceCacheServiceImpl` | Cache contract and Redis-backed implementation |
-| `PlaceProvider` | Search/autocomplete/detail provider abstraction |
-| `PlaceEnrichmentProvider` | Optional enrichment abstraction |
-| `ZioMapProvider` | ZioMap HTTP adapter and payload normalization |
+| `PlaceRankingService` / `PlaceRankingServiceImpl`         | Deterministic ranking contract and implementation                    |
+| `PlaceCacheService` / `PlaceCacheServiceImpl`             | Cache contract and Redis-backed implementation                       |
+| `PlaceProvider`                                           | Search/autocomplete/detail provider abstraction                      |
+| `PlaceEnrichmentProvider`                                 | Optional enrichment abstraction                                      |
+| `ZioMapProvider`                                          | ZioMap HTTP adapter and payload normalization                        |
 
 Interfaces live in `service`; Spring implementations live in `service/impl`, matching the `user-service` convention. Controllers and collaborating services depend on interfaces. This split keeps HTTP, application orchestration, persistence mapping, cache, ranking, and external-provider concerns separate.
 

@@ -1,111 +1,122 @@
 package fu.tripsense.apigateway;
 
-import org.springframework.cloud.gateway.route.RouteLocator;
-import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
-import java.util.List;
-
 @Configuration
 class GatewayRoutesConfig {
 
-    static final String PLACE_SERVICE_ROUTE_ID = "place-service";
-    static final String PLACE_SERVICE_PATH = "/api/places/**";
-    static final String PLACE_SERVICE_URI = "lb://place-service";
+  static final String PLACE_SERVICE_ROUTE_ID = "place-service";
+  static final String PLACE_SERVICE_PATH = "/api/places/**";
+  static final String PLACE_SERVICE_URI = "lb://place-service";
 
-    static final String USER_SERVICE_ROUTE_ID = "user-service";
-    static final String USER_SERVICE_AUTH_PATH = "/api/auth/**";
-    static final String USER_SERVICE_USERS_PATH = "/api/users/**";
-    static final String USER_SERVICE_URI = "lb://user-service";
+  static final String USER_SERVICE_ROUTE_ID = "user-service";
+  static final String USER_SERVICE_AUTH_PATH = "/api/auth/**";
+  static final String USER_SERVICE_USERS_PATH = "/api/users/**";
+  static final String USER_SERVICE_URI = "lb://user-service";
 
-    static final String MAIL_SERVICE_ROUTE_ID = "mail-service";
-    static final String MAIL_SERVICE_PATH = "/api/email/**";
-    static final String MAIL_SERVICE_URI = "lb://mail-service";
+  static final String MAIL_SERVICE_ROUTE_ID = "mail-service";
+  static final String MAIL_SERVICE_PATH = "/api/email/**";
+  static final String MAIL_SERVICE_URI = "lb://mail-service";
 
-    static final String TRIP_SERVICE_ROUTE_ID = "trip-service";
-    static final String TRIP_SERVICE_PATH = "/api/trips/**";
-    static final String TRIP_SERVICE_URI = "lb://trip-service";
+  static final String TRIP_SERVICE_ROUTE_ID = "trip-service";
+  static final String TRIP_SERVICE_PATH = "/api/trips/**";
+  static final String TRIP_SERVICE_URI = "lb://trip-service";
 
-    static final String SOCIAL_SERVICE_ROUTE_ID = "social-service";
-    static final String SOCIAL_SERVICE_PATH = "/api/social/**";
-    static final String SOCIAL_SERVICE_URI = "lb://social-service";
+  static final String SOCIAL_SERVICE_ROUTE_ID = "social-service";
+  static final String SOCIAL_SERVICE_PATH = "/api/social/**";
+  static final String SOCIAL_SERVICE_URI = "lb://social-service";
+  static final String CONTEXT_SERVICE_ROUTE_ID = "context-service";
+  static final String CONTEXT_SERVICE_PATH = "/api/context/**";
+  static final String CONTEXT_SERVICE_URI = "lb://context-service";
 
-    @Bean
-    RouteLocator tripSenseRoutes(
-            RouteLocatorBuilder routes,
-            RedisRateLimiter placeRedisRateLimiter,
-            RedisRateLimiter socialRedisRateLimiter,
-            KeyResolver clientIpKeyResolver,
-            @Value("${tripsense.gateway.places-rate-limit.enabled:false}") boolean placeRateLimitingEnabled,
-            @Value("${tripsense.gateway.social-rate-limit.enabled:false}") boolean socialRateLimitingEnabled
-    ) {
-        return routes.routes()
-                .route(PLACE_SERVICE_ROUTE_ID, route -> {
-                    var r = route.path(PLACE_SERVICE_PATH);
-                    if (placeRateLimitingEnabled) {
-                        r.filters(filters -> filters.requestRateLimiter(config -> {
-                            config.setRateLimiter(placeRedisRateLimiter);
-                            config.setKeyResolver(clientIpKeyResolver);
-                            config.setDenyEmptyKey(true);
-                        }));
-                    }
-                    return r.uri(PLACE_SERVICE_URI);
-                })
-                .route(USER_SERVICE_ROUTE_ID, route -> route
-                        .path(USER_SERVICE_AUTH_PATH, USER_SERVICE_USERS_PATH)
-                        .uri(USER_SERVICE_URI))
-                .route(MAIL_SERVICE_ROUTE_ID, route -> route
-                        .path(MAIL_SERVICE_PATH)
-                        .uri(MAIL_SERVICE_URI))
-                .route(TRIP_SERVICE_ROUTE_ID, route -> route
-                        .path(TRIP_SERVICE_PATH)
-                        .uri(TRIP_SERVICE_URI))
-                .route(SOCIAL_SERVICE_ROUTE_ID, route -> {
-                    var r = route.path(SOCIAL_SERVICE_PATH);
-                    if (socialRateLimitingEnabled) {
-                        r.filters(filters -> filters.requestRateLimiter(config -> {
-                            config.setRateLimiter(socialRedisRateLimiter);
-                            config.setKeyResolver(clientIpKeyResolver);
-                            config.setDenyEmptyKey(true);
-                        }));
-                    }
-                    return r.uri(SOCIAL_SERVICE_URI);
-                })
-                .build();
-    }
+  @Bean
+  RouteLocator tripSenseRoutes(
+      RouteLocatorBuilder routes,
+      RedisRateLimiter placeRedisRateLimiter,
+      RedisRateLimiter socialRedisRateLimiter,
+      KeyResolver clientIpKeyResolver,
+      @Value("${tripsense.gateway.places-rate-limit.enabled:false}")
+          boolean placeRateLimitingEnabled,
+      @Value("${tripsense.gateway.social-rate-limit.enabled:false}")
+          boolean socialRateLimitingEnabled) {
+    return routes
+        .routes()
+        .route(
+            PLACE_SERVICE_ROUTE_ID,
+            route -> {
+              var r = route.path(PLACE_SERVICE_PATH);
+              if (placeRateLimitingEnabled) {
+                r.filters(
+                    filters ->
+                        filters.requestRateLimiter(
+                            config -> {
+                              config.setRateLimiter(placeRedisRateLimiter);
+                              config.setKeyResolver(clientIpKeyResolver);
+                              config.setDenyEmptyKey(true);
+                            }));
+              }
+              return r.uri(PLACE_SERVICE_URI);
+            })
+        .route(
+            USER_SERVICE_ROUTE_ID,
+            route ->
+                route.path(USER_SERVICE_AUTH_PATH, USER_SERVICE_USERS_PATH).uri(USER_SERVICE_URI))
+        .route(MAIL_SERVICE_ROUTE_ID, route -> route.path(MAIL_SERVICE_PATH).uri(MAIL_SERVICE_URI))
+        .route(TRIP_SERVICE_ROUTE_ID, route -> route.path(TRIP_SERVICE_PATH).uri(TRIP_SERVICE_URI))
+        .route(
+            SOCIAL_SERVICE_ROUTE_ID,
+            route -> {
+              var r = route.path(SOCIAL_SERVICE_PATH);
+              if (socialRateLimitingEnabled) {
+                r.filters(
+                    filters ->
+                        filters.requestRateLimiter(
+                            config -> {
+                              config.setRateLimiter(socialRedisRateLimiter);
+                              config.setKeyResolver(clientIpKeyResolver);
+                              config.setDenyEmptyKey(true);
+                            }));
+              }
+              return r.uri(SOCIAL_SERVICE_URI);
+            })
+        .route(
+            CONTEXT_SERVICE_ROUTE_ID,
+            route -> route.path(CONTEXT_SERVICE_PATH).uri(CONTEXT_SERVICE_URI))
+        .build();
+  }
 
-    @Bean
-    @Primary
-    RedisRateLimiter placeRedisRateLimiter(
-            @Value("${tripsense.gateway.places-rate-limit.replenish-rate:10}") int replenishRate,
-            @Value("${tripsense.gateway.places-rate-limit.burst-capacity:20}") int burstCapacity
-    ) {
-        return new RedisRateLimiter(replenishRate, burstCapacity);
-    }
+  @Bean
+  @Primary
+  RedisRateLimiter placeRedisRateLimiter(
+      @Value("${tripsense.gateway.places-rate-limit.replenish-rate:10}") int replenishRate,
+      @Value("${tripsense.gateway.places-rate-limit.burst-capacity:20}") int burstCapacity) {
+    return new RedisRateLimiter(replenishRate, burstCapacity);
+  }
 
-    @Bean
-    RedisRateLimiter socialRedisRateLimiter(
-            @Value("${tripsense.gateway.social-rate-limit.replenish-rate:30}") int replenishRate,
-            @Value("${tripsense.gateway.social-rate-limit.burst-capacity:60}") int burstCapacity
-    ) {
-        return new RedisRateLimiter(replenishRate, burstCapacity);
-    }
+  @Bean
+  RedisRateLimiter socialRedisRateLimiter(
+      @Value("${tripsense.gateway.social-rate-limit.replenish-rate:30}") int replenishRate,
+      @Value("${tripsense.gateway.social-rate-limit.burst-capacity:60}") int burstCapacity) {
+    return new RedisRateLimiter(replenishRate, burstCapacity);
+  }
 
-    @Bean
-    TrustedProxyClientIpResolver trustedProxyClientIpResolver(
-            @Value("${tripsense.gateway.client-ip.trusted-proxies:127.0.0.1/32,::1/128}")
-            List<String> trustedProxyCidrs
-    ) {
-        return new TrustedProxyClientIpResolver(trustedProxyCidrs);
-    }
+  @Bean
+  TrustedProxyClientIpResolver trustedProxyClientIpResolver(
+      @Value("${tripsense.gateway.client-ip.trusted-proxies:127.0.0.1/32,::1/128}")
+          List<String> trustedProxyCidrs) {
+    return new TrustedProxyClientIpResolver(trustedProxyCidrs);
+  }
 
-    @Bean
-    KeyResolver clientIpKeyResolver(TrustedProxyClientIpResolver clientIpResolver) {
-        return exchange -> reactor.core.publisher.Mono.just(clientIpResolver.resolve(exchange));
-    }
+  @Bean
+  KeyResolver clientIpKeyResolver(TrustedProxyClientIpResolver clientIpResolver) {
+    return exchange -> reactor.core.publisher.Mono.just(clientIpResolver.resolve(exchange));
+  }
 }

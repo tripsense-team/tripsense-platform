@@ -4,6 +4,4 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 public record SendVerificationEmailRequest(
-        @NotBlank @Email String toEmail,
-        @NotBlank String code
-) {}
+    @NotBlank @Email String toEmail, @NotBlank String code) {}

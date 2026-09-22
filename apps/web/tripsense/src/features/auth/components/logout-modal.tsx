@@ -3,7 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Laptop, Globe, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "../context/auth-context";
 
@@ -15,7 +21,9 @@ interface LogoutModalProps {
 export function LogoutModal({ open, onOpenChange }: LogoutModalProps) {
   const router = useRouter();
   const { logout, logoutAll } = useAuth();
-  const [loadingType, setLoadingType] = React.useState<"current" | "all" | null>(null);
+  const [loadingType, setLoadingType] = React.useState<
+    "current" | "all" | null
+  >(null);
 
   const handleLogoutCurrentDevice = async () => {
     if (loadingType !== null) return;
@@ -59,9 +67,12 @@ export function LogoutModal({ open, onOpenChange }: LogoutModalProps) {
           <div className="p-3 rounded-2xl bg-destructive/10 text-destructive">
             <LogOut className="h-7 w-7" />
           </div>
-          <DialogTitle className="text-xl font-extrabold tracking-tight">Log Out</DialogTitle>
+          <DialogTitle className="text-xl font-extrabold tracking-tight">
+            Log Out
+          </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Choose whether to log out of your current browser session or revoke access across all devices.
+            Choose whether to log out of your current browser session or revoke
+            access across all devices.
           </DialogDescription>
         </DialogHeader>
 
@@ -78,11 +89,17 @@ export function LogoutModal({ open, onOpenChange }: LogoutModalProps) {
                 <Laptop className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-bold text-foreground">Log out of this device</p>
-                <p className="text-xs text-muted-foreground">Đăng xuất khỏi thiết bị này</p>
+                <p className="text-sm font-bold text-foreground">
+                  Log out of this device
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Đăng xuất khỏi thiết bị này
+                </p>
               </div>
             </div>
-            {loadingType === "current" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+            {loadingType === "current" && (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            )}
           </button>
 
           {/* Option B: All Devices */}
@@ -97,11 +114,17 @@ export function LogoutModal({ open, onOpenChange }: LogoutModalProps) {
                 <Globe className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-bold text-destructive">Log out of all devices</p>
-                <p className="text-xs text-destructive/80">Đăng xuất khỏi tất cả thiết bị</p>
+                <p className="text-sm font-bold text-destructive">
+                  Log out of all devices
+                </p>
+                <p className="text-xs text-destructive/80">
+                  Đăng xuất khỏi tất cả thiết bị
+                </p>
               </div>
             </div>
-            {loadingType === "all" && <Loader2 className="h-4 w-4 animate-spin text-destructive" />}
+            {loadingType === "all" && (
+              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+            )}
           </button>
         </div>
 

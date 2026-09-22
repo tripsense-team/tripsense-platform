@@ -6,20 +6,20 @@
 
 ## Resolved Findings
 
-| Severity | Finding | Resolution |
-| --- | --- | --- |
-| BLOCKER | Concrete ZioMap key in versioned Compose config | Removed; service loads environment/secret configuration. Rotate any historical credential. |
-| BLOCKER | Provider data interpolated into popup HTML | Popup is constructed with DOM nodes and `textContent`; URL schemes and telephone values are validated. |
-| HIGH | Browser bypassed Gateway for place-service/MapVina calls | Removed direct provider calls and service-specific rewrite; all place calls use `/api/places/**` through Gateway. |
-| HIGH | Fake ratings, counts, status, and fallback places | Removed; optional facts stay absent when unavailable. |
-| HIGH | Frontend called a nonexistent Google-review endpoint | Removed; detail refresh uses the supported place details contract. |
-| MEDIUM | Provider failures looked like successful empty results | Local/cache fallback remains; no-fallback provider failure maps to `503`. |
-| MEDIUM | Search service mixed search, persistence mapping, and details | Split into search, details, persistence, ranking, cache, and provider adapter responsibilities. |
-| MEDIUM | Application services depended on concrete ZioMap behavior | Added `PlaceProvider`/`PlaceEnrichmentProvider`; HTTP client construction is injected/configured separately. |
-| MEDIUM | Place service layer did not follow the repository's interface/implementation convention | Added focused service contracts under `service`, moved Spring beans to `service/impl` as `*ServiceImpl`, and changed controller/service dependencies to interfaces. |
-| MEDIUM | Frontend had no regression tests for routing/XSS fixes | Added five Vitest tests covering Gateway-relative calls, errors, popup text safety, and URL rejection. |
-| MEDIUM | Place route had no implemented abuse throttle | Added a Redis-backed Gateway rate limiter for `/api/places/**`. The key resolver trusts forwarded addresses only from `TRUSTED_PROXY_CIDRS` and ignores spoofed headers from direct clients. |
-| LOW | Broad remote image allowlist | Restricted to explicit HTTPS hosts. |
+| Severity | Finding                                                                                 | Resolution                                                                                                                                                                                   |
+| -------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BLOCKER  | Concrete ZioMap key in versioned Compose config                                         | Removed; service loads environment/secret configuration. Rotate any historical credential.                                                                                                   |
+| BLOCKER  | Provider data interpolated into popup HTML                                              | Popup is constructed with DOM nodes and `textContent`; URL schemes and telephone values are validated.                                                                                       |
+| HIGH     | Browser bypassed Gateway for place-service/MapVina calls                                | Removed direct provider calls and service-specific rewrite; all place calls use `/api/places/**` through Gateway.                                                                            |
+| HIGH     | Fake ratings, counts, status, and fallback places                                       | Removed; optional facts stay absent when unavailable.                                                                                                                                        |
+| HIGH     | Frontend called a nonexistent Google-review endpoint                                    | Removed; detail refresh uses the supported place details contract.                                                                                                                           |
+| MEDIUM   | Provider failures looked like successful empty results                                  | Local/cache fallback remains; no-fallback provider failure maps to `503`.                                                                                                                    |
+| MEDIUM   | Search service mixed search, persistence mapping, and details                           | Split into search, details, persistence, ranking, cache, and provider adapter responsibilities.                                                                                              |
+| MEDIUM   | Application services depended on concrete ZioMap behavior                               | Added `PlaceProvider`/`PlaceEnrichmentProvider`; HTTP client construction is injected/configured separately.                                                                                 |
+| MEDIUM   | Place service layer did not follow the repository's interface/implementation convention | Added focused service contracts under `service`, moved Spring beans to `service/impl` as `*ServiceImpl`, and changed controller/service dependencies to interfaces.                          |
+| MEDIUM   | Frontend had no regression tests for routing/XSS fixes                                  | Added five Vitest tests covering Gateway-relative calls, errors, popup text safety, and URL rejection.                                                                                       |
+| MEDIUM   | Place route had no implemented abuse throttle                                           | Added a Redis-backed Gateway rate limiter for `/api/places/**`. The key resolver trusts forwarded addresses only from `TRUSTED_PROXY_CIDRS` and ignores spoofed headers from direct clients. |
+| LOW      | Broad remote image allowlist                                                            | Restricted to explicit HTTPS hosts.                                                                                                                                                          |
 
 ## MVC and SOLID Assessment
 

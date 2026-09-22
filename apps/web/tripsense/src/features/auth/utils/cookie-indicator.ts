@@ -5,7 +5,9 @@ const LOGGED_IN_COOKIE = "logged_in";
  */
 export function hasLoggedInCookie(): boolean {
   if (typeof document === "undefined") return false;
-  return document.cookie.split(";").some((item) => item.trim().startsWith(`${LOGGED_IN_COOKIE}=true`));
+  return document.cookie
+    .split(";")
+    .some((item) => item.trim().startsWith(`${LOGGED_IN_COOKIE}=true`));
 }
 
 /**

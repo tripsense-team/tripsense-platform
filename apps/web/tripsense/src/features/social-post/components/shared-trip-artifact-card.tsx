@@ -14,8 +14,8 @@ interface SharedTripArtifactCardProps {
 }
 
 function formatDateRange(startDate?: string, endDate?: string) {
-  if (!startDate && !endDate) return "Dates not set";
-  if (!startDate) return endDate ?? "Dates not set";
+  if (!startDate && !endDate) return "Ngày đi được ẩn";
+  if (!startDate) return endDate ?? "Ngày đi được ẩn";
   if (!endDate || startDate === endDate) return startDate;
 
   const start = new Date(startDate);
@@ -29,7 +29,7 @@ function formatDateRange(startDate?: string, endDate?: string) {
 }
 
 function titleCase(value?: string | null) {
-  if (!value) return "Destination not set";
+  if (!value) return "Chưa có điểm đến";
 
   return value
     .split(/[\s,]+/)
@@ -38,7 +38,15 @@ function titleCase(value?: string | null) {
     .join(" ");
 }
 
-function StatPill({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+function StatPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-xl bg-muted p-3">
       <p className="flex items-center gap-2 text-xs font-black text-muted-foreground">
@@ -50,7 +58,11 @@ function StatPill({ icon: Icon, label, value }: { icon: React.ComponentType<{ cl
   );
 }
 
-export function SharedTripArtifactCard({ trip, compact = false, href }: SharedTripArtifactCardProps) {
+export function SharedTripArtifactCard({
+  trip,
+  compact = false,
+  href,
+}: SharedTripArtifactCardProps) {
   const highlights = trip.highlights?.slice(0, compact ? 3 : 6) ?? [];
 
   return (
@@ -66,50 +78,77 @@ export function SharedTripArtifactCard({ trip, compact = false, href }: SharedTr
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-muted-foreground">
-            No cover image
+            Chưa có ảnh bìa
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-primary/30 to-transparent" />
         <div className="absolute left-5 top-5 flex flex-wrap gap-2">
-          <Badge className="rounded-full bg-background text-foreground hover:bg-background">Trip Plan</Badge>
-          <Badge className="rounded-full bg-background text-foreground hover:bg-background">API Snapshot</Badge>
+          <Badge className="rounded-full bg-background text-foreground hover:bg-background">
+            Hành trình
+          </Badge>
+          <Badge className="rounded-full bg-background text-foreground hover:bg-background">
+            Bản sao an toàn
+          </Badge>
         </div>
         <div className="absolute bottom-6 left-6 max-w-[calc(100%-3rem)] text-primary-foreground">
           <p className="flex items-center gap-2 text-xs font-black uppercase tracking-normal">
             <MapPin className="h-3.5 w-3.5" />
             {titleCase(trip.destinationName)}
           </p>
-          <h3 className="mt-2 text-2xl font-black tracking-normal sm:text-3xl">{trip.name}</h3>
+          <h3 className="mt-2 text-2xl font-black tracking-normal sm:text-3xl">
+            {trip.name}
+          </h3>
         </div>
       </div>
 
       <div className="grid gap-3 p-5 md:grid-cols-3">
-        <StatPill icon={CalendarDays} label="Dates & Duration" value={`${formatDateRange(trip.startDate, trip.endDate)} (${trip.dayCount ?? 0} days)`} />
-        <StatPill icon={MapPin} label="Destination" value={titleCase(trip.destinationName)} />
-        <StatPill icon={Route} label="Curated Stops" value={`${trip.itineraryItemCount ?? 0} places & activities`} />
+        <StatPill
+          icon={CalendarDays}
+          label="Thời gian"
+          value={`${formatDateRange(trip.startDate, trip.endDate)} · ${trip.dayCount ?? 0} ngày`}
+        />
+        <StatPill
+          icon={MapPin}
+          label="Điểm đến"
+          value={titleCase(trip.destinationName)}
+        />
+        <StatPill
+          icon={Route}
+          label="Điểm nổi bật"
+          value={`${trip.itineraryItemCount ?? 0} địa điểm & hoạt động`}
+        />
       </div>
 
       <div className="px-5 pb-5">
-        <p className="text-xs font-black uppercase text-muted-foreground">Featured Highlights</p>
+        <p className="text-xs font-black uppercase text-muted-foreground">
+          Điểm nhấn hành trình
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {highlights.length > 0 ? (
             highlights.map((item) => (
-              <Badge key={`${item.dayNumber}-${item.title}`} variant="secondary" className="rounded-full">
+              <Badge
+                key={`${item.dayNumber}-${item.title}`}
+                variant="secondary"
+                className="rounded-full"
+              >
                 {item.placeName || item.title}
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-muted-foreground">No itinerary highlights yet.</span>
+            <span className="text-sm text-muted-foreground">
+              Chưa có điểm nhấn được chia sẻ.
+            </span>
           )}
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            Basic trip info is rendered from the shared TripSense snapshot.
+            Nội dung được hiển thị từ bản sao công khai, không đọc trực tiếp
+            lịch trình riêng tư.
           </p>
           <Button asChild className="rounded-full">
-            <Link href={href ?? `/community/posts/${trip.tripId}`}>
-              View Trip
+            <Link href={href ?? "/community"}>
+              Xem hành trình
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

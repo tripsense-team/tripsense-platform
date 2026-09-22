@@ -73,18 +73,27 @@ export function CreateTripDialog({
   const canCreate = !validationMessage && !submitting;
   const normalizedDestination = normalizeSearchText(draft.destinationName);
   const matchingSuggestions = normalizedDestination
-    ? destinationSuggestions.filter((suggestion) => normalizeSearchText(suggestion.label).includes(normalizedDestination)).slice(0, 3)
+    ? destinationSuggestions
+        .filter((suggestion) =>
+          normalizeSearchText(suggestion.label).includes(normalizedDestination),
+        )
+        .slice(0, 3)
     : [];
 
   function updateDestination(destinationName: string) {
     onDraftChange((current) => ({
       ...current,
       destinationName,
-      name: shouldSyncGeneratedName(current.name) && destinationName.trim() ? `Trip to ${titleCaseDestination(destinationName.trim())}` : current.name,
+      name:
+        shouldSyncGeneratedName(current.name) && destinationName.trim()
+          ? `Trip to ${titleCaseDestination(destinationName.trim())}`
+          : current.name,
     }));
   }
 
-  function selectDestinationSuggestion(suggestion: (typeof destinationSuggestions)[number]) {
+  function selectDestinationSuggestion(
+    suggestion: (typeof destinationSuggestions)[number],
+  ) {
     onDraftChange((current) => ({
       ...current,
       destinationName: suggestion.name,
@@ -109,7 +118,10 @@ export function CreateTripDialog({
             <div className="absolute inset-0 bg-primary/20" />
           </div>
 
-          <form className="relative flex min-h-0 flex-col gap-7 overflow-y-auto px-7 py-8 sm:px-10" onSubmit={onSubmit}>
+          <form
+            className="relative flex min-h-0 flex-col gap-7 overflow-y-auto px-7 py-8 sm:px-10"
+            onSubmit={onSubmit}
+          >
             <Button
               type="button"
               variant="ghost"
@@ -122,7 +134,9 @@ export function CreateTripDialog({
             </Button>
 
             <div className="pt-10">
-              <h2 className="text-3xl font-black tracking-normal">Where to, {firstName}?</h2>
+              <h2 className="text-3xl font-black tracking-normal">
+                Where to, {firstName}?
+              </h2>
             </div>
 
             <div className="space-y-3">
@@ -130,7 +144,12 @@ export function CreateTripDialog({
               <div className="space-y-3">
                 <Input
                   value={draft.name}
-                  onChange={(event) => onDraftChange((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) =>
+                    onDraftChange((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
                   placeholder="Trip name"
                   className="h-12 rounded-full text-base"
                 />
@@ -142,13 +161,18 @@ export function CreateTripDialog({
                     onChange={(event) => updateDestination(event.target.value)}
                     placeholder="Where are you headed?"
                     aria-invalid={missingDestination}
-                    className={cn("h-12 rounded-full pl-12 text-base", missingDestination && "border-destructive")}
+                    className={cn(
+                      "h-12 rounded-full pl-12 text-base",
+                      missingDestination && "border-destructive",
+                    )}
                   />
                 </div>
                 {matchingSuggestions.length > 0 && (
                   <div className="rounded-2xl border border-border bg-card p-2 shadow-xs">
                     {matchingSuggestions.map((suggestion) => {
-                      const isSelected = normalizeSearchText(draft.destinationName) === normalizeSearchText(suggestion.name);
+                      const isSelected =
+                        normalizeSearchText(draft.destinationName) ===
+                        normalizeSearchText(suggestion.name);
 
                       return (
                         <button
@@ -156,9 +180,11 @@ export function CreateTripDialog({
                           type="button"
                           className={cn(
                             "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all duration-200 hover:bg-accent",
-                            isSelected && "bg-accent"
+                            isSelected && "bg-accent",
                           )}
-                          onClick={() => selectDestinationSuggestion(suggestion)}
+                          onClick={() =>
+                            selectDestinationSuggestion(suggestion)
+                          }
                         >
                           <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted">
                             <Image
@@ -169,7 +195,9 @@ export function CreateTripDialog({
                               className="object-cover"
                             />
                           </span>
-                          <span className="font-medium">{suggestion.label}</span>
+                          <span className="font-medium">
+                            {suggestion.label}
+                          </span>
                           {isSelected && <Check className="ml-auto h-4 w-4" />}
                         </button>
                       );
@@ -177,13 +205,21 @@ export function CreateTripDialog({
                   </div>
                 )}
               </div>
-              {missingDestination && <p className="text-sm font-medium text-destructive">Enter a destination to create the trip.</p>}
+              {missingDestination && (
+                <p className="text-sm font-medium text-destructive">
+                  Enter a destination to create the trip.
+                </p>
+              )}
             </div>
 
             <div className="space-y-3">
               <span className="text-base font-black">Timing</span>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Button type="button" variant="outline" className="h-11 rounded-full font-bold">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-full font-bold"
+                >
                   Flexible
                 </Button>
                 <div className="grid grid-cols-2 gap-2">
@@ -197,7 +233,10 @@ export function CreateTripDialog({
                       onDraftChange((current) => ({
                         ...current,
                         startDate: event.target.value,
-                        endDate: current.endDate < event.target.value ? event.target.value : current.endDate,
+                        endDate:
+                          current.endDate < event.target.value
+                            ? event.target.value
+                            : current.endDate,
                       }))
                     }
                     className="h-11 cursor-pointer rounded-full text-sm"
@@ -208,13 +247,26 @@ export function CreateTripDialog({
                     value={draft.endDate}
                     min={minEndDate}
                     onClick={(event) => event.currentTarget.showPicker()}
-                    onChange={(event) => onDraftChange((current) => ({ ...current, endDate: event.target.value }))}
+                    onChange={(event) =>
+                      onDraftChange((current) => ({
+                        ...current,
+                        endDate: event.target.value,
+                      }))
+                    }
                     className="h-11 cursor-pointer rounded-full text-sm"
                   />
                 </div>
               </div>
-              {startsInPast && <p className="text-sm font-medium text-destructive">Start date cannot be in the past.</p>}
-              {endIsBeforeStart && <p className="text-sm font-medium text-destructive">End date must be on or after start date.</p>}
+              {startsInPast && (
+                <p className="text-sm font-medium text-destructive">
+                  Start date cannot be in the past.
+                </p>
+              )}
+              {endIsBeforeStart && (
+                <p className="text-sm font-medium text-destructive">
+                  End date must be on or after start date.
+                </p>
+              )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -228,7 +280,9 @@ export function CreateTripDialog({
                   onChange={(event) =>
                     onDraftChange((current) => ({
                       ...current,
-                      travelerCount: event.target.value ? Number(event.target.value) : null,
+                      travelerCount: event.target.value
+                        ? Number(event.target.value)
+                        : null,
                     }))
                   }
                   className="h-12 rounded-full text-base"
@@ -243,7 +297,9 @@ export function CreateTripDialog({
                   onChange={(event) =>
                     onDraftChange((current) => ({
                       ...current,
-                      budgetAmount: event.target.value ? Number(event.target.value) : null,
+                      budgetAmount: event.target.value
+                        ? Number(event.target.value)
+                        : null,
                     }))
                   }
                   placeholder={draft.budgetCurrency || "VND"}
@@ -257,20 +313,35 @@ export function CreateTripDialog({
               <div className="relative">
                 <Textarea
                   value={draft.notes || ""}
-                  onChange={(event) => onDraftChange((current) => ({ ...current, notes: event.target.value }))}
+                  onChange={(event) =>
+                    onDraftChange((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
                   placeholder="Tell us what you know so far - travel companions, budget, must-dos, preferences"
                   className="min-h-32 resize-none rounded-2xl pr-12 text-base"
                   maxLength={2000}
                 />
                 <Mic className="pointer-events-none absolute bottom-4 right-4 h-5 w-5 text-muted-foreground" />
               </div>
-              <div className="text-right text-sm text-muted-foreground">{(draft.notes || "").length}/2000 characters</div>
+              <div className="text-right text-sm text-muted-foreground">
+                {(draft.notes || "").length}/2000 characters
+              </div>
             </label>
 
             <div className="mt-auto flex flex-wrap items-center gap-3">
               <TripPill icon={Calendar} label="3-5 Days" />
-              <TripPill icon={Users} label={`${draft.travelerCount || 1} Travelers`} />
-              {draft.budgetAmount ? <TripPill icon={Check} label={`${draft.budgetAmount.toLocaleString("vi-VN")} ${draft.budgetCurrency || "VND"}`} /> : null}
+              <TripPill
+                icon={Users}
+                label={`${draft.travelerCount || 1} Travelers`}
+              />
+              {draft.budgetAmount ? (
+                <TripPill
+                  icon={Check}
+                  label={`${draft.budgetAmount.toLocaleString("vi-VN")} ${draft.budgetCurrency || "VND"}`}
+                />
+              ) : null}
             </div>
 
             {error && (
@@ -278,9 +349,22 @@ export function CreateTripDialog({
                 {error}
               </div>
             )}
-            {validationMessage && <p className="text-center text-sm font-medium text-destructive">{validationMessage}</p>}
-            <Button type="submit" disabled={!canCreate} title={validationMessage || undefined} className="h-12 rounded-full text-base font-bold">
-              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+            {validationMessage && (
+              <p className="text-center text-sm font-medium text-destructive">
+                {validationMessage}
+              </p>
+            )}
+            <Button
+              type="submit"
+              disabled={!canCreate}
+              title={validationMessage || undefined}
+              className="h-12 rounded-full text-base font-bold"
+            >
+              {submitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Check className="h-5 w-5" />
+              )}
               Create
             </Button>
           </form>

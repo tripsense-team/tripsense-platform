@@ -43,4 +43,3 @@ Use asynchronous events when:
 
 - [TripSense Architecture](tripsense-architecture.md)
 - [Multi-Agent Feature Workflow](../workflows/multi-agent-feature-workflow.md)
-

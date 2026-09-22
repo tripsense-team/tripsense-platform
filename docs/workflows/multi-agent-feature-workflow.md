@@ -105,7 +105,7 @@ Each feature must create:
 - `docs/features/<feature-name>/implementation-plan.md`
 - `docs/features/<feature-name>/test-plan.md`
 
-Use [docs/features/_template/](../features/_template/index.md) as the starting structure. Do not create filler content.
+Use [docs/features/\_template/](../features/_template/index.md) as the starting structure. Do not create filler content.
 
 ## Human Approval Gate
 

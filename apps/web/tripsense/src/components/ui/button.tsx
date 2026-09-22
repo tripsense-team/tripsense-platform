@@ -32,7 +32,7 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
+  },
 );
 
 export interface ButtonProps
@@ -56,7 +56,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const Comp = asChild ? Slot : "button";
     const isDisabled = disabled || loading;
@@ -83,12 +83,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading && (
-          <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden="true" />
+          <Loader2
+            className="h-4 w-4 animate-spin shrink-0"
+            aria-hidden="true"
+          />
         )}
         {loading && loadingText ? loadingText : children}
       </Comp>
     );
-  }
+  },
 );
 Button.displayName = "Button";
 

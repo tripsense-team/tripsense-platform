@@ -1,5 +1,6 @@
 package fu.tripsense.userservice.service;
 
+import fu.tripsense.userservice.dto.request.GoogleLoginRequest;
 import fu.tripsense.userservice.dto.request.LoginRequest;
 import fu.tripsense.userservice.dto.request.RegisterRequest;
 import fu.tripsense.userservice.dto.response.LoginResult;
@@ -10,13 +11,15 @@ import org.springframework.http.ResponseCookie;
 
 public interface AuthService {
 
-    LoginResult login(LoginRequest request);
+  LoginResult login(LoginRequest request);
 
-    UserDto register(RegisterRequest request);
+  LoginResult loginWithGoogle(GoogleLoginRequest request);
 
-    RefreshResult refreshToken(String refreshToken);
+  UserDto register(RegisterRequest request);
 
-    ResponseCookie logout(String rawRefreshToken);
+  RefreshResult refreshToken(String refreshToken);
 
-    ResponseCookie logoutAll(String rawRefreshToken, User currentUser);
+  ResponseCookie logout(String rawRefreshToken);
+
+  ResponseCookie logoutAll(String rawRefreshToken, User currentUser);
 }

@@ -2,271 +2,563 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { ImagePlus, Compass, Loader2, X, Send, Plus, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Compass,
+  ImagePlus,
+  Loader2,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/features/auth";
 import { useUserProfile } from "@/features/profile";
-import { useCreatePost } from "../hooks";
-import type { SocialPost, SocialPostMedia, SharedTripSummary } from "../types";
-import { socialPostRepository } from "../services";
-import { listTrips } from "@/features/trip-management/services/trip-management-api";
+import { useTripStore } from "@/features/trip-management";
 import type { TripResponse } from "@/features/trip-management/types";
-import { formatContentWithTrip } from "../utils/parse-trip-metadata";
-import { SharedTripCard } from "./shared-trip-card";
+import { cn } from "@/lib/utils";
+import { useCreatePost } from "../hooks";
+import { socialPostRepository } from "../services";
+import type {
+  SocialPost,
+  SocialPostMedia,
+  TripSharePreviewResponse,
+} from "../types";
 
 interface PostComposerProps {
-  onPostCreated?: (newPost: SocialPost) => void;
+  onPostCreated?: (post: SocialPost) => void;
   className?: string;
 }
+type ComposerMode = "update" | "trip";
+type ShareVisibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
 
 export function PostComposer({ onPostCreated, className }: PostComposerProps) {
-  const { user } = useAuth();
-  const { create, submitting, error, feedback, dismissFeedback, clearError, beginNewDraft } = useCreatePost();
-
-  const { data: userProfile } = useUserProfile(user?.id || "");
-  const authorAvatar = userProfile?.avatarUrl || user?.avatar;
-  const displayName = userProfile?.email ? (userProfile.email.split("@")[0] || user?.name) : user?.name;
-
+  const { user, isAuthenticated } = useAuth();
+  const { data: profile } = useUserProfile(user?.id || "");
+  const {
+    create,
+    submitting,
+    error,
+    feedback,
+    dismissFeedback,
+    clearError,
+    beginNewDraft,
+  } = useCreatePost();
+  const trips = useTripStore((state) => state.trips);
+  const loadingTrips = useTripStore((state) => state.loading);
+  const tripListError = useTripStore((state) => state.error);
+  const fetchTrips = useTripStore((state) => state.fetchTrips);
+  const [mode, setMode] = React.useState<ComposerMode>("update");
   const [content, setContent] = React.useState("");
-  const [mediaFiles, setMediaFiles] = React.useState<Array<{ file: File; previewUrl: string }>>([]);
-  const [selectedTrip, setSelectedTrip] = React.useState<SharedTripSummary | null>(null);
-  const [userTrips, setUserTrips] = React.useState<SharedTripSummary[]>([]);
-  const [loadingTrips, setLoadingTrips] = React.useState(false);
-  const [processingSubmit, setProcessingSubmit] = React.useState(false);
-  const submitLockRef = React.useRef(false);
-  const mediaFilesRef = React.useRef<Array<{ file: File; previewUrl: string }>>([]);
+  const [mediaFiles, setMediaFiles] = React.useState<
+    Array<{ file: File; previewUrl: string }>
+  >([]);
+  const [selectedTripId, setSelectedTripId] = React.useState("");
+  const [visibility, setVisibility] = React.useState<ShareVisibility>("PUBLIC");
+  const [previewError, setPreviewError] = React.useState<string | null>(null);
+  const [sharingTrip, setSharingTrip] = React.useState(false);
+  const [preview, setPreview] = React.useState<TripSharePreviewResponse | null>(
+    null,
+  );
+  const [previewing, setPreviewing] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(
+    null,
+  );
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const mediaFilesRef = React.useRef(mediaFiles);
+  const displayName = profile?.email?.split("@")[0] || user?.name || "Bạn";
+  const avatar = profile?.avatarUrl || user?.avatar;
+  const initials = displayName
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
-  // Fetch real trips from My Trips
-  const fetchUserTrips = React.useCallback(async () => {
-    setLoadingTrips(true);
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("composer") !== "trip")
+      return;
+    const timeout = window.setTimeout(() => setMode("trip"), 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+  React.useEffect(() => {
+    mediaFilesRef.current = mediaFiles;
+  }, [mediaFiles]);
+  React.useEffect(
+    () => () =>
+      mediaFilesRef.current.forEach(({ previewUrl }) =>
+        URL.revokeObjectURL(previewUrl),
+      ),
+    [],
+  );
+
+  const loadTrips = React.useCallback(
+    async (force = false) => {
+      try {
+        const availableTrips = await fetchTrips(force);
+        const requestedTripId =
+          typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("tripId")
+            : null;
+        setSelectedTripId((current) => {
+          if (current && availableTrips.some((trip) => trip.id === current))
+            return current;
+          if (
+            requestedTripId &&
+            availableTrips.some((trip) => trip.id === requestedTripId)
+          )
+            return requestedTripId;
+          return availableTrips[0]?.id || "";
+        });
+      } catch {
+        // Error handled in store
+      }
+    },
+    [fetchTrips],
+  );
+
+  React.useEffect(() => {
+    if (mode === "trip" && isAuthenticated) {
+      void loadTrips(false);
+    }
+  }, [mode, isAuthenticated, loadTrips]);
+
+  React.useEffect(() => {
+    if (trips.length > 0 && !selectedTripId) {
+      const requestedTripId =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("tripId")
+          : null;
+      if (requestedTripId && trips.some((t) => t.id === requestedTripId)) {
+        setSelectedTripId(requestedTripId);
+      } else {
+        setSelectedTripId(trips[0]?.id || "");
+      }
+    }
+  }, [trips, selectedTripId]);
+
+  const loadPreview = React.useCallback(async (tripId: string) => {
+    if (!tripId) return;
+    setPreviewing(true);
+    setPreviewError(null);
+    setPreview(null);
     try {
-      const response = await listTrips({ size: 20 });
-      const rawTrips: TripResponse[] = response.content || [];
-      const mapped: SharedTripSummary[] = rawTrips.map((t) => ({
-        id: t.id,
-        name: t.name,
-        destinationName: t.destinationName,
-        startDate: t.startDate,
-        endDate: t.endDate,
-        coverImageUrl: t.coverImageUrl || undefined,
-        budgetAmount: t.budgetAmount || undefined,
-        budgetCurrency: t.budgetCurrency || undefined,
-      }));
-      setUserTrips(mapped);
-    } catch {
-      // Fallback empty if not logged in or network error
-      setUserTrips([]);
+      setPreview(await socialPostRepository.previewTripShare(tripId));
+    } catch (cause) {
+      setPreviewError(
+        cause instanceof Error
+          ? cause.message
+          : "Không thể tạo bản xem trước công khai.",
+      );
     } finally {
-      setLoadingTrips(false);
+      setPreviewing(false);
     }
   }, []);
 
-  const authorInitials = React.useMemo(() => {
-    if (!displayName) return user?.email?.slice(0, 2).toUpperCase() || "U";
-    const parts = displayName.trim().split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-    }
-    return displayName.slice(0, 2).toUpperCase();
-  }, [user, displayName]);
+  React.useEffect(() => {
+    if (mode !== "trip" || !selectedTripId) return;
+    const timeout = window.setTimeout(
+      () => void loadPreview(selectedTripId),
+      0,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [loadPreview, mode, selectedTripId]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    beginNewDraft();
-    Array.from(files).filter((file) => file.type.startsWith("image/")).slice(0, Math.max(0, 10 - mediaFiles.length)).forEach((file) => {
-      setMediaFiles((prev) => [...prev, { file, previewUrl: URL.createObjectURL(file) }]);
-    });
-
-    e.target.value = "";
-  };
-
-  const handleRemoveMedia = (index: number) => {
-    beginNewDraft();
-    setMediaFiles((prev) => {
-      const target = prev[index];
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter((_, idx) => idx !== index);
-    });
-  };
-
-  React.useEffect(() => { mediaFilesRef.current = mediaFiles; }, [mediaFiles]);
-  React.useEffect(() => () => mediaFilesRef.current.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl)), []);
-
-  const uploadMedia = async (): Promise<SocialPostMedia[]> => {
-    if (mediaFiles.length === 0) return [];
-    if (process.env.NEXT_PUBLIC_USE_SOCIAL_POST_MOCK === "true") {
-      return mediaFiles.map(({ file, previewUrl }, sortOrder) => ({ publicId: `mock/${file.name}`, secureUrl: previewUrl, resourceType: "image", format: file.type.split("/")[1] || "jpg", width: 1, height: 1, sortOrder }));
-    }
-    const signature = await socialPostRepository.getUploadSignature();
-    return Promise.all(mediaFiles.map(async ({ file }, sortOrder) => {
-      const body = new FormData();
-      body.set("file", file);
-      body.set("api_key", signature.apiKey);
-      body.set("timestamp", String(signature.timestamp));
-      body.set("signature", signature.signature);
-      body.set("folder", signature.folder);
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, { method: "POST", body });
-      if (!response.ok) throw new Error("Upload ảnh thất bại.");
-      const data = await response.json();
-      return { publicId: data.public_id, secureUrl: data.secure_url, resourceType: "image" as const, format: data.format, width: data.width, height: data.height, sortOrder };
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!content.trim() && mediaFiles.length === 0 && !selectedTrip) return;
-    if (submitLockRef.current) return;
-
-    submitLockRef.current = true;
-    setProcessingSubmit(true);
+  function changeMode(nextMode: ComposerMode) {
+    setMode(nextMode);
+    setPreviewError(null);
     clearError();
-    try {
-      const payloadContent = formatContentWithTrip(content, selectedTrip);
-      const createdPost = await create({ content: payloadContent, media: await uploadMedia() });
-      
-      // Enrich with attached trip if selected (TF-65)
-      const postWithTrip: SocialPost = {
-        ...createdPost,
-        tripId: selectedTrip?.id,
-        tripSummary: selectedTrip || undefined,
-      };
+  }
 
-      // Reset form
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || [])
+      .filter((file) => file.type.startsWith("image/"))
+      .slice(0, Math.max(0, 10 - mediaFiles.length));
+    beginNewDraft();
+    setMediaFiles((current) => [
+      ...current,
+      ...files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })),
+    ]);
+    event.target.value = "";
+  }
+
+  function removeMedia(index: number) {
+    setMediaFiles((current) => {
+      const target = current[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((_, itemIndex) => itemIndex !== index);
+    });
+  }
+
+  async function uploadMedia(): Promise<SocialPostMedia[]> {
+    if (!mediaFiles.length) return [];
+    if (process.env.NEXT_PUBLIC_USE_SOCIAL_POST_MOCK === "true")
+      return mediaFiles.map(({ file, previewUrl }, sortOrder) => ({
+        publicId: `mock/${file.name}`,
+        secureUrl: previewUrl,
+        resourceType: "image",
+        format: file.type.split("/")[1] || "jpg",
+        width: 1,
+        height: 1,
+        sortOrder,
+      }));
+    const signature = await socialPostRepository.getUploadSignature();
+    return Promise.all(
+      mediaFiles.map(async ({ file }, sortOrder) => {
+        const body = new FormData();
+        body.set("file", file);
+        body.set("api_key", signature.apiKey);
+        body.set("timestamp", String(signature.timestamp));
+        body.set("signature", signature.signature);
+        body.set("folder", signature.folder);
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`,
+          { method: "POST", body },
+        );
+        if (!response.ok) throw new Error("Upload ảnh thất bại.");
+        const data = await response.json();
+        return {
+          publicId: data.public_id,
+          secureUrl: data.secure_url,
+          resourceType: "image" as const,
+          format: data.format,
+          width: data.width,
+          height: data.height,
+          sortOrder,
+        };
+      }),
+    );
+  }
+
+  const isSubmittingRef = React.useRef(false);
+  const [isPosting, setIsPosting] = React.useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = React.useState(false);
+
+  async function submitUpdate(event: React.FormEvent) {
+    event.preventDefault();
+    if (isSubmittingRef.current || pending || isPosting || isUploadingMedia)
+      return;
+    if (!content.trim() && !mediaFiles.length) return;
+
+    isSubmittingRef.current = true;
+    setIsPosting(true);
+    clearError();
+
+    try {
+      let mediaPayload: SocialPostMedia[] = [];
+      if (mediaFiles.length > 0) {
+        setIsUploadingMedia(true);
+        mediaPayload = await uploadMedia();
+        setIsUploadingMedia(false);
+      }
+      const post = await create({
+        content: content.trim(),
+        media: mediaPayload,
+      });
       setContent("");
-      setSelectedTrip(null);
       mediaFiles.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
       setMediaFiles([]);
-      onPostCreated?.(postWithTrip);
+      onPostCreated?.(post);
     } catch {
-      // Error handled by useCreatePost hook
+      /* Hook displays the API error. */
     } finally {
-      submitLockRef.current = false;
-      setProcessingSubmit(false);
+      isSubmittingRef.current = false;
+      setIsPosting(false);
+      setIsUploadingMedia(false);
     }
-  };
+  }
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    beginNewDraft();
-    setContent(e.target.value);
-    if (error) clearError();
+  async function submitTrip(event: React.FormEvent) {
+    event.preventDefault();
+    if (isSubmittingRef.current || sharingTrip || pending || isPosting) return;
+    if (!selectedTripId || !preview) return;
 
-    const target = e.target;
-    target.style.height = "auto";
-    target.style.height = `${Math.max(72, target.scrollHeight)}px`;
-  };
+    isSubmittingRef.current = true;
+    setSharingTrip(true);
+    setPreviewError(null);
 
-  const isSubmitPending = processingSubmit || submitting;
-  const isSubmitDisabled = isSubmitPending || (!content.trim() && mediaFiles.length === 0 && !selectedTrip);
+    try {
+      const post = await socialPostRepository.createTripShare(
+        {
+          tripId: selectedTripId,
+          caption: content.trim() || undefined,
+          visibility,
+          expectedSnapshotFingerprint: preview.snapshotFingerprint,
+          consentVersion: preview.consentVersion,
+        },
+        crypto.randomUUID(),
+      );
+      setContent("");
+      setSuccessMessage("Hành trình đã được chia sẻ bằng bản sao an toàn.");
+      onPostCreated?.(post);
+    } catch (cause) {
+      setPreviewError(
+        cause instanceof Error
+          ? cause.message
+          : "Không thể chia sẻ hành trình.",
+      );
+    } finally {
+      isSubmittingRef.current = false;
+      setSharingTrip(false);
+    }
+  }
 
+  const pending =
+    mode === "update"
+      ? submitting || isPosting || isUploadingMedia
+      : sharingTrip;
   return (
-    <div className={`rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-xs ${className || ""}`}>
-      <form onSubmit={handleSubmit}>
-        {/* Floating Top-Right Toast Notification */}
-        {feedback && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed top-6 right-6 z-[100] flex max-w-sm sm:max-w-md items-center gap-3 rounded-2xl border border-border/80 bg-background/95 p-3.5 pr-4 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-3 sm:slide-in-from-right-4 duration-300"
+    <section
+      className={cn(
+        "overflow-hidden rounded-3xl border border-border bg-card shadow-sm",
+        className,
+      )}
+      aria-label="Tạo bài viết"
+    >
+      {(feedback || successMessage) && (
+        <div
+          role="status"
+          className="flex items-center gap-2 border-b border-emerald-500/20 bg-emerald-500/10 px-5 py-3 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          <CheckCircle2 className="h-4 w-4" />
+          <span className="flex-1">{successMessage || feedback?.message}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setSuccessMessage(null);
+              dismissFeedback();
+            }}
+            aria-label="Đóng"
           >
-            <div
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                feedback.variant === "success"
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                  : "bg-destructive/15 text-destructive"
-              }`}
-            >
-              {feedback.variant === "success" ? (
-                <CheckCircle2 className="h-5 w-5" />
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      <div className="grid grid-cols-2 border-b border-border bg-muted/30 p-1.5">
+        <button
+          type="button"
+          onClick={() => changeMode("update")}
+          disabled={pending}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition",
+            mode === "update"
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Sparkles className="h-4 w-4" /> Bài cập nhật
+        </button>
+        <button
+          type="button"
+          onClick={() => changeMode("trip")}
+          disabled={pending}
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition",
+            mode === "trip"
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Compass className="h-4 w-4" /> Chia sẻ chuyến đi
+        </button>
+      </div>
+      <form
+        onSubmit={mode === "update" ? submitUpdate : submitTrip}
+        className="p-5"
+      >
+        <div className="flex gap-3">
+          <Avatar className="h-11 w-11 sm:h-[46px] sm:w-[46px] shrink-0">
+            <AvatarImage src={avatar} alt={displayName} />
+            <AvatarFallback>{initials || "TS"}</AvatarFallback>
+          </Avatar>
+          <Textarea
+            value={content}
+            onChange={(event) => {
+              beginNewDraft();
+              setContent(event.target.value);
+            }}
+            maxLength={5000}
+            disabled={pending}
+            placeholder={
+              mode === "update"
+                ? "Chia sẻ một khoảnh khắc, kinh nghiệm hoặc câu hỏi du lịch..."
+                : "Viết vài dòng giới thiệu về hành trình này..."
+            }
+            className="min-h-24 resize-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-0"
+          />
+        </div>
+        {mode === "trip" && (
+          <div className="mt-4 grid gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:grid-cols-[1fr_11rem]">
+            <div>
+              <label
+                htmlFor="community-trip"
+                className="mb-1.5 block text-xs font-bold"
+              >
+                Chuyến đi từ My Trips
+              </label>
+              {loadingTrips ? (
+                <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+                </div>
+              ) : tripListError ? (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-destructive">
+                  <span>Không thể tải My Trips.</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void loadTrips(true)}
+                    className="h-8 rounded-full"
+                  >
+                    Thử lại
+                  </Button>
+                </div>
+              ) : trips.length ? (
+                <select
+                  id="community-trip"
+                  value={selectedTripId}
+                  onChange={(event) => {
+                    setSelectedTripId(event.target.value);
+                    setPreview(null);
+                  }}
+                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm font-medium"
+                >
+                  {trips.map((trip) => (
+                    <option key={trip.id} value={trip.id}>
+                      {trip.name} · {trip.destinationName}
+                    </option>
+                  ))}
+                </select>
               ) : (
-                <AlertCircle className="h-5 w-5" />
+                <p className="text-sm text-muted-foreground">
+                  Chưa có chuyến đi.{" "}
+                  <Link href="/trips/new" className="font-bold text-primary">
+                    Tạo chuyến đi
+                  </Link>
+                </p>
               )}
             </div>
-
-            <div className="flex-1 min-w-0 pr-2">
-              <p className="text-xs font-bold text-foreground">
-                {feedback.variant === "success" ? "Đăng bài thành công" : "Không thể đăng bài"}
-              </p>
-              <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                {feedback.variant === "success"
-                  ? "Bài viết của bạn đã được chia sẻ lên cộng đồng."
-                  : feedback.message}
-              </p>
+            <div>
+              <label
+                htmlFor="community-visibility"
+                className="mb-1.5 block text-xs font-bold"
+              >
+                Ai có thể xem?
+              </label>
+              <select
+                id="community-visibility"
+                value={visibility}
+                onChange={(event) =>
+                  setVisibility(event.target.value as ShareVisibility)
+                }
+                className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm font-medium"
+              >
+                <option value="PUBLIC">Công khai</option>
+                <option value="UNLISTED">Có liên kết</option>
+                <option value="PRIVATE">Chỉ mình tôi</option>
+              </select>
             </div>
-
-            <button
-              type="button"
-              onClick={dismissFeedback}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              aria-label="Đóng thông báo"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <p className="sm:col-span-2 text-xs leading-relaxed text-muted-foreground">
+              TripSense đăng một bản sao an toàn. Ghi chú riêng, ngân sách,
+              người tham gia, tọa độ và thông tin đặt chỗ không được đưa lên
+              Community.
+            </p>
+            <div className="sm:col-span-2">
+              {previewing ? (
+                <div className="flex items-center gap-2 rounded-xl bg-background p-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Đang tạo bản xem
+                  trước công khai...
+                </div>
+              ) : preview ? (
+                <div className="rounded-2xl border border-border bg-background p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-primary">
+                        Bản xem trước sẽ được đăng
+                      </p>
+                      <h3 className="mt-1 font-black">
+                        {preview.snapshot.summary.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {preview.snapshot.summary.destinationName} ·{" "}
+                        {preview.snapshot.summary.dayCount} ngày ·{" "}
+                        {preview.snapshot.summary.itineraryItemCount} hoạt động
+                      </p>
+                    </div>
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div className="mt-3 max-h-52 space-y-3 overflow-y-auto pr-1">
+                    {preview.snapshot.days.map((day) => (
+                      <div key={day.dayNumber}>
+                        <p className="text-xs font-bold text-muted-foreground">
+                          Ngày {day.dayNumber}
+                          {day.date ? ` · ${day.date}` : ""}
+                        </p>
+                        <ul className="mt-1 space-y-1">
+                          {day.items.map((item) => (
+                            <li
+                              key={`${day.dayNumber}-${item.order}`}
+                              className="text-sm"
+                            >
+                              <span className="font-bold">
+                                {item.order}. {item.title}
+                              </span>
+                              {item.placeName ? (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  · {item.placeName}
+                                </span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                  {preview.warnings.length > 0 && (
+                    <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+                      Ngày/giờ riêng tư hoặc chi tiết nhạy cảm đã được ẩn trong
+                      bản công khai.
+                    </p>
+                  )}
+                </div>
+              ) : selectedTripId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadPreview(selectedTripId)}
+                  className="rounded-full"
+                >
+                  Tải lại bản xem trước
+                </Button>
+              ) : null}
+            </div>
           </div>
         )}
-        
-        {/* Top: Avatar + Textarea */}
-        <div className="flex gap-3">
-          <Avatar className="h-10 w-10 border border-border shrink-0 mt-0.5">
-            <AvatarImage src={authorAvatar} alt={displayName || "User"} />
-            <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
-              {authorInitials}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="flex-1">
-            <Textarea
-              ref={textareaRef}
-              value={content}
-              onChange={handleContentChange}
-              placeholder="Chia sẻ khoảnh khắc, cảm nhận hoặc lịch trình du lịch của bạn..."
-              disabled={isSubmitPending}
-              className="min-h-[72px] resize-none border-0 bg-transparent p-0 text-foreground placeholder:text-muted-foreground focus-visible:ring-0 text-sm sm:text-base leading-relaxed shadow-none"
-              maxLength={5000}
-            />
-          </div>
-        </div>
-
-        {/* Attached Trip Preview in Composer (TF-65) */}
-        {selectedTrip && (
-          <div className="relative mt-3 rounded-2xl overflow-hidden border border-primary/30">
-            <button
-              type="button"
-              onClick={() => setSelectedTrip(null)}
-              className="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black transition-colors"
-              aria-label="Gỡ chuyến đi"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-            <SharedTripCard trip={selectedTrip} isCompact />
-          </div>
-        )}
-
-        {/* Media Preview Grid */}
-        {mediaFiles.length > 0 && (
-          <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {mediaFiles.map((media, idx) => (
-              <div key={idx} className="relative aspect-square rounded-xl overflow-hidden bg-muted group/media">
-                <Image src={media.previewUrl} alt="Preview" fill className="object-cover" />
+        {mode === "update" && mediaFiles.length > 0 && (
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {mediaFiles.map((media, index) => (
+              <div
+                key={media.previewUrl}
+                className="relative aspect-square overflow-hidden rounded-xl bg-muted"
+              >
+                <Image
+                  src={media.previewUrl}
+                  alt="Ảnh xem trước"
+                  fill
+                  className="object-cover"
+                />
                 <button
                   type="button"
-                  onClick={() => handleRemoveMedia(idx)}
-                  className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black transition-colors opacity-90 group-hover/media:opacity-100"
+                  onClick={() => removeMedia(index)}
+                  disabled={pending}
+                  className="absolute right-1.5 top-1.5 rounded-full bg-black/70 p-1 text-white"
                   aria-label="Gỡ ảnh"
                 >
                   <X className="h-3 w-3" />
@@ -275,120 +567,71 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
             ))}
           </div>
         )}
-
-        {/* Error message */}
-        {error && (
-          <div className="mt-3 rounded-lg border border-destructive/20 bg-destructive/10 p-2.5 text-xs text-destructive">
-            {error}
+        {(error || previewError) && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            {previewError || error}
           </div>
         )}
-
-        {/* Bottom Actions Bar */}
-        <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
-          {/* Action buttons */}
-          <div className="flex items-center gap-1">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-              disabled={isSubmitPending}
-            />
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isSubmitPending}
-                    className="h-9 gap-1.5 rounded-full px-3 text-muted-foreground hover:text-foreground"
-                    aria-label="Thêm ảnh"
-                  >
-                    <ImagePlus className="h-4 w-4" />
-                    <span className="text-xs font-medium hidden sm:inline">Ảnh</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Đính kèm ảnh</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            {/* Attach Trip Dropdown (TF-65) */}
-            <DropdownMenu onOpenChange={(open) => open && fetchUserTrips()}>
-              <DropdownMenuTrigger asChild>
+        <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+          <div>
+            {mode === "update" ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={pending}
+                />
                 <Button
                   type="button"
-                  variant={selectedTrip ? "secondary" : "ghost"}
+                  variant="ghost"
                   size="sm"
-                  disabled={isSubmitPending}
-                  className={`h-9 gap-1.5 rounded-full px-3 text-xs font-medium ${selectedTrip ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pending}
+                  className="rounded-full text-muted-foreground"
                 >
-                  <Compass className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {selectedTrip ? "Đã đính kèm hành trình" : "Đính kèm hành trình"}
-                  </span>
+                  <ImagePlus className="h-4 w-4" /> Thêm ảnh
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-80">
-                <DropdownMenuLabel className="text-xs font-semibold flex items-center justify-between">
-                  <span>Chuyến đi từ My Trips của bạn</span>
-                  {loadingTrips && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {loadingTrips ? (
-                  <div className="p-4 text-center text-xs text-muted-foreground">
-                    Đang tải danh sách chuyến đi...
-                  </div>
-                ) : userTrips.length > 0 ? (
-                  userTrips.map((trip) => (
-                    <DropdownMenuItem
-                      key={trip.id}
-                      onClick={() => setSelectedTrip(trip)}
-                      className="flex flex-col items-start gap-1 py-2 cursor-pointer"
-                    >
-                      <span className="font-semibold text-xs line-clamp-1">{trip.name}</span>
-                      <span className="text-[11px] text-muted-foreground">{trip.destinationName}</span>
-                    </DropdownMenuItem>
-                  ))
-                ) : (
-                  <div className="p-3 text-center space-y-2">
-                    <p className="text-xs text-muted-foreground">Bạn chưa có chuyến đi nào trong My Trips.</p>
-                    <Button asChild size="sm" variant="outline" className="h-7 text-xs rounded-full gap-1">
-                      <Link href="/trips/new">
-                        <Plus className="h-3 w-3" />
-                        Tạo chuyến đi mới
-                      </Link>
-                    </Button>
-                  </div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Submit button */}
-          <Button
-            type="submit"
-            disabled={isSubmitDisabled}
-            className="h-9 rounded-full px-5 text-sm font-semibold gap-1.5 shadow-xs"
-          >
-            {isSubmitPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Đang đăng...</span>
               </>
             ) : (
-              <>
-                <Send className="h-3.5 w-3.5" />
-                <span>Đăng bài</span>
-              </>
+              <span className="text-xs font-semibold text-muted-foreground">
+                Xác nhận bản xem trước · {preview?.consentVersion || "đang chờ"}
+              </span>
+            )}
+          </div>
+          <Button
+            type="submit"
+            disabled={
+              pending ||
+              previewing ||
+              (mode === "update"
+                ? !content.trim() && !mediaFiles.length
+                : !selectedTripId || !preview)
+            }
+            className="rounded-full px-5 font-bold cursor-pointer"
+          >
+            {pending ? (
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {isUploadingMedia
+                  ? "Đang tải ảnh..."
+                  : mode === "update"
+                    ? "Đang đăng..."
+                    : "Đang chia sẻ..."}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <Send className="h-4 w-4" />
+                {mode === "update" ? "Đăng cập nhật" : "Xác nhận & chia sẻ"}
+              </span>
             )}
           </Button>
         </div>
       </form>
-    </div>
+    </section>
   );
 }

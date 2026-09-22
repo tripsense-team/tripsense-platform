@@ -32,6 +32,8 @@ cloudinary:
   signature-algorithm: ${CLOUDINARY_SIGNATURE_ALGORITHM:sha256}
 trip-service:
   url: ${TRIP_SERVICE_URL:http://localhost:${TRIP_SERVICE_PORT:8084}}
+  connect-timeout: ${TRIP_SERVICE_CONNECT_TIMEOUT:2s}
+  read-timeout: ${TRIP_SERVICE_READ_TIMEOUT:5s}
 management:
   endpoints:
     web:

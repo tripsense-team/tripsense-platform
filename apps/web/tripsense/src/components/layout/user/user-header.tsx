@@ -4,9 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { Search, Bell, Menu, Sparkles, Moon, Sun } from "lucide-react";
 import { Logo } from "@/components/shared";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { UserMenu } from "./user-menu";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth";
+import { useTranslation } from "@/i18n";
 
 export interface UserHeaderProps {
   onSignInClick?: () => void;
@@ -18,8 +20,13 @@ export interface UserHeaderProps {
   };
 }
 
-export function UserHeader({ onSignInClick, onMobileMenuClick, user: customUser }: UserHeaderProps) {
+export function UserHeader({
+  onSignInClick,
+  onMobileMenuClick,
+  user: customUser,
+}: UserHeaderProps) {
   const { user: authUser, isAuthenticated, status } = useAuth();
+  const { t } = useTranslation();
   const [theme, setTheme] = React.useState<"light" | "dark">("light");
 
   const activeUser = customUser || authUser;
@@ -45,7 +52,7 @@ export function UserHeader({ onSignInClick, onMobileMenuClick, user: customUser 
           size="icon"
           onClick={onMobileMenuClick}
           className="h-9 w-9 md:hidden"
-          aria-label="Open Mobile Menu"
+          aria-label={t("nav.menu")}
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -58,7 +65,7 @@ export function UserHeader({ onSignInClick, onMobileMenuClick, user: customUser 
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search places, trips, or ask AI..."
+            placeholder={t("nav.searchPlaceholder")}
             className="w-full rounded-full border border-border bg-muted/40 py-2 pl-9 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           />
           <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 text-2xs font-medium text-muted-foreground">
@@ -77,9 +84,12 @@ export function UserHeader({ onSignInClick, onMobileMenuClick, user: customUser 
         >
           <Link href="/ai-planner">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span>AI Planner</span>
+            <span>{t("nav.aiPlanner")}</span>
           </Link>
         </Button>
+
+        {/* Language Switcher */}
+        <LanguageSwitcher />
 
         {/* Theme Toggle */}
         <Button
@@ -87,9 +97,13 @@ export function UserHeader({ onSignInClick, onMobileMenuClick, user: customUser 
           size="icon"
           onClick={toggleTheme}
           className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
-          aria-label="Toggle theme"
+          aria-label={t("common.theme")}
         >
-          {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4 text-amber-500" />}
+          {theme === "light" ? (
+            <Moon className="h-4 w-4" />
+          ) : (
+            <Sun className="h-4 w-4 text-amber-500" />
+          )}
         </Button>
 
         {/* Notifications */}
@@ -113,7 +127,7 @@ export function UserHeader({ onSignInClick, onMobileMenuClick, user: customUser 
             onClick={onSignInClick}
             className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-4 py-2 shadow-xs transition-all"
           >
-            Sign In
+            {t("auth.login")}
           </Button>
         )}
       </div>

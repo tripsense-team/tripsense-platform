@@ -19,7 +19,7 @@ export function MapLayout({
       className={cn(
         "relative flex h-[calc(100vh-4rem)] w-full overflow-hidden",
         panePosition === "right" && "flex-row-reverse",
-        className
+        className,
       )}
       {...props}
     >

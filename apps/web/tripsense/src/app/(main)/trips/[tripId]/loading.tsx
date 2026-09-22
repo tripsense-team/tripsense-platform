@@ -27,7 +27,10 @@ export default function TripDetailLoading() {
           </div>
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-2xs">
+              <div
+                key={i}
+                className="rounded-2xl border border-border bg-card p-4 space-y-2 shadow-2xs"
+              >
                 <div className="flex justify-between">
                   <Skeleton className="h-5 w-40 rounded-md" />
                   <Skeleton className="h-4 w-16 rounded-md" />

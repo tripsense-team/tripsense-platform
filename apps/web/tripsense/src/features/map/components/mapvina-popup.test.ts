@@ -20,7 +20,7 @@ describe("MapVina popup", () => {
         name: '<img src=x onerror="alert(1)">',
         address: "<script>alert(1)</script>",
       }),
-      false
+      false,
     );
 
     expect(popup.querySelector("img")).toBeNull();
@@ -36,10 +36,12 @@ describe("MapVina popup", () => {
         socials: ["data:text/html,bad"],
         phone: "123;alert(1)",
       }),
-      false
+      false,
     );
 
-    const hrefs = Array.from(popup.querySelectorAll("a"), (link) => link.getAttribute("href"));
+    const hrefs = Array.from(popup.querySelectorAll("a"), (link) =>
+      link.getAttribute("href"),
+    );
     expect(hrefs).not.toContain("javascript:alert(1)");
     expect(hrefs).not.toContain("data:text/html,bad");
     expect(hrefs.some((href) => href?.startsWith("tel:"))).toBe(false);

@@ -13,7 +13,8 @@ This knowledge base stores reusable planning, architecture, and review context f
 - [Feature Index](features/index.md)
 - [Feature Documentation Template](features/_template/index.md)
 - [UX Feedback & Toast Guidelines](UX_FEEDBACK_GUIDELINES.md)
-
+- [Frontend i18n & Localization Standards](I18N_STANDARDS.md)
+- [Frontend Error Handling, Sanitization & Logging Standards](ERROR_HANDLING_AND_LOGGING_STANDARDS.md)
 
 ## Canonical Rules
 

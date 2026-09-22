@@ -10,7 +10,7 @@ export function AuthLayout({ children, className, ...props }: AuthLayoutProps) {
     <div
       className={cn(
         "min-h-screen flex items-center justify-center bg-muted/40 p-4 sm:p-6 lg:p-8",
-        className
+        className,
       )}
       {...props}
     >

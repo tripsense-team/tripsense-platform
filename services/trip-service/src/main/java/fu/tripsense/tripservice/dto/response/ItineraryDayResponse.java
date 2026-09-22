@@ -6,10 +6,5 @@ import java.util.List;
 import java.util.UUID;
 
 public record ItineraryDayResponse(
-        UUID id,
-        LocalDate date,
-        Integer dayNumber,
-        Long version,
-        List<ItineraryItemResponse> items
-) implements Serializable {
-}
+    UUID id, LocalDate date, Integer dayNumber, Long version, List<ItineraryItemResponse> items)
+    implements Serializable {}

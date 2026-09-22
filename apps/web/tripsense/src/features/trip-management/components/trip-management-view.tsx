@@ -1,15 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Check, AlertCircle } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/shared";
 import { ApiError } from "@/services/api-client";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { AuthModal } from "@/features/auth";
+import { useTripStore } from "../store/use-trip-store";
 import { CreateTripDialog } from "./create-trip-dialog";
 import { CalendarScreen } from "./calendar-screen";
-import { AddItemDialog, ChangeCoverPhotoDialog, DeleteTripDialog, EditItemDialog, EditTripDialog } from "./trip-dialogs";
+import {
+  AddItemDialog,
+  ChangeCoverPhotoDialog,
+  DeleteTripDialog,
+  EditItemDialog,
+  EditTripDialog,
+} from "./trip-dialogs";
 import { TripDetailScreen } from "./trip-detail-screen";
 import { TripsScreen } from "./trips-screen";
 import {
@@ -23,7 +30,6 @@ import {
   reorderItineraryItems,
   updateItineraryItem,
   updateTrip,
-  shareTrip,
 } from "../services/trip-management-api";
 import type {
   CreateItineraryItemRequest,
@@ -79,65 +85,80 @@ export function TripManagementView({
   const router = useRouter();
   const authStatus = useAuthStore((state) => state.status);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const [trips, setTrips] = React.useState<TripResponse[]>([]);
+  const trips = useTripStore((state) => state.trips);
+  const loadingTrips = useTripStore((state) => state.loading);
+  const fetchTrips = useTripStore((state) => state.fetchTrips);
+  const updateTripInStore = useTripStore((state) => state.updateTripInStore);
   const [trip, setTrip] = React.useState<TripResponse | null>(null);
-  const [itinerary, setItinerary] = React.useState<ItineraryResponse | null>(null);
-  const [loadingTrips, setLoadingTrips] = React.useState(false);
+  const [itinerary, setItinerary] = React.useState<ItineraryResponse | null>(
+    null,
+  );
   const [loadingDetail, setLoadingDetail] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
-  const [addItemDay, setAddItemDay] = React.useState<ItineraryDayResponse | null>(null);
+  const [addItemDay, setAddItemDay] =
+    React.useState<ItineraryDayResponse | null>(null);
   const [deleteTrip, setDeleteTrip] = React.useState<TripResponse | null>(null);
   const [photoTrip, setPhotoTrip] = React.useState<TripResponse | null>(null);
-  const [editingTrip, setEditingTrip] = React.useState<TripResponse | null>(null);
-  const [editingItem, setEditingItem] = React.useState<ItineraryItemResponse | null>(null);
-  const [tripDraft, setTripDraft] = React.useState<CreateTripRequest>(() => newTripDraft());
-  const [editTripDraft, setEditTripDraft] = React.useState<UpdateTripRequest | null>(null);
-  const [itemDraft, setItemDraft] = React.useState<CreateItineraryItemRequest>(() => newItemDraft());
-  const [editItemDraft, setEditItemDraft] = React.useState<UpdateItineraryItemRequest | null>(null);
+  const [editingTrip, setEditingTrip] = React.useState<TripResponse | null>(
+    null,
+  );
+  const [editingItem, setEditingItem] =
+    React.useState<ItineraryItemResponse | null>(null);
+  const [tripDraft, setTripDraft] = React.useState<CreateTripRequest>(() =>
+    newTripDraft(),
+  );
+  const [editTripDraft, setEditTripDraft] =
+    React.useState<UpdateTripRequest | null>(null);
+  const [itemDraft, setItemDraft] = React.useState<CreateItineraryItemRequest>(
+    () => newItemDraft(),
+  );
+  const [editItemDraft, setEditItemDraft] =
+    React.useState<UpdateItineraryItemRequest | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [authModalOpen, setAuthModalOpen] = React.useState(false);
-  const [toast, setToast] = React.useState<{ message: string; type: "success" | "error" } | null>(null);
   const [chatText, setChatText] = React.useState("");
-  const [chatMessages, setChatMessages] = React.useState(["Setting Up My Travel Assistant"]);
+  const [chatMessages, setChatMessages] = React.useState([
+    "Setting Up My Travel Assistant",
+  ]);
 
-  function showToast(message: string, type: "success" | "error" = "success") {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }
-
-  const loadTrips = React.useCallback(async () => {
-    if (!isAuthenticated) return;
-    setLoadingTrips(true);
-    setError(null);
-    try {
-      const page = await listTrips();
-      setTrips(page.content);
-      window.dispatchEvent(new CustomEvent("trip-management:count-changed", { detail: page.totalElements ?? page.content.length }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load trips");
-    } finally {
-      setLoadingTrips(false);
-    }
-  }, [isAuthenticated]);
+  const loadTrips = React.useCallback(
+    async (force = false) => {
+      if (!isAuthenticated) return;
+      setError(null);
+      try {
+        await fetchTrips(force);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load trips");
+      }
+    },
+    [isAuthenticated, fetchTrips],
+  );
 
   const loadDetail = React.useCallback(async (tripId: string) => {
     setLoadingDetail(true);
     setError(null);
     try {
-      const [nextTrip, nextItinerary] = await Promise.all([getTrip(tripId), getItinerary(tripId)]);
+      const [nextTrip, nextItinerary] = await Promise.all([
+        getTrip(tripId),
+        getItinerary(tripId),
+      ]);
       setTrip(nextTrip);
       setItinerary(nextItinerary);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load trip detail");
+      setError(
+        err instanceof Error ? err.message : "Could not load trip detail",
+      );
     } finally {
       setLoadingDetail(false);
     }
   }, []);
 
   React.useEffect(() => {
-    void Promise.resolve().then(loadTrips);
-  }, [loadTrips]);
+    if (isAuthenticated) {
+      void loadTrips(false);
+    }
+  }, [isAuthenticated, loadTrips]);
 
   React.useEffect(() => {
     if (isAuthenticated && initialTripId) {
@@ -155,7 +176,7 @@ export function TripManagementView({
               items: day.items.filter((candidate) => candidate.id !== itemId),
             })),
           }
-        : current
+        : current,
     );
   }
 
@@ -216,8 +237,12 @@ export function TripManagementView({
         name: tripName,
         destinationName,
         destinationPlaceId: tripDraft.destinationPlaceId || null,
-        travelerCount: tripDraft.travelerCount ? Number(tripDraft.travelerCount) : null,
-        budgetAmount: tripDraft.budgetAmount ? Number(tripDraft.budgetAmount) : null,
+        travelerCount: tripDraft.travelerCount
+          ? Number(tripDraft.travelerCount)
+          : null,
+        budgetAmount: tripDraft.budgetAmount
+          ? Number(tripDraft.budgetAmount)
+          : null,
       });
       setCreateOpen(false);
       setTripDraft(newTripDraft());
@@ -284,9 +309,14 @@ export function TripManagementView({
       const updated = await updateTrip(editingTrip.id, {
         ...editTripDraft,
         name: editTripDraft.name?.trim() || editingTrip.name,
-        destinationName: editTripDraft.destinationName?.trim() || editingTrip.destinationName,
-        travelerCount: editTripDraft.travelerCount ? Number(editTripDraft.travelerCount) : null,
-        budgetAmount: editTripDraft.budgetAmount ? Number(editTripDraft.budgetAmount) : null,
+        destinationName:
+          editTripDraft.destinationName?.trim() || editingTrip.destinationName,
+        travelerCount: editTripDraft.travelerCount
+          ? Number(editTripDraft.travelerCount)
+          : null,
+        budgetAmount: editTripDraft.budgetAmount
+          ? Number(editTripDraft.budgetAmount)
+          : null,
         budgetCurrency: editTripDraft.budgetCurrency || "VND",
       });
       setEditingTrip(null);
@@ -318,7 +348,9 @@ export function TripManagementView({
       setEditItemDraft(null);
       await loadDetail(trip.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update itinerary item");
+      setError(
+        err instanceof Error ? err.message : "Could not update itinerary item",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -361,7 +393,11 @@ export function TripManagementView({
   }
 
   const content = (() => {
-    if (authStatus !== "initializing" && authStatus !== "checking" && !isAuthenticated) {
+    if (
+      authStatus !== "initializing" &&
+      authStatus !== "checking" &&
+      !isAuthenticated
+    ) {
       return (
         <div className="flex min-h-screen items-center justify-center p-8">
           <EmptyState
@@ -388,7 +424,14 @@ export function TripManagementView({
     }
 
     if (screen === "calendar") {
-      return <CalendarScreen trips={trips} loading={loadingTrips} error={error} onRetry={loadTrips} />;
+      return (
+        <CalendarScreen
+          trips={trips}
+          loading={loadingTrips}
+          error={error}
+          onRetry={loadTrips}
+        />
+      );
     }
 
     if (screen === "detail") {
@@ -430,22 +473,10 @@ export function TripManagementView({
     );
   })();
 
-  async function handleShareTrip(tripToShare: TripResponse) {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const updated = await shareTrip(tripToShare.id);
-      setTrips((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-      if (trip?.id === updated.id) {
-        setTrip(updated);
-      }
-      showToast("Chia sẻ chuyến đi thành công");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not share trip");
-      showToast("Lỗi khi share: " + (err instanceof Error ? err.message : "Thử lại sau"), "error");
-    } finally {
-      setSubmitting(false);
-    }
+  function handleShareTrip(tripToShare: TripResponse) {
+    router.push(
+      `/community?composer=trip&tripId=${encodeURIComponent(tripToShare.id)}`,
+    );
   }
 
   async function handleConfirmDeleteTrip() {
@@ -464,20 +495,34 @@ export function TripManagementView({
     }
   }
 
-  async function handleMoveItem(day: ItineraryDayResponse, item: ItineraryItemResponse, direction: -1 | 1) {
+  async function handleMoveItem(
+    day: ItineraryDayResponse,
+    item: ItineraryItemResponse,
+    direction: -1 | 1,
+  ) {
     if (!trip) return;
 
-    const currentIndex = day.items.findIndex((candidate) => candidate.id === item.id);
+    const currentIndex = day.items.findIndex(
+      (candidate) => candidate.id === item.id,
+    );
     const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= day.items.length) return;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= day.items.length)
+      return;
 
     const orderedItemIds = day.items.map((candidate) => candidate.id);
-    [orderedItemIds[currentIndex], orderedItemIds[nextIndex]] = [orderedItemIds[nextIndex], orderedItemIds[currentIndex]];
+    [orderedItemIds[currentIndex], orderedItemIds[nextIndex]] = [
+      orderedItemIds[nextIndex],
+      orderedItemIds[currentIndex],
+    ];
 
     await handleReorderItems(day, orderedItemIds);
   }
 
-  async function handleReorderItems(day: ItineraryDayResponse, orderedItemIds: string[], retryOnConflict = true) {
+  async function handleReorderItems(
+    day: ItineraryDayResponse,
+    orderedItemIds: string[],
+    retryOnConflict = true,
+  ) {
     if (!trip) return;
 
     const currentOrder = day.items.map((candidate) => candidate.id).join("|");
@@ -495,16 +540,21 @@ export function TripManagementView({
         ? {
             ...current,
             days: current.days.map((candidate) =>
-              candidate.id === day.id ? { ...candidate, items: optimisticItems } : candidate
+              candidate.id === day.id
+                ? { ...candidate, items: optimisticItems }
+                : candidate,
             ),
           }
-        : current
+        : current,
     );
 
     setSubmitting(true);
     setError(null);
     try {
-      const nextDay = await reorderItineraryItems(trip.id, day.id, { orderedItemIds, version: day.version });
+      const nextDay = await reorderItineraryItems(trip.id, day.id, {
+        orderedItemIds,
+        version: day.version,
+      });
       const chainedDay = {
         ...nextDay,
         items: chainItineraryItemsTimes(nextDay.items),
@@ -514,26 +564,38 @@ export function TripManagementView({
         current
           ? {
               ...current,
-              days: current.days.map((candidate) => (candidate.id === chainedDay.id ? chainedDay : candidate)),
+              days: current.days.map((candidate) =>
+                candidate.id === chainedDay.id ? chainedDay : candidate,
+              ),
             }
-          : current
+          : current,
       );
     } catch (err) {
       if (retryOnConflict && err instanceof ApiError && err.status === 409) {
         try {
           const freshItinerary = await getItinerary(trip.id);
           setItinerary(freshItinerary);
-          const freshDay = freshItinerary.days.find((candidate) => candidate.id === day.id);
+          const freshDay = freshItinerary.days.find(
+            (candidate) => candidate.id === day.id,
+          );
           if (freshDay) {
             await handleReorderItems(freshDay, orderedItemIds, false);
             return;
           }
         } catch (retryErr) {
-          setError(retryErr instanceof Error ? retryErr.message : "Could not reorder itinerary items");
+          setError(
+            retryErr instanceof Error
+              ? retryErr.message
+              : "Could not reorder itinerary items",
+          );
           return;
         }
       }
-      setError(err instanceof Error ? err.message : "Could not reorder itinerary items");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not reorder itinerary items",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -551,11 +613,13 @@ export function TripManagementView({
         coverImageUrl: updated.coverImageUrl || coverImageUrl,
       };
 
-      setTrips((current) => current.map((item) => (item.id === nextTrip.id ? nextTrip : item)));
+      updateTripInStore(nextTrip);
       setTrip((current) => (current?.id === nextTrip.id ? nextTrip : current));
       setPhotoTrip(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not change cover photo");
+      setError(
+        err instanceof Error ? err.message : "Could not change cover photo",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -623,22 +687,6 @@ export function TripManagementView({
         onOpenChange={setAuthModalOpen}
         initialMode="signin"
       />
-
-      {/* Beautiful Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-slate-900 px-6 py-3.5 text-sm font-medium text-white shadow-2xl ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-6 duration-300">
-          {toast.type === "success" ? (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20 text-green-400">
-              <Check className="h-4 w-4" />
-            </div>
-          ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20 text-red-400">
-              <AlertCircle className="h-4 w-4" />
-            </div>
-          )}
-          {toast.message}
-        </div>
-      )}
     </>
   );
 }

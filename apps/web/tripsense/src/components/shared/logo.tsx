@@ -14,7 +14,7 @@ export function Logo({ className, iconOnly = false }: LogoProps) {
       href="/"
       className={cn(
         "inline-flex items-center gap-2 font-bold text-lg text-foreground hover:opacity-95 transition-opacity",
-        className
+        className,
       )}
     >
       <Compass className="h-6 w-6 text-primary shrink-0" />

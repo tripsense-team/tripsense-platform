@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
-import type { SocialPost } from "../types";
+import type { SocialPost, TripShareDetailResponse } from "../types";
 import { socialPostRepository } from "../services";
 import { ApiError } from "@/services/api-client";
 
 export function useSocialPost(postId: string) {
   const [post, setPost] = React.useState<SocialPost | null>(null);
+  const [tripDetail, setTripDetail] =
+    React.useState<TripShareDetailResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isNotFound, setIsNotFound] = React.useState(false);
@@ -22,6 +24,11 @@ export function useSocialPost(postId: string) {
     try {
       const data = await socialPostRepository.getPostById(postId);
       setPost(data);
+      setTripDetail(
+        data.type === "TRIP_SHARE"
+          ? await socialPostRepository.getTripShareDetail(postId)
+          : null,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Lỗi tải bài viết";
       setError(message);
@@ -43,12 +50,18 @@ export function useSocialPost(postId: string) {
 
       try {
         const data = await socialPostRepository.getPostById(postId);
+        const detail =
+          data.type === "TRIP_SHARE"
+            ? await socialPostRepository.getTripShareDetail(postId)
+            : null;
         if (!ignore) {
           setPost(data);
+          setTripDetail(detail);
         }
       } catch (err) {
         if (!ignore) {
-          const message = err instanceof Error ? err.message : "Lỗi tải bài viết";
+          const message =
+            err instanceof Error ? err.message : "Lỗi tải bài viết";
           setError(message);
           setIsNotFound(err instanceof ApiError && err.status === 404);
           setStatus(err instanceof ApiError ? err.status : null);
@@ -69,6 +82,7 @@ export function useSocialPost(postId: string) {
 
   return {
     post,
+    tripDetail,
     loading,
     error,
     isNotFound,

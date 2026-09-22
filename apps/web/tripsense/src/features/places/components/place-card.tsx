@@ -30,7 +30,10 @@ export function PlaceCard({
   className,
 }: PlaceCardProps) {
   const photoUrl = getPlacePhotoUrl(place);
-  const primaryCategory = place.categories && place.categories.length > 0 ? place.categories[0] : null;
+  const primaryCategory =
+    place.categories && place.categories.length > 0
+      ? place.categories[0]
+      : null;
 
   if (variant === "vertical") {
     return (
@@ -41,7 +44,7 @@ export function PlaceCard({
           isSelected
             ? "border-primary ring-2 ring-primary/20 shadow-md scale-[1.01]"
             : "border-border shadow-xs hover:border-primary/40 hover:shadow-md",
-          className
+          className,
         )}
       >
         {/* Photo Container */}
@@ -57,7 +60,9 @@ export function PlaceCard({
           ) : (
             <div className="flex flex-col h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-muted/80 text-muted-foreground text-xs font-medium p-4 text-center gap-1.5">
               <MapPin className="h-6 w-6 text-primary/70" />
-              <span className="line-clamp-1 font-semibold text-foreground">{place.name}</span>
+              <span className="line-clamp-1 font-semibold text-foreground">
+                {place.name}
+              </span>
             </div>
           )}
 
@@ -91,11 +96,12 @@ export function PlaceCard({
                   <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                   <span>{place.rating.toFixed(1)}</span>
                 </div>
-                {typeof place.userRatingCount === "number" && place.userRatingCount > 0 && (
-                  <span className="text-muted-foreground">
-                    ({place.userRatingCount.toLocaleString()} đánh giá)
-                  </span>
-                )}
+                {typeof place.userRatingCount === "number" &&
+                  place.userRatingCount > 0 && (
+                    <span className="text-muted-foreground">
+                      ({place.userRatingCount.toLocaleString()} đánh giá)
+                    </span>
+                  )}
               </div>
             )}
 
@@ -103,7 +109,9 @@ export function PlaceCard({
             {place.address && (
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                <span className="line-clamp-2 leading-relaxed">{place.address}</span>
+                <span className="line-clamp-2 leading-relaxed">
+                  {place.address}
+                </span>
               </div>
             )}
 
@@ -143,7 +151,7 @@ export function PlaceCard({
         isSelected
           ? "border-primary ring-2 ring-primary/20 shadow-md bg-accent/20 scale-[1.01]"
           : "border-border shadow-xs hover:border-primary/40 hover:shadow-md",
-        className
+        className,
       )}
     >
       {/* Photo Container */}
@@ -159,7 +167,9 @@ export function PlaceCard({
         ) : (
           <div className="flex flex-col h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-muted/80 text-muted-foreground text-xs font-medium text-center p-3 gap-1">
             <MapPin className="h-5 w-5 text-primary/70" />
-            <span className="line-clamp-1 font-semibold text-foreground text-[11px]">{place.name}</span>
+            <span className="line-clamp-1 font-semibold text-foreground text-[11px]">
+              {place.name}
+            </span>
           </div>
         )}
 
@@ -193,11 +203,12 @@ export function PlaceCard({
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                 <span>{place.rating.toFixed(1)}</span>
               </div>
-              {typeof place.userRatingCount === "number" && place.userRatingCount > 0 && (
-                <span className="text-muted-foreground text-[11px]">
-                  ({place.userRatingCount.toLocaleString()})
-                </span>
-              )}
+              {typeof place.userRatingCount === "number" &&
+                place.userRatingCount > 0 && (
+                  <span className="text-muted-foreground text-[11px]">
+                    ({place.userRatingCount.toLocaleString()})
+                  </span>
+                )}
             </div>
           )}
 

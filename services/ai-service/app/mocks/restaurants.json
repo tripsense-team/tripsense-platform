@@ -10,11 +10,7 @@
       "review_count": 12500,
       "price_level": 2,
       "average_price_per_person": 250000,
-      "best_for": [
-        "dinner",
-        "family",
-        "seafood"
-      ],
+      "best_for": ["dinner", "family", "seafood"],
       "description": "Popular seafood restaurant with fresh seafood and ocean view."
     },
     {
@@ -26,11 +22,7 @@
       "review_count": 9800,
       "price_level": 2,
       "average_price_per_person": 200000,
-      "best_for": [
-        "lunch",
-        "seafood",
-        "local_food"
-      ],
+      "best_for": ["lunch", "seafood", "local_food"],
       "description": "Local seafood restaurant famous for affordable fresh seafood."
     },
     {
@@ -42,10 +34,7 @@
       "review_count": 7600,
       "price_level": 1,
       "average_price_per_person": 60000,
-      "best_for": [
-        "breakfast",
-        "local_food"
-      ],
+      "best_for": ["breakfast", "local_food"],
       "description": "Traditional Da Nang restaurant serving Mi Quang and local dishes."
     },
     {
@@ -57,10 +46,7 @@
       "review_count": 8200,
       "price_level": 1,
       "average_price_per_person": 50000,
-      "best_for": [
-        "breakfast",
-        "local_food"
-      ],
+      "best_for": ["breakfast", "local_food"],
       "description": "Famous local fish cake noodle soup restaurant."
     },
     {
@@ -72,11 +58,7 @@
       "review_count": 11000,
       "price_level": 3,
       "average_price_per_person": 350000,
-      "best_for": [
-        "dinner",
-        "couple",
-        "traditional_food"
-      ],
+      "best_for": ["dinner", "couple", "traditional_food"],
       "description": "Elegant restaurant serving Vietnamese cuisine with river view."
     },
     {
@@ -88,11 +70,7 @@
       "review_count": 6500,
       "price_level": 1,
       "average_price_per_person": 50000,
-      "best_for": [
-        "coffee",
-        "afternoon",
-        "relax"
-      ],
+      "best_for": ["coffee", "afternoon", "relax"],
       "description": "Popular Vietnamese coffee shop suitable for relaxing."
     }
   ]

@@ -29,9 +29,11 @@ export function usePostLike({
     setLikeCount(initialCount);
   }
 
+  const isPendingRef = React.useRef(false);
 
   const toggleLike = React.useCallback(async () => {
-    if (isPending) return;
+    if (isPendingRef.current || isPending) return;
+    isPendingRef.current = true;
 
     const prevLiked = isLiked;
     const prevCount = likeCount;
@@ -46,7 +48,10 @@ export function usePostLike({
     onLikeChanged?.(nextLiked, nextCount);
 
     try {
-      const result = await socialPostRepository.toggleLikePost(postId, prevLiked);
+      const result = await socialPostRepository.toggleLikePost(
+        postId,
+        prevLiked,
+      );
       setIsLiked(result.liked);
       setLikeCount(result.likeCount);
       onLikeChanged?.(result.liked, result.likeCount);
@@ -55,9 +60,11 @@ export function usePostLike({
       setIsLiked(prevLiked);
       setLikeCount(prevCount);
       onLikeChanged?.(prevLiked, prevCount);
-      const message = err instanceof Error ? err.message : "Không thể cập nhật lượt thích";
+      const message =
+        err instanceof Error ? err.message : "Không thể cập nhật lượt thích";
       setError(message);
     } finally {
+      isPendingRef.current = false;
       setIsPending(false);
     }
   }, [isLiked, likeCount, isPending, postId, onLikeChanged]);

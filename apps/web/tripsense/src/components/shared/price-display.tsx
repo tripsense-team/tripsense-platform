@@ -14,7 +14,11 @@ export function PriceDisplay({
   className,
 }: PriceDisplayProps) {
   if (priceText) {
-    return <span className={cn("text-sm font-semibold text-foreground", className)}>{priceText}</span>;
+    return (
+      <span className={cn("text-sm font-semibold text-foreground", className)}>
+        {priceText}
+      </span>
+    );
   }
 
   if (!priceLevel) return null;
