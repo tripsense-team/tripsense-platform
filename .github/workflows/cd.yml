@@ -5,6 +5,7 @@ on:
     workflows: ["CI"]
     branches:
       - main
+      - dev
       - feature/ci-cd
     types:
       - completed

@@ -52,6 +52,26 @@ export function AuthModal({
   const [errorMsg, setErrorMsg] = React.useState("");
   const [successMsg, setSuccessMsg] = React.useState("");
   const [timer, setTimer] = React.useState(60);
+  const [googleBtnWidth, setGoogleBtnWidth] = React.useState<number | undefined>(undefined);
+  const googleBtnContainerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open || step !== "email") return;
+    const updateWidth = () => {
+      if (googleBtnContainerRef.current) {
+        const clientWidth = googleBtnContainerRef.current.clientWidth;
+        if (clientWidth > 0) {
+          setGoogleBtnWidth(Math.min(400, Math.max(200, Math.floor(clientWidth))));
+        }
+      }
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    if (googleBtnContainerRef.current) {
+      observer.observe(googleBtnContainerRef.current);
+    }
+    return () => observer.disconnect();
+  }, [open, step]);
 
   // Sync initialMode when modal opens
   const prevOpenRef = React.useRef(open);
@@ -354,9 +374,9 @@ export function AuthModal({
             </div>
 
             {/* Social Login Buttons */}
-            <div className="w-full">
+            <div ref={googleBtnContainerRef} className="w-full flex justify-center">
               {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ? (
-                <div className="w-full flex justify-center [&>div]:!w-full [&>div>iframe]:!w-full [&_iframe]:!w-full overflow-hidden rounded-full">
+                <div className="w-full flex justify-center">
                   <GoogleLogin
                     onSuccess={(credentialResponse) => {
                       if (credentialResponse.credential) {
@@ -372,7 +392,7 @@ export function AuthModal({
                     theme="outline"
                     size="large"
                     text="continue_with"
-                    width="376"
+                    width={googleBtnWidth ? `${googleBtnWidth}` : undefined}
                   />
                 </div>
               ) : (

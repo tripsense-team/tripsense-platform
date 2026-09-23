@@ -319,6 +319,7 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
       CLOUDINARY_SOCIAL_FOLDER: ${CLOUDINARY_SOCIAL_FOLDER:-tripsense/social}
+      TRIP_SERVICE_URL: http://trip-service:8084
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
@@ -326,6 +327,8 @@ services:
     depends_on:
       social-db:
         condition: service_healthy
+      trip-service:
+        condition: service_started
       discovery-server:
         condition: service_healthy
 
