@@ -11,8 +11,123 @@ on:
       - dev
       - "feature/**"
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_docker_builds: ${{ steps.set-matrix.outputs.has_docker_builds }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'services/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'apps/web/tripsense/**'
+              - '.github/workflows/ci.yml'
+            api_gateway:
+              - 'services/api-gateway/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            discovery_server:
+              - 'services/discovery-server/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            place_service:
+              - 'services/place-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            user_service:
+              - 'services/user-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            mail_service:
+              - 'services/mail-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            trip_service:
+              - 'services/trip-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            social_service:
+              - 'services/social-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            context_service:
+              - 'services/context-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+
+      - name: Generate Dynamic Docker Build Matrix
+        id: set-matrix
+        env:
+          WEB_CHANGED: ${{ steps.filter.outputs.web }}
+          API_GATEWAY_CHANGED: ${{ steps.filter.outputs.api_gateway }}
+          DISCOVERY_SERVER_CHANGED: ${{ steps.filter.outputs.discovery_server }}
+          PLACE_SERVICE_CHANGED: ${{ steps.filter.outputs.place_service }}
+          USER_SERVICE_CHANGED: ${{ steps.filter.outputs.user_service }}
+          MAIL_SERVICE_CHANGED: ${{ steps.filter.outputs.mail_service }}
+          TRIP_SERVICE_CHANGED: ${{ steps.filter.outputs.trip_service }}
+          SOCIAL_SERVICE_CHANGED: ${{ steps.filter.outputs.social_service }}
+          CONTEXT_SERVICE_CHANGED: ${{ steps.filter.outputs.context_service }}
+        run: |
+          node -e '
+            const matrix = [];
+            if (process.env.WEB_CHANGED === "true") {
+              matrix.push({ image: "web", context: "apps/web/tripsense", dockerfile: "apps/web/tripsense/Dockerfile" });
+            }
+            if (process.env.API_GATEWAY_CHANGED === "true") {
+              matrix.push({ image: "api-gateway", context: ".", dockerfile: "services/api-gateway/Dockerfile" });
+            }
+            if (process.env.DISCOVERY_SERVER_CHANGED === "true") {
+              matrix.push({ image: "discovery-server", context: ".", dockerfile: "services/discovery-server/Dockerfile" });
+            }
+            if (process.env.PLACE_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "place-service", context: ".", dockerfile: "services/place-service/Dockerfile" });
+            }
+            if (process.env.USER_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "user-service", context: ".", dockerfile: "services/user-service/Dockerfile" });
+            }
+            if (process.env.MAIL_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "mail-service", context: ".", dockerfile: "services/mail-service/Dockerfile" });
+            }
+            if (process.env.TRIP_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "trip-service", context: ".", dockerfile: "services/trip-service/Dockerfile" });
+            }
+            if (process.env.SOCIAL_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "social-service", context: ".", dockerfile: "services/social-service/Dockerfile" });
+            }
+            if (process.env.CONTEXT_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "context-service", context: ".", dockerfile: "services/context-service/Dockerfile" });
+            }
+
+            const hasDockerBuilds = matrix.length > 0;
+            const fs = require("fs");
+            const output = process.env.GITHUB_OUTPUT;
+            fs.appendFileSync(output, `matrix=${JSON.stringify(matrix)}\n`);
+            fs.appendFileSync(output, `has_docker_builds=${hasDockerBuilds}\n`);
+            console.log("Generated matrix items:", matrix.length);
+          '
+
   verify:
+    name: Verify Backend Services
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
 
     services:
@@ -88,40 +203,54 @@ jobs:
       - name: Build and test all services
         run: mvn -B -T 1C verify
 
-  docker-build:
+  verify-web:
+    name: Verify Frontend
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    needs: verify
+    defaults:
+      run:
+        working-directory: apps/web/tripsense
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/tripsense/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check i18n
+        run: npm run i18n:check
+
+      - name: Run TypeScript type check
+        run: npm run type-check
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run unit & integration tests
+        run: npm test
+
+  docker-build:
+    name: Build Docker Image (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: [detect-changes, verify, verify-web]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.has_docker_builds == 'true' &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped') &&
+      (needs.verify-web.result == 'success' || needs.verify-web.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image: web
-            context: apps/web/tripsense
-            dockerfile: apps/web/tripsense/Dockerfile
-          - image: api-gateway
-            context: .
-            dockerfile: services/api-gateway/Dockerfile
-          - image: discovery-server
-            context: .
-            dockerfile: services/discovery-server/Dockerfile
-          - image: place-service
-            context: .
-            dockerfile: services/place-service/Dockerfile
-          - image: user-service
-            context: .
-            dockerfile: services/user-service/Dockerfile
-          - image: mail-service
-            context: .
-            dockerfile: services/mail-service/Dockerfile
-          - image: trip-service
-            context: .
-            dockerfile: services/trip-service/Dockerfile
-          - image: social-service
-            context: .
-            dockerfile: services/social-service/Dockerfile
-          - image: context-service
-            context: .
-            dockerfile: services/context-service/Dockerfile
+        include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
 
     steps:
       - name: Checkout source
@@ -163,6 +292,14 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Docker image
         uses: docker/build-push-action@v6
