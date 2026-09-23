@@ -9,7 +9,7 @@ on:
   push:
     branches:
       - dev
-      - "feature/**"
+      - main
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
