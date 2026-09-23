@@ -18,6 +18,82 @@ LEGACY_CONTAINERS=(
   context-service
 )
 
+echo "=== [Step 1/9] Pre-flight Check: Validating environment variables ==="
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ CRITICAL ERROR: Environment file '$ENV_FILE' does not exist!"
+  echo "Please create $ENV_FILE on the server before running deployment."
+  exit 1
+fi
+
+get_env_val() {
+  local var_name="$1"
+  local env_val="${!var_name:-}"
+  if [ -n "$env_val" ]; then
+    echo "$env_val"
+    return 0
+  fi
+  local file_val
+  file_val=$(grep -E "^[[:space:]]*${var_name}=" "$ENV_FILE" 2>/dev/null | tail -n 1 | cut -d'=' -f2- | tr -d '\r"' || true)
+  echo "$file_val"
+}
+
+REQUIRED_VARS=(
+  "USER_DB_PASS:Mật khẩu PostgreSQL cho user-service (db)"
+  "TRIP_DB_PASS:Mật khẩu PostgreSQL cho trip-service (trip-db)"
+  "SOCIAL_DB_PASS:Mật khẩu PostgreSQL cho social-service (social-db)"
+  "CONTEXT_DB_PASS:Mật khẩu PostgreSQL cho context-service (context-db)"
+  "AI_DB_PASS:Mật khẩu PostgreSQL cho ai-service (ai-db)"
+  "JWT_ACCESS_SECRET:Khóa bí mật JWT Access Token"
+  "JWT_REFRESH_SECRET:Khóa bí mật JWT Refresh Token"
+  "RESEND_API_KEY:API Key Resend cho mail-service gửi email"
+  "ZIOMAP_API_KEY:API Key Ziomap cho place-service bản đồ & địa điểm"
+  "CLOUDINARY_CLOUD_NAME:Cloud Name Cloudinary cho social-service upload ảnh"
+  "CLOUDINARY_API_KEY:API Key Cloudinary cho social-service"
+  "CLOUDINARY_API_SECRET:API Secret Cloudinary cho social-service"
+  "CONTEXT_ENCRYPTION_SECRET:Khóa mã hóa bảo mật dữ liệu cho context-service"
+  "OPENAI_API_KEY:API Key OpenAI cho ai-service (tính năng gợi ý & chat AI)"
+)
+
+MISSING_VARS=()
+
+for item in "${REQUIRED_VARS[@]}"; do
+  var_name="${item%%:*}"
+  var_desc="${item#*:}"
+  val=$(get_env_val "$var_name")
+  if [ -z "$val" ]; then
+    MISSING_VARS+=("  ❌ ${var_name} : ${var_desc}")
+  fi
+done
+
+if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+  echo ""
+  echo "================================================================================"
+  echo "🚨 [PRE-FLIGHT CHECK FAILED] THIẾU BIẾN MÔI TRƯỜNG TRONG ${ENV_FILE}"
+  echo "================================================================================"
+  echo "Hệ thống phát hiện các biến bắt buộc sau đang BỊ THIẾU hoặc ĐỂ TRỐNG:"
+  echo ""
+  for missing in "${MISSING_VARS[@]}"; do
+    echo "$missing"
+  done
+  echo ""
+  echo "👉 HƯỚNG DẪN KHẮC PHỤC:"
+  echo "1. SSH vào máy chủ VPS Azure."
+  echo "2. Mở và chỉnh sửa file: nano ${ENV_FILE}"
+  echo "3. Bổ sung các biến trên với giá trị cấu hình tương ứng."
+  echo "4. Kích hoạt lại quá trình Deploy."
+  echo "================================================================================"
+  echo ""
+  exit 1
+fi
+
+echo "✅ [Pre-flight Check] Đã kiểm tra đầy đủ các biến môi trường bắt buộc!"
+
+if [ -z "$(get_env_val "IMAGE_TAG")" ]; then
+  echo "⚠️ Cảnh báo: IMAGE_TAG chưa được đặt, mặc định sử dụng tag 'latest'"
+  export IMAGE_TAG="latest"
+fi
+
 cd "$DEPLOY_DIR"
 
 echo "=== Stop legacy compose project, if present ==="
