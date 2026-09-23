@@ -32,9 +32,6 @@ jobs:
           - image: web
             context: apps/web/tripsense
             dockerfile: apps/web/tripsense/Dockerfile
-            build_args: |
-              NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '307438795460-goi2m1lbak8db8v7vv2vuqfqpn131u1l.apps.googleusercontent.com' }}
-              NEXT_PUBLIC_MAPVINA_API_KEY=${{ secrets.NEXT_PUBLIC_MAPVINA_API_KEY || 'd3d41d12e3f48ea412e21787195793ff33' }}
 
           - image: api-gateway
             context: .
@@ -122,7 +119,9 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
-          build-args: ${{ matrix.build_args || '' }}
+          build-args: |
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_GOOGLE_CLIENT_ID={0}', secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_MAPVINA_API_KEY={0}', secrets.NEXT_PUBLIC_MAPVINA_API_KEY) || '' }}
           tags: |
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:${{ github.event.workflow_run.head_sha || github.sha }}
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:latest
