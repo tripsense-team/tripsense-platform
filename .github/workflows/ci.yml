@@ -72,6 +72,9 @@ jobs:
               - 'services/context-service/**'
               - 'pom.xml'
               - '.github/workflows/ci.yml'
+            ai_service:
+              - 'services/ai-service/**'
+              - '.github/workflows/ci.yml'
 
       - name: Generate Dynamic Docker Build Matrix
         id: set-matrix
@@ -85,6 +88,7 @@ jobs:
           TRIP_SERVICE_CHANGED: ${{ steps.filter.outputs.trip_service }}
           SOCIAL_SERVICE_CHANGED: ${{ steps.filter.outputs.social_service }}
           CONTEXT_SERVICE_CHANGED: ${{ steps.filter.outputs.context_service }}
+          AI_SERVICE_CHANGED: ${{ steps.filter.outputs.ai_service }}
         run: |
           node -e '
             const matrix = [];
@@ -114,6 +118,9 @@ jobs:
             }
             if (process.env.CONTEXT_SERVICE_CHANGED === "true") {
               matrix.push({ image: "context-service", context: ".", dockerfile: "services/context-service/Dockerfile" });
+            }
+            if (process.env.AI_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "ai-service", context: "services/ai-service", dockerfile: "services/ai-service/Dockerfile" });
             }
 
             const hasDockerBuilds = matrix.length > 0;
