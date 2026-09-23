@@ -34,12 +34,12 @@ Feed/detail reads use `social-service` data and the stored trip snapshot. They m
 
 ## Visibility Matrix
 
-| Context | `PUBLIC` | `UNLISTED` | `PRIVATE` | Removed/deleted post | Archived/deleted source trip |
-| --- | --- | --- | --- | --- | --- |
-| Community feed | Visible to authenticated users | Hidden | Hidden | Hidden | Show only if stored share remains active, with no full-trip open action |
-| Direct post detail | Visible to authenticated users | Visible to authenticated users with link | Owner only | `404` for non-admin viewers | Show safe unavailable state from stored snapshot |
-| Shared trip view | Snapshot detail only | Snapshot detail only | Owner only | `404` for non-admin viewers | Snapshot may render, canonical trip open is disabled |
-| Owner management | Visible/manageable | Visible/manageable | Visible/manageable | Hidden unless admin tooling later needs it | Show unavailable/source changed state |
+| Context            | `PUBLIC`                       | `UNLISTED`                               | `PRIVATE`          | Removed/deleted post                       | Archived/deleted source trip                                            |
+| ------------------ | ------------------------------ | ---------------------------------------- | ------------------ | ------------------------------------------ | ----------------------------------------------------------------------- |
+| Community feed     | Visible to authenticated users | Hidden                                   | Hidden             | Hidden                                     | Show only if stored share remains active, with no full-trip open action |
+| Direct post detail | Visible to authenticated users | Visible to authenticated users with link | Owner only         | `404` for non-admin viewers                | Show safe unavailable state from stored snapshot                        |
+| Shared trip view   | Snapshot detail only           | Snapshot detail only                     | Owner only         | `404` for non-admin viewers                | Snapshot may render, canonical trip open is disabled                    |
+| Owner management   | Visible/manageable             | Visible/manageable                       | Visible/manageable | Hidden unless admin tooling later needs it | Show unavailable/source changed state                                   |
 
 ## Sync Communication
 

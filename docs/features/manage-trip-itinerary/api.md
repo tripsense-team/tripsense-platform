@@ -4,19 +4,19 @@
 
 All endpoints are public only through API Gateway.
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/trips` | Create an owned trip and generated itinerary days. |
-| `GET` | `/api/trips?status=&from=&to=&page=&size=` | List owned trips. |
-| `GET` | `/api/trips/{tripId}` | Get trip metadata. |
-| `PATCH` | `/api/trips/{tripId}` | Update trip metadata. |
-| `DELETE` | `/api/trips/{tripId}` | Archive trip by default. |
-| `GET` | `/api/trips/{tripId}/itinerary` | Get itinerary days and items. |
-| `GET` | `/api/trips/{tripId}/itinerary/days/{dayId}` | Get one itinerary day. |
-| `POST` | `/api/trips/{tripId}/itinerary/days/{dayId}/items` | Add an itinerary item. |
-| `PATCH` | `/api/trips/{tripId}/itinerary/items/{itemId}` | Update an itinerary item. |
-| `DELETE` | `/api/trips/{tripId}/itinerary/items/{itemId}` | Remove or archive an itinerary item. |
-| `PUT` | `/api/trips/{tripId}/itinerary/days/{dayId}/items/reorder` | Rewrite day item order. |
+| Method   | Path                                                       | Purpose                                            |
+| -------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| `POST`   | `/api/trips`                                               | Create an owned trip and generated itinerary days. |
+| `GET`    | `/api/trips?status=&from=&to=&page=&size=`                 | List owned trips.                                  |
+| `GET`    | `/api/trips/{tripId}`                                      | Get trip metadata.                                 |
+| `PATCH`  | `/api/trips/{tripId}`                                      | Update trip metadata.                              |
+| `DELETE` | `/api/trips/{tripId}`                                      | Archive trip by default.                           |
+| `GET`    | `/api/trips/{tripId}/itinerary`                            | Get itinerary days and items.                      |
+| `GET`    | `/api/trips/{tripId}/itinerary/days/{dayId}`               | Get one itinerary day.                             |
+| `POST`   | `/api/trips/{tripId}/itinerary/days/{dayId}/items`         | Add an itinerary item.                             |
+| `PATCH`  | `/api/trips/{tripId}/itinerary/items/{itemId}`             | Update an itinerary item.                          |
+| `DELETE` | `/api/trips/{tripId}/itinerary/items/{itemId}`             | Remove or archive an itinerary item.               |
+| `PUT`    | `/api/trips/{tripId}/itinerary/days/{dayId}/items/reorder` | Rewrite day item order.                            |
 
 AI draft import is deferred to a later phase.
 

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ConfirmationDialog } from "@/components/shared";
+import { useTranslation } from "@/i18n";
 
 interface DeletePostDialogProps {
   open: boolean;
@@ -16,22 +17,31 @@ export function DeletePostDialog({
   onConfirm,
   loading = false,
 }: DeletePostDialogProps) {
+  const { t } = useTranslation();
+
+  const isDeletingRef = React.useRef(false);
+
   const handleConfirm = async () => {
-    if (loading) return;
-    await onConfirm();
+    if (loading || isDeletingRef.current) return;
+    isDeletingRef.current = true;
+    try {
+      await onConfirm();
+    } finally {
+      isDeletingRef.current = false;
+    }
   };
 
   return (
     <ConfirmationDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Xóa bài viết?"
-      description="Hành động này không thể hoàn tác. Bài viết sẽ bị xóa vĩnh viễn khỏi hệ thống."
-      confirmText="Xóa"
-      cancelText="Hủy"
+      title={t("social.deletePostTitle")}
+      description={t("social.deletePostConfirm")}
+      confirmText={t("common.delete")}
+      cancelText={t("common.cancel")}
       variant="destructive"
       loading={loading}
-      loadingText="Đang xóa..."
+      loadingText={t("social.deleting")}
       onConfirm={handleConfirm}
     />
   );

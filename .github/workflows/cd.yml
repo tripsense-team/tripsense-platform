@@ -116,6 +116,10 @@ jobs:
             context: .
             dockerfile: services/social-service/Dockerfile
 
+          - image: context-service
+            context: .
+            dockerfile: services/context-service/Dockerfile
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -138,6 +142,9 @@ jobs:
           SOCIAL_DB_NAME: tripsense_social
           SOCIAL_DB_USER: postgres
           SOCIAL_DB_PASS: ci-placeholder
+          CONTEXT_DB_NAME: tripsense_context
+          CONTEXT_DB_USER: postgres
+          CONTEXT_DB_PASS: ci-placeholder
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
           RESEND_API_KEY: ci-placeholder

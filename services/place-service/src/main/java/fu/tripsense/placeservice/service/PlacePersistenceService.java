@@ -5,9 +5,9 @@ import fu.tripsense.placeservice.dto.PlaceDto;
 
 public interface PlacePersistenceService {
 
-    PlaceDto upsertProviderPlace(PlaceDto dto, String defaultProvider);
+  PlaceDto upsertProviderPlace(PlaceDto dto, String defaultProvider);
 
-    PlaceDto enrichExistingPlace(Place entity, PlaceDto enrichment);
+  PlaceDto enrichExistingPlace(Place entity, PlaceDto enrichment);
 
-    PlaceDto toDto(Place place);
+  PlaceDto toDto(Place place);
 }

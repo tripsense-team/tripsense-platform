@@ -10,6 +10,7 @@ import { PostDetailContent } from "./post-detail-content";
 import { CommentComposer } from "./comment-composer";
 import type { SocialPost } from "../types";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 
 interface PostDetailModalProps {
   postId: string;
@@ -21,6 +22,7 @@ export function PostDetailModal({
   initialFocusComment = false,
 }: PostDetailModalProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const commentsState = usePostComments(postId);
   const [currentPost, setCurrentPost] = React.useState<SocialPost | null>(null);
 
@@ -42,18 +44,24 @@ export function PostDetailModal({
     handleClose();
   };
 
-  const handleCreateComment = async (content: string, parentId?: string | null) => {
+  const handleCreateComment = async (
+    content: string,
+    parentId?: string | null,
+  ) => {
     await commentsState.addComment(content, parentId);
     setReplyingTo(null);
   };
 
   return (
-    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) handleClose(); }}>
+    <DialogPrimitive.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
+    >
       <DialogPrimitive.Portal>
         {/* Dim Overlay with Blur */}
-        <DialogPrimitive.Overlay
-          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200"
-        />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
 
         {/* Modal Window Container */}
         <DialogPrimitive.Content
@@ -67,12 +75,14 @@ export function PostDetailModal({
             "rounded-t-3xl sm:rounded-3xl border-t sm:border border-border",
             // Desktop: Centered modal with smooth 24px rounded corners
             "sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
-            "data-[state=open]:sm:zoom-in-95 data-[state=closed]:sm:zoom-out-95"
+            "data-[state=open]:sm:zoom-in-95 data-[state=closed]:sm:zoom-out-95",
           )}
         >
           {/* Accessible Dialog Title */}
           <DialogPrimitive.Title className="sr-only">
-            {currentPost ? `Bài viết của ${currentPost.author.name}` : "Chi tiết bài viết"}
+            {currentPost
+              ? t("social.authorPosts", { name: currentPost.author.name })
+              : t("social.postDetail")}
           </DialogPrimitive.Title>
 
           {/* Sticky Header */}
@@ -82,13 +92,13 @@ export function PostDetailModal({
                 variant="ghost"
                 size="icon"
                 onClick={handleClose}
-                className="h-9 w-9 rounded-full sm:hidden text-muted-foreground hover:text-foreground"
-                aria-label="Quay lại"
+                className="h-9 w-9 rounded-full sm:hidden text-muted-foreground hover:text-foreground cursor-pointer"
+                aria-label={t("common.back")}
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <h2 className="text-base font-bold tracking-tight text-foreground">
-                Bài viết
+                {t("social.postDetail")}
               </h2>
             </div>
 
@@ -96,8 +106,8 @@ export function PostDetailModal({
               variant="ghost"
               size="icon"
               onClick={handleClose}
-              className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Đóng bài viết"
+              className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              aria-label={t("common.close")}
             >
               <X className="h-5 w-5" />
             </Button>

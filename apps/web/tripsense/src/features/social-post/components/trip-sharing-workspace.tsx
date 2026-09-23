@@ -620,11 +620,14 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     setSubmittingShare(true);
     setShareError(null);
     try {
+      const preview = await socialPostRepository.previewTripShare(trip.id);
       const created = await socialPostRepository.createTripShare(
         {
           tripId: trip.id,
           caption,
           visibility,
+          expectedSnapshotFingerprint: preview.snapshotFingerprint,
+          consentVersion: preview.consentVersion,
         },
         crypto.randomUUID()
       );

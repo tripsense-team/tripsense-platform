@@ -44,7 +44,7 @@ export function DestinationCard({
       onClick={onClick}
       className={cn(
         "group overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col h-full",
-        className
+        className,
       )}
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
@@ -66,7 +66,10 @@ export function DestinationCard({
         </div>
         {category && (
           <div className="absolute top-3 left-3 z-10">
-            <Badge variant="secondary" className="bg-background/80 backdrop-blur font-medium">
+            <Badge
+              variant="secondary"
+              className="bg-background/80 backdrop-blur font-medium"
+            >
               {category}
             </Badge>
           </div>
@@ -80,7 +83,10 @@ export function DestinationCard({
               {name}
             </h3>
             {priceLevel !== undefined && (
-              <PriceDisplay priceLevel={priceLevel} className="shrink-0 mt-0.5" />
+              <PriceDisplay
+                priceLevel={priceLevel}
+                className="shrink-0 mt-0.5"
+              />
             )}
           </div>
 
@@ -102,13 +108,19 @@ export function DestinationCard({
           {rating !== undefined ? (
             <Rating value={rating} reviewCount={reviewCount} />
           ) : (
-            <span className="text-xs text-muted-foreground">New destination</span>
+            <span className="text-xs text-muted-foreground">
+              New destination
+            </span>
           )}
 
           {tags && tags.length > 0 && (
             <div className="flex items-center gap-1 overflow-hidden">
               {tags.slice(0, 2).map((tag) => (
-                <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0">
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0"
+                >
                   {tag}
                 </Badge>
               ))}

@@ -9,24 +9,25 @@ import org.springframework.cache.annotation.EnableCaching;
 @EnableCaching
 public class TripServiceApplication {
 
-    public static void main(String[] args) {
-        loadDotenv();
-        SpringApplication.run(TripServiceApplication.class, args);
-    }
+  public static void main(String[] args) {
+    loadDotenv();
+    SpringApplication.run(TripServiceApplication.class, args);
+  }
 
-    private static void loadDotenv() {
-        String[] possibleDirectories = {"../../env", "../env", "env", "./"};
-        for (String dir : possibleDirectories) {
-            Dotenv dotenv = Dotenv.configure()
-                    .directory(dir)
-                    .ignoreIfMissing()
-                    .load();
+  private static void loadDotenv() {
+    String[] possibleDirectories = {"../../env", "../env", "env", "./"};
+    for (String dir : possibleDirectories) {
+      Dotenv dotenv = Dotenv.configure().directory(dir).ignoreIfMissing().load();
 
-            dotenv.entries().forEach(entry -> {
-                if (System.getProperty(entry.getKey()) == null && System.getenv(entry.getKey()) == null) {
-                    System.setProperty(entry.getKey(), entry.getValue());
+      dotenv
+          .entries()
+          .forEach(
+              entry -> {
+                if (System.getProperty(entry.getKey()) == null
+                    && System.getenv(entry.getKey()) == null) {
+                  System.setProperty(entry.getKey(), entry.getValue());
                 }
-            });
-        }
+              });
     }
+  }
 }

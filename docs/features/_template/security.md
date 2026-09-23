@@ -17,4 +17,3 @@ Document security decisions and review findings.
 ## IDOR Review
 
 ## Trust Boundaries
-

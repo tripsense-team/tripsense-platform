@@ -10,10 +10,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlaceReview {
-    private String authorName;
-    private String profilePhotoUrl;
-    private Integer rating;
-    private String text;
-    private String relativeTimeDescription;
-    private Long time;
+  private String authorName;
+  private String profilePhotoUrl;
+  private Integer rating;
+  private String text;
+  private String relativeTimeDescription;
+  private Long time;
 }

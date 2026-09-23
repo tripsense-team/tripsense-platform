@@ -5,6 +5,7 @@ import { Heart, MessageCircle, Share2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePostLike } from "../hooks/use-post-like";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 
 interface PostActionsBarProps {
   postId: string;
@@ -27,6 +28,7 @@ export function PostActionsBar({
   onLikeChanged,
   className,
 }: PostActionsBarProps) {
+  const { t } = useTranslation();
   const { isLiked, likeCount, isPending, error, toggleLike } = usePostLike({
     postId,
     initialLiked,
@@ -45,8 +47,8 @@ export function PostActionsBar({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Bài viết trên TripSense",
-          text: postContent ? postContent.slice(0, 100) : "Khám phá bài viết thú vị trên TripSense Community!",
+          title: "TripSense",
+          text: postContent ? postContent.slice(0, 100) : "TripSense Community",
           url: postUrl,
         });
         return;
@@ -80,7 +82,11 @@ export function PostActionsBar({
                   <Heart className="h-2.5 w-2.5 fill-current" />
                 </span>
                 <span className="font-medium text-foreground">{likeCount}</span>{" "}
-                <span>lượt thích</span>
+                <span>
+                  {t("social.likesCount", { count: likeCount })
+                    .replace(String(likeCount), "")
+                    .trim()}
+                </span>
               </span>
             )}
           </div>
@@ -92,8 +98,14 @@ export function PostActionsBar({
                 onClick={onCommentClick}
                 className="hover:underline cursor-pointer focus-visible:outline-hidden"
               >
-                <span className="font-medium text-foreground">{commentCount}</span>{" "}
-                <span>bình luận</span>
+                <span className="font-medium text-foreground">
+                  {commentCount}
+                </span>{" "}
+                <span>
+                  {t("social.commentsCount", { count: commentCount })
+                    .replace(String(commentCount), "")
+                    .trim()}
+                </span>
               </button>
             )}
           </div>
@@ -101,9 +113,7 @@ export function PostActionsBar({
       )}
 
       {/* Error alert if like toggle failed */}
-      {error && (
-        <p className="px-1 pb-2 text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="px-1 pb-2 text-xs text-destructive">{error}</p>}
 
       {/* Divider */}
       <div className="border-t border-border" />
@@ -118,20 +128,20 @@ export function PostActionsBar({
           onClick={toggleLike}
           disabled={isPending}
           className={cn(
-            "flex items-center justify-center gap-2 h-9 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring active:scale-95",
+            "flex items-center justify-center gap-2 h-9 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring active:scale-95 cursor-pointer",
             isLiked
               ? "text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
-          aria-label={isLiked ? "Bỏ thích bài viết" : "Thích bài viết"}
+          aria-label={isLiked ? t("social.unlikePost") : t("social.likePost")}
         >
           <Heart
             className={cn(
               "h-4 w-4 transition-transform duration-200",
-              isLiked ? "fill-current scale-110" : ""
+              isLiked ? "fill-current scale-110" : "",
             )}
           />
-          <span>{isLiked ? "Đã thích" : "Thích"}</span>
+          <span>{isLiked ? t("social.liked") : t("social.like")}</span>
         </Button>
 
         {/* Comment Button */}
@@ -140,11 +150,11 @@ export function PostActionsBar({
           variant="ghost"
           size="sm"
           onClick={onCommentClick}
-          className="flex items-center justify-center gap-2 h-9 rounded-lg font-medium text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring active:scale-95 transition-all duration-200"
-          aria-label="Bình luận bài viết"
+          className="flex items-center justify-center gap-2 h-9 rounded-lg font-medium text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring active:scale-95 transition-all duration-200 cursor-pointer"
+          aria-label={t("social.comment")}
         >
           <MessageCircle className="h-4 w-4" />
-          <span>Bình luận</span>
+          <span>{t("social.comment")}</span>
         </Button>
 
         {/* Share Button (External sharing only) */}
@@ -154,22 +164,22 @@ export function PostActionsBar({
           size="sm"
           onClick={handleShare}
           className={cn(
-            "flex items-center justify-center gap-2 h-9 rounded-lg font-medium text-xs sm:text-sm hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring active:scale-95 transition-all duration-200",
+            "flex items-center justify-center gap-2 h-9 rounded-lg font-medium text-xs sm:text-sm hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring active:scale-95 transition-all duration-200 cursor-pointer",
             copied
               ? "text-emerald-600 dark:text-emerald-400 font-semibold"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
-          aria-label="Chia sẻ bài viết"
+          aria-label={t("social.sharePost")}
         >
           {copied ? (
             <>
               <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Đã chép link</span>
+              <span>{t("social.copiedLink")}</span>
             </>
           ) : (
             <>
               <Share2 className="h-4 w-4" />
-              <span>Chia sẻ</span>
+              <span>{t("social.share")}</span>
             </>
           )}
         </Button>

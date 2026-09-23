@@ -33,9 +33,12 @@ export function SearchBar({
 }: SearchBarProps) {
   const [query, setQuery] = React.useState(initialQuery);
   const [prevInitialQuery, setPrevInitialQuery] = React.useState(initialQuery);
-  const [suggestions, setSuggestions] = React.useState<AutocompleteSuggestion[]>([]);
+  const [suggestions, setSuggestions] = React.useState<
+    AutocompleteSuggestion[]
+  >([]);
   const [isOpen, setIsOpen] = React.useState(false);
-  const [isSearchingSuggestions, setIsSearchingSuggestions] = React.useState(false);
+  const [isSearchingSuggestions, setIsSearchingSuggestions] =
+    React.useState(false);
   const [selectedIndex, setSelectedIndex] = React.useState(-1);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -56,7 +59,13 @@ export function SearchBar({
     const timeoutId = setTimeout(async () => {
       setIsSearchingSuggestions(true);
       try {
-        const res = await getAutocomplete(trimmed, undefined, undefined, 5, controller.signal);
+        const res = await getAutocomplete(
+          trimmed,
+          undefined,
+          undefined,
+          5,
+          controller.signal,
+        );
         if (res.success && Array.isArray(res.data)) {
           setSuggestions(res.data);
           setIsOpen(res.data.length > 0);
@@ -81,7 +90,10 @@ export function SearchBar({
   // Handle outside click to close suggestions
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -114,10 +126,14 @@ export function SearchBar({
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+      setSelectedIndex((prev) =>
+        prev < suggestions.length - 1 ? prev + 1 : 0,
+      );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+      setSelectedIndex((prev) =>
+        prev > 0 ? prev - 1 : suggestions.length - 1,
+      );
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
@@ -131,7 +147,10 @@ export function SearchBar({
   };
 
   return (
-    <div ref={containerRef} className={cn("relative w-full space-y-2", className)}>
+    <div
+      ref={containerRef}
+      className={cn("relative w-full space-y-2", className)}
+    >
       <form
         onSubmit={handleSubmit}
         className="relative flex items-center w-full rounded-2xl border border-border bg-card shadow-sm hover:border-primary/50 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all"
@@ -182,7 +201,11 @@ export function SearchBar({
           disabled={isLoading || !query.trim()}
           className="m-1 rounded-xl px-5 font-semibold text-xs h-10 shrink-0 cursor-pointer"
         >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tìm kiếm"}
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Tìm kiếm"
+          )}
         </Button>
       </form>
 
@@ -201,14 +224,16 @@ export function SearchBar({
                   "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg cursor-pointer transition-colors",
                   selectedIndex === index
                     ? "bg-accent text-accent-foreground font-medium"
-                    : "hover:bg-muted text-foreground"
+                    : "hover:bg-muted text-foreground",
                 )}
               >
                 <MapPin className="h-4 w-4 text-primary shrink-0" />
                 <div className="flex flex-col overflow-hidden">
                   <span className="truncate font-medium">{item.title}</span>
                   {item.subtitle && (
-                    <span className="truncate text-xs text-muted-foreground">{item.subtitle}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {item.subtitle}
+                    </span>
                   )}
                 </div>
               </li>

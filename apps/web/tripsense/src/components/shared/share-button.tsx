@@ -17,7 +17,8 @@ export function ShareButton({ title, url, className }: ShareButtonProps) {
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "");
+    const shareUrl =
+      url || (typeof window !== "undefined" ? window.location.href : "");
 
     if (navigator.share) {
       try {
@@ -43,7 +44,11 @@ export function ShareButton({ title, url, className }: ShareButtonProps) {
       onClick={handleShare}
       className={cn("gap-2", className)}
     >
-      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Share2 className="h-4 w-4" />}
+      {copied ? (
+        <Check className="h-4 w-4 text-green-500" />
+      ) : (
+        <Share2 className="h-4 w-4" />
+      )}
       <span>{copied ? "Copied" : "Share"}</span>
     </Button>
   );

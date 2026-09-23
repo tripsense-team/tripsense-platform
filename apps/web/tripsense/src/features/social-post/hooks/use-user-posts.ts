@@ -22,7 +22,11 @@ export function useUserPosts(userId: string) {
         setAuthor(response.items[0].author);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải bài viết của người dùng");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Không thể tải bài viết của người dùng",
+      );
     } finally {
       setLoading(false);
     }
@@ -47,7 +51,11 @@ export function useUserPosts(userId: string) {
         }
       } catch (err) {
         if (!ignore) {
-          setError(err instanceof Error ? err.message : "Không thể tải bài viết của người dùng");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Không thể tải bài viết của người dùng",
+          );
         }
       } finally {
         if (!ignore) {

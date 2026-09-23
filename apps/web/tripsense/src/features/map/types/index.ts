@@ -17,7 +17,12 @@ export interface MapVinaContainerProps {
   onSelectPlace: (id: string | null) => void;
   onAddAndSelectPlace?: (place: Place) => void;
   onViewDetails?: (place: Place) => void;
-  onViewportChange?: (viewport: { lat: number; lng: number; zoom: number; radius: number }) => void;
+  onViewportChange?: (viewport: {
+    lat: number;
+    lng: number;
+    zoom: number;
+    radius: number;
+  }) => void;
   center?: [number, number]; // [lng, lat]
   zoom?: number;
   className?: string;

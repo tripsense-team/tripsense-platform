@@ -1,8 +1,21 @@
 export type TripStatus = "DRAFT" | "CONFIRMED" | "CANCELLED" | "ARCHIVED";
-export type DisplayStatus = "DRAFT" | "UPCOMING" | "ONGOING" | "COMPLETED" | "CANCELLED" | "ARCHIVED";
+export type DisplayStatus =
+  | "DRAFT"
+  | "UPCOMING"
+  | "ONGOING"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "ARCHIVED";
 export type TripVisibility = "PRIVATE" | "PUBLIC";
 export type DateChangePolicy = "BLOCK_IF_ITEMS_OUTSIDE_RANGE";
-export type ItineraryItemType = "PLACE" | "MEAL" | "HOTEL" | "FLIGHT" | "TRANSFER" | "ACTIVITY" | "NOTE";
+export type ItineraryItemType =
+  | "PLACE"
+  | "MEAL"
+  | "HOTEL"
+  | "FLIGHT"
+  | "TRANSFER"
+  | "ACTIVITY"
+  | "NOTE";
 export type ItineraryItemStatus = "PLANNED" | "DONE" | "SKIPPED" | "CANCELLED";
 
 export interface ApiResponse<T> {
@@ -102,7 +115,8 @@ export interface CreateItineraryItemRequest {
   notes?: string | null;
 }
 
-export interface UpdateItineraryItemRequest extends Partial<CreateItineraryItemRequest> {
+export interface UpdateItineraryItemRequest
+  extends Partial<CreateItineraryItemRequest> {
   status?: ItineraryItemStatus;
   version?: number;
 }

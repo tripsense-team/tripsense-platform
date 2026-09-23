@@ -20,7 +20,10 @@ export function OtpInput({
 }: OtpInputProps) {
   const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    index: number,
+  ) => {
     const val = e.target.value;
     if (disabled) return;
 
@@ -37,7 +40,10 @@ export function OtpInput({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    index: number,
+  ) => {
     if (e.key === "Backspace") {
       if (!value[index] && index > 0) {
         inputRefs.current[index - 1]?.focus();
@@ -48,7 +54,10 @@ export function OtpInput({
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     if (disabled) return;
-    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, length);
+    const pastedData = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, length);
     if (pastedData) {
       onChange(pastedData);
       const nextFocus = Math.min(pastedData.length, length - 1);
@@ -57,7 +66,12 @@ export function OtpInput({
   };
 
   return (
-    <div className={cn("flex items-center justify-center gap-2 sm:gap-3", className)}>
+    <div
+      className={cn(
+        "flex items-center justify-center gap-2 sm:gap-3",
+        className,
+      )}
+    >
       {Array.from({ length }).map((_, index) => (
         <input
           key={index}

@@ -6,15 +6,15 @@ Use the existing Community UI with real backend data. An API failure, empty resu
 
 ## Confirmed UI Contract
 
-| Frontend field | Backend response | Persisted source | Required |
-| --- | --- | --- | --- |
-| `SocialPost.id` | `id` | `social_posts.id` | Yes |
-| `author.id/name/avatar/email` | `author` | author ID plus approved profile projection/snapshot | `id`, `name` yes; others optional |
-| `content`, timestamps | same | `social_posts` | content/created yes |
-| `mediaUrls` | ordered URL array | `social_post_media.secure_url` | Optional |
-| `likeCount`, `commentCount`, `isLiked` | same | counters/reaction tables and current viewer | counts yes; viewer flag optional |
-| `PostComment.parentId` | same, flat list | `social_comments.parent_comment_id` | Optional root-null |
-| comment author/content/timestamp/likes | same | comment plus approved profile source | required except viewer flag |
+| Frontend field                         | Backend response  | Persisted source                                    | Required                          |
+| -------------------------------------- | ----------------- | --------------------------------------------------- | --------------------------------- |
+| `SocialPost.id`                        | `id`              | `social_posts.id`                                   | Yes                               |
+| `author.id/name/avatar/email`          | `author`          | author ID plus approved profile projection/snapshot | `id`, `name` yes; others optional |
+| `content`, timestamps                  | same              | `social_posts`                                      | content/created yes               |
+| `mediaUrls`                            | ordered URL array | `social_post_media.secure_url`                      | Optional                          |
+| `likeCount`, `commentCount`, `isLiked` | same              | counters/reaction tables and current viewer         | counts yes; viewer flag optional  |
+| `PostComment.parentId`                 | same, flat list   | `social_comments.parent_comment_id`                 | Optional root-null                |
+| comment author/content/timestamp/likes | same              | comment plus approved profile source                | required except viewer flag       |
 
 Unused by the present renderers: post `updatedAt`, author email, comment `children`, and persisted `replyToAuthorName`.
 

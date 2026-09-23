@@ -1,2 +1,3 @@
 package fu.tripsense.socialservice.dto.response;
-public record ToggleLikeResponse(boolean liked, int likeCount) { }
+
+public record ToggleLikeResponse(boolean liked, int likeCount) {}

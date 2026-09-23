@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { MockSocialPostRepository } from "../services/mock-social-post-repository";
-import { buildFlattenedCommentTree, MAX_VISUAL_DEPTH } from "../utils/comment-tree";
+import {
+  buildFlattenedCommentTree,
+  MAX_VISUAL_DEPTH,
+} from "../utils/comment-tree";
 
 describe("Social Interactions Repository & Tree Clamping", () => {
   let repo: MockSocialPostRepository;
@@ -18,7 +21,9 @@ describe("Social Interactions Repository & Tree Clamping", () => {
       // First toggle
       const result1 = await repo.toggleLikePost("post-1");
       expect(result1.liked).toBe(!initialLiked);
-      expect(result1.likeCount).toBe(initialLikeCount + (result1.liked ? 1 : -1));
+      expect(result1.likeCount).toBe(
+        initialLikeCount + (result1.liked ? 1 : -1),
+      );
 
       // Second toggle (toggle back)
       const result2 = await repo.toggleLikePost("post-1");
@@ -86,14 +91,14 @@ describe("Social Interactions Repository & Tree Clamping", () => {
       expect(found).toBeDefined();
     });
 
-    it("adds a reply to a level 4 comment and ensures it remains clamped at visual level 2", async () => {
-      // Reply to comm-5 (which is depth 4) -> new comment will be depth 5
+    it("adds a reply to a deep comment and ensures parentId is clamped to avoid creating deeper levels", async () => {
+      // Reply to comm-5 (which is deep) -> clamped to comm-4 as sibling
       const reply = await repo.createComment("post-1", {
-        content: "Trả lời cho comm-5 ở độ sâu cấp 5",
+        content: "Trả lời cho comm-5 ở độ sâu clamped",
         parentId: "comm-5",
       });
 
-      expect(reply.parentId).toBe("comm-5");
+      expect(reply.parentId).toBe("comm-4");
       expect(reply.replyToAuthorName).toBe("Lê Bảo");
 
       const comments = await repo.listComments("post-1");
@@ -101,7 +106,6 @@ describe("Social Interactions Repository & Tree Clamping", () => {
       const replyNode = tree.find((n) => n.comment.id === reply.id);
 
       expect(replyNode).toBeDefined();
-      expect(replyNode?.actualDepth).toBe(5);
       expect(replyNode?.visualDepth).toBe(MAX_VISUAL_DEPTH); // strictly 2
       expect(replyNode?.replyToAuthorName).toBe("Lê Bảo");
     });

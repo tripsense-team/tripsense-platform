@@ -20,7 +20,9 @@ export function TripTabs({ active }: TripTabsProps) {
           href={tab.href}
           className={cn(
             "border-b-2 pb-3 text-base font-bold leading-none tracking-normal transition-colors",
-            active === tab.value ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            active === tab.value
+              ? "border-foreground text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           {tab.label}

@@ -15,7 +15,9 @@ export interface ItinerarySuggestion {
   imageUrl: string;
 }
 
-export function itinerarySuggestions(destination: string): ItinerarySuggestion[] {
+export function itinerarySuggestions(
+  destination: string,
+): ItinerarySuggestion[] {
   const normalized = normalizeSearchText(destination);
   const destinationName = titleCaseDestination(destination || "the city");
 

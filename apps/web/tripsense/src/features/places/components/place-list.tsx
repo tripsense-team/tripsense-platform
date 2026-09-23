@@ -65,9 +65,13 @@ export function PlaceList({
           <SearchX className="h-6 w-6" />
         </div>
         <div className="space-y-1">
-          <h4 className="font-semibold text-sm text-foreground">Không tìm thấy địa điểm phù hợp</h4>
+          <h4 className="font-semibold text-sm text-foreground">
+            Không tìm thấy địa điểm phù hợp
+          </h4>
           <p className="text-xs text-muted-foreground max-w-xs">
-            Hãy thử tìm kiếm với từ khóa khác như &quot;quán cafe view biển&quot;, &quot;hải sản Đà Nẵng&quot;, hoặc &quot;món ăn địa phương&quot;.
+            Hãy thử tìm kiếm với từ khóa khác như &quot;quán cafe view
+            biển&quot;, &quot;hải sản Đà Nẵng&quot;, hoặc &quot;món ăn địa
+            phương&quot;.
           </p>
         </div>
       </div>
@@ -75,7 +79,12 @@ export function PlaceList({
   }
 
   return (
-    <div className={cn("space-y-3 overflow-y-auto pr-1 pb-4 scrollbar-thin", className)}>
+    <div
+      className={cn(
+        "space-y-3 overflow-y-auto pr-1 pb-4 scrollbar-thin",
+        className,
+      )}
+    >
       <div className="text-xs font-medium text-muted-foreground px-1 flex items-center justify-between">
         <span>Tìm thấy {places.length} địa điểm tại Đà Nẵng</span>
       </div>

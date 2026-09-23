@@ -17,9 +17,12 @@ export default function Error({
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background">
       <div className="max-w-md w-full rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col items-center text-center gap-4">
-        <h2 className="text-xl font-bold text-destructive">Something went wrong!</h2>
+        <h2 className="text-xl font-bold text-destructive">
+          Something went wrong!
+        </h2>
         <p className="text-sm text-muted-foreground">
-          {error.message || "An unexpected error occurred while loading this page."}
+          {error.message ||
+            "An unexpected error occurred while loading this page."}
         </p>
         <button
           onClick={() => reset()}

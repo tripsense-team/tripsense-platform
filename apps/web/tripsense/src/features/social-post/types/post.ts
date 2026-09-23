@@ -3,6 +3,7 @@ export interface SocialPostAuthor {
   name: string;
   avatar?: string;
   email?: string;
+  isFollowing?: boolean;
 }
 
 export interface SharedTripHighlight {
@@ -11,48 +12,21 @@ export interface SharedTripHighlight {
   dayNumber: number;
 }
 
-export interface SharedTripItineraryItem {
-  id: string;
-  placeId?: string | null;
-  title: string;
-  type: string;
-  startTime?: string | null;
-  endTime?: string | null;
-  durationMinutes?: number | null;
-  sortOrder?: number | null;
-  status?: string | null;
-  notes?: string | null;
-  placeName?: string | null;
-  placeAddress?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  dayNumber?: number | null;
-}
-
-export interface SharedTripItineraryDay {
-  id: string;
-  date?: string | null;
-  dayNumber: number;
-  items: SharedTripItineraryItem[];
-}
-
 export interface SharedTripSummary {
-  id?: string;
   tripId?: string;
   name: string;
   destinationName: string;
   startDate?: string;
   endDate?: string;
   coverImageUrl?: string;
-  travelerCount?: number;
-  durationDays?: number;
   dayCount?: number;
-  budgetAmount?: number;
-  budgetCurrency?: string;
-  placeCount?: number;
   itineraryItemCount?: number;
   highlights?: SharedTripHighlight[];
-  itineraryDays?: SharedTripItineraryDay[];
+  publicationRevision?: number;
+  publishedAt?: string;
+  refreshedAt?: string;
+  detailAvailability?: "PUBLIC_SNAPSHOT" | "SUMMARY_ONLY_REPUBLISH_REQUIRED";
+  datePrecision?: "EXACT" | "DAY_NUMBER_ONLY";
 }
 
 export interface SocialPost {
@@ -63,8 +37,6 @@ export interface SocialPost {
   mediaUrls?: string[];
   visibility?: "PUBLIC" | "UNLISTED" | "PRIVATE";
   trip?: SharedTripSummary | null;
-  tripId?: string;
-  tripSummary?: SharedTripSummary;
   createdAt: string;
   updatedAt?: string;
   likeCount: number;
@@ -75,13 +47,14 @@ export interface SocialPost {
 export interface CreateSocialPostRequest {
   content: string;
   media?: SocialPostMedia[];
-  tripId?: string;
 }
 
 export interface CreateTripShareRequest {
   tripId: string;
   caption?: string;
-  visibility?: "PUBLIC" | "UNLISTED" | "PRIVATE";
+  visibility: "PUBLIC" | "UNLISTED" | "PRIVATE";
+  expectedSnapshotFingerprint: string;
+  consentVersion: "PUBLIC_TRIP_V1";
 }
 
 export interface UpdatePostVisibilityRequest {
@@ -94,8 +67,93 @@ export interface UpdatePostContentRequest {
 
 export interface TripShareDetailResponse {
   post: SocialPost;
-  canOpenTrip: boolean;
-  tripUnavailableReason?: string;
+  publication?: PublicTripSnapshot | null;
+  detailAvailability: "PUBLIC_SNAPSHOT" | "SUMMARY_ONLY_REPUBLISH_REQUIRED";
+  canManagePublication: boolean;
+  sourceTripId?: string | null;
+}
+
+export interface PublicTripSnapshot {
+  schemaVersion: 1;
+  publicationRevision: number;
+  publishedAt?: string | null;
+  datePrecision: "EXACT" | "DAY_NUMBER_ONLY";
+  timePrecision: "EXACT" | "NONE";
+  summary: {
+    name: string;
+    destinationName: string;
+    coverImageUrl?: string | null;
+    dayCount: number;
+    itineraryItemCount: number;
+    highlights: SharedTripHighlight[];
+  };
+  days: Array<{
+    dayNumber: number;
+    date?: string | null;
+    items: Array<{
+      order: number;
+      title: string;
+      type: string;
+      startTime?: string | null;
+      endTime?: string | null;
+      durationMinutes?: number | null;
+      placeName?: string | null;
+    }>;
+  }>;
+}
+
+export interface TripSharePreviewResponse {
+  snapshot: PublicTripSnapshot;
+  snapshotFingerprint: string;
+  consentVersion: "PUBLIC_TRIP_V1";
+  warnings: string[];
+}
+
+export interface RefreshTripSharePublicationRequest {
+  expectedSnapshotFingerprint: string;
+  consentVersion: "PUBLIC_TRIP_V1";
+}
+
+export type CommunityReportReason =
+  | "SPAM"
+  | "HARASSMENT"
+  | "DANGEROUS_CONTENT"
+  | "PRIVACY"
+  | "MISINFORMATION"
+  | "OTHER";
+
+export interface SubmitCommunityReportRequest {
+  reason: CommunityReportReason;
+  details?: string;
+}
+
+export interface ReportReceiptResponse {
+  id: string;
+  status: "PENDING";
+  createdAt: string;
+}
+
+export interface ModerationReport {
+  id: string;
+  targetType: "POST" | "COMMENT";
+  targetId: string;
+  postId: string;
+  reporterId: string;
+  reason: CommunityReportReason;
+  details?: string | null;
+  status: "PENDING" | "DISMISSED" | "ACTIONED";
+  createdAt: string;
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  moderatorNote?: string | null;
+}
+
+export interface ModerationReportPage {
+  items: ModerationReport[];
+  total: number;
+  page: number;
+  size: number;
+  hasMore: boolean;
 }
 
 export interface SocialPostMedia {
@@ -119,7 +177,6 @@ export interface UploadSignatureResponse {
 }
 
 export interface PostComment {
-
   id: string;
   postId: string;
   parentId?: string | null;
@@ -152,6 +209,7 @@ export interface SocialPostPageResponse {
 
 export interface ListPostsParams {
   userId?: string;
+  type?: "ALL" | "STANDARD" | "TRIP_SHARE";
   page?: number;
   size?: number;
 }

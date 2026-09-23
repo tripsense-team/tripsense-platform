@@ -81,7 +81,9 @@ export function ConfirmationDialog({
             onClick={handleConfirm}
             disabled={isPending}
             loading={isPending}
-            loadingText={loadingText || (confirmText === "Xóa" ? "Đang xóa..." : undefined)}
+            loadingText={
+              loadingText || (confirmText === "Xóa" ? "Đang xóa..." : undefined)
+            }
           >
             {confirmText}
           </Button>

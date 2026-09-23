@@ -15,5 +15,3 @@ For backwards compatibility with existing multi-file features:
 - [Feature Index](../index.md)
 - [Multi-Agent Feature Workflow](../../workflows/multi-agent-feature-workflow.md)
 - [TripSense Architecture](../../architecture/tripsense-architecture.md)
-
-

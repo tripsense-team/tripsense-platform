@@ -9,16 +9,16 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class ZioMapClientConfig {
 
-    @Bean
-    @Qualifier("zioMapRestClient")
-    public RestClient zioMapRestClient(ZioMapProperties properties) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(properties.getTimeoutMs());
-        requestFactory.setReadTimeout(properties.getTimeoutMs());
+  @Bean
+  @Qualifier("zioMapRestClient")
+  public RestClient zioMapRestClient(ZioMapProperties properties) {
+    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+    requestFactory.setConnectTimeout(properties.getTimeoutMs());
+    requestFactory.setReadTimeout(properties.getTimeoutMs());
 
-        return RestClient.builder()
-                .baseUrl(properties.getBaseUrl())
-                .requestFactory(requestFactory)
-                .build();
-    }
+    return RestClient.builder()
+        .baseUrl(properties.getBaseUrl())
+        .requestFactory(requestFactory)
+        .build();
+  }
 }

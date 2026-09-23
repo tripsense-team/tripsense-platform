@@ -36,14 +36,18 @@ export function LandingHowItWorks() {
     <section id="how-it-works" className="py-16 md:py-24 bg-background">
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
         <div className="text-center max-w-3xl mx-auto space-y-4">
-          <Badge variant="outline" className="px-3.5 py-1 text-xs font-semibold rounded-full border-border">
+          <Badge
+            variant="outline"
+            className="px-3.5 py-1 text-xs font-semibold rounded-full border-border"
+          >
             How it works
           </Badge>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
             From inspiration to itinerary in seconds.
           </h2>
           <p className="text-base sm:text-lg text-muted-foreground">
-            Type any destination, upload a photo, or ask our AI to create your dream trip itinerary tailored to your exact pace and taste.
+            Type any destination, upload a photo, or ask our AI to create your
+            dream trip itinerary tailored to your exact pace and taste.
           </p>
         </div>
 
@@ -67,7 +71,10 @@ export function LandingHowItWorks() {
         {/* Photo Grid Collage */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-4">
           {samplePlaces.map((place, idx) => (
-            <Card key={idx} className="group overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all">
+            <Card
+              key={idx}
+              className="group overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all"
+            >
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
                 <Image
                   src={place.image}
@@ -76,7 +83,10 @@ export function LandingHowItWorks() {
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute top-3 left-3">
-                  <Badge variant="secondary" className="bg-background/80 backdrop-blur font-medium">
+                  <Badge
+                    variant="secondary"
+                    className="bg-background/80 backdrop-blur font-medium"
+                  >
                     {place.tag}
                   </Badge>
                 </div>

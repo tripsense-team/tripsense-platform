@@ -7,24 +7,43 @@ export function formatHHMM(timeStr?: string | null): string | null {
   return timeStr;
 }
 
-export function durationMinutesFromTimeRange(startTime?: string | null, endTime?: string | null) {
+export function durationMinutesFromTimeRange(
+  startTime?: string | null,
+  endTime?: string | null,
+) {
   if (!startTime || !endTime) return null;
 
   const [startHour, startMinute] = startTime.split(":").map(Number);
   const [endHour, endMinute] = endTime.split(":").map(Number);
-  if ([startHour, startMinute, endHour, endMinute].some((part) => Number.isNaN(part))) return null;
+  if (
+    [startHour, startMinute, endHour, endMinute].some((part) =>
+      Number.isNaN(part),
+    )
+  )
+    return null;
 
   const startTotal = startHour * 60 + startMinute;
   const endTotal = endHour * 60 + endMinute;
   return endTotal > startTotal ? endTotal - startTotal : null;
 }
 
-export function itemDurationMinutes(payload: { startTime?: string | null; endTime?: string | null; durationMinutes?: number | null }) {
-  return durationMinutesFromTimeRange(payload.startTime, payload.endTime) ?? (payload.durationMinutes ? Number(payload.durationMinutes) : null);
+export function itemDurationMinutes(payload: {
+  startTime?: string | null;
+  endTime?: string | null;
+  durationMinutes?: number | null;
+}) {
+  return (
+    durationMinutesFromTimeRange(payload.startTime, payload.endTime) ??
+    (payload.durationMinutes ? Number(payload.durationMinutes) : null)
+  );
 }
 
-export function addMinutesToTime(startTime?: string | null, minutes?: number | null) {
-  if (!startTime || minutes === null || minutes === undefined || minutes <= 0) return null;
+export function addMinutesToTime(
+  startTime?: string | null,
+  minutes?: number | null,
+) {
+  if (!startTime || minutes === null || minutes === undefined || minutes <= 0)
+    return null;
 
   const [startHour, startMinute] = startTime.split(":").map(Number);
   if ([startHour, startMinute].some((part) => Number.isNaN(part))) return null;
@@ -32,12 +51,18 @@ export function addMinutesToTime(startTime?: string | null, minutes?: number | n
   const nextTotal = startHour * 60 + startMinute + minutes;
   if (nextTotal >= 24 * 60) return "23:59";
 
-  const hour = Math.floor(nextTotal / 60).toString().padStart(2, "0");
+  const hour = Math.floor(nextTotal / 60)
+    .toString()
+    .padStart(2, "0");
   const minute = (nextTotal % 60).toString().padStart(2, "0");
   return `${hour}:${minute}`;
 }
 
-export function resolveItemEndTime(item: { startTime?: string | null; endTime?: string | null; durationMinutes?: number | null }): string | null {
+export function resolveItemEndTime(item: {
+  startTime?: string | null;
+  endTime?: string | null;
+  durationMinutes?: number | null;
+}): string | null {
   if (item.endTime) {
     return formatHHMM(item.endTime);
   }
@@ -52,7 +77,13 @@ export function resolveItemEndTime(item: { startTime?: string | null; endTime?: 
   return null;
 }
 
-export function chainItineraryItemsTimes<T extends { startTime?: string | null; endTime?: string | null; durationMinutes?: number | null }>(items: T[]): T[] {
+export function chainItineraryItemsTimes<
+  T extends {
+    startTime?: string | null;
+    endTime?: string | null;
+    durationMinutes?: number | null;
+  },
+>(items: T[]): T[] {
   let previousEnd: string | null = null;
   return items.map((item, index) => {
     const duration = itemDurationMinutes(item);
@@ -100,7 +131,11 @@ export function chainItineraryItemsTimes<T extends { startTime?: string | null; 
 export function chainItineraryResponse<
   T extends { days: Array<D> },
   D extends { items: Array<I> },
-  I extends { startTime?: string | null; endTime?: string | null; durationMinutes?: number | null }
+  I extends {
+    startTime?: string | null;
+    endTime?: string | null;
+    durationMinutes?: number | null;
+  },
 >(itinerary: T | null): T | null {
   if (!itinerary) return null;
   return {
@@ -112,7 +147,10 @@ export function chainItineraryResponse<
   };
 }
 
-export function formatDisplayTimeRange(startTime?: string | null, endTime?: string | null): string {
+export function formatDisplayTimeRange(
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
   const start = formatHHMM(startTime);
   const end = formatHHMM(endTime);
   if (start && end && start !== end) {
@@ -125,7 +163,9 @@ export function formatDisplayTimeRange(startTime?: string | null, endTime?: stri
 }
 
 export const TIME_OPTIONS_24H = Array.from({ length: 48 }, (_, i) => {
-  const h = Math.floor(i / 2).toString().padStart(2, "0");
+  const h = Math.floor(i / 2)
+    .toString()
+    .padStart(2, "0");
   const m = i % 2 === 0 ? "00" : "30";
   return `${h}:${m}`;
 }).concat(["23:59"]);

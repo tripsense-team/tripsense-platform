@@ -20,7 +20,8 @@ export function AuthGuard({
   const { user, status, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  const isChecking = isLoading || status === "checking" || status === "initializing";
+  const isChecking =
+    isLoading || status === "checking" || status === "initializing";
 
   const isAuthorized = React.useMemo(() => {
     if (isChecking) return false;

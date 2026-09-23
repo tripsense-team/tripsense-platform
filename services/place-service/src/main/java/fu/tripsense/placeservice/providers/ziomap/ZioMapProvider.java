@@ -9,11 +9,20 @@ import fu.tripsense.placeservice.providers.PlaceEnrichmentProvider;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapAutocompleteResponse;
-import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPlaceResult;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPhotoDetailsResponse;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPhotoResponse;
+import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPlaceResult;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchPlace;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchResponse;
+import java.net.URI;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -21,492 +30,608 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.HashSet;
-import java.util.Set;
-import java.time.Instant;
-import java.net.URI;
-
 @Slf4j
 @Component("zioMapProvider")
 public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
-    public static final String PROVIDER_NAME = "ziomap";
+  public static final String PROVIDER_NAME = "ziomap";
 
-    private final ZioMapProperties properties;
-    private final RestClient restClient;
+  private final ZioMapProperties properties;
+  private final RestClient restClient;
 
-    public ZioMapProvider(
-            ZioMapProperties properties,
-            @Qualifier("zioMapRestClient") RestClient restClient
-    ) {
-        this.properties = properties;
-        this.restClient = restClient;
+  public ZioMapProvider(
+      ZioMapProperties properties, @Qualifier("zioMapRestClient") RestClient restClient) {
+    this.properties = properties;
+    this.restClient = restClient;
+  }
+
+  @Override
+  public String getProviderName() {
+    return PROVIDER_NAME;
+  }
+
+  @Override
+  public List<PlaceDto> textSearch(
+      String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
+    if (!StringUtils.hasText(query)) {
+      return Collections.emptyList();
     }
 
-    @Override
-    public String getProviderName() {
-        return PROVIDER_NAME;
+    try {
+      int maxCount = (limit != null && limit > 0) ? Math.min(limit, 20) : 10;
+
+      UriComponentsBuilder uriBuilder =
+          UriComponentsBuilder.fromPath("/api/place/text-search")
+              .queryParam("query", query)
+              .queryParam("languageCode", "vi")
+              .queryParam("regionCode", "vn")
+              .queryParam("maxResultCount", maxCount)
+              .queryParam("rankPreference", "RELEVANCE")
+              .queryParam(
+                  "fieldMask",
+                  "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos,places.regularOpeningHours,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.businessStatus,places.types,places.primaryType");
+
+      if (lat != null && lng != null) {
+        uriBuilder.queryParam("location", lat + "," + lng);
+      }
+
+      if (radiusMeters != null && radiusMeters > 0) {
+        uriBuilder.queryParam("radius", String.valueOf(radiusMeters));
+      }
+
+      RestClient.RequestHeadersSpec<?> requestSpec =
+          restClient.get().uri(uriBuilder.build().toUriString());
+
+      if (StringUtils.hasText(properties.getApiKey())) {
+        requestSpec.header("x-api-key", properties.getApiKey());
+      }
+
+      ZioMapTextSearchResponse response =
+          requestSpec.retrieve().body(ZioMapTextSearchResponse.class);
+
+      if (response == null || response.getPlaces() == null) {
+        return Collections.emptyList();
+      }
+
+      List<PlaceDto> results = new ArrayList<>();
+      for (ZioMapTextSearchPlace item : response.getPlaces()) {
+        PlaceDto dto = mapTextSearchPlaceToDto(item);
+        if (dto != null) {
+          results.add(dto);
+        }
+      }
+      return results;
+    } catch (Exception ex) {
+      log.error("Failed to execute ZioMap text search for query '{}': {}", query, ex.getMessage());
+      throw new PlaceProviderException("ZioMap text search is unavailable", ex);
+    }
+  }
+
+  @Override
+  public List<AutocompleteSuggestionDto> autocomplete(
+      String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
+    if (!StringUtils.hasText(query)) {
+      return Collections.emptyList();
     }
 
-    @Override
-    public List<PlaceDto> textSearch(String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
-        if (!StringUtils.hasText(query)) {
-            return Collections.emptyList();
+    try {
+      UriComponentsBuilder uriBuilder =
+          UriComponentsBuilder.fromPath("/api/place/autocomplete")
+              .queryParam("input", query)
+              .queryParam("language", "vi")
+              .queryParam("region", "vn");
+
+      if (lat != null && lng != null) {
+        uriBuilder.queryParam("location", lat + "," + lng);
+      }
+      if (radiusMeters != null && radiusMeters > 0) {
+        uriBuilder.queryParam("radius", String.valueOf(radiusMeters));
+      }
+
+      RestClient.RequestHeadersSpec<?> requestSpec =
+          restClient.get().uri(uriBuilder.build().toUriString());
+
+      if (StringUtils.hasText(properties.getApiKey())) {
+        requestSpec.header("x-api-key", properties.getApiKey());
+      }
+
+      ZioMapAutocompleteResponse response =
+          requestSpec.retrieve().body(ZioMapAutocompleteResponse.class);
+
+      if (response == null || response.getPredictions() == null) {
+        return Collections.emptyList();
+      }
+
+      int maxCount = (limit != null && limit > 0) ? limit : 5;
+      List<AutocompleteSuggestionDto> suggestions = new ArrayList<>();
+
+      for (ZioMapAutocompleteResponse.ZioMapAutocompletePrediction pred :
+          response.getPredictions()) {
+        if (suggestions.size() >= maxCount) {
+          break;
         }
 
-        try {
-            int maxCount = (limit != null && limit > 0) ? Math.min(limit, 20) : 10;
+        String title = pred.getDescription();
+        String subtitle = "";
 
-            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromPath("/api/place/text-search")
-                    .queryParam("query", query)
-                    .queryParam("languageCode", "vi")
-                    .queryParam("regionCode", "vn")
-                    .queryParam("maxResultCount", maxCount)
-                    .queryParam("rankPreference", "RELEVANCE")
-                    .queryParam("fieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos,places.regularOpeningHours,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.businessStatus,places.types,places.primaryType");
-
-            if (lat != null && lng != null) {
-                uriBuilder.queryParam("location", lat + "," + lng);
-            }
-
-            if (radiusMeters != null && radiusMeters > 0) {
-                uriBuilder.queryParam("radius", String.valueOf(radiusMeters));
-            }
-
-            RestClient.RequestHeadersSpec<?> requestSpec = restClient.get()
-                    .uri(uriBuilder.build().toUriString());
-
-            if (StringUtils.hasText(properties.getApiKey())) {
-                requestSpec.header("x-api-key", properties.getApiKey());
-            }
-
-            ZioMapTextSearchResponse response = requestSpec.retrieve()
-                    .body(ZioMapTextSearchResponse.class);
-
-            if (response == null || response.getPlaces() == null) {
-                return Collections.emptyList();
-            }
-
-            List<PlaceDto> results = new ArrayList<>();
-            for (ZioMapTextSearchPlace item : response.getPlaces()) {
-                PlaceDto dto = mapTextSearchPlaceToDto(item);
-                if (dto != null) {
-                    results.add(dto);
-                }
-            }
-            return results;
-        } catch (Exception ex) {
-            log.error("Failed to execute ZioMap text search for query '{}': {}", query, ex.getMessage());
-            throw new PlaceProviderException("ZioMap text search is unavailable", ex);
+        if (pred.getStructuredFormatting() != null) {
+          if (StringUtils.hasText(pred.getStructuredFormatting().getMainText())) {
+            title = pred.getStructuredFormatting().getMainText();
+          }
+          if (StringUtils.hasText(pred.getStructuredFormatting().getSecondaryText())) {
+            subtitle = pred.getStructuredFormatting().getSecondaryText();
+          }
         }
+
+        String category =
+            (pred.getTypes() != null && !pred.getTypes().isEmpty())
+                ? pred.getTypes().get(0)
+                : "place";
+
+        suggestions.add(
+            AutocompleteSuggestionDto.builder()
+                .id(pred.getPlaceId())
+                .title(title)
+                .subtitle(subtitle)
+                .category(category)
+                .build());
+      }
+
+      return suggestions;
+    } catch (Exception ex) {
+      log.warn(
+          "ZioMap autocomplete failed for query '{}' ({}), falling back to textSearch",
+          query,
+          ex.getMessage());
+      List<PlaceDto> searchResults = textSearch(query, lat, lng, radiusMeters, limit);
+      List<AutocompleteSuggestionDto> suggestions = new ArrayList<>();
+      for (PlaceDto p : searchResults) {
+        suggestions.add(
+            AutocompleteSuggestionDto.builder()
+                .id(p.getProviderPlaceId() != null ? p.getProviderPlaceId() : p.getId())
+                .title(p.getName())
+                .subtitle(p.getAddress() != null ? p.getAddress() : "")
+                .category(
+                    p.getCategories() != null && !p.getCategories().isEmpty()
+                        ? p.getCategories().get(0)
+                        : "place")
+                .build());
+      }
+      return suggestions;
+    }
+  }
+
+  @Override
+  public Optional<PlaceDto> getPlaceDetails(String providerPlaceId) {
+    if (!StringUtils.hasText(providerPlaceId)) {
+      return Optional.empty();
     }
 
-    @Override
-    public List<AutocompleteSuggestionDto> autocomplete(String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
-        if (!StringUtils.hasText(query)) {
-            return Collections.emptyList();
-        }
+    try {
+      UriComponentsBuilder uriBuilder =
+          UriComponentsBuilder.fromPath("/api/place/details")
+              .queryParam("place_id", providerPlaceId)
+              .queryParam("language", "vi");
 
-        try {
-            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromPath("/api/place/autocomplete")
-                    .queryParam("input", query)
-                    .queryParam("language", "vi")
-                    .queryParam("region", "vn");
+      RestClient.RequestHeadersSpec<?> requestSpec =
+          restClient.get().uri(uriBuilder.build().toUriString());
 
-            if (lat != null && lng != null) {
-                uriBuilder.queryParam("location", lat + "," + lng);
-            }
-            if (radiusMeters != null && radiusMeters > 0) {
-                uriBuilder.queryParam("radius", String.valueOf(radiusMeters));
-            }
+      if (StringUtils.hasText(properties.getApiKey())) {
+        requestSpec.header("x-api-key", properties.getApiKey());
+      }
 
-            RestClient.RequestHeadersSpec<?> requestSpec = restClient.get()
-                    .uri(uriBuilder.build().toUriString());
+      ZioMapPlaceResult response = requestSpec.retrieve().body(ZioMapPlaceResult.class);
 
-            if (StringUtils.hasText(properties.getApiKey())) {
-                requestSpec.header("x-api-key", properties.getApiKey());
-            }
-
-            ZioMapAutocompleteResponse response = requestSpec.retrieve()
-                    .body(ZioMapAutocompleteResponse.class);
-
-            if (response == null || response.getPredictions() == null) {
-                return Collections.emptyList();
-            }
-
-            int maxCount = (limit != null && limit > 0) ? limit : 5;
-            List<AutocompleteSuggestionDto> suggestions = new ArrayList<>();
-
-            for (ZioMapAutocompleteResponse.ZioMapAutocompletePrediction pred : response.getPredictions()) {
-                if (suggestions.size() >= maxCount) {
-                    break;
-                }
-
-                String title = pred.getDescription();
-                String subtitle = "";
-
-                if (pred.getStructuredFormatting() != null) {
-                    if (StringUtils.hasText(pred.getStructuredFormatting().getMainText())) {
-                        title = pred.getStructuredFormatting().getMainText();
-                    }
-                    if (StringUtils.hasText(pred.getStructuredFormatting().getSecondaryText())) {
-                        subtitle = pred.getStructuredFormatting().getSecondaryText();
-                    }
-                }
-
-                String category = (pred.getTypes() != null && !pred.getTypes().isEmpty())
-                        ? pred.getTypes().get(0)
-                        : "place";
-
-                suggestions.add(AutocompleteSuggestionDto.builder()
-                        .id(pred.getPlaceId())
-                        .title(title)
-                        .subtitle(subtitle)
-                        .category(category)
-                        .build());
-            }
-
-            return suggestions;
-        } catch (Exception ex) {
-            log.warn("ZioMap autocomplete failed for query '{}' ({}), falling back to textSearch", query, ex.getMessage());
-            List<PlaceDto> searchResults = textSearch(query, lat, lng, radiusMeters, limit);
-            List<AutocompleteSuggestionDto> suggestions = new ArrayList<>();
-            for (PlaceDto p : searchResults) {
-                suggestions.add(AutocompleteSuggestionDto.builder()
-                        .id(p.getProviderPlaceId() != null ? p.getProviderPlaceId() : p.getId())
-                        .title(p.getName())
-                        .subtitle(p.getAddress() != null ? p.getAddress() : "")
-                        .category(p.getCategories() != null && !p.getCategories().isEmpty() ? p.getCategories().get(0) : "place")
-                        .build());
-            }
-            return suggestions;
-        }
-    }
-
-    @Override
-    public Optional<PlaceDto> getPlaceDetails(String providerPlaceId) {
-        if (!StringUtils.hasText(providerPlaceId)) {
-            return Optional.empty();
-        }
-
-        try {
-            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromPath("/api/place/details")
-                    .queryParam("place_id", providerPlaceId)
-                    .queryParam("language", "vi");
-
-            RestClient.RequestHeadersSpec<?> requestSpec = restClient.get()
-                    .uri(uriBuilder.build().toUriString());
-
-            if (StringUtils.hasText(properties.getApiKey())) {
-                requestSpec.header("x-api-key", properties.getApiKey());
-            }
-
-            ZioMapPlaceResult response = requestSpec.retrieve()
-                    .body(ZioMapPlaceResult.class);
-
-            if (response == null || !StringUtils.hasText(response.getPlaceId())) {
-                return Optional.empty();
-            }
-
-            return Optional.ofNullable(mapPlaceResultToDto(response));
-        } catch (Exception ex) {
-            log.error("Failed to execute ZioMap place details for id '{}': {}", providerPlaceId, ex.getMessage());
-            throw new PlaceProviderException("ZioMap place details are unavailable", ex);
-        }
-    }
-
-    @Override
-    public Optional<PlacePhotoDto> getPrimaryPhoto(String providerPlaceId) {
-        return getPhotoGallery(providerPlaceId, 1).stream().findFirst();
-    }
-
-    @Override
-    public List<PlacePhotoDto> getPhotoGallery(String providerPlaceId, int limit) {
-        if (!properties.isPhotoDisplayApproved() || !StringUtils.hasText(properties.getApiKey())
-                || providerPlaceId == null || !providerPlaceId.matches("[A-Za-z0-9._:-]{1,200}") || limit <= 0) {
-            return List.of();
-        }
-        try {
-            String detailsUri = UriComponentsBuilder.fromPath("/api/v1/places/{id}")
-                    .queryParam("fields", "photos")
-                    .buildAndExpand(providerPlaceId).encode().toUriString();
-            ZioMapPhotoDetailsResponse details = restClient.get().uri(detailsUri)
-                    .header("x-api-key", properties.getApiKey()).retrieve()
-                    .body(ZioMapPhotoDetailsResponse.class);
-            if (details == null || details.photos() == null || details.photos().isEmpty()) return List.of();
-            List<PlacePhotoDto> gallery = new ArrayList<>();
-            Set<String> seenNames = new HashSet<>();
-            Set<String> seenUrls = new HashSet<>();
-            int photoRequests = 0;
-            for (ZioMapPhotoDetailsResponse.Photo photo : details.photos()) {
-                if (photoRequests >= Math.min(limit, 5)) break;
-                if (photo == null || photo.name() == null
-                        || !photo.name().startsWith("places/" + providerPlaceId + "/photos/")
-                        || !seenNames.add(photo.name())) continue;
-                try {
-                    photoRequests++;
-                    String photoUri = UriComponentsBuilder.fromPath("/api/place/photos")
-                            .queryParam("name", photo.name())
-                            .queryParam("maxWidthPx", Math.max(1, Math.min(1200, properties.getPhotoMaxWidthPx())))
-                            .build().encode().toUriString();
-                    ZioMapPhotoResponse response = restClient.get().uri(photoUri)
-                            .header("x-api-key", properties.getApiKey()).retrieve()
-                            .body(ZioMapPhotoResponse.class);
-                    if (response == null || !safePhotoUrl(response.photoUri()) || !seenUrls.add(response.photoUri())) continue;
-                    List<PlacePhotoDto.Attribution> attribution = photo.authorAttributions() == null ? List.of()
-                            : photo.authorAttributions().stream()
-                            .filter(item -> item != null && StringUtils.hasText(item.displayName()))
-                            .limit(4)
-                            .map(item -> new PlacePhotoDto.Attribution(item.displayName(),
-                                    safeAttributionUrl(item.uri()) ? item.uri() : null))
-                            .toList();
-                    gallery.add(new PlacePhotoDto(response.photoUri(), PROVIDER_NAME,
-                            attribution, Instant.now(), true));
-                } catch (Exception ex) {
-                    log.debug("One ZioMap gallery image unavailable; type={}", ex.getClass().getSimpleName());
-                }
-            }
-            return List.copyOf(gallery);
-        } catch (Exception ex) {
-            log.warn("ZioMap photo unavailable for place; type={}", ex.getClass().getSimpleName());
-            return List.of();
-        }
-    }
-
-    private boolean safePhotoUrl(String value) {
-        if (!StringUtils.hasText(value) || value.length() > 2048) return false;
-        try {
-            URI uri = URI.create(value);
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getUserInfo() != null || uri.getHost() == null) return false;
-            String query = uri.getRawQuery();
-            if (query != null) {
-                for (String parameter : query.split("&")) {
-                    String name = parameter.split("=", 2)[0];
-                    if (name.matches("(?i)key|api_key|token|secret")) return false;
-                }
-            }
-            String host = uri.getHost().toLowerCase(Locale.ROOT);
-            for (String allowed : properties.getPhotoAllowedHosts().split(",")) {
-                if (host.equals(allowed.trim().toLowerCase(Locale.ROOT))) return true;
-            }
-            return false;
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-    }
-
-    private boolean safeAttributionUrl(String value) {
-        if (!StringUtils.hasText(value) || value.length() > 2048) return false;
-        try {
-            URI uri = URI.create(value);
-            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null && uri.getUserInfo() == null;
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-    }
-
-    private PlaceDto mapTextSearchPlaceToDto(ZioMapTextSearchPlace item) {
-        if (item == null || !StringUtils.hasText(item.getId())) {
-            return null;
-        }
-
-        if (item.getDisplayName() == null || !StringUtils.hasText(item.getDisplayName().getText())) {
-            return null;
-        }
-        String name = item.getDisplayName().getText();
-
-        LocationDto location = null;
-        if (item.getLocation() != null && item.getLocation().getLatitude() != null && item.getLocation().getLongitude() != null) {
-            location = LocationDto.builder()
-                    .lat(item.getLocation().getLatitude())
-                    .lng(item.getLocation().getLongitude())
-                    .build();
-        }
-
-        List<String> categories = new ArrayList<>();
-        if (StringUtils.hasText(item.getPrimaryType())) {
-            categories.add(item.getPrimaryType());
-        }
-        if (item.getTypes() != null) {
-            for (String t : item.getTypes()) {
-                if (!categories.contains(t)) {
-                    categories.add(t);
-                }
-            }
-        }
-
-        String openingHours = null;
-        if (item.getRegularOpeningHours() != null && item.getRegularOpeningHours().getWeekdayDescriptions() != null && !item.getRegularOpeningHours().getWeekdayDescriptions().isEmpty()) {
-            openingHours = String.join("; ", item.getRegularOpeningHours().getWeekdayDescriptions());
-        }
-
-        List<String> photoUrls = Collections.emptyList();
-
-        if (categories.isEmpty()) {
-            categories = inferCategoriesFromName(name);
-        }
-
-        return PlaceDto.builder()
-                .id(item.getId())
-                .provider(PROVIDER_NAME)
-                .providerPlaceId(item.getId())
-                .name(name)
-                .location(location)
-                .address(item.getFormattedAddress())
-                .categories(categories)
-                .rating(item.getRating())
-                .userRatingCount(item.getUserRatingCount())
-                .photos(photoUrls)
-                .phone(StringUtils.hasText(item.getInternationalPhoneNumber()) ? item.getInternationalPhoneNumber() : item.getNationalPhoneNumber())
-                .website(item.getWebsiteUri())
-                .openingHours(openingHours)
-                .businessStatus(item.getBusinessStatus())
-                .build();
-    }
-
-    private List<String> inferCategoriesFromName(String name) {
-        String lower = name != null ? name.toLowerCase(Locale.ROOT) : "";
-        List<String> list = new ArrayList<>();
-        if (lower.contains("nha khoa") || lower.contains("dental") || lower.contains("răng") || lower.contains("niềng")) {
-            list.add("nha khoa");
-            list.add("y tế");
-        } else if (lower.contains("bệnh viện") || lower.contains("phòng khám") || lower.contains("clinic") || lower.contains("y tế") || lower.contains("dược") || lower.contains("nhà thuốc")) {
-            list.add("y tế");
-            list.add("phòng khám");
-        } else if (lower.contains("hotel") || lower.contains("khách sạn") || lower.contains("resort") || lower.contains("homestay") || lower.contains("villa") || lower.contains("hostel")) {
-            list.add("khách sạn");
-            list.add("lưu trú");
-        } else if (lower.contains("cafe") || lower.contains("coffee") || lower.contains("cà phê") || lower.contains("tea") || lower.contains("trà sữa")) {
-            list.add("quán cafe");
-            list.add("đồ uống");
-        } else if (lower.contains("ốc") || lower.contains("hải sản") || lower.contains("seafood")) {
-            list.add("hải sản");
-            list.add("quán ốc");
-        } else if (lower.contains("nướng") || lower.contains("bbq") || lower.contains("yakiniku") || lower.contains("buffet")) {
-            list.add("buffet nướng");
-            list.add("nhà hàng");
-        } else if (lower.contains("pizza") || lower.contains("pasta") || lower.contains("steak")) {
-            list.add("món âu");
-            list.add("nhà hàng");
-        } else if (lower.contains("bánh") || lower.contains("cuốn") || lower.contains("bún") || lower.contains("mì") || lower.contains("hủ tiếu") || lower.contains("phở")) {
-            list.add("đặc sản đà nẵng");
-            list.add("ẩm thực truyền thống");
-        } else if (lower.contains("cơm") || lower.contains("quán") || lower.contains("nhà hàng") || lower.contains("ẩm thực")) {
-            list.add("ẩm thực việt");
-            list.add("nhà hàng");
-        } else if (lower.contains("chợ") || lower.contains("siêu thị") || lower.contains("mall") || lower.contains("shop") || lower.contains("store") || lower.contains("plaza")) {
-            list.add("mua sắm");
-            list.add("trung tâm thương mại");
-        } else if (lower.contains("du lịch") || lower.contains("tour") || lower.contains("bà nà") || lower.contains("bana") || lower.contains("chùa") || lower.contains("đền") || lower.contains("cầu") || lower.contains("bãi biển") || lower.contains("núi")) {
-            list.add("điểm tham quan");
-            list.add("du lịch");
-        } else {
-            list.add("địa điểm khám phá");
-        }
-        return list;
-    }
-
-    private PlaceDto mapPlaceResultToDto(ZioMapPlaceResult item) {
-        if (item == null || !StringUtils.hasText(item.getPlaceId()) || !StringUtils.hasText(item.getName())) {
-            return null;
-        }
-        LocationDto location = null;
-        if (item.getGeometry() != null && item.getGeometry().getLocation() != null) {
-            location = LocationDto.builder()
-                    .lat(item.getGeometry().getLocation().getLat())
-                    .lng(item.getGeometry().getLocation().getLng())
-                    .build();
-        }
-
-        String openingHours = null;
-        if (item.getOpeningHours() != null && item.getOpeningHours().getWeekdayText() != null && !item.getOpeningHours().getWeekdayText().isEmpty()) {
-            openingHours = String.join("; ", item.getOpeningHours().getWeekdayText());
-        } else if (item.getSecondaryOpeningHours() != null && !item.getSecondaryOpeningHours().isEmpty()) {
-            for (ZioMapPlaceResult.OpeningHours oh : item.getSecondaryOpeningHours()) {
-                if (oh.getWeekdayText() != null && !oh.getWeekdayText().isEmpty()) {
-                    openingHours = String.join("; ", oh.getWeekdayText());
-                    break;
-                }
-            }
-        }
-
-        List<String> photoUrls = Collections.emptyList();
-
-        List<String> categories = item.getTypes() != null ? new ArrayList<>(item.getTypes()) : new ArrayList<>();
-        if (categories.isEmpty()) {
-            categories = inferCategoriesFromName(item.getName());
-        }
-
-        Double rating = item.getRating();
-        Integer userRatingCount = item.getUserRatingsTotal();
-
-        List<fu.tripsense.placeservice.dto.PlaceReviewDto> reviewDtos = new ArrayList<>();
-        if (item.getReviews() != null) {
-            for (ZioMapPlaceResult.PlaceReview r : item.getReviews()) {
-                reviewDtos.add(fu.tripsense.placeservice.dto.PlaceReviewDto.builder()
-                        .authorName(r.getAuthorName())
-                        .profilePhotoUrl(r.getProfilePhotoUrl())
-                        .rating(r.getRating())
-                        .text(r.getText())
-                        .relativeTimeDescription(r.getRelativeTimeDescription())
-                        .time(r.getTime())
-                        .build());
-            }
-        }
-
-        return PlaceDto.builder()
-                .id(item.getPlaceId())
-                .provider(PROVIDER_NAME)
-                .providerPlaceId(item.getPlaceId())
-                .name(item.getName())
-                .location(location)
-                .address(item.getFormattedAddress())
-                .categories(categories)
-                .rating(rating)
-                .userRatingCount(userRatingCount)
-                .photos(photoUrls)
-                .phone(StringUtils.hasText(item.getInternationalPhoneNumber()) ? item.getInternationalPhoneNumber() : item.getFormattedPhoneNumber())
-                .website(item.getWebsite())
-                .openingHours(openingHours)
-                .businessStatus(item.getBusinessStatus())
-                .reviews(reviewDtos)
-                .build();
-    }
-
-    @Override
-    public Optional<PlaceDto> enrichPlace(String placeName, Double lat, Double lng) {
-        if (!StringUtils.hasText(placeName)) {
-            return Optional.empty();
-        }
-        String cleanName = placeName.trim();
-        if (cleanName.contains(",")) {
-            String[] parts = cleanName.split(",");
-            if (parts.length > 0 && StringUtils.hasText(parts[0])) {
-                cleanName = parts[0].trim();
-            }
-        }
-        String query = cleanName.toLowerCase().contains("đà nẵng") || cleanName.toLowerCase().contains("da nang")
-                ? cleanName
-                : cleanName + " Đà Nẵng";
-
-        List<PlaceDto> places = textSearch(query, lat, lng, 5000, 1);
-        if (!places.isEmpty()) {
-            PlaceDto matched = places.get(0);
-            String zioPlaceId = matched.getProviderPlaceId();
-            if (StringUtils.hasText(zioPlaceId)) {
-                Optional<PlaceDto> details = getPlaceDetails(zioPlaceId);
-                if (details.isPresent()) {
-                    return details;
-                }
-            }
-            return Optional.of(matched);
-        }
+      if (response == null || !StringUtils.hasText(response.getPlaceId())) {
         return Optional.empty();
+      }
+
+      return Optional.ofNullable(mapPlaceResultToDto(response));
+    } catch (Exception ex) {
+      log.error(
+          "Failed to execute ZioMap place details for id '{}': {}",
+          providerPlaceId,
+          ex.getMessage());
+      throw new PlaceProviderException("ZioMap place details are unavailable", ex);
+    }
+  }
+
+  @Override
+  public Optional<PlacePhotoDto> getPrimaryPhoto(String providerPlaceId) {
+    return getPhotoGallery(providerPlaceId, 1).stream().findFirst();
+  }
+
+  @Override
+  public List<PlacePhotoDto> getPhotoGallery(String providerPlaceId, int limit) {
+    if (!properties.isPhotoDisplayApproved()
+        || !StringUtils.hasText(properties.getApiKey())
+        || providerPlaceId == null
+        || !providerPlaceId.matches("[A-Za-z0-9._:-]{1,200}")
+        || limit <= 0) {
+      return List.of();
+    }
+    try {
+      String detailsUri =
+          UriComponentsBuilder.fromPath("/api/v1/places/{id}")
+              .queryParam("fields", "photos")
+              .buildAndExpand(providerPlaceId)
+              .encode()
+              .toUriString();
+      ZioMapPhotoDetailsResponse details =
+          restClient
+              .get()
+              .uri(detailsUri)
+              .header("x-api-key", properties.getApiKey())
+              .retrieve()
+              .body(ZioMapPhotoDetailsResponse.class);
+      if (details == null || details.photos() == null || details.photos().isEmpty()) {
+        return List.of();
+      }
+      List<PlacePhotoDto> gallery = new ArrayList<>();
+      Set<String> seenNames = new HashSet<>();
+      Set<String> seenUrls = new HashSet<>();
+      int photoRequests = 0;
+      for (ZioMapPhotoDetailsResponse.Photo photo : details.photos()) {
+        if (photoRequests >= Math.min(limit, 5)) {
+          break;
+        }
+        if (photo == null
+            || photo.name() == null
+            || !photo.name().startsWith("places/" + providerPlaceId + "/photos/")
+            || !seenNames.add(photo.name())) {
+          continue;
+        }
+        try {
+          photoRequests++;
+          String photoUri =
+              UriComponentsBuilder.fromPath("/api/place/photos")
+                  .queryParam("name", photo.name())
+                  .queryParam(
+                      "maxWidthPx", Math.max(1, Math.min(1200, properties.getPhotoMaxWidthPx())))
+                  .build()
+                  .encode()
+                  .toUriString();
+          ZioMapPhotoResponse response =
+              restClient
+                  .get()
+                  .uri(photoUri)
+                  .header("x-api-key", properties.getApiKey())
+                  .retrieve()
+                  .body(ZioMapPhotoResponse.class);
+          if (response == null
+              || !safePhotoUrl(response.photoUri())
+              || !seenUrls.add(response.photoUri())) {
+            continue;
+          }
+          List<PlacePhotoDto.Attribution> attribution =
+              photo.authorAttributions() == null
+                  ? List.of()
+                  : photo.authorAttributions().stream()
+                      .filter(item -> item != null && StringUtils.hasText(item.displayName()))
+                      .limit(4)
+                      .map(
+                          item ->
+                              new PlacePhotoDto.Attribution(
+                                  item.displayName(),
+                                  safeAttributionUrl(item.uri()) ? item.uri() : null))
+                      .toList();
+          gallery.add(
+              new PlacePhotoDto(
+                  response.photoUri(), PROVIDER_NAME, attribution, Instant.now(), true));
+        } catch (Exception ex) {
+          log.debug("One ZioMap gallery image unavailable; type={}", ex.getClass().getSimpleName());
+        }
+      }
+      return List.copyOf(gallery);
+    } catch (Exception ex) {
+      log.warn("ZioMap photo unavailable for place; type={}", ex.getClass().getSimpleName());
+      return List.of();
+    }
+  }
+
+  private boolean safePhotoUrl(String value) {
+    if (!StringUtils.hasText(value) || value.length() > 2048) {
+      return false;
+    }
+    try {
+      URI uri = URI.create(value);
+      if (!"https".equalsIgnoreCase(uri.getScheme())
+          || uri.getUserInfo() != null
+          || uri.getHost() == null) {
+        return false;
+      }
+      String query = uri.getRawQuery();
+      if (query != null) {
+        for (String parameter : query.split("&")) {
+          String name = parameter.split("=", 2)[0];
+          if (name.matches("(?i)key|api_key|token|secret")) {
+            return false;
+          }
+        }
+      }
+      String host = uri.getHost().toLowerCase(Locale.ROOT);
+      for (String allowed : properties.getPhotoAllowedHosts().split(",")) {
+        if (host.equals(allowed.trim().toLowerCase(Locale.ROOT))) {
+          return true;
+        }
+      }
+      return false;
+    } catch (IllegalArgumentException ex) {
+      return false;
+    }
+  }
+
+  private boolean safeAttributionUrl(String value) {
+    if (!StringUtils.hasText(value) || value.length() > 2048) {
+      return false;
+    }
+    try {
+      URI uri = URI.create(value);
+      return "https".equalsIgnoreCase(uri.getScheme())
+          && uri.getHost() != null
+          && uri.getUserInfo() == null;
+    } catch (IllegalArgumentException ex) {
+      return false;
+    }
+  }
+
+  private PlaceDto mapTextSearchPlaceToDto(ZioMapTextSearchPlace item) {
+    if (item == null || !StringUtils.hasText(item.getId())) {
+      return null;
     }
 
+    if (item.getDisplayName() == null || !StringUtils.hasText(item.getDisplayName().getText())) {
+      return null;
+    }
+    String name = item.getDisplayName().getText();
+
+    LocationDto location = null;
+    if (item.getLocation() != null
+        && item.getLocation().getLatitude() != null
+        && item.getLocation().getLongitude() != null) {
+      location =
+          LocationDto.builder()
+              .lat(item.getLocation().getLatitude())
+              .lng(item.getLocation().getLongitude())
+              .build();
+    }
+
+    List<String> categories = new ArrayList<>();
+    if (StringUtils.hasText(item.getPrimaryType())) {
+      categories.add(item.getPrimaryType());
+    }
+    if (item.getTypes() != null) {
+      for (String t : item.getTypes()) {
+        if (!categories.contains(t)) {
+          categories.add(t);
+        }
+      }
+    }
+
+    String openingHours = null;
+    if (item.getRegularOpeningHours() != null
+        && item.getRegularOpeningHours().getWeekdayDescriptions() != null
+        && !item.getRegularOpeningHours().getWeekdayDescriptions().isEmpty()) {
+      openingHours = String.join("; ", item.getRegularOpeningHours().getWeekdayDescriptions());
+    }
+
+    List<String> photoUrls = Collections.emptyList();
+
+    if (categories.isEmpty()) {
+      categories = inferCategoriesFromName(name);
+    }
+
+    return PlaceDto.builder()
+        .id(item.getId())
+        .provider(PROVIDER_NAME)
+        .providerPlaceId(item.getId())
+        .name(name)
+        .location(location)
+        .address(item.getFormattedAddress())
+        .categories(categories)
+        .rating(item.getRating())
+        .userRatingCount(item.getUserRatingCount())
+        .photos(photoUrls)
+        .phone(
+            StringUtils.hasText(item.getInternationalPhoneNumber())
+                ? item.getInternationalPhoneNumber()
+                : item.getNationalPhoneNumber())
+        .website(item.getWebsiteUri())
+        .openingHours(openingHours)
+        .businessStatus(item.getBusinessStatus())
+        .build();
+  }
+
+  private List<String> inferCategoriesFromName(String name) {
+    String lower = name != null ? name.toLowerCase(Locale.ROOT) : "";
+    List<String> list = new ArrayList<>();
+    if (lower.contains("nha khoa")
+        || lower.contains("dental")
+        || lower.contains("răng")
+        || lower.contains("niềng")) {
+      list.add("nha khoa");
+      list.add("y tế");
+    } else if (lower.contains("bệnh viện")
+        || lower.contains("phòng khám")
+        || lower.contains("clinic")
+        || lower.contains("y tế")
+        || lower.contains("dược")
+        || lower.contains("nhà thuốc")) {
+      list.add("y tế");
+      list.add("phòng khám");
+    } else if (lower.contains("hotel")
+        || lower.contains("khách sạn")
+        || lower.contains("resort")
+        || lower.contains("homestay")
+        || lower.contains("villa")
+        || lower.contains("hostel")) {
+      list.add("khách sạn");
+      list.add("lưu trú");
+    } else if (lower.contains("cafe")
+        || lower.contains("coffee")
+        || lower.contains("cà phê")
+        || lower.contains("tea")
+        || lower.contains("trà sữa")) {
+      list.add("quán cafe");
+      list.add("đồ uống");
+    } else if (lower.contains("ốc") || lower.contains("hải sản") || lower.contains("seafood")) {
+      list.add("hải sản");
+      list.add("quán ốc");
+    } else if (lower.contains("nướng")
+        || lower.contains("bbq")
+        || lower.contains("yakiniku")
+        || lower.contains("buffet")) {
+      list.add("buffet nướng");
+      list.add("nhà hàng");
+    } else if (lower.contains("pizza") || lower.contains("pasta") || lower.contains("steak")) {
+      list.add("món âu");
+      list.add("nhà hàng");
+    } else if (lower.contains("bánh")
+        || lower.contains("cuốn")
+        || lower.contains("bún")
+        || lower.contains("mì")
+        || lower.contains("hủ tiếu")
+        || lower.contains("phở")) {
+      list.add("đặc sản đà nẵng");
+      list.add("ẩm thực truyền thống");
+    } else if (lower.contains("cơm")
+        || lower.contains("quán")
+        || lower.contains("nhà hàng")
+        || lower.contains("ẩm thực")) {
+      list.add("ẩm thực việt");
+      list.add("nhà hàng");
+    } else if (lower.contains("chợ")
+        || lower.contains("siêu thị")
+        || lower.contains("mall")
+        || lower.contains("shop")
+        || lower.contains("store")
+        || lower.contains("plaza")) {
+      list.add("mua sắm");
+      list.add("trung tâm thương mại");
+    } else if (lower.contains("du lịch")
+        || lower.contains("tour")
+        || lower.contains("bà nà")
+        || lower.contains("bana")
+        || lower.contains("chùa")
+        || lower.contains("đền")
+        || lower.contains("cầu")
+        || lower.contains("bãi biển")
+        || lower.contains("núi")) {
+      list.add("điểm tham quan");
+      list.add("du lịch");
+    } else {
+      list.add("địa điểm khám phá");
+    }
+    return list;
+  }
+
+  private PlaceDto mapPlaceResultToDto(ZioMapPlaceResult item) {
+    if (item == null
+        || !StringUtils.hasText(item.getPlaceId())
+        || !StringUtils.hasText(item.getName())) {
+      return null;
+    }
+    LocationDto location = null;
+    if (item.getGeometry() != null && item.getGeometry().getLocation() != null) {
+      location =
+          LocationDto.builder()
+              .lat(item.getGeometry().getLocation().getLat())
+              .lng(item.getGeometry().getLocation().getLng())
+              .build();
+    }
+
+    String openingHours = null;
+    if (item.getOpeningHours() != null
+        && item.getOpeningHours().getWeekdayText() != null
+        && !item.getOpeningHours().getWeekdayText().isEmpty()) {
+      openingHours = String.join("; ", item.getOpeningHours().getWeekdayText());
+    } else if (item.getSecondaryOpeningHours() != null
+        && !item.getSecondaryOpeningHours().isEmpty()) {
+      for (ZioMapPlaceResult.OpeningHours oh : item.getSecondaryOpeningHours()) {
+        if (oh.getWeekdayText() != null && !oh.getWeekdayText().isEmpty()) {
+          openingHours = String.join("; ", oh.getWeekdayText());
+          break;
+        }
+      }
+    }
+
+    List<String> photoUrls = Collections.emptyList();
+
+    List<String> categories =
+        item.getTypes() != null ? new ArrayList<>(item.getTypes()) : new ArrayList<>();
+    if (categories.isEmpty()) {
+      categories = inferCategoriesFromName(item.getName());
+    }
+
+    Double rating = item.getRating();
+    Integer userRatingCount = item.getUserRatingsTotal();
+
+    List<fu.tripsense.placeservice.dto.PlaceReviewDto> reviewDtos = new ArrayList<>();
+    if (item.getReviews() != null) {
+      for (ZioMapPlaceResult.PlaceReview r : item.getReviews()) {
+        reviewDtos.add(
+            fu.tripsense.placeservice.dto.PlaceReviewDto.builder()
+                .authorName(r.getAuthorName())
+                .profilePhotoUrl(r.getProfilePhotoUrl())
+                .rating(r.getRating())
+                .text(r.getText())
+                .relativeTimeDescription(r.getRelativeTimeDescription())
+                .time(r.getTime())
+                .build());
+      }
+    }
+
+    return PlaceDto.builder()
+        .id(item.getPlaceId())
+        .provider(PROVIDER_NAME)
+        .providerPlaceId(item.getPlaceId())
+        .name(item.getName())
+        .location(location)
+        .address(item.getFormattedAddress())
+        .categories(categories)
+        .rating(rating)
+        .userRatingCount(userRatingCount)
+        .photos(photoUrls)
+        .phone(
+            StringUtils.hasText(item.getInternationalPhoneNumber())
+                ? item.getInternationalPhoneNumber()
+                : item.getFormattedPhoneNumber())
+        .website(item.getWebsite())
+        .openingHours(openingHours)
+        .businessStatus(item.getBusinessStatus())
+        .reviews(reviewDtos)
+        .build();
+  }
+
+  @Override
+  public Optional<PlaceDto> enrichPlace(String placeName, Double lat, Double lng) {
+    if (!StringUtils.hasText(placeName)) {
+      return Optional.empty();
+    }
+    String cleanName = placeName.trim();
+    if (cleanName.contains(",")) {
+      String[] parts = cleanName.split(",");
+      if (parts.length > 0 && StringUtils.hasText(parts[0])) {
+        cleanName = parts[0].trim();
+      }
+    }
+    String query =
+        cleanName.toLowerCase().contains("đà nẵng") || cleanName.toLowerCase().contains("da nang")
+            ? cleanName
+            : cleanName + " Đà Nẵng";
+
+    List<PlaceDto> places = textSearch(query, lat, lng, 5000, 1);
+    if (!places.isEmpty()) {
+      PlaceDto matched = places.get(0);
+      String zioPlaceId = matched.getProviderPlaceId();
+      if (StringUtils.hasText(zioPlaceId)) {
+        Optional<PlaceDto> details = getPlaceDetails(zioPlaceId);
+        if (details.isPresent()) {
+          return details;
+        }
+      }
+      return Optional.of(matched);
+    }
+    return Optional.empty();
+  }
 }

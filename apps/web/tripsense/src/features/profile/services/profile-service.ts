@@ -9,13 +9,19 @@ async function unwrap<T>(request: Promise<ApiResponse<T>>): Promise<T> {
 
 export const profileService = {
   getUserProfile: async (userId: string): Promise<UserProfile> => {
-    return unwrap(apiClient<ApiResponse<UserProfile>>(`/api/users/profile/${userId}`));
+    return unwrap(
+      apiClient<ApiResponse<UserProfile>>(`/api/users/profile/${userId}`),
+    );
   },
 
-  updateProfile: async (request: UpdateProfileRequest): Promise<UserProfile> => {
-    return unwrap(apiClient<ApiResponse<UserProfile>>(`/api/users/profile`, {
-      method: "PUT",
-      body: JSON.stringify(request)
-    }));
+  updateProfile: async (
+    request: UpdateProfileRequest,
+  ): Promise<UserProfile> => {
+    return unwrap(
+      apiClient<ApiResponse<UserProfile>>(`/api/users/profile`, {
+        method: "PUT",
+        body: JSON.stringify(request),
+      }),
+    );
   },
 };

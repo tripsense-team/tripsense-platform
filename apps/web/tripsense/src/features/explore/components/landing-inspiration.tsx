@@ -11,7 +11,10 @@ export function LandingInspiration() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           {/* Left Column Text */}
           <div className="space-y-6">
-            <Badge variant="secondary" className="px-3.5 py-1 text-xs font-semibold rounded-full">
+            <Badge
+              variant="secondary"
+              className="px-3.5 py-1 text-xs font-semibold rounded-full"
+            >
               Instant Import
             </Badge>
 
@@ -21,7 +24,9 @@ export function LandingInspiration() {
             </h2>
 
             <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-              Saw a stunning place on Instagram, TikTok, or a travel blog? Paste the URL or drop a photo to instantly identify the location and add it to your trip itinerary.
+              Saw a stunning place on Instagram, TikTok, or a travel blog? Paste
+              the URL or drop a photo to instantly identify the location and add
+              it to your trip itinerary.
             </p>
 
             <div className="space-y-3 pt-2">
@@ -52,8 +57,13 @@ export function LandingInspiration() {
             <Card className="p-6 rounded-3xl border border-border bg-card shadow-xl space-y-6">
               <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/70 border border-border/60 text-xs text-muted-foreground">
                 <Link2 className="h-4 w-4 text-primary shrink-0" />
-                <span className="truncate">https://instagram.com/p/travel-inspiration-rio</span>
-                <Badge variant="outline" className="ml-auto text-[10px] shrink-0 bg-background">
+                <span className="truncate">
+                  https://instagram.com/p/travel-inspiration-rio
+                </span>
+                <Badge
+                  variant="outline"
+                  className="ml-auto text-[10px] shrink-0 bg-background"
+                >
                   Imported
                 </Badge>
               </div>
@@ -67,10 +77,17 @@ export function LandingInspiration() {
                 />
                 <div className="absolute bottom-3 left-3 right-3 p-3 rounded-xl bg-background/90 backdrop-blur border border-border/80 shadow-lg flex items-center justify-between">
                   <div className="text-xs">
-                    <p className="font-bold text-foreground">Sugarloaf Mountain</p>
-                    <p className="text-muted-foreground">Rio de Janeiro, Brazil</p>
+                    <p className="font-bold text-foreground">
+                      Sugarloaf Mountain
+                    </p>
+                    <p className="text-muted-foreground">
+                      Rio de Janeiro, Brazil
+                    </p>
                   </div>
-                  <Badge variant="default" className="gap-1 text-xs px-2.5 py-1 rounded-lg">
+                  <Badge
+                    variant="default"
+                    className="gap-1 text-xs px-2.5 py-1 rounded-lg"
+                  >
                     <Sparkles className="h-3 w-3 text-amber-200" />
                     <span>Matched</span>
                   </Badge>

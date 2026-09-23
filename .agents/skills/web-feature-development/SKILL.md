@@ -78,11 +78,30 @@ export default function FeaturePage() {
 }
 ```
 
+### Step 6: Internationalization & Localization (i18n)
+All user-facing strings must be localized using `useTranslation()` from `@/i18n`. **Never hardcode user-facing text.**
+See [Frontend i18n Standards](file:///Users/lebao/Working/TeamProject/tripsense-platform/docs/I18N_STANDARDS.md) for full details.
+
+1. **Namespace Organization**:
+   - `common`: Reusable cross-domain actions and labels (`save`, `cancel`, `edit`, `delete`, `loading`, `confirm`, `retry`, `refresh`, `copy`, `status`, etc.). Use `common` to prevent duplicating identical strings across domain tabs.
+   - `auth`: Authentication, login, register, OTP, passwords.
+   - `social`: Community feed, posts, comments, likes, replies.
+   - `trip`: Itineraries, days, activities, budgets, members.
+   - `places`: Locations, points of interest, ratings, addresses.
+   - `aiPlanner`: AI prompts, travel styles, generation states.
+   - `errors`: System errors and API status messages.
+2. **Schema Parity**:
+   - Every key added to `src/locales/en.json` **MUST** also be added to `src/locales/vi.json`.
+3. **Alphabetical Sorting (A → Z)**:
+   - Run `npm run i18n:sort` to auto-sort all keys and nested tabs alphabetically.
+
 ---
 
 ## Verification Rules
 
 After implementing any feature code:
-1. Run `npm run lint` in `apps/web/tripsense` (0 errors).
-2. Run `npx tsc --noEmit` in `apps/web/tripsense` (0 errors).
-3. Run `npm run build` in `apps/web/tripsense` (clean build).
+1. Run `npm run i18n:check` in `apps/web/tripsense` (must pass schema parity and A-Z sorting).
+2. Run `npm test` in `apps/web/tripsense` (all unit tests must pass).
+3. Run `npm run lint` in `apps/web/tripsense` (0 errors).
+4. Run `npx tsc --noEmit` in `apps/web/tripsense` (0 errors).
+5. Run `npm run build` in `apps/web/tripsense` (clean build).

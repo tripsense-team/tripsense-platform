@@ -38,33 +38,75 @@ export const authApi = {
   },
 
   async login(payload: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    const response = await apiClient<ApiResponse<LoginResponse>>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(payload),
-      skipAuth: true,
-    });
+    const response = await apiClient<ApiResponse<LoginResponse>>(
+      "/api/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+        skipAuth: true,
+      },
+    );
 
     if (response.success && response.data?.accessToken && response.data?.user) {
-      useAuthStore.getState().setAuth(response.data.user, response.data.accessToken);
-      
+      useAuthStore
+        .getState()
+        .setAuth(response.data.user, response.data.accessToken);
+
       // Fetch profile to populate avatar in global store
-      profileService.getUserProfile(response.data.user.id).then((profile) => {
-        if (profile?.avatarUrl) {
-          useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
-        }
-      }).catch(() => {
-        // Ignore background fetch error
-      });
+      profileService
+        .getUserProfile(response.data.user.id)
+        .then((profile) => {
+          if (profile?.avatarUrl) {
+            useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+          }
+        })
+        .catch(() => {
+          // Ignore background fetch error
+        });
+    }
+
+    return response;
+  },
+
+  async loginGoogle(idToken: string): Promise<ApiResponse<LoginResponse>> {
+    const response = await apiClient<ApiResponse<LoginResponse>>(
+      "/api/auth/google",
+      {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
+        skipAuth: true,
+      },
+    );
+
+    if (response.success && response.data?.accessToken && response.data?.user) {
+      useAuthStore
+        .getState()
+        .setAuth(response.data.user, response.data.accessToken);
+
+      // Fetch profile to populate avatar in global store
+      profileService
+        .getUserProfile(response.data.user.id)
+        .then((profile) => {
+          if (profile?.avatarUrl) {
+            useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+          }
+        })
+        .catch(() => {
+          // Ignore background fetch error
+        });
     }
 
     return response;
   },
 
   async refreshToken(): Promise<ApiResponse<RefreshResponse>> {
-    const response = await apiClient<ApiResponse<RefreshResponse>>("/api/auth/refresh", {
-      method: "POST",
-      skipAuth: true,
-    });
+    const response = await apiClient<ApiResponse<RefreshResponse>>(
+      "/api/auth/refresh",
+      {
+        method: "POST",
+        skipAuth: true,
+      },
+    );
 
     if (response.success && response.data?.accessToken) {
       useAuthStore.getState().setAccessToken(response.data.accessToken);
@@ -98,9 +140,12 @@ export const authApi = {
   async logoutAll(): Promise<ApiResponse<void>> {
     try {
       // 1. Dispatch logout-all request with Authorization header & HttpOnly Cookie to revoke all sessions
-      const response = await apiClient<ApiResponse<void>>("/api/auth/logout-all", {
-        method: "POST",
-      });
+      const response = await apiClient<ApiResponse<void>>(
+        "/api/auth/logout-all",
+        {
+          method: "POST",
+        },
+      );
       return response;
     } catch {
       // Ignore network errors on logout-all since frontend state is already cleared in finally

@@ -1,15 +1,14 @@
 package fu.tripsense.userservice.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
-
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.UUID;
 
 @Entity
 @Table(name = "user_profiles")
@@ -20,31 +19,37 @@ import java.util.UUID;
 @Builder
 public class UserProfile {
 
-    @Id
-    @Column(name = "user_id")
-    private UUID userId;
+  @Id
+  @Column(name = "user_id")
+  private UUID userId;
 
-    @Column(name = "avatar_url", columnDefinition = "TEXT")
-    private String avatarUrl;
+  @Column(name = "avatar_url", columnDefinition = "TEXT")
+  private String avatarUrl;
 
-    @Column(columnDefinition = "TEXT")
-    private String bio;
+  @Column(name = "display_name", length = 80)
+  private String displayName;
 
-    @Column(length = 255)
-    private String location;
+  @Column(name = "onboarding_required", nullable = false)
+  private boolean onboardingRequired;
 
-    @Column(name = "cover_url", columnDefinition = "TEXT")
-    private String coverUrl;
+  @Column(columnDefinition = "TEXT")
+  private String bio;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "social_ports", columnDefinition = "jsonb")
-    private Map<String, String> socialPorts;
+  @Column(length = 255)
+  private String location;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+  @Column(name = "cover_url", columnDefinition = "TEXT")
+  private String coverUrl;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "social_ports", columnDefinition = "jsonb")
+  private Map<String, String> socialPorts;
+
+  @UpdateTimestamp
+  @Column(name = "updated_at", nullable = false)
+  private LocalDateTime updatedAt;
+
+  @CreationTimestamp
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private LocalDateTime createdAt;
 }

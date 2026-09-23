@@ -21,7 +21,12 @@ export function ItineraryDay({
   className,
 }: ItineraryDayProps) {
   return (
-    <div className={cn("rounded-2xl border border-border bg-card/60 p-4 space-y-4 shadow-xs", className)}>
+    <div
+      className={cn(
+        "rounded-2xl border border-border bg-card/60 p-4 space-y-4 shadow-xs",
+        className,
+      )}
+    >
       <div className="flex items-center justify-between gap-4 pb-3 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
@@ -41,7 +46,12 @@ export function ItineraryDay({
         </div>
 
         {onAddItem && (
-          <Button variant="ghost" size="sm" onClick={onAddItem} className="gap-1 text-xs">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onAddItem}
+            className="gap-1 text-xs"
+          >
             <Plus className="h-3.5 w-3.5" />
             <span>Add Item</span>
           </Button>

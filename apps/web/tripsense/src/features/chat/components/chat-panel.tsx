@@ -23,7 +23,7 @@ export function ChatPanel({
     <div
       className={cn(
         "flex flex-col h-full w-full rounded-2xl border border-border bg-card shadow-sm overflow-hidden",
-        className
+        className,
       )}
     >
       <div className="flex items-center gap-2.5 p-4 border-b border-border bg-card/80 backdrop-blur">
@@ -32,7 +32,9 @@ export function ChatPanel({
         </div>
         <div>
           <h3 className="font-bold text-sm text-foreground">{title}</h3>
-          <p className="text-[11px] text-muted-foreground">Ask anything about trips & places</p>
+          <p className="text-[11px] text-muted-foreground">
+            Ask anything about trips & places
+          </p>
         </div>
       </div>
 
@@ -46,7 +48,8 @@ export function ChatPanel({
               Where would you like to go?
             </h4>
             <p className="text-xs text-muted-foreground max-w-xs mb-4">
-              Ask me to build itineraries, discover restaurants, or give travel tips.
+              Ask me to build itineraries, discover restaurants, or give travel
+              tips.
             </p>
             <ChatSuggestionChips onSelect={onSendMessage} />
           </div>

@@ -9,10 +9,13 @@ afterEach(() => {
 describe("places API client", () => {
   it("routes search through the TripSense API only", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: true, data: [], meta: { total: 0 } }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+      new Response(
+        JSON.stringify({ success: true, data: [], meta: { total: 0 } }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -28,40 +31,68 @@ describe("places API client", () => {
   it("uses Gateway-relative endpoints for autocomplete and details", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: [] })))
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ success: true, data: { id: "p1", name: "Cafe", categories: [], photos: [] } }))
+        new Response(JSON.stringify({ success: true, data: [] })),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: { id: "p1", name: "Cafe", categories: [], photos: [] },
+          }),
+        ),
       );
     vi.stubGlobal("fetch", fetchMock);
 
     await getAutocomplete("caf", 16.05, 108.2);
     await getPlaceDetails("provider/id", "Cafe");
 
-    expect((fetchMock.mock.calls[0][0] as URL).pathname).toBe("/api/places/autocomplete");
-    expect((fetchMock.mock.calls[1][0] as URL).pathname).toBe("/api/places/provider%2Fid");
-    expect((fetchMock.mock.calls[1][0] as URL).searchParams.has("includePhoto")).toBe(false);
+    expect((fetchMock.mock.calls[0][0] as URL).pathname).toBe(
+      "/api/places/autocomplete",
+    );
+    expect((fetchMock.mock.calls[1][0] as URL).pathname).toBe(
+      "/api/places/provider%2Fid",
+    );
+    expect(
+      (fetchMock.mock.calls[1][0] as URL).searchParams.has("includePhoto"),
+    ).toBe(false);
   });
 
   it("requests photos only when the caller explicitly opts in", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: true, data: { id: "p1", name: "Cafe" } }))
+      new Response(
+        JSON.stringify({ success: true, data: { id: "p1", name: "Cafe" } }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await getPlaceDetails("p1", undefined, undefined, undefined, undefined, true);
+    await getPlaceDetails(
+      "p1",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true,
+    );
 
-    expect((fetchMock.mock.calls[0][0] as URL).searchParams.get("includePhoto")).toBe("true");
+    expect(
+      (fetchMock.mock.calls[0][0] as URL).searchParams.get("includePhoto"),
+    ).toBe("true");
   });
 
   it("preserves structured API errors", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({ error: { code: "PROVIDER_UNAVAILABLE", message: "Please retry" } }),
-          { status: 503, headers: { "Content-Type": "application/json" } }
-        )
-      )
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              error: { code: "PROVIDER_UNAVAILABLE", message: "Please retry" },
+            }),
+            { status: 503, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
     );
 
     await expect(searchPlaces({ q: "cafe" })).rejects.toMatchObject({
@@ -85,8 +116,8 @@ describe("places API client", () => {
             },
           ],
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      )
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 

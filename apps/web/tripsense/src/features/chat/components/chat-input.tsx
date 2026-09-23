@@ -40,7 +40,7 @@ export function ChatInput({
       onSubmit={handleSubmit}
       className={cn(
         "relative flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all",
-        className
+        className,
       )}
     >
       <Textarea

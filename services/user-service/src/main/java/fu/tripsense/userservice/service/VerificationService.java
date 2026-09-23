@@ -4,9 +4,9 @@ import fu.tripsense.userservice.entity.User;
 
 public interface VerificationService {
 
-    void createAndSendVerificationCode(User user);
+  void createAndSendVerificationCode(User user);
 
-    User verifyEmailCode(String email, String code);
+  User verifyEmailCode(String email, String code);
 
-    void resendVerificationCode(String email);
+  void resendVerificationCode(String email);
 }

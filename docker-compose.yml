@@ -1,5 +1,4 @@
 services:
-
   # =========================
   # DATABASES & CACHE
   # =========================
@@ -43,6 +42,19 @@ services:
       - social_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  context-db:
+    image: postgres:17-alpine
+    container_name: context-postgres
+    environment:
+      POSTGRES_DB: ${CONTEXT_DB_NAME:-tripsense_context}
+      POSTGRES_USER: ${CONTEXT_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${CONTEXT_DB_PASS:-123456}
+    ports:
+      - "5435:5432"
+    volumes:
+      - context_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   ai-db:
     image: postgres:17-alpine
     container_name: ai-postgres
@@ -51,7 +63,7 @@ services:
       POSTGRES_USER: ${AI_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${AI_DB_PASS:-123456}
     ports:
-      - "5435:5432"
+      - "5436:5432"
     volumes:
       - ai_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -89,7 +101,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -fsS http://localhost:8761/actuator/health | grep -q '\"status\":\"UP\"'"
+          'curl -fsS http://localhost:8761/actuator/health | grep -q ''"status":"UP"''',
         ]
       interval: 10s
       timeout: 5s
@@ -112,6 +124,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      SOCIAL_RATE_LIMIT_ENABLED: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
@@ -120,6 +133,8 @@ services:
         condition: service_started
       user-service:
         condition: service_healthy
+      context-service:
+        condition: service_started
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -200,6 +215,7 @@ services:
       USER_DB_USER: ${USER_DB_USER:-postgres}
       USER_DB_PASS: ${USER_DB_PASS:-123456}
       EMAIL_SERVICE_URL: http://mail-service:8082
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -215,7 +231,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -fsS http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"
+          'curl -fsS http://localhost:8081/actuator/health | grep -q ''"status":"UP"''',
         ]
       interval: 10s
       timeout: 5s
@@ -228,6 +244,32 @@ services:
   # =========================
   # TRIP SERVICE
   # =========================
+
+  context-service:
+    build:
+      context: .
+      dockerfile: services/context-service/Dockerfile
+    container_name: context-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      CONTEXT_SERVICE_PORT: "8087"
+      CONTEXT_DB_HOST: context-db
+      CONTEXT_DB_PORT: "5432"
+      CONTEXT_DB_NAME: ${CONTEXT_DB_NAME:-tripsense_context}
+      CONTEXT_DB_USER: ${CONTEXT_DB_USER:-postgres}
+      CONTEXT_DB_PASS: ${CONTEXT_DB_PASS:-123456}
+      CONTEXT_ENCRYPTION_SECRET: ${CONTEXT_ENCRYPTION_SECRET:-tripsense-context-onboarding-secure-key-32b}
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      context-db:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8087:8087"
+    restart: unless-stopped
 
   trip-service:
     build:
@@ -351,6 +393,7 @@ volumes:
   postgres_data:
   trip_postgres_data:
   social_postgres_data:
+  context_postgres_data:
   mongodb_data:
   redis_data:
   portainer_data:

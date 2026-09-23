@@ -45,20 +45,20 @@
 
 ## Indexes
 
-| Index | Purpose |
-| --- | --- |
-| Unique `{ provider: 1, providerPlaceId: 1 }` | Idempotent provider upsert and duplicate prevention |
-| `2dsphere` on `location` | Radius/nearby queries |
-| Weighted text index on `name`, `categories`, `address`, `description` | Deterministic local keyword search |
+| Index                                                                 | Purpose                                             |
+| --------------------------------------------------------------------- | --------------------------------------------------- |
+| Unique `{ provider: 1, providerPlaceId: 1 }`                          | Idempotent provider upsert and duplicate prevention |
+| `2dsphere` on `location`                                              | Radius/nearby queries                               |
+| Weighted text index on `name`, `categories`, `address`, `description` | Deterministic local keyword search                  |
 
 ## Cache Keys
 
-| Key | Purpose | Default TTL |
-| --- | --- | --- |
-| `place:search:{hash}` | Normalized search result | 30 minutes |
-| `place:autocomplete:{hash}` | Suggestions | 60 minutes |
-| `place:details:{id}` | Detail DTO | 12 hours |
-| `place:provider:{provider}:{providerPlaceId}` | Provider detail | 30 days |
+| Key                                           | Purpose                  | Default TTL |
+| --------------------------------------------- | ------------------------ | ----------- |
+| `place:search:{hash}`                         | Normalized search result | 30 minutes  |
+| `place:autocomplete:{hash}`                   | Suggestions              | 60 minutes  |
+| `place:details:{id}`                          | Detail DTO               | 12 hours    |
+| `place:provider:{provider}:{providerPlaceId}` | Provider detail          | 30 days     |
 
 TTL values are environment-configurable. Cache failure does not alter MongoDB ownership or prevent the primary flow.
 

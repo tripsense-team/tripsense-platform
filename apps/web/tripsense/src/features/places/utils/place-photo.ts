@@ -7,7 +7,10 @@ import type { Place } from "../types";
 export function getPlacePhotoUrl(place: Partial<Place>): string | null {
   if (place.photos && place.photos.length > 0) {
     const first = place.photos[0];
-    if (typeof first === "string" && (first.startsWith("http://") || first.startsWith("https://"))) {
+    if (
+      typeof first === "string" &&
+      (first.startsWith("http://") || first.startsWith("https://"))
+    ) {
       return first;
     }
   }
@@ -23,6 +26,8 @@ export function getPlaceGalleryPhotos(place: Partial<Place>): string[] {
     return [];
   }
   return place.photos.filter(
-    (p) => typeof p === "string" && (p.startsWith("http://") || p.startsWith("https://"))
+    (p) =>
+      typeof p === "string" &&
+      (p.startsWith("http://") || p.startsWith("https://")),
   );
 }

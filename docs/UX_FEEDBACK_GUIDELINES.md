@@ -21,8 +21,7 @@ Tài liệu này định nghĩa rõ:
   - ❌ Notification Center (Toast biến mất sau vài giây, không lưu trữ lịch sử).
   - ❌ Nhật ký hệ thống hay Audit Log (không hiển thị mã lỗi kỹ thuật như `HTTP 500`, `SQLSTATE`, `NullPointerException`).
 
-> [!IMPORTANT]
-> **Quy tắc vàng**: Chỉ hiển thị Toast khi nó thực sự mang lại giá trị nhận biết cho người dùng và giao diện tại chỗ chưa phản ánh đủ rõ ràng. Nếu trạng thái UI đã tự giải thích (self-explanatory), **tuyệt đối không Toast**.
+> [!IMPORTANT] > **Quy tắc vàng**: Chỉ hiển thị Toast khi nó thực sự mang lại giá trị nhận biết cho người dùng và giao diện tại chỗ chưa phản ánh đủ rõ ràng. Nếu trạng thái UI đã tự giải thích (self-explanatory), **tuyệt đối không Toast**.
 
 ---
 

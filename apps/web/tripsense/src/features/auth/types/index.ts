@@ -1,6 +1,7 @@
 export enum UserRole {
   USER = "ROLE_USER",
   ADMIN = "ROLE_ADMIN",
+  MODERATOR = "ROLE_MODERATOR",
 }
 
 export enum UserStatus {
@@ -9,9 +10,17 @@ export enum UserStatus {
   SUSPENDED = "SUSPENDED",
 }
 
-export type AuthStatus = "checking" | "authenticated" | "unauthenticated" | "initializing";
+export type AuthStatus =
+  | "checking"
+  | "authenticated"
+  | "unauthenticated"
+  | "initializing";
 
-export type AuthModalStep = "email" | "login-password" | "register-details" | "verify-otp";
+export type AuthModalStep =
+  | "email"
+  | "login-password"
+  | "register-details"
+  | "verify-otp";
 
 export interface User {
   id: string;

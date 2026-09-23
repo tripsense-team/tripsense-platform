@@ -16,7 +16,7 @@ export interface FlattenedCommentNode {
  * can display "Trả lời @TênUser".
  */
 export function buildFlattenedCommentTree(
-  comments: PostComment[]
+  comments: PostComment[],
 ): FlattenedCommentNode[] {
   if (!comments || comments.length === 0) {
     return [];
@@ -42,16 +42,19 @@ export function buildFlattenedCommentTree(
 
   // Sort root comments by createdAt descending (bình luận mới ở đầu)
   rootComments.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
-
 
   const result: FlattenedCommentNode[] = [];
 
-  function traverse(comment: PostComment, depth: number, parentAuthor?: string) {
+  function traverse(
+    comment: PostComment,
+    depth: number,
+    parentAuthor?: string,
+  ) {
     const visualDepth = Math.min(depth, MAX_VISUAL_DEPTH);
     const replyToAuthorName =
-      depth > 0 ? (parentAuthor || comment.replyToAuthorName) : undefined;
+      depth > 0 ? comment.replyToAuthorName || parentAuthor : undefined;
 
     result.push({
       comment,
@@ -62,7 +65,8 @@ export function buildFlattenedCommentTree(
 
     const children = childrenMap.get(comment.id) || [];
     children.sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
 
     for (const child of children) {

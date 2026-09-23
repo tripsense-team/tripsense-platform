@@ -6,3 +6,4 @@ export * from "./components/auth-modal";
 export * from "./components/logout-modal";
 export * from "./components/auth-guard";
 export * from "./components/otp-input";
+export * from "./utils/auth-error-helper";

@@ -24,9 +24,12 @@ function LandingContent() {
   const signupParam = searchParams.get("signup");
 
   const [authModalDismissed, setAuthModalDismissed] = React.useState(false);
-  const [activeMode, setActiveMode] = React.useState<"signin" | "signup" | null>(null);
+  const [activeMode, setActiveMode] = React.useState<
+    "signin" | "signup" | null
+  >(null);
 
-  const isParamPrompt = (signupParam === "true" || signinParam === "true") && !authModalDismissed;
+  const isParamPrompt =
+    (signupParam === "true" || signinParam === "true") && !authModalDismissed;
   const authModalOpen = isParamPrompt || activeMode !== null;
   const authMode = activeMode ?? (signupParam === "true" ? "signup" : "signin");
 

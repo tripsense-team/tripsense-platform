@@ -13,29 +13,36 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMissingParams(MissingServletRequestParameterException ex) {
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error("MISSING_PARAMETER", "Required parameter '" + ex.getParameterName() + "' is missing"));
-    }
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<ApiResponse<Void>> handleMissingParams(
+      MissingServletRequestParameterException ex) {
+    return ResponseEntity.badRequest()
+        .body(
+            ApiResponse.error(
+                "MISSING_PARAMETER",
+                "Required parameter '" + ex.getParameterName() + "' is missing"));
+  }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest()
-                .body(ApiResponse.error("INVALID_ARGUMENT", ex.getMessage()));
-    }
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+    return ResponseEntity.badRequest().body(ApiResponse.error("INVALID_ARGUMENT", ex.getMessage()));
+  }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
-        log.error("Unhandled exception occurred: ", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("INTERNAL_ERROR", "An unexpected error occurred while processing your request"));
-    }
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
+    log.error("Unhandled exception occurred: ", ex);
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(
+            ApiResponse.error(
+                "INTERNAL_ERROR", "An unexpected error occurred while processing your request"));
+  }
 
-    @ExceptionHandler(PlaceProviderException.class)
-    public ResponseEntity<ApiResponse<Void>> handleProviderUnavailable(PlaceProviderException ex) {
-        log.warn("External place provider unavailable: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(ApiResponse.error("SERVICE_UNAVAILABLE", "Place data provider is temporarily unavailable"));
-    }
+  @ExceptionHandler(PlaceProviderException.class)
+  public ResponseEntity<ApiResponse<Void>> handleProviderUnavailable(PlaceProviderException ex) {
+    log.warn("External place provider unavailable: {}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .body(
+            ApiResponse.error(
+                "SERVICE_UNAVAILABLE", "Place data provider is temporarily unavailable"));
+  }
 }

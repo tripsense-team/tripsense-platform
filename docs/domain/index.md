@@ -17,4 +17,3 @@ Domain documents capture business concepts, ownership, invariants, and state tra
 - [TripSense Architecture](../architecture/tripsense-architecture.md)
 - [Service Boundaries](../architecture/service-boundaries.md)
 - [Feature Index](../features/index.md)
-

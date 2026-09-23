@@ -16,7 +16,11 @@ export const tripCoverOptions = [
 ];
 
 export function formatDate(date: string): string {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(date));
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(date));
 }
 
 export function formatDateRange(startDate: string, endDate: string): string {
@@ -28,7 +32,11 @@ export function formatDateRange(startDate: string, endDate: string): string {
     day: "numeric",
     year: sameYear ? undefined : "numeric",
   }).format(start);
-  const endText = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(end);
+  const endText = new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(end);
   return `${startText} - ${endText}`;
 }
 
@@ -36,13 +44,25 @@ export function formatShortRange(startDate: string, endDate: string): string {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const sameMonth = start.getMonth() === end.getMonth();
-  const startText = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(start);
-  const endText = new Intl.DateTimeFormat("en", { month: sameMonth ? undefined : "short", day: "numeric" }).format(end);
+  const startText = new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+  }).format(start);
+  const endText = new Intl.DateTimeFormat("en", {
+    month: sameMonth ? undefined : "short",
+    day: "numeric",
+  }).format(end);
   return `${startText} - ${endText}`;
 }
 
 export function countTripDays(trip: TripResponse): number {
-  return Math.max(1, Math.round((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86400000) + 1);
+  return Math.max(
+    1,
+    Math.round(
+      (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) /
+        86400000,
+    ) + 1,
+  );
 }
 
 export function coverImageForTrip(trip: TripResponse): string {
@@ -50,7 +70,9 @@ export function coverImageForTrip(trip: TripResponse): string {
     return trip.coverImageUrl;
   }
 
-  const index = [...trip.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % tripCoverOptions.length;
+  const index =
+    [...trip.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) %
+    tripCoverOptions.length;
   return tripCoverOptions[index];
 }
 

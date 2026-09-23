@@ -14,6 +14,7 @@ It is engineered for **high technical rigor with maximum token efficiency**, pro
 Instead of spawning multiple rounds of subagents (which causes massive token waste, redundant context loading, and API timeouts), the planning agent acts as a **Lead Full-Stack Architect** performing a **Unified Multi-Perspective Synthesis** in a single context pass.
 
 The analysis synthesizes 6 critical engineering perspectives:
+
 1. **Product & Domain**: User goals, core flows, in-scope vs out-of-scope, acceptance criteria, domain invariants.
 2. **Architecture & Service Boundaries**: Affected services, data ownership, synchronous REST (via API Gateway) vs asynchronous messaging (Kafka), respecting no cross-service DB/JPA guardrails.
 3. **API & Event Contracts**: Endpoints, HTTP verbs, request/response DTOs, Kafka topics and event schemas.
@@ -34,55 +35,90 @@ This file serves as the **Single Source of Truth (SSOT)** for human review, appr
 # [Feature Name] — Specification & Implementation Plan
 
 `STATUS: WAITING_FOR_HUMAN_APPROVAL`
+
 - **Owner Service**: `services/<service-name>`
 - **Affected Components**: `apps/web/tripsense`, `services/api-gateway`, ...
 - **Date**: YYYY-MM-DD
 
 ## 1. Goal & Requirements
+
 - User journey & problem solved
 - In-Scope & Out-of-Scope
 - Acceptance Criteria
 
 ## 2. Architecture & Service Boundaries
+
 - System interaction / data flow
 - Service ownership & boundaries (no cross-service DB/JPA)
 - Communication: Sync (Gateway REST) vs Async (Kafka)
 
 ## 3. API & Event Contracts
+
 - REST Endpoints (method, path, auth, request DTO, response DTO, status codes)
 - Kafka Events (topic, event key, payload schema)
 
 ## 4. Data Model & Migrations
+
 - Schema/Tables, columns, data types, indexes
 - Foreign keys (internal to service only)
 - Migration & rollback strategy
 
 ## 5. Security & Trust Boundaries
+
 - Auth & authorization rules
 - Ownership checks (anti-IDOR)
 - Input validation & secrets backend-only
 
 ## 6. Devil's Advocate & Technical Tradeoffs
+
 - Concurrency / race conditions / failure handling
 - Rejected alternatives & why
 
 ## 7. Phased Implementation Tasks & Verification
+
 - Atomic phases / PR boundaries
 - Unit & integration test plan
 - Exact verification commands
 
 ---
+
 ## Human Approval Gate
+
 Stop at `STATUS: WAITING_FOR_HUMAN_APPROVAL`. Awaiting human review.
 ```
 
----
+After planning, stop with:
+
+```text
+STATUS: WAITING_FOR_HUMAN_APPROVAL
+```
+
+Only show the feature summary, final flow, affected services, API changes, database changes, events/integrations, security decisions, important tradeoffs, implementation tasks, and open questions.
+
+## Required Feature Documents
+
+Each feature must create:
+
+- `docs/features/<feature-name>/index.md`
+- `docs/features/<feature-name>/requirements.md`
+- `docs/features/<feature-name>/architecture.md`
+- `docs/features/<feature-name>/api.md`
+- `docs/features/<feature-name>/data-model.md`
+- `docs/features/<feature-name>/security.md`
+- `docs/features/<feature-name>/decisions.md`
+- `docs/features/<feature-name>/implementation-plan.md`
+- `docs/features/<feature-name>/test-plan.md`
+
+# Use [docs/features/\_template/](../features/_template/index.md) as the starting structure. Do not create filler content.
+
+-
 
 ## Human Approval Gate
 
 Implementation is strictly blocked until a human reviews the single file and explicitly responds with `Approved`, `Implement`, or `Proceed` (or status is changed to `STATUS: APPROVED`).
 
 If implementation reveals architectural blockers or scope changes:
+
 1. Stop implementation immediately.
 2. Update the single `<feature-name>.md` file.
 3. Request human approval for the revision.
@@ -96,4 +132,3 @@ If implementation reveals architectural blockers or scope changes:
 - [Service Boundaries](../architecture/service-boundaries.md)
 - [Feature Index](../features/index.md)
 - [Feature Plan Template](../features/_template/feature-plan-template.md)
-

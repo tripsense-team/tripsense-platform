@@ -49,6 +49,7 @@ export default function AiPlannerPage() {
   const lastSequenceByRun = React.useRef<Record<string, number>>({});
   const sawActivityByRun = React.useRef<Record<string, boolean>>({});
 
+
   const handleOpenDetails = React.useCallback(async (place: Place) => {
     setDetailPlace(place);
     setIsDetailOpen(true);

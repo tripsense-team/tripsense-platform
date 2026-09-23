@@ -30,62 +30,77 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @EnableMethodSecurity
 public class SecurityConfig implements WebMvcConfigurer, WebSecurityCustomizer {
 
-    private static final String[] WHITE_LIST = {
-            "/api/auth/**"
-    };
+  private static final String[] WHITE_LIST = {
+    "/api/auth/**",
+    "/api/users/public-profiles/**",
+    "/api/users/public-profiles:batch"
+  };
 
-    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final PreFilter preFilter;
-    private final UserDetailsService userDetailsService;
+  private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+  private final PreFilter preFilter;
+  private final UserDetailsService userDetailsService;
 
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOriginPatterns("*")
-                .allowCredentials(true)
-                .allowedHeaders("*")
-                .allowedMethods("*")
-                .maxAge(3600);
-    }
+  @Override
+  public void addCorsMappings(CorsRegistry registry) {
+    registry
+        .addMapping("/**")
+        .allowedOriginPatterns("*")
+        .allowCredentials(true)
+        .allowedHeaders("*")
+        .allowedMethods("*")
+        .maxAge(3600);
+  }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
-        return httpSecurity
-                .cors(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
-                )
-                .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers(WHITE_LIST).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .authenticationProvider(provider())
-                .addFilterBefore(preFilter, UsernamePasswordAuthenticationFilter.class)
-                .sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .build();
-    }
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
+    return httpSecurity
+        .cors(Customizer.withDefaults())
+        .csrf(AbstractHttpConfigurer::disable)
+        .exceptionHandling(
+            exception -> exception.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+        .authorizeHttpRequests(
+            authorizeRequests ->
+                authorizeRequests
+                    .requestMatchers(WHITE_LIST)
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+        .authenticationProvider(provider())
+        .addFilterBefore(preFilter, UsernamePasswordAuthenticationFilter.class)
+        .sessionManagement(
+            sessionManagement ->
+                sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .build();
+  }
 
-    @Bean
-    public AuthenticationProvider provider() {
-        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider(userDetailsService);
-        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
-        return daoAuthenticationProvider;
-    }
+  @Bean
+  public AuthenticationProvider provider() {
+    DaoAuthenticationProvider daoAuthenticationProvider =
+        new DaoAuthenticationProvider(userDetailsService);
+    daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
+    return daoAuthenticationProvider;
+  }
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
+  @Bean
+  public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+      throws Exception {
+    return config.getAuthenticationManager();
+  }
 
-    @Override
-    public void customize(WebSecurity webSecurity) {
-        webSecurity.ignoring()
-                .requestMatchers("/actuator/**", "/v3/**", "/webjars/**", "/swagger-ui*/*swagger-initializer.js", "/swagger-ui*/**");
-    }
+  @Override
+  public void customize(WebSecurity webSecurity) {
+    webSecurity
+        .ignoring()
+        .requestMatchers(
+            "/actuator/**",
+            "/v3/**",
+            "/webjars/**",
+            "/swagger-ui*/*swagger-initializer.js",
+            "/swagger-ui*/**");
+  }
 }

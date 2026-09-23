@@ -15,6 +15,7 @@ LEGACY_CONTAINERS=(
   trip-service
   user-service
   social-service
+  context-service
 )
 
 cd "$DEPLOY_DIR"

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildFlattenedCommentTree, MAX_VISUAL_DEPTH } from "../utils/comment-tree";
+import {
+  buildFlattenedCommentTree,
+  MAX_VISUAL_DEPTH,
+} from "../utils/comment-tree";
 import type { PostComment } from "../types";
 
 describe("buildFlattenedCommentTree", () => {
@@ -138,5 +141,104 @@ describe("buildFlattenedCommentTree", () => {
       "reply-2",
     ]);
   });
-});
 
+  it("supports 3-generation comment tree where replies to level 3 are clamped to level 3 siblings with accurate replyToAuthorName", () => {
+    // Model:
+    // A (Root - Level 1)
+    // └─ B (Child of A - Level 2, parentId = A)
+    //    ├─ C (Child of B - Level 3, parentId = B)
+    //    ├─ F (Reply to C, clamped to Level 3 sibling under B! parentId = B, replyToAuthorName = "User C")
+    //    ├─ D (Child of B - Level 3, parentId = B)
+    //    └─ E (Child of B - Level 3, parentId = B)
+    const comments: PostComment[] = [
+      {
+        id: "A",
+        postId: "post-1",
+        parentId: null,
+        author: { id: "u1", name: "User A" },
+        content: "Root comment A",
+        createdAt: "2026-01-01T10:00:00Z",
+        likeCount: 0,
+      },
+      {
+        id: "B",
+        postId: "post-1",
+        parentId: "A",
+        author: { id: "u2", name: "User B" },
+        content: "Reply B to A",
+        createdAt: "2026-01-01T10:05:00Z",
+        likeCount: 0,
+      },
+      {
+        id: "C",
+        postId: "post-1",
+        parentId: "B",
+        author: { id: "u3", name: "User C" },
+        content: "Reply C to B",
+        createdAt: "2026-01-01T10:10:00Z",
+        likeCount: 0,
+      },
+      {
+        id: "F",
+        postId: "post-1",
+        parentId: "B", // Clamped to B!
+        replyToAuthorName: "User C", // Preserves context that F replies to C
+        author: { id: "u4", name: "User F" },
+        content: "Reply F to C (clamped under B)",
+        createdAt: "2026-01-01T10:12:00Z",
+        likeCount: 0,
+      },
+      {
+        id: "D",
+        postId: "post-1",
+        parentId: "B",
+        author: { id: "u5", name: "User D" },
+        content: "Reply D to B",
+        createdAt: "2026-01-01T10:15:00Z",
+        likeCount: 0,
+      },
+      {
+        id: "E",
+        postId: "post-1",
+        parentId: "B",
+        author: { id: "u6", name: "User E" },
+        content: "Reply E to B",
+        createdAt: "2026-01-01T10:20:00Z",
+        likeCount: 0,
+      },
+    ];
+
+    const flattened = buildFlattenedCommentTree(comments);
+
+    expect(flattened).toHaveLength(6);
+
+    // Root A: visual depth 0
+    expect(flattened[0].comment.id).toBe("A");
+    expect(flattened[0].visualDepth).toBe(0);
+
+    // Reply B: visual depth 1
+    expect(flattened[1].comment.id).toBe("B");
+    expect(flattened[1].visualDepth).toBe(1);
+    expect(flattened[1].replyToAuthorName).toBe("User A");
+
+    // Reply C: visual depth 2
+    expect(flattened[2].comment.id).toBe("C");
+    expect(flattened[2].visualDepth).toBe(2);
+    expect(flattened[2].replyToAuthorName).toBe("User B");
+
+    // Clamped Reply F: visual depth 2, sibling under B, but replyToAuthorName is "User C"!
+    expect(flattened[3].comment.id).toBe("F");
+    expect(flattened[3].visualDepth).toBe(2);
+    expect(flattened[3].replyToAuthorName).toBe("User C");
+
+    // Sibling D: visual depth 2
+    expect(flattened[4].comment.id).toBe("D");
+    expect(flattened[4].visualDepth).toBe(2);
+    expect(flattened[4].replyToAuthorName).toBe("User B");
+
+    // Sibling E: visual depth 2
+    expect(flattened[5].comment.id).toBe("E");
+    expect(flattened[5].visualDepth).toBe(2);
+    expect(flattened[5].replyToAuthorName).toBe("User B");
+  });
+});

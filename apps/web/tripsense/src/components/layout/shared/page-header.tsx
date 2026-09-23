@@ -18,7 +18,7 @@ export function PageHeader({
     <div
       className={cn(
         "flex flex-col gap-1 pb-6 md:flex-row md:items-center md:justify-between border-b border-border mb-6",
-        className
+        className,
       )}
       {...props}
     >
@@ -30,7 +30,9 @@ export function PageHeader({
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2 pt-2 md:pt-0">{actions}</div>}
+      {actions && (
+        <div className="flex items-center gap-2 pt-2 md:pt-0">{actions}</div>
+      )}
     </div>
   );
 }

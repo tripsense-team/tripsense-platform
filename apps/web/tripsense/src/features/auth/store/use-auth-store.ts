@@ -1,8 +1,13 @@
 import { create } from "zustand";
 import { User, UserRole, UserStatus, type AuthStatus } from "../types";
-import { setLoggedInCookie, clearLoggedInCookie } from "../utils/cookie-indicator";
+import {
+  setLoggedInCookie,
+  clearLoggedInCookie,
+} from "../utils/cookie-indicator";
 
-function parseJwtClaims(token: string): { sub?: string; email?: string; role?: string; exp?: number } | null {
+function parseJwtClaims(
+  token: string,
+): { sub?: string; email?: string; role?: string; exp?: number } | null {
   try {
     const base64Url = token.split(".")[1];
     if (!base64Url) return null;
@@ -11,7 +16,7 @@ function parseJwtClaims(token: string): { sub?: string; email?: string; role?: s
       atob(base64)
         .split("")
         .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
+        .join(""),
     );
     return JSON.parse(jsonPayload);
   } catch {
@@ -28,12 +33,14 @@ export interface AuthState {
   // Reactive properties for component selectors
   isAuthenticated: boolean;
   isLoading: boolean;
+  onboardingCompleted: boolean;
 
   // Essential Actions
   setAuth: (user: User, accessToken: string) => void;
   setAccessToken: (accessToken: string | null) => void;
   clearAuth: () => void;
   updateUserAvatar: (avatarUrl: string | undefined) => void;
+  setOnboardingCompleted: (completed: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -43,6 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   authVersion: 0,
   isAuthenticated: false,
   isLoading: true,
+  onboardingCompleted: false,
 
   setAuth: (user, accessToken) => {
     setLoggedInCookie();
@@ -52,6 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       status: "authenticated",
       isAuthenticated: true,
       isLoading: false,
+      onboardingCompleted: user.role === UserRole.ADMIN,
     });
   },
 
@@ -65,17 +74,23 @@ export const useAuthStore = create<AuthState>((set) => ({
           status: "unauthenticated",
           isAuthenticated: false,
           isLoading: false,
+          onboardingCompleted: false,
         };
       }
 
       setLoggedInCookie();
       const claims = parseJwtClaims(accessToken);
-      const user = state.user || (claims ? {
-        id: claims.sub || "user-id",
-        email: claims.email || "user@tripsense.app",
-        role: claims.role === "ROLE_ADMIN" ? UserRole.ADMIN : UserRole.USER,
-        status: UserStatus.ACTIVE,
-      } : null);
+      const user =
+        state.user ||
+        (claims
+          ? {
+              id: claims.sub || "user-id",
+              email: claims.email || "user@tripsense.app",
+              role:
+                claims.role === "ROLE_ADMIN" ? UserRole.ADMIN : UserRole.USER,
+              status: UserStatus.ACTIVE,
+            }
+          : null);
 
       return {
         accessToken,
@@ -83,6 +98,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         status: "authenticated",
         isAuthenticated: true,
         isLoading: false,
+        onboardingCompleted:
+          user?.role === UserRole.ADMIN || state.onboardingCompleted,
       };
     }),
 
@@ -95,6 +112,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       authVersion: state.authVersion + 1,
       isAuthenticated: false,
       isLoading: false,
+      onboardingCompleted: false,
     }));
   },
 
@@ -102,5 +120,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     set((state) => ({
       user: state.user ? { ...state.user, avatar: avatarUrl } : null,
     }));
+  },
+
+  setOnboardingCompleted: (completed) => {
+    set({ onboardingCompleted: completed });
   },
 }));

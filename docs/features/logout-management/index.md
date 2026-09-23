@@ -7,6 +7,7 @@
 ## Overview
 
 Provide users with flexible session termination options upon clicking "Log out":
+
 1. **Log out of this device** (`POST /api/auth/logout`): Revokes the current device's refresh token and clears the HttpOnly cookie.
 2. **Log out of all devices** (`POST /api/auth/logout-all`): Revokes all active refresh tokens/sessions across every device for the user and clears the HttpOnly cookie.
 

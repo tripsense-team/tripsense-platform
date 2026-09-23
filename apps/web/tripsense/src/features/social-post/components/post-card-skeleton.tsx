@@ -8,10 +8,15 @@ interface PostCardSkeletonProps {
 
 export function PostCardSkeleton({ className }: PostCardSkeletonProps) {
   return (
-    <div className={cn("rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4", className)}>
+    <div
+      className={cn(
+        "rounded-2xl border border-border bg-card p-5 shadow-xs space-y-4",
+        className,
+      )}
+    >
       {/* Header: Avatar + Author + Time */}
       <div className="flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton className="h-10 w-10 sm:h-[46px] sm:w-[46px] rounded-full border-2 border-card shadow-[0_0_0_1px_var(--border)] shrink-0" />
         <div className="space-y-1.5 flex-1">
           <Skeleton className="h-4 w-32 rounded-md" />
           <Skeleton className="h-3 w-20 rounded-md" />

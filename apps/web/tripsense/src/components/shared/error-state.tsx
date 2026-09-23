@@ -20,14 +20,16 @@ export function ErrorState({
     <div
       className={cn(
         "flex flex-col items-center justify-center p-8 text-center rounded-xl border border-destructive/20 bg-destructive/5 text-card-foreground my-4",
-        className
+        className,
       )}
     >
       <div className="p-3 rounded-full bg-destructive/10 text-destructive mb-4">
         <AlertCircle className="h-6 w-6" />
       </div>
       <h3 className="font-semibold text-lg text-foreground">{title}</h3>
-      <p className="text-sm text-muted-foreground max-w-sm mt-1 mb-4">{message}</p>
+      <p className="text-sm text-muted-foreground max-w-sm mt-1 mb-4">
+        {message}
+      </p>
       {onRetry && (
         <Button variant="outline" size="sm" onClick={onRetry}>
           Try Again

@@ -1,16 +1,57 @@
 import * as React from "react";
 import Image from "next/image";
-import { Check, ChevronDown, Loader2, Plus, Search, SlidersHorizontal, Star, Utensils, Upload, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Star,
+  Utensils,
+  Upload,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { CreateItineraryItemRequest, ItineraryDayResponse, ItineraryItemResponse, ItineraryItemStatus, ItineraryItemType, TripResponse, UpdateItineraryItemRequest, UpdateTripRequest } from "../types";
-import { coverImageForTrip, displayTripTitle, formatDate, itemTypeLabel, titleCaseDestination, tripCoverOptions } from "../utils/format";
-import { itinerarySuggestions, type ItinerarySuggestion } from "../utils/itinerary-suggestions";
+import type {
+  CreateItineraryItemRequest,
+  ItineraryDayResponse,
+  ItineraryItemResponse,
+  ItineraryItemStatus,
+  ItineraryItemType,
+  TripResponse,
+  UpdateItineraryItemRequest,
+  UpdateTripRequest,
+} from "../types";
+import {
+  coverImageForTrip,
+  displayTripTitle,
+  formatDate,
+  itemTypeLabel,
+  titleCaseDestination,
+  tripCoverOptions,
+} from "../utils/format";
+import {
+  itinerarySuggestions,
+  type ItinerarySuggestion,
+} from "../utils/itinerary-suggestions";
 import { todayIso } from "../utils/date";
-import { addMinutesToTime, durationMinutesFromTimeRange, formatHHMM, TIME_OPTIONS_24H } from "../utils/time";
+import {
+  addMinutesToTime,
+  durationMinutesFromTimeRange,
+  formatHHMM,
+  TIME_OPTIONS_24H,
+} from "../utils/time";
 
 function TimeInput24h({
   value,
@@ -53,8 +94,12 @@ function TimeInput24h({
           const clean = raw.replace(/[^0-9:]/g, "");
           if (clean.includes(":")) {
             const [hStr, mStr] = clean.split(":");
-            const hour = Math.min(23, Math.max(0, Number(hStr) || 0)).toString().padStart(2, "0");
-            const minute = Math.min(59, Math.max(0, Number(mStr) || 0)).toString().padStart(2, "0");
+            const hour = Math.min(23, Math.max(0, Number(hStr) || 0))
+              .toString()
+              .padStart(2, "0");
+            const minute = Math.min(59, Math.max(0, Number(mStr) || 0))
+              .toString()
+              .padStart(2, "0");
             onChange(`${hour}:${minute}`);
           } else if (clean.length === 3) {
             const hour = clean.substring(0, 1).padStart(2, "0");
@@ -63,8 +108,12 @@ function TimeInput24h({
           } else if (clean.length === 4) {
             const hour = clean.substring(0, 2);
             const minute = clean.substring(2, 4);
-            const h = Math.min(23, Math.max(0, Number(hour) || 0)).toString().padStart(2, "0");
-            const m = Math.min(59, Math.max(0, Number(minute) || 0)).toString().padStart(2, "0");
+            const h = Math.min(23, Math.max(0, Number(hour) || 0))
+              .toString()
+              .padStart(2, "0");
+            const m = Math.min(59, Math.max(0, Number(minute) || 0))
+              .toString()
+              .padStart(2, "0");
             onChange(`${h}:${m}`);
           }
         }}
@@ -90,12 +139,19 @@ export function AddItemDialog({
   error: string | null;
   submitting: boolean;
   onOpenChange: (open: boolean) => void;
-  onDraftChange: React.Dispatch<React.SetStateAction<CreateItineraryItemRequest>>;
+  onDraftChange: React.Dispatch<
+    React.SetStateAction<CreateItineraryItemRequest>
+  >;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onQuickSubmit: (payload: CreateItineraryItemRequest) => void;
 }) {
-  const [tab, setTab] = React.useState<"search" | "ideas" | "saved" | "receipt" | "custom">("search");
-  const suggestions = React.useMemo(() => itinerarySuggestions(trip?.destinationName || ""), [trip?.destinationName]);
+  const [tab, setTab] = React.useState<
+    "search" | "ideas" | "saved" | "receipt" | "custom"
+  >("search");
+  const suggestions = React.useMemo(
+    () => itinerarySuggestions(trip?.destinationName || ""),
+    [trip?.destinationName],
+  );
 
   function addSuggestion(suggestion: ItinerarySuggestion) {
     const payload: CreateItineraryItemRequest = {
@@ -114,10 +170,19 @@ export function AddItemDialog({
     <Dialog open={!!day} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[86vh] max-w-5xl overflow-hidden rounded-2xl border-border bg-popover p-0 text-popover-foreground shadow-md [&>button]:hidden">
         <DialogHeader className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center border-b border-border px-6 py-5">
-          <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={() => onOpenChange(false)} aria-label="Close">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-full"
+            onClick={() => onOpenChange(false)}
+            aria-label="Close"
+          >
             <X className="h-5 w-5" />
           </Button>
-          <DialogTitle className="text-center text-xl font-black tracking-normal">Add to trip</DialogTitle>
+          <DialogTitle className="text-center text-xl font-black tracking-normal">
+            Add to trip
+          </DialogTitle>
           <span aria-hidden="true" />
         </DialogHeader>
 
@@ -133,7 +198,12 @@ export function AddItemDialog({
               <button
                 key={value}
                 type="button"
-                className={cn("border-b-2 px-1 pb-3 transition-colors duration-200", tab === value ? "border-foreground text-foreground" : "border-transparent text-muted-foreground")}
+                className={cn(
+                  "border-b-2 px-1 pb-3 transition-colors duration-200",
+                  tab === value
+                    ? "border-foreground text-foreground"
+                    : "border-transparent text-muted-foreground",
+                )}
                 onClick={() => setTab(value as typeof tab)}
               >
                 {label}
@@ -144,9 +214,14 @@ export function AddItemDialog({
           <div className="mt-8 flex items-center justify-between gap-4">
             <div>
               <DialogDescription className="text-3xl font-black text-foreground">
-                {titleCaseDestination(trip?.destinationName || "Destination")} <ChevronDown className="inline h-5 w-5" />
+                {titleCaseDestination(trip?.destinationName || "Destination")}{" "}
+                <ChevronDown className="inline h-5 w-5" />
               </DialogDescription>
-              <p className="mt-1 text-sm font-medium text-muted-foreground">{day ? `Adding to Day ${day.dayNumber} - ${formatDate(day.date)}` : "Choose a day first."}</p>
+              <p className="mt-1 text-sm font-medium text-muted-foreground">
+                {day
+                  ? `Adding to Day ${day.dayNumber} - ${formatDate(day.date)}`
+                  : "Choose a day first."}
+              </p>
             </div>
           </div>
 
@@ -163,21 +238,36 @@ export function AddItemDialog({
                   <Search className="h-5 w-5" />
                   <span className="text-lg font-medium">Search</span>
                 </div>
-                <Button variant="outline" className="h-12 rounded-full px-5 text-base font-bold">
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-full px-5 text-base font-bold"
+                >
                   <SlidersHorizontal className="h-5 w-5" />
                   Filters
                 </Button>
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                {["For you", "Restaurants", "Things to do", "Stays", "Locations"].map((label, index) => (
-                  <Button key={label} variant={index === 0 ? "default" : "ghost"} className="rounded-full px-5 text-sm font-bold">
+                {[
+                  "For you",
+                  "Restaurants",
+                  "Things to do",
+                  "Stays",
+                  "Locations",
+                ].map((label, index) => (
+                  <Button
+                    key={label}
+                    variant={index === 0 ? "default" : "ghost"}
+                    className="rounded-full px-5 text-sm font-bold"
+                  >
                     {label}
                   </Button>
                 ))}
               </div>
 
-              <h3 className="mt-10 text-xl font-black tracking-normal">Restaurants</h3>
+              <h3 className="mt-10 text-xl font-black tracking-normal">
+                Restaurants
+              </h3>
               <div className="mt-5 grid gap-5 md:grid-cols-3">
                 {suggestions.map((suggestion) => (
                   <button
@@ -188,14 +278,26 @@ export function AddItemDialog({
                     disabled={submitting || !day}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
-                      <Image src={suggestion.imageUrl} alt={suggestion.title} fill sizes="(max-width: 768px) 80vw, 260px" className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                      <Image
+                        src={suggestion.imageUrl}
+                        alt={suggestion.title}
+                        fill
+                        sizes="(max-width: 768px) 80vw, 260px"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
                       <span className="absolute right-3 top-3 flex h-9 items-center gap-1 rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground shadow-sm">
-                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        {submitting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
                         {submitting ? "Adding" : "Add"}
                       </span>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <h4 className="min-w-0 truncate text-base font-black tracking-normal">{suggestion.title}</h4>
+                      <h4 className="min-w-0 truncate text-base font-black tracking-normal">
+                        {suggestion.title}
+                      </h4>
                       <span className="flex items-center gap-1 text-sm font-bold">
                         <Star className="h-4 w-4 fill-foreground" />
                         {suggestion.rating}
@@ -205,14 +307,22 @@ export function AddItemDialog({
                       <Utensils className="h-4 w-4" />
                       {suggestion.category}
                     </p>
-                    <p className="mt-1 text-sm font-medium text-muted-foreground">{suggestion.area}</p>
-                    <p className="mt-1 text-sm font-semibold text-muted-foreground">$$</p>
+                    <p className="mt-1 text-sm font-medium text-muted-foreground">
+                      {suggestion.area}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                      $$
+                    </p>
                   </button>
                 ))}
               </div>
             </>
           ) : (
-            <form id="add-itinerary-item-form" className="mt-8 grid gap-4" onSubmit={onSubmit}>
+            <form
+              id="add-itinerary-item-form"
+              className="mt-8 grid gap-4"
+              onSubmit={onSubmit}
+            >
               {error && (
                 <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
                   {error}
@@ -222,22 +332,92 @@ export function AddItemDialog({
                 <Field label="Type">
                   <select
                     value={draft.type}
-                    onChange={(event) => onDraftChange((current) => ({ ...current, type: event.target.value as ItineraryItemType }))}
+                    onChange={(event) =>
+                      onDraftChange((current) => ({
+                        ...current,
+                        type: event.target.value as ItineraryItemType,
+                      }))
+                    }
                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    {["PLACE", "MEAL", "HOTEL", "TRANSFER", "ACTIVITY", "NOTE"].map((type) => (
-                      <option key={type} value={type}>{itemTypeLabel(type as ItineraryItemType)}</option>
+                    {[
+                      "PLACE",
+                      "MEAL",
+                      "HOTEL",
+                      "TRANSFER",
+                      "ACTIVITY",
+                      "NOTE",
+                    ].map((type) => (
+                      <option key={type} value={type}>
+                        {itemTypeLabel(type as ItineraryItemType)}
+                      </option>
                     ))}
                   </select>
                 </Field>
-                <Field label="Title"><Input required value={draft.title} onChange={(event) => onDraftChange((current) => ({ ...current, title: event.target.value }))} /></Field>
-                <Field label="Start"><TimeInput24h id="add-start" value={draft.startTime || ""} onChange={(val) => onDraftChange((current) => ({ ...current, startTime: val || "" }))} /></Field>
-                <Field label="End"><TimeInput24h id="add-end" value={draft.endTime || ""} onChange={(val) => onDraftChange((current) => ({ ...current, endTime: val || "" }))} /></Field>
+                <Field label="Title">
+                  <Input
+                    required
+                    value={draft.title}
+                    onChange={(event) =>
+                      onDraftChange((current) => ({
+                        ...current,
+                        title: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Start">
+                  <TimeInput24h
+                    id="add-start"
+                    value={draft.startTime || ""}
+                    onChange={(val) =>
+                      onDraftChange((current) => ({
+                        ...current,
+                        startTime: val || "",
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="End">
+                  <TimeInput24h
+                    id="add-end"
+                    value={draft.endTime || ""}
+                    onChange={(val) =>
+                      onDraftChange((current) => ({
+                        ...current,
+                        endTime: val || "",
+                      }))
+                    }
+                  />
+                </Field>
               </div>
-              <Field label="Notes"><Textarea value={draft.notes || ""} onChange={(event) => onDraftChange((current) => ({ ...current, notes: event.target.value }))} /></Field>
+              <Field label="Notes">
+                <Textarea
+                  value={draft.notes || ""}
+                  onChange={(event) =>
+                    onDraftChange((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}Add item</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Add item
+                </Button>
               </div>
             </form>
           )}
@@ -266,7 +446,8 @@ export function EditTripDialog({
   const today = todayIso();
   const minEndDate = draft?.startDate || today;
   const startsInPast = !!draft?.startDate && draft.startDate < today;
-  const endIsBeforeStart = !!draft?.startDate && !!draft?.endDate && draft.endDate < draft.startDate;
+  const endIsBeforeStart =
+    !!draft?.startDate && !!draft?.endDate && draft.endDate < draft.startDate;
   const canSave = !startsInPast && !endIsBeforeStart && !submitting;
 
   function updateDraft(patch: UpdateTripRequest) {
@@ -277,17 +458,33 @@ export function EditTripDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl rounded-2xl border-border bg-popover p-8 text-popover-foreground shadow-md">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-black tracking-normal">Edit trip</DialogTitle>
-          <DialogDescription>Update the saved trip details manually.</DialogDescription>
+          <DialogTitle className="text-2xl font-black tracking-normal">
+            Edit trip
+          </DialogTitle>
+          <DialogDescription>
+            Update the saved trip details manually.
+          </DialogDescription>
         </DialogHeader>
         {draft && (
           <form className="mt-4 grid gap-4" onSubmit={onSubmit}>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Trip name">
-                <Input required value={draft.name || ""} onChange={(event) => updateDraft({ name: event.target.value })} />
+                <Input
+                  required
+                  value={draft.name || ""}
+                  onChange={(event) =>
+                    updateDraft({ name: event.target.value })
+                  }
+                />
               </Field>
               <Field label="Destination">
-                <Input required value={draft.destinationName || ""} onChange={(event) => updateDraft({ destinationName: event.target.value })} />
+                <Input
+                  required
+                  value={draft.destinationName || ""}
+                  onChange={(event) =>
+                    updateDraft({ destinationName: event.target.value })
+                  }
+                />
               </Field>
               <Field label="Start date">
                 <Input
@@ -302,7 +499,11 @@ export function EditTripDialog({
                       return {
                         ...currentDraft,
                         startDate: nextStart,
-                        endDate: currentDraft.endDate && currentDraft.endDate < nextStart ? nextStart : currentDraft.endDate,
+                        endDate:
+                          currentDraft.endDate &&
+                          currentDraft.endDate < nextStart
+                            ? nextStart
+                            : currentDraft.endDate,
                       };
                     })
                   }
@@ -315,7 +516,9 @@ export function EditTripDialog({
                   min={minEndDate}
                   value={draft.endDate || ""}
                   onClick={(event) => event.currentTarget.showPicker()}
-                  onChange={(event) => updateDraft({ endDate: event.target.value })}
+                  onChange={(event) =>
+                    updateDraft({ endDate: event.target.value })
+                  }
                   className="cursor-pointer"
                 />
               </Field>
@@ -325,7 +528,13 @@ export function EditTripDialog({
                   min={1}
                   max={100}
                   value={draft.travelerCount ?? ""}
-                  onChange={(event) => updateDraft({ travelerCount: event.target.value ? Number(event.target.value) : null })}
+                  onChange={(event) =>
+                    updateDraft({
+                      travelerCount: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    })
+                  }
                 />
               </Field>
               <Field label="Budget">
@@ -333,19 +542,47 @@ export function EditTripDialog({
                   type="number"
                   min={0}
                   value={draft.budgetAmount ?? ""}
-                  onChange={(event) => updateDraft({ budgetAmount: event.target.value ? Number(event.target.value) : null })}
+                  onChange={(event) =>
+                    updateDraft({
+                      budgetAmount: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    })
+                  }
                 />
               </Field>
             </div>
             <Field label="Notes">
-              <Textarea value={draft.notes || ""} onChange={(event) => updateDraft({ notes: event.target.value })} />
+              <Textarea
+                value={draft.notes || ""}
+                onChange={(event) => updateDraft({ notes: event.target.value })}
+              />
             </Field>
-            {startsInPast && <p className="text-sm font-medium text-destructive">Start date cannot be in the past.</p>}
-            {endIsBeforeStart && <p className="text-sm font-medium text-destructive">End date must be on or after start date.</p>}
+            {startsInPast && (
+              <p className="text-sm font-medium text-destructive">
+                Start date cannot be in the past.
+              </p>
+            )}
+            {endIsBeforeStart && (
+              <p className="text-sm font-medium text-destructive">
+                End date must be on or after start date.
+              </p>
+            )}
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
               <Button type="submit" disabled={!canSave}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
                 Save changes
               </Button>
             </div>
@@ -368,7 +605,9 @@ export function EditItemDialog({
   draft: UpdateItineraryItemRequest | null;
   submitting: boolean;
   onOpenChange: (open: boolean) => void;
-  onDraftChange: React.Dispatch<React.SetStateAction<UpdateItineraryItemRequest | null>>;
+  onDraftChange: React.Dispatch<
+    React.SetStateAction<UpdateItineraryItemRequest | null>
+  >;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   const open = !!item && !!draft;
@@ -377,12 +616,17 @@ export function EditItemDialog({
     onDraftChange((current) => ({ ...(current || {}), ...patch }));
   }
 
-  function updateTimeDraft(patch: Pick<UpdateItineraryItemRequest, "startTime" | "endTime">) {
+  function updateTimeDraft(
+    patch: Pick<UpdateItineraryItemRequest, "startTime" | "endTime">,
+  ) {
     onDraftChange((current) => {
       const next = { ...(current || {}), ...patch };
       return {
         ...next,
-        durationMinutes: durationMinutesFromTimeRange(next.startTime, next.endTime) ?? next.durationMinutes ?? null,
+        durationMinutes:
+          durationMinutesFromTimeRange(next.startTime, next.endTime) ??
+          next.durationMinutes ??
+          null,
       };
     });
   }
@@ -402,7 +646,9 @@ export function EditItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl rounded-2xl border-border bg-popover p-8 text-popover-foreground shadow-md">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-black tracking-normal">Edit itinerary item</DialogTitle>
+          <DialogTitle className="text-2xl font-black tracking-normal">
+            Edit itinerary item
+          </DialogTitle>
           <DialogDescription>Update this saved manual item.</DialogDescription>
         </DialogHeader>
         {draft && (
@@ -411,27 +657,53 @@ export function EditItemDialog({
               <Field label="Type">
                 <select
                   value={draft.type || "ACTIVITY"}
-                  onChange={(event) => updateDraft({ type: event.target.value as ItineraryItemType })}
+                  onChange={(event) =>
+                    updateDraft({
+                      type: event.target.value as ItineraryItemType,
+                    })
+                  }
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  {["PLACE", "MEAL", "HOTEL", "FLIGHT", "TRANSFER", "ACTIVITY", "NOTE"].map((type) => (
-                    <option key={type} value={type}>{itemTypeLabel(type as ItineraryItemType)}</option>
+                  {[
+                    "PLACE",
+                    "MEAL",
+                    "HOTEL",
+                    "FLIGHT",
+                    "TRANSFER",
+                    "ACTIVITY",
+                    "NOTE",
+                  ].map((type) => (
+                    <option key={type} value={type}>
+                      {itemTypeLabel(type as ItineraryItemType)}
+                    </option>
                   ))}
                 </select>
               </Field>
               <Field label="Status">
                 <select
                   value={draft.status || "PLANNED"}
-                  onChange={(event) => updateDraft({ status: event.target.value as ItineraryItemStatus })}
+                  onChange={(event) =>
+                    updateDraft({
+                      status: event.target.value as ItineraryItemStatus,
+                    })
+                  }
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {["PLANNED", "DONE", "SKIPPED", "CANCELLED"].map((status) => (
-                    <option key={status} value={status}>{status.charAt(0) + status.slice(1).toLowerCase()}</option>
+                    <option key={status} value={status}>
+                      {status.charAt(0) + status.slice(1).toLowerCase()}
+                    </option>
                   ))}
                 </select>
               </Field>
               <Field label="Title">
-                <Input required value={draft.title || ""} onChange={(event) => updateDraft({ title: event.target.value })} />
+                <Input
+                  required
+                  value={draft.title || ""}
+                  onChange={(event) =>
+                    updateDraft({ title: event.target.value })
+                  }
+                />
               </Field>
               <Field label="Duration minutes">
                 <Input
@@ -439,23 +711,49 @@ export function EditItemDialog({
                   min={1}
                   max={1440}
                   value={draft.durationMinutes ?? ""}
-                  onChange={(event) => updateDurationDraft(event.target.value ? Number(event.target.value) : null)}
+                  onChange={(event) =>
+                    updateDurationDraft(
+                      event.target.value ? Number(event.target.value) : null,
+                    )
+                  }
                 />
               </Field>
               <Field label="Start">
-                <TimeInput24h id="edit-start" value={draft.startTime || null} onChange={(val) => updateTimeDraft({ startTime: val })} />
+                <TimeInput24h
+                  id="edit-start"
+                  value={draft.startTime || null}
+                  onChange={(val) => updateTimeDraft({ startTime: val })}
+                />
               </Field>
               <Field label="End">
-                <TimeInput24h id="edit-end" value={draft.endTime || null} onChange={(val) => updateTimeDraft({ endTime: val })} />
+                <TimeInput24h
+                  id="edit-end"
+                  value={draft.endTime || null}
+                  onChange={(val) => updateTimeDraft({ endTime: val })}
+                />
               </Field>
             </div>
             <Field label="Notes">
-              <Textarea value={draft.notes || ""} onChange={(event) => updateDraft({ notes: event.target.value })} />
+              <Textarea
+                value={draft.notes || ""}
+                onChange={(event) => updateDraft({ notes: event.target.value })}
+              />
             </Field>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
                 Save item
               </Button>
             </div>
@@ -560,7 +858,9 @@ export function ChangeCoverPhotoDialog({
             <X className="h-5 w-5" />
           </Button>
           <DialogHeader className="min-w-0 text-center sm:text-center">
-            <DialogTitle className="truncate text-xl font-black tracking-normal">Change cover photo</DialogTitle>
+            <DialogTitle className="truncate text-xl font-black tracking-normal">
+              Change cover photo
+            </DialogTitle>
           </DialogHeader>
           <span aria-hidden="true" />
         </div>
@@ -574,7 +874,9 @@ export function ChangeCoverPhotoDialog({
               disabled={submitting}
             >
               <Upload className="mb-5 h-8 w-8" />
-              <span className="max-w-32 text-lg font-medium leading-tight">Upload your own photo</span>
+              <span className="max-w-32 text-lg font-medium leading-tight">
+                Upload your own photo
+              </span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -594,7 +896,8 @@ export function ChangeCoverPhotoDialog({
                   type="button"
                   className={cn(
                     "group relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted transition-all duration-200 hover:shadow-md",
-                    isSelected && "ring-2 ring-ring ring-offset-2 ring-offset-popover"
+                    isSelected &&
+                      "ring-2 ring-ring ring-offset-2 ring-offset-popover",
                   )}
                   onClick={() => onSelectCover(coverUrl)}
                   disabled={submitting}
@@ -627,7 +930,13 @@ export function ChangeCoverPhotoDialog({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="space-y-1.5 text-sm font-medium text-foreground">
       <span>{label}</span>

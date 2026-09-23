@@ -16,7 +16,8 @@ export default function AuthLayout({
   const router = useRouter();
   const { isAuthenticated, status, isLoading } = useAuth();
 
-  const isChecking = isLoading || status === "checking" || status === "initializing";
+  const isChecking =
+    isLoading || status === "checking" || status === "initializing";
 
   // Authenticated User Route Rule:
   // If user is already authenticated, redirect to Home (/explore)

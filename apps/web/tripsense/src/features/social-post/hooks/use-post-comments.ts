@@ -3,7 +3,10 @@
 import * as React from "react";
 import type { PostComment } from "../types";
 import { socialPostRepository } from "../services";
-import { buildFlattenedCommentTree, type FlattenedCommentNode } from "../utils/comment-tree";
+import {
+  buildFlattenedCommentTree,
+  type FlattenedCommentNode,
+} from "../utils/comment-tree";
 
 export function usePostComments(postId: string) {
   const [comments, setComments] = React.useState<PostComment[]>([]);
@@ -40,7 +43,9 @@ export function usePostComments(postId: string) {
         }
       } catch (err) {
         if (!ignore) {
-          setError(err instanceof Error ? err.message : "Không thể tải bình luận");
+          setError(
+            err instanceof Error ? err.message : "Không thể tải bình luận",
+          );
         }
       } finally {
         if (!ignore) {
@@ -56,11 +61,15 @@ export function usePostComments(postId: string) {
     };
   }, [postId]);
 
+  const isAddingCommentRef = React.useRef(false);
+  const pendingLikesRef = React.useRef<Set<string>>(new Set());
+
   const addComment = React.useCallback(
     async (content: string, parentId?: string | null): Promise<PostComment> => {
-      if (!content.trim() || submitting) {
-        throw new Error("Nội dung bình luận không hợp lệ");
+      if (!content.trim() || submitting || isAddingCommentRef.current) {
+        throw new Error("Yêu cầu gửi bình luận đang được xử lý, vui lòng chờ.");
       }
+      isAddingCommentRef.current = true;
       setSubmitting(true);
       setError(null);
       try {
@@ -68,24 +77,32 @@ export function usePostComments(postId: string) {
           content: content.trim(),
           parentId: parentId || null,
         });
-        setComments((prev) => [...prev, newComment]);
+        setComments((prev) =>
+          prev.some((c) => c.id === newComment.id)
+            ? prev
+            : [...prev, newComment],
+        );
         return newComment;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Gửi bình luận thất bại";
+        const message =
+          err instanceof Error ? err.message : "Gửi bình luận thất bại";
         setError(message);
         throw err;
       } finally {
+        isAddingCommentRef.current = false;
         setSubmitting(false);
       }
     },
-    [postId, submitting]
+    [postId, submitting],
   );
 
   const toggleCommentLike = React.useCallback(
     async (commentId: string) => {
+      if (pendingLikesRef.current.has(commentId)) return;
       const target = comments.find((c) => c.id === commentId);
       if (!target) return;
 
+      pendingLikesRef.current.add(commentId);
       const prevLiked = target.isLiked ?? false;
       const prevCount = target.likeCount ?? 0;
       const nextLiked = !prevLiked;
@@ -96,18 +113,22 @@ export function usePostComments(postId: string) {
         prev.map((c) =>
           c.id === commentId
             ? { ...c, isLiked: nextLiked, likeCount: nextCount }
-            : c
-        )
+            : c,
+        ),
       );
 
       try {
-        const result = await socialPostRepository.toggleLikeComment(postId, commentId, prevLiked);
+        const result = await socialPostRepository.toggleLikeComment(
+          postId,
+          commentId,
+          prevLiked,
+        );
         setComments((prev) =>
           prev.map((c) =>
             c.id === commentId
               ? { ...c, isLiked: result.liked, likeCount: result.likeCount }
-              : c
-          )
+              : c,
+          ),
         );
       } catch {
         // Rollback on error
@@ -115,12 +136,14 @@ export function usePostComments(postId: string) {
           prev.map((c) =>
             c.id === commentId
               ? { ...c, isLiked: prevLiked, likeCount: prevCount }
-              : c
-          )
+              : c,
+          ),
         );
+      } finally {
+        pendingLikesRef.current.delete(commentId);
       }
     },
-    [comments, postId]
+    [comments, postId],
   );
 
   const flattenedTree: FlattenedCommentNode[] = React.useMemo(() => {

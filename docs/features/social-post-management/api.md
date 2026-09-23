@@ -2,16 +2,16 @@
 
 All successful payloads use the existing `ApiResponse<T>` envelope; the frontend API client unwraps `data`.
 
-| Method | Path | Result |
-| --- | --- | --- |
-| GET | `/api/social/posts?page=0&size=10&userId?` | `{items,total,page,size,hasMore}`; newest-first |
-| GET | `/api/social/posts/{postId}` | `SocialPost`; 404 when hidden/missing |
-| POST | `/api/social/posts` | Requires UUID `Idempotency-Key`; creates or returns the same full `SocialPost` for the same author/key |
-| DELETE | `/api/social/posts/{postId}` | 204 owner or `ROLE_ADMIN` |
-| POST/DELETE | `/api/social/posts/{postId}/likes` | `{liked,likeCount}`; idempotent |
-| GET/POST | `/api/social/posts/{postId}/comments` | flat `PostComment[]` / 201 comment |
-| POST/DELETE | `/api/social/posts/{postId}/comments/{commentId}/likes` | `{liked,likeCount}` |
-| POST | `/api/social/media/upload-signature` | safe, short-lived Cloudinary upload config |
+| Method      | Path                                                    | Result                                                                                                 |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| GET         | `/api/social/posts?page=0&size=10&userId?`              | `{items,total,page,size,hasMore}`; newest-first                                                        |
+| GET         | `/api/social/posts/{postId}`                            | `SocialPost`; 404 when hidden/missing                                                                  |
+| POST        | `/api/social/posts`                                     | Requires UUID `Idempotency-Key`; creates or returns the same full `SocialPost` for the same author/key |
+| DELETE      | `/api/social/posts/{postId}`                            | 204 owner or `ROLE_ADMIN`                                                                              |
+| POST/DELETE | `/api/social/posts/{postId}/likes`                      | `{liked,likeCount}`; idempotent                                                                        |
+| GET/POST    | `/api/social/posts/{postId}/comments`                   | flat `PostComment[]` / 201 comment                                                                     |
+| POST/DELETE | `/api/social/posts/{postId}/comments/{commentId}/likes` | `{liked,likeCount}`                                                                                    |
+| POST        | `/api/social/media/upload-signature`                    | safe, short-lived Cloudinary upload config                                                             |
 
 The nested comment-like path deliberately matches the existing adapter. Share has no API.
 

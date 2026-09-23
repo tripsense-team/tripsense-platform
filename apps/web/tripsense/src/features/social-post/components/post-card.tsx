@@ -11,31 +11,22 @@ import { formatRelativeTime } from "../utils/format-time";
 import { PostMediaGallery } from "./post-media-gallery";
 import { PostActionsMenu } from "./post-actions-menu";
 import { PostActionsBar } from "./post-actions-bar";
-import { SharedTripCard } from "./shared-trip-card";
 import { parsePostContent } from "../utils/parse-trip-metadata";
 import { DeletePostDialog } from "./delete-post-dialog";
 import { SharedTripArtifactCard } from "./shared-trip-artifact-card";
 import { useDeletePost } from "../hooks";
-import { useUserProfile } from "@/features/profile";
 import { cn } from "@/lib/utils";
-
+import { ReportPostDialog } from "./report-post-dialog";
+import { useTranslation } from "@/i18n";
+import { Loader2, Check, UserPlus } from "lucide-react";
+import { getSocialPostRepository } from "../services";
+import { Button } from "@/components/ui/button";
 
 interface PostCardProps {
   post: SocialPost;
   onPostDeleted?: (postId: string) => void;
   showDetailLink?: boolean;
   className?: string;
-}
-
-function visibilityLabel(visibility?: SocialPost["visibility"]) {
-  switch (visibility) {
-    case "PRIVATE":
-      return "Only me";
-    case "UNLISTED":
-      return "Community";
-    default:
-      return "Public";
-  }
 }
 
 export function PostCard({
@@ -46,13 +37,24 @@ export function PostCard({
 }: PostCardProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const { remove, deleting } = useDeletePost();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const [reportDialogOpen, setReportDialogOpen] = React.useState(false);
 
-  // Fetch author profile to get the avatar dynamically
-  const { data: authorProfile } = useUserProfile(post.author.id);
-  const authorAvatar = authorProfile?.avatarUrl || post.author.avatar;
+  const visibilityLabel = (visibility?: SocialPost["visibility"]) => {
+    switch (visibility) {
+      case "PRIVATE":
+        return t("social.visibilityPrivate");
+      case "UNLISTED":
+        return t("social.visibilityUnlisted");
+      default:
+        return t("social.visibilityPublic");
+    }
+  };
+
+  const authorAvatar = post.author.avatar;
 
   const handleCommentClick = () => {
     if (showDetailLink) {
@@ -67,11 +69,10 @@ export function PostCard({
     }
   };
 
-
   // Authorization check: User is the post author OR has ROLE_ADMIN (or guest author in dev mode)
   const canDelete = Boolean(
     (user && (user.id === post.author.id || user.role === UserRole.ADMIN)) ||
-    (!user && post.author.id === "guest-user")
+      (!user && post.author.id === "guest-user"),
   );
 
   const authorInitials = React.useMemo(() => {
@@ -83,11 +84,39 @@ export function PostCard({
     return post.author.name.slice(0, 2).toUpperCase();
   }, [post.author.name]);
 
-  const { cleanContent, tripSummary: parsedTrip } = React.useMemo(
+  const { cleanContent } = React.useMemo(
     () => parsePostContent(post.content),
-    [post.content]
+    [post.content],
   );
-  const activeTrip = post.tripSummary || parsedTrip;
+
+  const isOwnPost = Boolean(user && user.id === post.author.id);
+  const [isFollowing, setIsFollowing] = React.useState(
+    Boolean(post.author.isFollowing),
+  );
+  const [followingPending, setFollowingPending] = React.useState(false);
+  const followPendingRef = React.useRef(false);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const isLongContent =
+    cleanContent.length > 180 || cleanContent.split("\n").length > 3;
+
+  const handleFollowToggle = async () => {
+    if (followingPending || followPendingRef.current) return;
+    followPendingRef.current = true;
+    const nextState = !isFollowing;
+    setIsFollowing(nextState);
+    setFollowingPending(true);
+    try {
+      await getSocialPostRepository().toggleFollowCreator(
+        post.author.id,
+        isFollowing,
+      );
+    } catch {
+      setIsFollowing(!nextState);
+    } finally {
+      followPendingRef.current = false;
+      setFollowingPending(false);
+    }
+  };
 
   const handleDeleteConfirm = async () => {
     setDeleteError(null);
@@ -96,7 +125,9 @@ export function PostCard({
       setDeleteDialogOpen(false);
       onPostDeleted?.(post.id);
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Xóa bài viết thất bại");
+      setDeleteError(
+        err instanceof Error ? err.message : t("social.deletePost"),
+      );
     }
   };
 
@@ -104,7 +135,7 @@ export function PostCard({
     <article
       className={cn(
         "group rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-xs transition-all duration-200 hover:shadow-sm",
-        className
+        className,
       )}
     >
       {/* Header: Author + Timestamp + Actions Menu */}
@@ -113,9 +144,9 @@ export function PostCard({
           <Link
             href={`/community/users/${post.author.id}`}
             className="transition-opacity hover:opacity-80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring rounded-full"
-            aria-label={`Xem bài viết của ${post.author.name}`}
+            aria-label={t("social.authorPosts", { name: post.author.name })}
           >
-            <Avatar className="h-10 w-10 border border-border">
+            <Avatar className="h-10 w-10 sm:h-[46px] sm:w-[46px]">
               <AvatarImage src={authorAvatar} alt={post.author.name} />
               <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
                 {authorInitials}
@@ -124,30 +155,78 @@ export function PostCard({
           </Link>
 
           <div>
-            <Link
-              href={`/community/users/${post.author.id}`}
-              className="text-sm font-semibold text-foreground hover:underline focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring rounded-xs"
-            >
-              {post.author.name}
-            </Link>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href={`/community/users/${post.author.id}`}
+                className="text-sm font-semibold text-foreground hover:underline focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring rounded-xs"
+              >
+                {post.author.name}
+              </Link>
+              <Badge
+                variant="secondary"
+                className="rounded-full px-2 py-0 text-[10px] font-bold"
+              >
+                {post.type === "TRIP_SHARE"
+                  ? t("social.postTypeTrip")
+                  : t("social.postTypeStandard")}
+              </Badge>
+            </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{formatRelativeTime(post.createdAt)}</span>
-              {post.type === "TRIP_SHARE" && (
-                <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px] font-bold">
-                  {visibilityLabel(post.visibility)}
-                </Badge>
-              )}
+              <span>•</span>
+              <span>{visibilityLabel(post.visibility)}</span>
             </div>
           </div>
         </div>
 
-        {/* Post Actions Menu (...) */}
-        <PostActionsMenu
-          postId={post.id}
-          canDelete={canDelete}
-          onDeleteClick={() => setDeleteDialogOpen(true)}
-          showDetailLink={showDetailLink}
-        />
+        {/* Header Actions: Follow button + (...) menu */}
+        <div className="flex items-center gap-2">
+          {!isOwnPost && (
+            <Button
+              type="button"
+              size="sm"
+              variant={isFollowing ? "secondary" : "outline"}
+              disabled={followingPending}
+              onClick={handleFollowToggle}
+              aria-pressed={isFollowing}
+              className={`shrink-0 rounded-full text-xs font-semibold px-3 h-7.5 transition-all cursor-pointer ${
+                isFollowing
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                  : "border-primary/40 text-primary hover:bg-primary/10 hover:border-primary"
+              }`}
+            >
+              {followingPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  <span>
+                    {isFollowing ? t("social.following") : t("social.follow")}
+                  </span>
+                </>
+              ) : isFollowing ? (
+                <>
+                  <Check className="h-3 w-3 mr-1" />
+                  <span>{t("social.following")}</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-3 w-3 mr-1" />
+                  <span>{t("social.follow")}</span>
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Post Actions Menu (...) */}
+          <PostActionsMenu
+            postId={post.id}
+            canDelete={canDelete}
+            onDeleteClick={() => setDeleteDialogOpen(true)}
+            onReportClick={
+              user && !canDelete ? () => setReportDialogOpen(true) : undefined
+            }
+            showDetailLink={showDetailLink}
+          />
+        </div>
       </div>
 
       {/* Delete error notification if failed */}
@@ -157,19 +236,28 @@ export function PostCard({
         </div>
       )}
 
-      {/* Content */}
-      {post.content && showDetailLink ? (
-        <Link
-          href={`/community/posts/${post.id}`}
-          className="block text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4 hover:opacity-90 transition-opacity focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring rounded-lg cursor-pointer"
-        >
-          {cleanContent}
-        </Link>
-      ) : post.content ? (
-        <div className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words mb-4">
-          {cleanContent}
+      {/* Content with Expand / Collapse */}
+      {cleanContent && (
+        <div className="mb-4">
+          <p
+            className={cn(
+              "text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-line break-words",
+              !isExpanded && isLongContent && "line-clamp-3",
+            )}
+          >
+            {cleanContent}
+          </p>
+          {isLongContent && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="mt-1.5 text-xs font-bold text-primary hover:underline cursor-pointer focus:outline-hidden"
+            >
+              {isExpanded ? t("social.showLess") : t("social.readMore")}
+            </button>
+          )}
         </div>
-      ) : null}
+      )}
 
       {/* Shared trip artifact */}
       {post.type === "TRIP_SHARE" && post.trip && (
@@ -187,13 +275,6 @@ export function PostCard({
         </div>
       )}
 
-      {/* Attached Shared Trip (TF-65) */}
-      {activeTrip && (
-        <div className="mb-3">
-          <SharedTripCard trip={activeTrip} />
-        </div>
-      )}
-
       {/* Post Actions Bar: Like, Comment, Share */}
       <div className="mt-2">
         <PostActionsBar
@@ -206,14 +287,17 @@ export function PostCard({
         />
       </div>
 
-
-
       {/* Delete confirmation dialog */}
       <DeletePostDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         loading={deleting}
+      />
+      <ReportPostDialog
+        postId={post.id}
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
       />
     </article>
   );

@@ -20,7 +20,10 @@ export default function PlacesLoading() {
         {/* Places cards list skeleton */}
         <div className="space-y-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex gap-3.5 rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+            <div
+              key={i}
+              className="flex gap-3.5 rounded-2xl border border-border bg-card p-3.5 shadow-2xs"
+            >
               <Skeleton className="h-24 w-24 rounded-xl shrink-0" />
               <div className="flex-1 space-y-2 py-0.5">
                 <Skeleton className="h-4 w-3/4 rounded-md" />
@@ -40,7 +43,9 @@ export default function PlacesLoading() {
         <Skeleton className="w-full h-full" />
         <div className="absolute text-center space-y-2">
           <div className="h-10 w-10 mx-auto rounded-full bg-primary/10 border border-primary/20 animate-pulse" />
-          <p className="text-xs font-medium text-muted-foreground">Đang tải bản đồ...</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            Đang tải bản đồ...
+          </p>
         </div>
       </div>
     </div>

@@ -41,9 +41,12 @@ Before implementation, check whether an approved feature plan exists in `docs/fe
 - Use synchronous calls only when the user flow requires immediate data.
 - Keep external credentials backend-side.
 - AI may assist decisions, but deterministic business rules must remain explicit and testable.
+- Frontend Error Handling & Zero-Leak Logging: All web features must adhere to [docs/ERROR_HANDLING_AND_LOGGING_STANDARDS.md](docs/ERROR_HANDLING_AND_LOGGING_STANDARDS.md). NEVER expose raw server errors, SQL/JDBC traces, internal exceptions, or sensitive tokens in UI, toasts, or client logs.
 
 ## Existing Repository Notes
 
 - Web app agent notes exist at [apps/web/tripsense/AGENTS.md](apps/web/tripsense/AGENTS.md).
+- Frontend internationalization (i18n) standards and rules are defined at [docs/I18N_STANDARDS.md](docs/I18N_STANDARDS.md). All web features must adhere to domain namespace partitioning (`common`, `auth`, `social`, `trip`, etc.), schema parity, and pre-commit checks.
+- Frontend error handling, sanitization, and logging standards are defined at [docs/ERROR_HANDLING_AND_LOGGING_STANDARDS.md](docs/ERROR_HANDLING_AND_LOGGING_STANDARDS.md).
 - Current checked-in services include API Gateway and several Spring services under `services/`.
 - Some expected TripSense services may be planned but not present in the source tree yet. Plans must distinguish existing code from target architecture.

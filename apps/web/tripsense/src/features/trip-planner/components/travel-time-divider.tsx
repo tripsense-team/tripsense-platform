@@ -23,7 +23,12 @@ export function TravelTimeDivider({
   const Icon = modeIcons[mode];
 
   return (
-    <div className={cn("flex items-center gap-3 my-2 pl-4 text-xs text-muted-foreground", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-3 my-2 pl-4 text-xs text-muted-foreground",
+        className,
+      )}
+    >
       <div className="flex flex-col items-center">
         <div className="w-0.5 h-4 bg-border" />
         <div className="p-1 rounded-full bg-muted border border-border">

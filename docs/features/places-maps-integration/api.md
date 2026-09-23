@@ -4,23 +4,23 @@ All TripSense place endpoints are public read endpoints served under `/api/place
 
 ## Endpoints
 
-| Method | Path | Parameters | Success |
-| --- | --- | --- | --- |
-| GET | `/api/places/search` | `q` required; optional `lat`, `lng`, `radius`, `limit` | `200` place list |
-| GET | `/api/places/autocomplete` | `q` required; optional `lat`, `lng`, `limit` | `200` suggestions |
-| GET | `/api/places/{id}` | internal/provider ID; optional fallback `name`, `lat`, `lng` | `200` detail or `404` |
-| GET | `/api/places/nearby` | `lat`, `lng` required; optional `radius`, `category`, `limit` | `200` place list |
+| Method | Path                       | Parameters                                                    | Success               |
+| ------ | -------------------------- | ------------------------------------------------------------- | --------------------- |
+| GET    | `/api/places/search`       | `q` required; optional `lat`, `lng`, `radius`, `limit`        | `200` place list      |
+| GET    | `/api/places/autocomplete` | `q` required; optional `lat`, `lng`, `limit`                  | `200` suggestions     |
+| GET    | `/api/places/{id}`         | internal/provider ID; optional fallback `name`, `lat`, `lng`  | `200` detail or `404` |
+| GET    | `/api/places/nearby`       | `lat`, `lng` required; optional `radius`, `category`, `limit` | `200` place list      |
 
 The web client uses relative `/api/places/**` URLs. Next.js routes `/api/**` to the configured API Gateway; it has no place-service-specific rewrite.
 
 ## Provider Mapping
 
-| TripSense operation | ZioMap adapter call |
-| --- | --- |
-| Search | `/api/place/text-search` |
-| Autocomplete | `/api/place/autocomplete`, with text-search fallback in the adapter |
-| Details | `/api/place/details` |
-| Nearby fallback | text search constrained by location/radius |
+| TripSense operation | ZioMap adapter call                                                 |
+| ------------------- | ------------------------------------------------------------------- |
+| Search              | `/api/place/text-search`                                            |
+| Autocomplete        | `/api/place/autocomplete`, with text-search fallback in the adapter |
+| Details             | `/api/place/details`                                                |
+| Nearby fallback     | text search constrained by location/radius                          |
 
 Provider endpoints and credentials are implementation details and are never returned as browser contracts.
 

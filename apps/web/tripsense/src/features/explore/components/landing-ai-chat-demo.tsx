@@ -11,12 +11,14 @@ export function LandingAiChatDemo() {
     {
       id: "1",
       role: "user" as const,
-      content: "Plan a 3-day itinerary for Rome focusing on local food and historic spots.",
+      content:
+        "Plan a 3-day itinerary for Rome focusing on local food and historic spots.",
     },
     {
       id: "2",
       role: "assistant" as const,
-      content: "Here is a curated 3-day Rome itinerary for you! Day 1 covers the Colosseum & Trastevere food walk:",
+      content:
+        "Here is a curated 3-day Rome itinerary for you! Day 1 covers the Colosseum & Trastevere food walk:",
       richContent: (
         <div className="space-y-2 mt-2">
           <PlaceCardCompact
@@ -37,7 +39,10 @@ export function LandingAiChatDemo() {
   ]);
 
   return (
-    <section id="ai-assistant" className="py-16 md:py-24 bg-accent/30 border-y border-border/50">
+    <section
+      id="ai-assistant"
+      className="py-16 md:py-24 bg-accent/30 border-y border-border/50"
+    >
       <div className="container max-w-7xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Text Column */}
@@ -53,18 +58,28 @@ export function LandingAiChatDemo() {
             </h2>
 
             <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-              Describe your dream vacation in plain English. Our AI understands your preferences, recommends authentic local spots, and formats your schedule into a drag-and-drop itinerary.
+              Describe your dream vacation in plain English. Our AI understands
+              your preferences, recommends authentic local spots, and formats
+              your schedule into a drag-and-drop itinerary.
             </p>
 
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="p-4 rounded-xl border border-border bg-card shadow-2xs space-y-1">
-                <h4 className="font-bold text-lg text-primary">Instant Schedule</h4>
-                <p className="text-xs text-muted-foreground">Generates day-by-day travel timelines in seconds.</p>
+                <h4 className="font-bold text-lg text-primary">
+                  Instant Schedule
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Generates day-by-day travel timelines in seconds.
+                </p>
               </div>
 
               <div className="p-4 rounded-xl border border-border bg-card shadow-2xs space-y-1">
-                <h4 className="font-bold text-lg text-primary">Rich Card Embeds</h4>
-                <p className="text-xs text-muted-foreground">Places, restaurants & hotels render as interactive cards.</p>
+                <h4 className="font-bold text-lg text-primary">
+                  Rich Card Embeds
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Places, restaurants & hotels render as interactive cards.
+                </p>
               </div>
             </div>
           </div>
@@ -78,7 +93,9 @@ export function LandingAiChatDemo() {
                   <Bot className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm text-foreground">TripSense AI Assistant</h4>
+                  <h4 className="font-bold text-sm text-foreground">
+                    TripSense AI Assistant
+                  </h4>
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <span className="h-2 w-2 rounded-full bg-green-500 inline-block animate-pulse" />
                     <span>Online & Ready</span>
@@ -107,7 +124,9 @@ export function LandingAiChatDemo() {
                       )}
                     </Avatar>
 
-                    <div className={`space-y-1 max-w-[80%] ${msg.role === "user" ? "text-right" : "text-left"}`}>
+                    <div
+                      className={`space-y-1 max-w-[80%] ${msg.role === "user" ? "text-right" : "text-left"}`}
+                    >
                       <div
                         className={`rounded-2xl p-3 text-xs leading-relaxed ${
                           msg.role === "user"

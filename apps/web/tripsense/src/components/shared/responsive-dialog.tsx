@@ -47,7 +47,7 @@ export function ResponsiveDialog({
   const isDesktop = React.useSyncExternalStore(
     subscribeMediaQuery,
     getSnapshot,
-    getServerSnapshot
+    getServerSnapshot,
   );
 
   if (isDesktop) {
@@ -56,7 +56,9 @@ export function ResponsiveDialog({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            {description && <DialogDescription>{description}</DialogDescription>}
+            {description && (
+              <DialogDescription>{description}</DialogDescription>
+            )}
           </DialogHeader>
           {children}
         </DialogContent>
@@ -66,10 +68,15 @@ export function ResponsiveDialog({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+      <SheetContent
+        side="bottom"
+        className="rounded-t-2xl max-h-[85vh] overflow-y-auto"
+      >
         <SheetHeader className="text-left pb-4 border-b border-border mb-4">
           <SheetTitle>{title}</SheetTitle>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          {description && (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          )}
         </SheetHeader>
         {children}
       </SheetContent>

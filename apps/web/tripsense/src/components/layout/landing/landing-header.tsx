@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { Compass, Sparkles, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
+import { useTranslation } from "@/i18n";
 import { siteConfig } from "@/config/site";
 
 export interface LandingHeaderProps {
@@ -11,10 +19,15 @@ export interface LandingHeaderProps {
 }
 
 export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
+  const { t } = useTranslation();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 transition-all">
       <div className="container max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-foreground hover:opacity-90 transition-opacity">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-foreground hover:opacity-90 transition-opacity"
+        >
           <div className="p-1.5 rounded-xl bg-primary text-primary-foreground">
             <Compass className="h-5 w-5" />
           </div>
@@ -22,28 +35,41 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-          <Link href="#how-it-works" className="hover:text-foreground transition-colors">
-            How it works
+          <Link
+            href="#how-it-works"
+            className="hover:text-foreground transition-colors"
+          >
+            {t("nav.howItWorks")}
           </Link>
-          <Link href="#explore" className="hover:text-foreground transition-colors">
-            Explore
+          <Link
+            href="#explore"
+            className="hover:text-foreground transition-colors"
+          >
+            {t("nav.explore")}
           </Link>
-          <Link href="#ai-assistant" className="hover:text-foreground transition-colors">
-            AI Assistant
+          <Link
+            href="#ai-assistant"
+            className="hover:text-foreground transition-colors"
+          >
+            {t("nav.aiAssistant")}
           </Link>
-          <Link href="#features" className="hover:text-foreground transition-colors">
-            Features
+          <Link
+            href="#features"
+            className="hover:text-foreground transition-colors"
+          >
+            {t("nav.features")}
           </Link>
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
+          <LanguageSwitcher />
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onOpenAuthModal?.("signin")}
             className="font-medium"
           >
-            Sign In
+            {t("auth.login")}
           </Button>
           <Button
             size="sm"
@@ -51,11 +77,12 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
             className="rounded-full gap-2 shadow-sm font-medium"
           >
             <Sparkles className="h-4 w-4" />
-            <span>Start a trip</span>
+            <span>{t("nav.startTrip")}</span>
           </Button>
         </div>
 
         <div className="md:hidden flex items-center gap-2">
+          <LanguageSwitcher variant="compact" />
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -71,32 +98,50 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
                 </SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-4 mt-6">
-                <Link href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-                  How it works
+                <Link
+                  href="#how-it-works"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {t("nav.howItWorks")}
                 </Link>
-                <Link href="#explore" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-                  Explore
+                <Link
+                  href="#explore"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {t("nav.explore")}
                 </Link>
-                <Link href="#ai-assistant" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-                  AI Assistant
+                <Link
+                  href="#ai-assistant"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {t("nav.aiAssistant")}
                 </Link>
-                <Link href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-                  Features
+                <Link
+                  href="#features"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {t("nav.features")}
                 </Link>
-                <div className="pt-4 border-t border-border flex flex-col gap-2">
+                <div className="pt-4 border-t border-border flex flex-col gap-3">
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("common.language")}
+                    </span>
+                    <LanguageSwitcher variant="segmented" />
+                  </div>
                   <Button
                     variant="outline"
                     onClick={() => onOpenAuthModal?.("signin")}
                     className="w-full justify-center"
                   >
-                    Sign In
+                    {t("auth.login")}
                   </Button>
                   <Button
                     onClick={() => onOpenAuthModal?.("signup")}
                     className="w-full justify-center rounded-full gap-2"
                   >
                     <Sparkles className="h-4 w-4" />
-                    <span>Start a trip</span>
+                    <span>{t("nav.startTrip")}</span>
                   </Button>
                 </div>
               </div>

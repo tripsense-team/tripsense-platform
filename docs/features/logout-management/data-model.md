@@ -5,6 +5,7 @@
 ### Approach Chosen: `token_version` on `User` entity / `RefreshTokens` Revocation Table
 
 1. **`User` Entity Attribute**:
+
    - Add `token_version` (BIGINT / INT, default `1`) to `users` table.
    - Embed `token_version` claim inside issued Refresh Tokens and Access Tokens.
    - When user executes `logout-all`:

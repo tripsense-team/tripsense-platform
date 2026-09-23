@@ -6,13 +6,13 @@ No domain endpoints are added or changed.
 
 Gateway route prefixes should be standardized for implemented services:
 
-| Gateway Path | Target Service |
-| --- | --- |
-| `/api/trips/**` | `lb://trip-service` |
-| `/api/places/**` | `lb://place-service` |
-| `/api/context/**` | `lb://context-service` |
+| Gateway Path          | Target Service           |
+| --------------------- | ------------------------ |
+| `/api/trips/**`       | `lb://trip-service`      |
+| `/api/places/**`      | `lb://place-service`     |
+| `/api/context/**`     | `lb://context-service`   |
 | `/api/itineraries/**` | `lb://itinerary-service` |
-| `/api/reviews/**` | `lb://review-service` |
+| `/api/reviews/**`     | `lb://review-service`    |
 
 The Eureka dashboard remains available locally at `http://localhost:8761/`.
 

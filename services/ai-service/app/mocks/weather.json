@@ -1,0 +1,32 @@
+{
+  "destination": "Da Nang",
+  "forecast": [
+    {
+      "day": 1,
+      "date": "2026-09-15",
+      "temperature": 30,
+      "condition": "Sunny",
+      "rain_probability": 10,
+      "humidity": 65,
+      "recommendation": "Good weather for beach and outdoor activities"
+    },
+    {
+      "day": 2,
+      "date": "2026-09-16",
+      "temperature": 31,
+      "condition": "Partly Cloudy",
+      "rain_probability": 20,
+      "humidity": 70,
+      "recommendation": "Suitable for sightseeing and city exploration"
+    },
+    {
+      "day": 3,
+      "date": "2026-09-17",
+      "temperature": 29,
+      "condition": "Light Rain",
+      "rain_probability": 40,
+      "humidity": 75,
+      "recommendation": "Prefer indoor activities and flexible schedule"
+    }
+  ]
+}
