@@ -166,4 +166,5 @@ echo "=== Docker resource snapshot ==="
 docker stats --no-stream || true
 
 echo "=== Clean unused images ==="
-docker image prune -f
+docker image prune -a -f
+

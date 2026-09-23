@@ -41,6 +41,8 @@ services:
       PORT: 3000
       NEXT_PUBLIC_API_GATEWAY_URL: ""
       API_GATEWAY_URL: http://api-gateway:8080/api/:path*
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+      NEXT_PUBLIC_MAPVINA_API_KEY: ${NEXT_PUBLIC_MAPVINA_API_KEY:-}
     depends_on:
       api-gateway:
         condition: service_started
