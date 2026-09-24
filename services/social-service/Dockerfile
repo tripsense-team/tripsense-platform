@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # Stage 1: Build
 FROM maven:3.9-eclipse-temurin-21 AS builder
 
