@@ -125,3 +125,6 @@ export interface ReorderItemsRequest {
   orderedItemIds: string[];
   version: number;
 }
+
+export * from './collaboration';
+

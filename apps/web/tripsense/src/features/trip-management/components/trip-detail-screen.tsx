@@ -37,6 +37,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
+import { TripMembersDialog } from "./trip-members-dialog";
 import type {
   ItineraryDayResponse,
   ItineraryItemResponse,
@@ -117,6 +118,7 @@ export function TripDetailScreen({
   const [activePanel, setActivePanel] =
     React.useState<TripDetailPanel>("overview");
   const [copiedInviteLink, setCopiedInviteLink] = React.useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = React.useState(false);
 
   const mapPlaces: Place[] = React.useMemo(() => {
     const places: Place[] = [];
@@ -205,10 +207,11 @@ export function TripDetailScreen({
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            className="h-10 rounded-full px-3 text-sm font-bold"
+            className="h-10 rounded-full px-3 text-sm font-bold shadow-xs hover:bg-accent"
+            onClick={() => setMembersDialogOpen(true)}
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              P
+              <Users className="h-4 w-4" />
             </span>
             Invite
           </Button>
@@ -229,7 +232,7 @@ export function TripDetailScreen({
               sideOffset={8}
             >
               <DropdownMenuItem
-                className="gap-3 rounded-xl px-3 py-3 text-base"
+                className="gap-3 rounded-xl px-3 py-3 text-base cursor-pointer"
                 onSelect={copyInviteLink}
               >
                 {copiedInviteLink ? (
@@ -241,8 +244,8 @@ export function TripDetailScreen({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                disabled
-                className="gap-3 rounded-xl px-3 py-3 text-base"
+                className="gap-3 rounded-xl px-3 py-3 text-base cursor-pointer"
+                onSelect={() => setMembersDialogOpen(true)}
               >
                 <Users className="h-5 w-5" />
                 Manage co-travelers
@@ -401,6 +404,13 @@ export function TripDetailScreen({
           )}
         </div>
       </div>
+
+      <TripMembersDialog
+        open={membersDialogOpen}
+        onOpenChange={setMembersDialogOpen}
+        tripId={trip.id}
+        tripName={title}
+      />
     </section>
   );
 }
