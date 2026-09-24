@@ -1,4 +1,7 @@
-export function formatRelativeTime(dateString: string): string {
+export function formatRelativeTime(
+  dateString: string,
+  locale: string = "vi",
+): string {
   try {
     const date = new Date(dateString);
     const now = new Date();
@@ -8,23 +11,29 @@ export function formatRelativeTime(dateString: string): string {
     const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
 
+    const isEn = locale === "en";
+
     if (diffSeconds < 60) {
-      return "Vừa xong";
+      return isEn ? "Just now" : "Vừa xong";
     }
     if (diffMinutes < 60) {
-      return `${diffMinutes} phút trước`;
+      return isEn
+        ? `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`
+        : `${diffMinutes} phút trước`;
     }
     if (diffHours < 24) {
-      return `${diffHours} giờ trước`;
+      return isEn
+        ? `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`
+        : `${diffHours} giờ trước`;
     }
     if (diffDays === 1) {
-      return "Hôm qua";
+      return isEn ? "Yesterday" : "Hôm qua";
     }
     if (diffDays < 7) {
-      return `${diffDays} ngày trước`;
+      return isEn ? `${diffDays} days ago` : `${diffDays} ngày trước`;
     }
 
-    return date.toLocaleDateString("vi-VN", {
+    return date.toLocaleDateString(isEn ? "en-US" : "vi-VN", {
       day: "numeric",
       month: "short",
       year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,

@@ -35,8 +35,19 @@ trip-service:
   url: ${TRIP_SERVICE_URL:http://localhost:${TRIP_SERVICE_PORT:8084}}
   connect-timeout: ${TRIP_SERVICE_CONNECT_TIMEOUT:2s}
   read-timeout: ${TRIP_SERVICE_READ_TIMEOUT:5s}
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:${USER_SERVICE_PORT:8081}}
+  connect-timeout: ${USER_SERVICE_CONNECT_TIMEOUT:2s}
+  read-timeout: ${USER_SERVICE_READ_TIMEOUT:5s}
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+weather:
+  open-meteo:
+    base-url: ${OPEN_METEO_BASE_URL:https://api.open-meteo.com/v1/forecast}
+    connect-timeout-ms: ${WEATHER_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${WEATHER_READ_TIMEOUT_MS:4000}
+

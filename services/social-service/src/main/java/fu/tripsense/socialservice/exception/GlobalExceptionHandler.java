@@ -37,6 +37,12 @@ public class GlobalExceptionHandler {
         .body(ErrorResponse.of("VALIDATION_FAILED", "Invalid " + e.getName()));
   }
 
+  @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+  ResponseEntity<ErrorResponse> noResourceFound(org.springframework.web.servlet.resource.NoResourceFoundException e) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ErrorResponse.of("RESOURCE_NOT_FOUND", "Resource not found: " + e.getResourcePath()));
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<ErrorResponse> unexpected(Exception e) {
     log.error("Unexpected social-service error", e);

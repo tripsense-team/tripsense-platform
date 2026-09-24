@@ -158,7 +158,11 @@ export function DestinationWeatherWidget({
                   : weather.cityName}
               </span>
             </span>
-            <span>{weather.updatedAt}</span>
+            <span>
+              {weather.updatedAt === "Vừa cập nhật"
+                ? t("social.justUpdated")
+                : weather.updatedAt}
+            </span>
           </div>
         </div>
       ) : null}

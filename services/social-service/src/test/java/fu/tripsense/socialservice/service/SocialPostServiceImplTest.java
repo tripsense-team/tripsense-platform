@@ -7,9 +7,11 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import fu.tripsense.socialservice.client.PublicProfileClientResponse;
 import fu.tripsense.socialservice.client.PublicTripSnapshotClientResponse;
 import fu.tripsense.socialservice.client.TripPublicationClientResponse;
 import fu.tripsense.socialservice.client.TripServiceClient;
+import fu.tripsense.socialservice.client.UserPublicProfileClient;
 import fu.tripsense.socialservice.dto.request.*;
 import fu.tripsense.socialservice.dto.response.*;
 import fu.tripsense.socialservice.entity.SocialPost;
@@ -43,6 +45,7 @@ class SocialPostServiceImplTest {
   private ObjectMapper objectMapper;
   private TripShareWriter tripShareWriter;
   private SocialUserFollowRepository userFollows;
+  private UserPublicProfileClient userPublicProfileClient;
   private SocialPostService service;
   private final AuthenticatedUser user =
       new AuthenticatedUser(UUID.randomUUID(), "author@tripsense.app", "ROLE_USER");
@@ -59,6 +62,7 @@ class SocialPostServiceImplTest {
     tripServiceClient = mock(TripServiceClient.class);
     currentUserProvider = mock(CurrentUserProvider.class);
     userFollows = mock(SocialUserFollowRepository.class);
+    userPublicProfileClient = mock(UserPublicProfileClient.class);
     objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     tripShareWriter = new TripShareWriter(posts, tripShares, tripShareSnapshots, objectMapper);
 
@@ -75,7 +79,8 @@ class SocialPostServiceImplTest {
             currentUserProvider,
             objectMapper,
             tripShareWriter,
-            userFollows);
+            userFollows,
+            userPublicProfileClient);
     ReflectionTestUtils.setField(service, "cloudName", "tripsense");
     ReflectionTestUtils.setField(service, "folderPrefix", "tripsense/social");
     ReflectionTestUtils.setField(service, "cloudinaryApiKey", "key");
@@ -996,8 +1001,45 @@ class SocialPostServiceImplTest {
   }
 
   @Test
+  void toPosts_enrichesAuthorWithAvatarAndDisplayNameFromUserService() {
+    UUID authorId = UUID.randomUUID();
+    SocialPost post =
+        SocialPost.builder()
+            .id(UUID.randomUUID())
+            .authorId(authorId)
+            .authorDisplayName("giabao362004")
+            .content("Hello World")
+            .postType("STANDARD")
+            .createdAt(Instant.now())
+            .updatedAt(Instant.now())
+            .likeCount(0)
+            .commentCount(0)
+            .build();
+
+    when(posts.findByPostTypeAndDeletedAtIsNull(eq("STANDARD"), any()))
+        .thenReturn(new PageImpl<>(List.of(post)));
+    when(media.findByPostIdInOrderBySortOrderAsc(any())).thenReturn(List.of());
+    when(tripShares.findByPostIdIn(any())).thenReturn(List.of());
+    when(userPublicProfileClient.fetchPublicProfiles(eq(List.of(authorId))))
+        .thenReturn(
+            Map.of(
+                authorId,
+                new PublicProfileClientResponse(
+                    authorId, "Bryan Howard", "https://img.com/avatar.jpg")));
+
+    SocialPostPageResponse result =
+        service.listPosts(null, "STANDARD", 0, 10, null);
+
+    assertThat(result.items()).hasSize(1);
+    SocialPostResponse first = result.items().getFirst();
+    assertThat(first.author().id()).isEqualTo(authorId);
+    assertThat(first.author().name()).isEqualTo("Bryan Howard");
+    assertThat(first.author().avatar()).isEqualTo("https://img.com/avatar.jpg");
+  }
+
+  @Test
   void ensuresSingleConstructorExistsForSpringAutowiring() {
     assertThat(SocialPostServiceImpl.class.getConstructors()).hasSize(1);
-    assertThat(SocialPostServiceImpl.class.getConstructors()[0].getParameterCount()).isEqualTo(12);
+    assertThat(SocialPostServiceImpl.class.getConstructors()[0].getParameterCount()).isEqualTo(13);
   }
 }
