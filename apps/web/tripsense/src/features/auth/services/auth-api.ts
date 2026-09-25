@@ -12,6 +12,9 @@ import type {
   RefreshResponse,
 } from "../types";
 
+// In-flight Single-Flight promise to deduplicate parallel refreshToken calls
+let inFlightRefreshPromise: Promise<ApiResponse<RefreshResponse>> | null = null;
+
 export const authApi = {
   async register(payload: RegisterRequest): Promise<ApiResponse<User>> {
     return apiClient<ApiResponse<User>>("/api/auth/register", {
@@ -106,19 +109,31 @@ export const authApi = {
   },
 
   async refreshToken(): Promise<ApiResponse<RefreshResponse>> {
-    const response = await apiClient<ApiResponse<RefreshResponse>>(
-      "/api/auth/refresh",
-      {
-        method: "POST",
-        skipAuth: true,
-      },
-    );
-
-    if (response.success && response.data?.accessToken) {
-      useAuthStore.getState().setAccessToken(response.data.accessToken);
+    if (inFlightRefreshPromise) {
+      return inFlightRefreshPromise;
     }
 
-    return response;
+    inFlightRefreshPromise = (async () => {
+      try {
+        const response = await apiClient<ApiResponse<RefreshResponse>>(
+          "/api/auth/refresh",
+          {
+            method: "POST",
+            skipAuth: true,
+          },
+        );
+
+        if (response.success && response.data?.accessToken) {
+          useAuthStore.getState().setAccessToken(response.data.accessToken);
+        }
+
+        return response;
+      } finally {
+        inFlightRefreshPromise = null;
+      }
+    })();
+
+    return inFlightRefreshPromise;
   },
 
   async logout(): Promise<ApiResponse<void>> {

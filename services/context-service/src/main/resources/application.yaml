@@ -5,9 +5,9 @@ spring:
   application:
     name: context-service
   datasource:
-    url: jdbc:postgresql://${CONTEXT_DB_HOST:localhost}:${CONTEXT_DB_PORT:5432}/${CONTEXT_DB_NAME:tripsense_context}
-    username: ${CONTEXT_DB_USER:postgres}
-    password: ${CONTEXT_DB_PASS:}
+    url: ${CONTEXT_DATASOURCE_URL}
+    username: ${CONTEXT_DB_USER}
+    password: ${CONTEXT_DB_PASS}
   flyway:
     enabled: true
     baseline-on-migrate: true
