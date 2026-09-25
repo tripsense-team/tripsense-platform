@@ -9,6 +9,7 @@ from .recommendation.goal_normalizer import (
     RecommendationGoalNormalizer,
     TravelGoal,
     clean_destination_name,
+    refine_geographic_scope,
     resolve_geographic_scope,
 )
 from .retrieval.evidence_gaps import EvidenceGap
@@ -130,7 +131,7 @@ class ModelAdapter:
                 raw_dest = raw_dest.get("name") or raw_dest.get("destination")
             dest = clean_destination_name(raw_dest or (prior_goal.destination if prior_goal else "") or "Đà Nẵng")
             excursions = list(data.get("allowedExcursions") or (prior_goal.geographicScope.allowed_excursions if prior_goal else []))
-            geo_scope = resolve_geographic_scope(dest, excursions)
+            geo_scope = refine_geographic_scope(resolve_geographic_scope(dest, excursions), latest_user_text)
 
             foods = list(data.get("mustEatFoods") or [])
             # Merge prior foods if this was a follow-up addition and not an explicit replacement
@@ -141,6 +142,13 @@ class ModelAdapter:
 
             subgoals = list(data.get("subgoals") or (prior_goal.subgoals if prior_goal else []))
             semantic_desires = list(data.get("semanticDesires") or (prior_goal.semantic_desires if prior_goal else []))
+            deterministic = normalizer.fallback_travel_goal(latest_user_text, context, prior_goal)
+            for subgoal in deterministic.subgoals:
+                if subgoal not in subgoals:
+                    subgoals.append(subgoal)
+            for desire in deterministic.semantic_desires:
+                if desire not in semantic_desires:
+                    semantic_desires.append(desire)
             mode = "ACTION" if data.get("mode") == "ACTION" else ("ACTION" if prior_goal and prior_goal.mode == "ACTION" and any(w in latest_user_text.casefold() for w in ("chốt", "lưu", "thêm")) else "DISCOVERY")
 
             return TravelGoal(
@@ -254,64 +262,6 @@ class ModelAdapter:
             delta = chunk.choices[0].delta.content if chunk.choices else None
             if delta:
                 yield delta
-
-    async def semantic_rerank(self, candidates: list[dict[str, Any]], raw_request: str,
-                               semantic_desires: list[str], top_k: int = 5) -> list[dict[str, Any]]:
-        """Reranks candidate places using LLM reasoning over nuanced traveler desires (e.g. chill, sunset,
-        family-friendly, avoid tourist traps). Retains candidate dictionaries with enriched match notes.
-        """
-        if len(candidates) <= top_k or not raw_request:
-            return candidates[:top_k]
-
-        simplified = []
-        for c in candidates[:18]:
-            simplified.append({
-                "id": c.get("id"),
-                "name": c.get("name"),
-                "categories": c.get("categories"),
-                "rating": c.get("rating"),
-                "address": c.get("address"),
-                "description": (c.get("description") or "")[:160],
-                "topReviews": [r.get("text")[:120] for r in (c.get("topReviews") or []) if isinstance(r, dict)][:2]
-            })
-
-        prompt = (
-            f"User request: '{raw_request}'\n"
-            f"Desired vibes/nuances: {json.dumps(semantic_desires)}\n"
-            f"Candidates:\n{json.dumps(simplified, default=str)}\n\n"
-            f"Select and order the top {top_k} best matching places for the user's specific vibe and desires.\n"
-            "Return JSON only with shape: {\"ranked_ids\": [\"id1\", \"id2\", ...], \"reasons\": {\"id1\": \"concise reason\"}}"
-        )
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.settings.ai_model,
-                messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                max_tokens=300,
-                temperature=0,
-            )
-            raw = response.choices[0].message.content or "{}"
-            result = json.loads(raw)
-            ranked_ids = result.get("ranked_ids") or []
-            reasons = result.get("reasons") or {}
-            c_map = {str(c.get("id")): c for c in candidates}
-            reranked = []
-            for pid in ranked_ids:
-                if str(pid) in c_map:
-                    place = dict(c_map[str(pid)])
-                    if str(pid) in reasons:
-                        place["semanticMatchReason"] = reasons[str(pid)]
-                    reranked.append(place)
-            # Append remaining to meet top_k if needed
-            for c in candidates:
-                if len(reranked) >= top_k:
-                    break
-                if str(c.get("id")) not in {str(x.get("id")) for x in reranked}:
-                    reranked.append(c)
-            return reranked[:top_k]
-        except Exception as exc:
-            logger.info("semantic_rerank_fallback error=%s", type(exc).__name__)
-            return candidates[:top_k]
 
     async def critic_review(self, draft_itinerary: dict[str, Any], raw_request: str,
                             travel_goal: TravelGoal) -> dict[str, Any]:

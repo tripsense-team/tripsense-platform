@@ -120,6 +120,33 @@ def test_regression_tien_sa_43danang_bai_choi_hoi_an():
     assert any(issue["code"] == "ZERO_RESTAURANTS_FOR_MEALS" for issue in preview["issues"])
 
 
+def test_cafe_requirement_rejects_food_results_and_out_of_radius_places():
+    prompt = "tìm 5 quán cà phê ở Sơn Trà, Đà Nẵng trong bán kính 5 km"
+    goal = RecommendationGoalNormalizer().fallback_travel_goal(prompt, {"destination": "Đà Nẵng"})
+    requirements = derive_coverage_requirements(goal)
+    evaluator = CandidateEvaluator()
+
+    cafe = evaluator.evaluate({
+        "id": "cafe-1", "name": "Sơn Trà Coffee", "categories": ["cafe"],
+        "location": {"lat": 16.106, "lng": 108.276},
+    }, goal.geographicScope, requirements)
+    food = evaluator.evaluate({
+        "id": "food-1", "name": "Mì Quảng Bếp Trang", "categories": ["restaurant"],
+        "location": {"lat": 16.106, "lng": 108.276},
+    }, goal.geographicScope, requirements)
+    far_cafe = evaluator.evaluate({
+        "id": "cafe-far", "name": "Hội An Coffee", "categories": ["cafe"],
+        "location": {"lat": 15.88, "lng": 108.338},
+    }, goal.geographicScope, requirements)
+
+    assert cafe.eligible is True
+    assert "requested_cafe" in cafe.satisfies_requirement_ids
+    assert food.eligible is False
+    assert any("CATEGORY_MISMATCH" in reason for reason in food.rejection_reasons)
+    assert far_cafe.eligible is False
+    assert any("OUTSIDE_GEOGRAPHIC_SCOPE" in reason for reason in far_cafe.rejection_reasons)
+
+
 # ============================================================================
 # 2. Acceptance Test: External Web Fallback with Canonical Place-Service Resolution
 # ============================================================================

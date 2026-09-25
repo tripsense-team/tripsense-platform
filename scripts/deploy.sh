@@ -66,6 +66,9 @@ REQUIRED_VARS=(
   "AI_DATABASE_URL:URL kết nối database Neon cho ai-service"
   "MONGODB_URI:URI kết nối MongoDB Atlas cho place-service"
   "REDIS_URL:URL kết nối Upstash Redis"
+  "RECOMMENDATION_DATASOURCE_URL:JDBC URL kết nối database Neon cho recommendation-service"
+  "RECOMMENDATION_DB_USER:Username Neon PostgreSQL cho recommendation-service"
+  "RECOMMENDATION_DB_PASS:Mật khẩu PostgreSQL cho recommendation-service"
   "JWT_ACCESS_SECRET:Khóa bí mật JWT Access Token"
   "JWT_REFRESH_SECRET:Khóa bí mật JWT Refresh Token"
   "RESEND_API_KEY:API Key Resend cho mail-service gửi email"
@@ -189,4 +192,3 @@ docker stats --no-stream || true
 
 echo "=== Clean unused images ==="
 docker image prune -a -f
-

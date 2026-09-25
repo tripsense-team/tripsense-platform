@@ -15,6 +15,7 @@ import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceSearchServiceTest {
@@ -51,7 +53,13 @@ class PlaceSearchServiceTest {
 
   @Test
   void returnsCachedResultsWithoutCallingStorageOrProvider() {
-    PlaceDto cachedPlace = PlaceDto.builder().id("cached-1").name("The Coffee House").build();
+    PlaceDto cachedPlace =
+        PlaceDto.builder()
+            .id("cached-1")
+            .provider("ziomap")
+            .providerPlaceId("provider-1")
+            .name("The Coffee House")
+            .build();
     when(cache.getSearchResults(eq("quán cafe"), anyDouble(), anyDouble(), anyInt(), anyInt()))
         .thenReturn(Optional.of(List.of(cachedPlace)));
 
@@ -60,6 +68,7 @@ class PlaceSearchServiceTest {
     assertEquals(List.of(cachedPlace), result);
     verify(repository, never()).searchByText(anyString(), any(Pageable.class));
     verify(provider, never()).textSearch(anyString(), anyDouble(), anyDouble(), any(), anyInt());
+    verify(provider, never()).getPhotoGallery(anyString(), anyInt());
   }
 
   @Test
@@ -137,5 +146,57 @@ class PlaceSearchServiceTest {
     assertEquals("INSUFFICIENT", result.evidence().status());
     assertEquals("NOT_CALLED", result.evidence().providerStatus());
     verify(provider, never()).textSearch(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt());
+  }
+
+  @Test
+  void recommendationRefreshesProviderWhenStoredMatchesAreOutsideRequestedRadius() {
+    when(cache.getSearchResults(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(Optional.empty());
+    Place outside =
+        Place.builder()
+            .id("outside")
+            .name("Far Cafe")
+            .location(new GeoJsonPoint(108.0, 16.0))
+            .categories(List.of("cafe"))
+            .build();
+    PlaceDto outsideDto =
+        PlaceDto.builder()
+            .id("outside")
+            .name("Far Cafe")
+            .location(new LocationDto(16.0, 108.0))
+            .categories(List.of("cafe"))
+            .build();
+    PlaceDto external =
+        PlaceDto.builder()
+            .provider("ziomap")
+            .providerPlaceId("near-provider")
+            .name("Near Cafe")
+            .location(new LocationDto(16.1069, 108.2773))
+            .categories(List.of("cafe"))
+            .build();
+    PlaceDto saved =
+        PlaceDto.builder()
+            .id("near")
+            .provider("ziomap")
+            .providerPlaceId("near-provider")
+            .name("Near Cafe")
+            .location(new LocationDto(16.1069, 108.2773))
+            .categories(List.of("cafe"))
+            .build();
+    when(repository.searchByText(eq("cafe"), any(Pageable.class))).thenReturn(List.of(outside));
+    when(persistence.toDto(outside)).thenReturn(outsideDto);
+    when(provider.getProviderName()).thenReturn("ziomap");
+    when(provider.textSearch(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(List.of(external));
+    when(persistence.upsertProviderPlace(external, "ziomap")).thenReturn(saved);
+
+    var result =
+        service.recommend(
+            new PlaceRecommendationRequest(
+                "cafe", 16.1068, 108.2772, 5_000, 1, List.of("location"), null, true));
+
+    assertEquals(List.of("near"), result.candidates().stream().map(PlaceDto::getId).toList());
+    assertEquals(true, result.evidence().refreshPerformed());
+    verify(provider).textSearch(anyString(), anyDouble(), anyDouble(), eq(5_000), anyInt());
   }
 }

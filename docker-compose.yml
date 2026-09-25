@@ -68,6 +68,24 @@ services:
       - ai_postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  recommendation-db:
+    image: postgres:17-alpine
+    container_name: recommendation-postgres
+    environment:
+      POSTGRES_DB: ${RECOMMENDATION_DB_NAME:-tripsense_recommendation}
+      POSTGRES_USER: ${RECOMMENDATION_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${RECOMMENDATION_DB_PASS:-123456}
+    ports:
+      - "5437:5432"
+    volumes:
+      - recommendation_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RECOMMENDATION_DB_USER:-postgres} -d ${RECOMMENDATION_DB_NAME:-tripsense_recommendation}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
   mongodb:
     image: mongo:7.0
     container_name: place-mongodb
@@ -84,6 +102,21 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    profiles: ["semantic"]
+    container_name: tripsense-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     restart: unless-stopped
 
   # =========================
@@ -136,6 +169,8 @@ services:
         condition: service_healthy
       context-service:
         condition: service_started
+      recommendation-service:
+        condition: service_healthy
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -174,6 +209,62 @@ services:
         condition: service_started
     ports:
       - "8082:8082"
+    restart: unless-stopped
+
+  # =========================
+  # RECOMMENDATION SERVICE
+  # =========================
+
+  recommendation-service:
+    build:
+      context: .
+      dockerfile: services/recommendation-service/Dockerfile
+    container_name: recommendation-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      RECOMMENDATION_DB_HOST: recommendation-db
+      RECOMMENDATION_DB_PORT: "5432"
+      RECOMMENDATION_DB_NAME: ${RECOMMENDATION_DB_NAME:-tripsense_recommendation}
+      RECOMMENDATION_DB_USER: ${RECOMMENDATION_DB_USER:-postgres}
+      RECOMMENDATION_DB_PASS: ${RECOMMENDATION_DB_PASS:-123456}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      PLACE_SERVICE_URL: http://place-service:8082
+      CONTEXT_SERVICE_URL: http://context-service:8087
+      TRIP_SERVICE_URL: http://trip-service:8084
+      USER_SERVICE_URL: http://user-service:8081
+      QDRANT_URL: http://qdrant:6333
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+    depends_on:
+      recommendation-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+      place-service:
+        condition: service_started
+      user-service:
+        condition: service_healthy
+      context-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'curl -fsS http://localhost:8088/actuator/health | grep -q ''"status":"UP"''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    ports:
+      - "8088:8088"
     restart: unless-stopped
 
   # =========================
@@ -365,11 +456,12 @@ services:
         required: false
     environment:
       AI_DATABASE_URL: ${AI_DATABASE_URL:-postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-${OPENAI_MODEL:-gpt-4o-mini}}
       AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
       PLACE_SERVICE_URL: http://place-service:8082
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       TRIP_SERVICE_URL: http://trip-service:8084
       WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
@@ -384,6 +476,8 @@ services:
         condition: service_started
       trip-service:
         condition: service_started
+      recommendation-service:
+        condition: service_healthy
     ports:
       - "8085:8085"
     volumes:
@@ -413,3 +507,5 @@ volumes:
   redis_data:
   portainer_data:
   ai_postgres_data:
+  recommendation_postgres_data:
+  qdrant_data:

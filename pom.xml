@@ -26,6 +26,7 @@
         <module>services/trip-service</module>
         <module>services/social-service</module>
         <module>services/context-service</module>
+        <module>services/recommendation-service</module>
     </modules>
 
     <properties>

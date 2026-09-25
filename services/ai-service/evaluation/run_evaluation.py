@@ -5,7 +5,7 @@ import json
 import platform
 from pathlib import Path
 
-from app.recommendation import RecommendationGoalNormalizer, RecommendationRanker
+from app.recommendation import RecommendationGoalNormalizer
 from app.retrieval import RetrievalSufficiencyPolicy
 
 
@@ -16,7 +16,6 @@ def run(dataset_path: Path) -> dict:
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
     normalizer = RecommendationGoalNormalizer()
     policy = RetrievalSufficiencyPolicy()
-    ranker = RecommendationRanker()
     results = []
     for case in dataset["cases"]:
         goal = normalizer.normalize(case["text"], case.get("context"))
@@ -31,16 +30,14 @@ def run(dataset_path: Path) -> dict:
             "objectives": set(case.get("expectedObjectives", [])).issubset(set(goal.rankingObjectives)),
         }
         empty_assessment = policy.assess(goal, [], refresh_available=False)
-        ranked = ranker.rank(goal, [])
         checks["boundedEmptyRetrieval"] = empty_assessment.status == "INSUFFICIENT"
-        checks["deterministicEmptyRanking"] = ranked.candidates == []
         results.append({"id": case["id"], "passed": all(checks.values()), "checks": checks,
                         "goal": goal.model_dump(mode="json")})
     passed = sum(1 for item in results if item["passed"])
     return {
         "datasetVersion": dataset["datasetVersion"],
-        "environment": {"python": platform.python_version(), "rankingVersion": RecommendationRanker.version,
-                        "goalSchemaVersion": 1},
+        "environment": {"python": platform.python_version(),
+                        "rankingOwner": "recommendation-service", "goalSchemaVersion": 1},
         "metrics": {"caseCount": len(results), "passed": passed,
                     "passRate": passed / len(results) if results else 0.0,
                     # This fixture checks normalization only; no candidate or plan is validated here.

@@ -16,6 +16,9 @@ public interface PlaceSearchService {
   List<PlaceDto> getNearbyPlaces(
       Double lat, Double lng, Integer radius, String category, Integer limit);
 
+  /**
+   * Retrieves and ranks canonical place candidates for downstream recommendation processing. This
+   * contract does not perform user- or trip-personalized final ranking.
+   */
   PlaceRecommendationResult recommend(PlaceRecommendationRequest request);
 }
-

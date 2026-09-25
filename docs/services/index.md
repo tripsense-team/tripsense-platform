@@ -9,11 +9,12 @@ This index distinguishes implemented source-tree services from planned architect
 | Place Service        | IMPLEMENTED | [place-service](../../services/place-service/)       |
 | ai-service           | IMPLEMENTED | [ai-service](../../services/ai-service/)             |
 | trip-service         | IMPLEMENTED | [trip-service](../../services/trip-service/)         |
-| context-service      | PLANNED     | Not found                                            |
+| context-service      | IMPLEMENTED | [context-service](../../services/context-service/)   |
+| recommendation-service | IMPLEMENTED | [recommendation-service](../../services/recommendation-service/) |
 | itinerary-service    | PLANNED     | Not found                                            |
 | review-service       | PLANNED     | Not found                                            |
 | identity-service     | PLANNED     | Not found                                            |
-| user-service         | PLANNED     | Not found                                            |
+| user-service         | IMPLEMENTED | [user-service](../../services/user-service/)         |
 | notification-service | PLANNED     | Not found                                            |
 
 Feature plans must link to affected services and must not describe planned services as implemented.

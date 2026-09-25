@@ -13,6 +13,7 @@ TripSense is organized as a gateway-fronted platform with independently owned se
 - context-service
 - itinerary-service
 - review-service
+- recommendation-service
 - notification-service
 - ai-service
 - PostgreSQL
@@ -29,13 +30,14 @@ The source tree currently includes:
 - Place service: `IMPLEMENTED` at [place-service](../../services/place-service/)
 - ai-service: `IMPLEMENTED` at [ai-service](../../services/ai-service/)
 - trip-service: `IMPLEMENTED` at [trip-service](../../services/trip-service/).
-- context-service: `PLANNED`, not found in the current source tree.
+- context-service: `IMPLEMENTED` at [context-service](../../services/context-service/).
+- recommendation-service: `IMPLEMENTED` at [recommendation-service](../../services/recommendation-service/).
 - itinerary-service: `PLANNED`, not found in the current source tree.
 - review-service: `PLANNED`, not found in the current source tree.
 - Web app: `IMPLEMENTED` at [Web App](../../apps/web/tripsense/)
 - Mobile app: `IMPLEMENTED` at [Mobile App](../../apps/mobile/tripsense/)
 - identity-service: `PLANNED`, not found in the current source tree.
-- user-service: `PLANNED`, not found in the current source tree.
+- user-service: `IMPLEMENTED` at [user-service](../../services/user-service/).
 - notification-service: `PLANNED`, not found in the current source tree.
 
 The expected architecture may include services not yet present in the repository. Feature plans must state whether a service already exists or is a proposed future component.

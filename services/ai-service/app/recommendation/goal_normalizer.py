@@ -82,6 +82,13 @@ class TravelGoal(BaseModel):
 
 
 _KNOWN_LOCATION_SCOPES: dict[str, dict[str, Any]] = {
+    "sơn trà": {
+        "admin_area": "Đà Nẵng",
+        "center_lat": 16.1068,
+        "center_lng": 108.2772,
+        "soft_radius_km": 5.0,
+        "hard_radius_km": 5.0,
+    },
     "đà nẵng": {
         "admin_area": "Đà Nẵng",
         "center_lat": 16.0544,
@@ -293,6 +300,22 @@ def resolve_geographic_scope(destination_name: str, allowed_excursions: list[str
     )
 
 
+def refine_geographic_scope(scope: GeographicScope, text: str) -> GeographicScope:
+    """Apply an explicitly named sub-area and radius without changing the destination city."""
+    lowered = text.casefold()
+    area = next((name for name in ("sơn trà", "hải châu", "ngũ hành sơn", "thanh khê", "liên chiểu", "cẩm lệ")
+                 if name in lowered), None)
+    info = _KNOWN_LOCATION_SCOPES.get(area or "", {})
+    radius = re.search(r"(?:within|under|trong\s+bán\s+kính|trong\s+vòng|dưới)\s*(\d+(?:[.,]\d+)?)\s*(km|m)\b", lowered)
+    radius_km = (float(radius.group(1).replace(",", ".")) * (1 if radius.group(2) == "km" else 0.001)) if radius else None
+    return scope.model_copy(update={
+        "center_lat": info.get("center_lat", scope.center_lat),
+        "center_lng": info.get("center_lng", scope.center_lng),
+        "soft_radius_km": radius_km or info.get("soft_radius_km", scope.soft_radius_km),
+        "hard_radius_km": radius_km or info.get("hard_radius_km", scope.hard_radius_km),
+    })
+
+
 class RecommendationGoalNormalizer:
     _categories = {
         "CAFE": ("cafe", "café", "coffee", "cà phê", "quán cà phê"),
@@ -319,6 +342,13 @@ class RecommendationGoalNormalizer:
         subjects = [key for key, terms in self._categories.items() if any(term in lowered for term in terms)]
         recommend = any(term in lowered for term in ("recommend", "best", "suggest", "gợi ý", "đề xuất", "nên"))
         goal = RecommendationGoal(goalType="RECOMMEND" if recommend else "DISCOVER", subjectTypes=subjects)
+
+        count = re.search(
+            r"(?:^|\s)(\d{1,2})\s+(?:quán|khách\s+sạn|hotels?|nhà\s+hàng|places?|locations?|kết quả)\b",
+            lowered,
+        )
+        if count:
+            goal.requestedResultCount = min(10, max(1, int(count.group(1))))
 
         location = next((item for item in self._known_locations if item in lowered), None)
         if not location:
@@ -419,7 +449,7 @@ class RecommendationGoalNormalizer:
             if exc in lowered and exc not in [e.casefold() for e in allowed_excursions]:
                 allowed_excursions.append(exc.title())
 
-        geo_scope = resolve_geographic_scope(dest, allowed_excursions)
+        geo_scope = refine_geographic_scope(resolve_geographic_scope(dest, allowed_excursions), text)
 
         # Duration
         days = 1
@@ -506,6 +536,13 @@ class RecommendationGoalNormalizer:
 def travel_goal_to_recommendation_goal(goal: TravelGoal) -> RecommendationGoal:
     """Converts a TravelGoal into a RecommendationGoal for place-service compatibility."""
     subjects = []
+    raw_request = goal.raw_request.casefold()
+    if "find_cafe" in goal.subgoals or any(term in raw_request for term in ("cà phê", "cafe", "café", "coffee")):
+        subjects.append("CAFE")
+    if "hotel_nearby" in goal.subgoals or any(
+        term in raw_request for term in ("khách sạn", "khách sanj", "hotel", "resort", "homestay")
+    ):
+        subjects.append("HOTEL")
     if goal.mustEatFoods or goal.localSpecialtiesRequired:
         subjects.append("RESTAURANT")
     if goal.requestedExperiences:
@@ -513,18 +550,43 @@ def travel_goal_to_recommendation_goal(goal: TravelGoal) -> RecommendationGoal:
     if not subjects:
         subjects = ["RESTAURANT", "ATTRACTION"]
 
-    search_area: dict[str, Any] = {"name": goal.destination}
+    mentioned_areas = [
+        area for area in ("sơn trà", "hải châu", "ngũ hành sơn", "thanh khê", "liên chiểu", "cẩm lệ")
+        if area in raw_request
+    ]
+    # A contextual follow-up can contain the previous and replacement areas.
+    # The last mention is the user's newest instruction and must win.
+    named_area = max(mentioned_areas, key=raw_request.rfind) if mentioned_areas else None
+    area_info = _KNOWN_LOCATION_SCOPES.get(named_area or "", {})
+    search_area: dict[str, Any] = {"name": f"{named_area.title()}, {goal.destination}" if named_area else goal.destination}
     if goal.geographicScope.center_lat and goal.geographicScope.center_lng:
         search_area.update({
             "anchorType": "NAMED_AREA",
-            "lat": goal.geographicScope.center_lat,
-            "lng": goal.geographicScope.center_lng,
-            "radiusMeters": int(goal.geographicScope.hard_radius_km * 1000),
+            "lat": area_info.get("center_lat", goal.geographicScope.center_lat),
+            "lng": area_info.get("center_lng", goal.geographicScope.center_lng),
+            "radiusMeters": int(area_info.get("hard_radius_km", goal.geographicScope.hard_radius_km) * 1000),
         })
+
+    radius = re.search(r"(?:within|under|trong\s+bán\s+kính|trong\s+vòng|dưới)\s*(\d+(?:[.,]\d+)?)\s*(km|m)\b", raw_request)
+    if radius:
+        distance = float(radius.group(1).replace(",", ".")) * (1000 if radius.group(2) == "km" else 1)
+        search_area["radiusMeters"] = int(distance)
+
+    count = re.search(
+        r"(?:^|\s)(\d{1,2})\s+(?:quán|khách\s+sạn|hotels?|nhà\s+hàng|places?|locations?|kết quả)\b",
+        raw_request,
+    )
+    requested_count = min(10, max(1, int(count.group(1)))) if count else 5
+    preferences = []
+    if any(term in raw_request for term in ("yên tĩnh", "quiet", "vắng", "ít đông")):
+        preferences.append(SoftPreference(feature="QUIETNESS", importance="HIGH"))
+    objectives = ["PROXIMITY", "QUALITY"] if any(term in raw_request for term in ("ưu tiên gần", "gần nhất", "nearby", "closest")) else ["RELEVANCE", "QUALITY"]
 
     return RecommendationGoal(
         goalType="RECOMMEND",
-        subjectTypes=subjects,
+        subjectTypes=list(dict.fromkeys(subjects)),
         searchArea=search_area,
-        requestedResultCount=10,
+        softPreferences=preferences,
+        rankingObjectives=objectives,
+        requestedResultCount=requested_count,
     )

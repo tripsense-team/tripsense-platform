@@ -9,7 +9,7 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from .config import Settings
-from .recommendation import RecommendationGoal, RecommendationRanker
+from .recommendation import RecommendationGoal
 from .photo_evidence import approved_place_photo
 from .web_research import WebResearch
 
@@ -122,38 +122,72 @@ class ToolExecutor:
                 elif name == "recommend_places":
                     params = RecommendPlacesInput.model_validate(arguments)
                     area = params.goal.searchArea or {}
-                    required_fields = [self._required_field(item.feature) for item in params.goal.hardConstraints]
                     body = {
                         "query": params.query,
                         "lat": area.get("lat"),
                         "lng": area.get("lng"),
                         "radiusMeters": area.get("radiusMeters"),
-                        "targetCount": max(params.goal.requestedResultCount * 2, 10),
-                        "requiredFields": [item for item in required_fields if item],
-                        "maximumAgeSeconds": 86_400 if any(item.feature == "OPEN_AT" for item in params.goal.hardConstraints) else 2_592_000,
-                        "allowExternalRefresh": params.allowExternalRefresh,
+                        "limit": params.goal.requestedResultCount,
+                        "requiredCategories": params.goal.subjectTypes,
+                        "geographicScope": {
+                            "name": area.get("name"),
+                            "adminArea": "Đà Nẵng" if "Đà Nẵng" in str(area.get("name") or "") else None,
+                            "district": next((district for district in ("Sơn Trà", "Hải Châu", "Ngũ Hành Sơn", "Thanh Khê", "Liên Chiểu", "Cẩm Lệ")
+                                              if district.casefold() in str(area.get("name") or "").casefold()), None),
+                            "strictNamedArea": bool(area.get("anchorType") == "NAMED_AREA"),
+                        },
+                        "rankingCriteria": self._ranking_criteria(params.goal),
                     }
-                    data = await self._post(client, f"{self.settings.place_service_url}/api/places/recommendations", body)
+                    data = await self._post(
+                        client,
+                        f"{self.settings.recommendation_service_url}/api/recommendations",
+                        body,
+                        headers=self.headers,
+                    )
                     raw = self._object_payload(data)
-                    raw_candidates = raw.get("candidates") if isinstance(raw.get("candidates"), list) else []
-                    ranked = RecommendationRanker().rank(params.goal, raw_candidates)
-                    evidence = raw.get("evidence") if isinstance(raw.get("evidence"), dict) else {}
-                    payload = ranked.candidates
+                    items = raw.get("items") if isinstance(raw.get("items"), list) else []
+                    payload = []
+                    for item in items:
+                        place = item.get("place") if isinstance(item, dict) else None
+                        if not isinstance(place, dict) or not place.get("id"):
+                            continue
+                        enriched = dict(place)
+                        enriched["recommendationEvidence"] = {
+                            "recommendationId": raw.get("recommendationId"),
+                            "rank": item.get("rank"),
+                            "score": item.get("score"),
+                            "scoreBreakdown": item.get("scoreBreakdown"),
+                            "reasonCodes": item.get("reasonCodes"),
+                            "reasons": item.get("reasons"),
+                            "distance": item.get("distance"),
+                            "availableCriteria": item.get("availableCriteria"),
+                            "unavailableCriteria": item.get("unavailableCriteria"),
+                            "versions": raw.get("versions"),
+                        }
+                        payload.append(enriched)
+                    versions = raw.get("versions") if isinstance(raw.get("versions"), dict) else {}
                     provenance = {
                         "source": "REAL",
-                        "provider": "place-service",
-                        "fetchedAt": evidence.get("retrievedAt") or datetime.now(timezone.utc).isoformat(),
-                        "freshness": evidence.get("freshness", "FRESH"),
-                        "retrieval": evidence,
-                        "ranking": ranked.ranking,
+                        "provider": "recommendation-service",
+                        "fetchedAt": datetime.now(timezone.utc).isoformat(),
+                        "freshness": "FRESH",
+                        "recommendationId": raw.get("recommendationId"),
+                        "degradations": raw.get("degradations") or [],
+                        "ranking": {"version": versions.get("ranking")},
+                        "versions": versions,
+                        "requestedCount": raw.get("requestedCount"),
+                        "returnedCount": raw.get("returnedCount"),
+                        "complete": raw.get("complete"),
+                        "rankingStatus": raw.get("rankingStatus") or ("RANKED" if raw.get("rankingBasis") else "UNRANKED"),
+                        "rankingBasis": raw.get("rankingBasis") or [],
+                        "unavailableCriteria": raw.get("unavailableCriteria") or [],
+                        "warning": raw.get("warning"),
+                        "filterSummary": raw.get("filterSummary"),
                     }
-                    # Render partial candidates with their insufficiency metadata;
-                    # absence of hours or price must not erase a real place.
-                    artifact_places = payload or [item for item in raw_candidates[:params.goal.requestedResultCount]
-                                                  if isinstance(item, dict) and item.get("id")]
-                    if not payload:
-                        payload = artifact_places
-                    artifact = self._place_artifact(artifact_places, provenance=provenance) if artifact_places else None
+                    # Keep a typed empty artifact. It is the authoritative signal
+                    # that recommendation filtering completed with zero eligible
+                    # items and must replace any earlier raw search artifact.
+                    artifact = self._place_artifact(payload, provenance=provenance)
                 elif name == "nearby_places":
                     params = NearbyPlacesInput.model_validate(arguments)
                     query = {"lat": params.lat, "lng": params.lng, "radius": params.radiusMeters, "limit": params.limit}
@@ -254,7 +288,8 @@ class ToolExecutor:
 
     def _place_artifact(self, places: list[dict], kind: str = "PLACE_LIST", provenance: dict | None = None) -> dict:
         visible_fields = {"id", "name", "address", "city", "district", "categories", "location",
-                          "rating", "userRatingCount", "provider", "freshness", "recommendationEvidence"}
+                          "rating", "userRatingCount", "provider", "freshness", "quietnessEvidence",
+                          "recommendationEvidence"}
         visible_places = [{key: value for key, value in place.items() if key in visible_fields}
                           for place in places if isinstance(place, dict)]
         for visible, original in zip(visible_places, (place for place in places if isinstance(place, dict))):
@@ -293,6 +328,22 @@ class ToolExecutor:
                 visible["primaryPhoto"] = photo
         return {"schemaVersion": 1, "type": kind, "version": 1, "data": {"places": visible_places},
                 "provenance": [provenance or self._provenance("place-service")]}
+
+    @staticmethod
+    def _ranking_criteria(goal: RecommendationGoal) -> list[dict[str, str]]:
+        criteria: list[dict[str, str]] = []
+        def add(feature: str, direction: str = "MAXIMIZE", importance: str = "HIGH") -> None:
+            if not any(item["feature"] == feature for item in criteria):
+                criteria.append({"feature": feature, "direction": direction, "importance": importance})
+        for objective in goal.rankingObjectives:
+            if objective == "PROXIMITY": add("DISTANCE", "MINIMIZE")
+            elif objective == "QUALITY":
+                add("RATING")
+                add("POPULARITY", importance="MEDIUM")
+            elif objective == "RELEVANCE": add("RETRIEVAL_RELEVANCE")
+        for preference in goal.softPreferences:
+            if preference.feature == "QUIETNESS": add("QUIETNESS", importance=preference.importance)
+        return criteria
 
     @staticmethod
     def _required_field(feature: str) -> str | None:

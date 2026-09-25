@@ -1,7 +1,7 @@
 import importlib.util
 from pathlib import Path
 
-from app.recommendation import RecommendationGoalNormalizer, RecommendationRanker
+from app.recommendation import RecommendationGoalNormalizer
 
 
 def test_versioned_evaluation_dataset_passes():
@@ -16,12 +16,10 @@ def test_versioned_evaluation_dataset_passes():
     assert report["metrics"]["hardConstraintViolations"] is None
 
 
-def test_unsupported_hard_place_evidence_is_not_inferred_from_weak_fields():
+def test_hard_place_evidence_is_typed_before_recommendation_service_ranking():
     normalizer = RecommendationGoalNormalizer()
-    ranker = RecommendationRanker()
-    candidate = {"id": "place-1", "categories": ["CAFE"], "openingHours": "open late",
-                 "price": 50_000, "rating": 4.8, "description": "quiet romantic cafe"}
     for request in ("cafe open after 23:00", "cafe under 200k"):
         goal = normalizer.normalize(request, {"lat": 16.06, "lng": 108.22})
         assert goal.hardConstraints
-        assert ranker.rank(goal, [candidate]).candidates == []
+        assert all(constraint.feature in {"OPEN_AT", "PRICE_AMOUNT"}
+                   for constraint in goal.hardConstraints)

@@ -30,6 +30,19 @@ def derive_coverage_requirements(goal: TravelGoal) -> list[CoverageRequirement]:
     """
     requirements: list[CoverageRequirement] = []
 
+    if "find_cafe" in goal.subgoals:
+        requirements.append(
+            CoverageRequirement(
+                id="requested_cafe",
+                type=CoverageType.ACTIVITY,
+                target="cafe",
+                mealSlot="SNACK",
+                minCount=1,
+                blocking=True,
+                context={"category": "CAFE"},
+            )
+        )
+
     # 1. Must-eat foods (hard requirements)
     for index, food in enumerate(goal.mustEatFoods):
         food_norm = food.strip().casefold()
@@ -105,18 +118,19 @@ def derive_coverage_requirements(goal: TravelGoal) -> list[CoverageRequirement]:
                     )
 
     # 4. Sightseeing / Attractions
-    target_attractions = max(2, goal.durationDays * 2)
-    requirements.append(
-        CoverageRequirement(
-            id="sightseeing_coverage",
-            type=CoverageType.ATTRACTION,
-            target=f"Địa điểm tham quan nổi tiếng {goal.destination}",
-            mealSlot="ANY",
-            minCount=target_attractions,
-            blocking=bool(goal.requestedExperiences or not goal.mustEatFoods),
-            context={"destination": goal.destination},
+    if "sightseeing" in goal.requestedExperiences or not requirements:
+        target_attractions = max(2, goal.durationDays * 2)
+        requirements.append(
+            CoverageRequirement(
+                id="sightseeing_coverage",
+                type=CoverageType.ATTRACTION,
+                target=f"Địa điểm tham quan nổi tiếng {goal.destination}",
+                mealSlot="ANY",
+                minCount=target_attractions,
+                blocking=bool(goal.requestedExperiences or not goal.mustEatFoods),
+                context={"destination": goal.destination},
+            )
         )
-    )
 
     # 5. Must-visit places
     for index, place in enumerate(goal.mustVisitPlaces):

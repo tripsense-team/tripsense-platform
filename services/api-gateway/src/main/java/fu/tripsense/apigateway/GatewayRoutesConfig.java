@@ -43,19 +43,26 @@ class GatewayRoutesConfig {
   static final String AI_SERVICE_PATH = "/api/ai/**";
   static final String AI_SERVICE_URI = "lb://ai-service";
 
+  static final String RECOMMENDATION_SERVICE_ROUTE_ID = "recommendation-service";
+  static final String RECOMMENDATION_SERVICE_PATH = "/api/recommendations/**";
+  static final String RECOMMENDATION_SERVICE_URI = "lb://recommendation-service";
+
   @Bean
   RouteLocator tripSenseRoutes(
       RouteLocatorBuilder routes,
       RedisRateLimiter placeRedisRateLimiter,
       RedisRateLimiter socialRedisRateLimiter,
       RedisRateLimiter chatRedisRateLimiter,
+      RedisRateLimiter recommendationRedisRateLimiter,
       KeyResolver clientIpKeyResolver,
       @Value("${tripsense.gateway.places-rate-limit.enabled:false}")
           boolean placeRateLimitingEnabled,
       @Value("${tripsense.gateway.social-rate-limit.enabled:false}")
           boolean socialRateLimitingEnabled,
       @Value("${tripsense.gateway.chat-rate-limit.enabled:true}")
-          boolean chatRateLimitingEnabled) {
+          boolean chatRateLimitingEnabled,
+      @Value("${tripsense.gateway.recommendations-rate-limit.enabled:true}")
+          boolean recommendationRateLimitingEnabled) {
     return routes
         .routes()
         .route(
@@ -80,6 +87,25 @@ class GatewayRoutesConfig {
                 route.path(USER_SERVICE_AUTH_PATH, USER_SERVICE_USERS_PATH).uri(USER_SERVICE_URI))
         .route(MAIL_SERVICE_ROUTE_ID, route -> route.path(MAIL_SERVICE_PATH).uri(MAIL_SERVICE_URI))
         .route(TRIP_SERVICE_ROUTE_ID, route -> route.path(TRIP_SERVICE_PATH).uri(TRIP_SERVICE_URI))
+        .route(
+            RECOMMENDATION_SERVICE_ROUTE_ID,
+            route -> {
+              var r = route.path(RECOMMENDATION_SERVICE_PATH);
+              r.filters(
+                  filters -> {
+                    filters.setResponseHeader("Cache-Control", "no-store");
+                    if (recommendationRateLimitingEnabled) {
+                      filters.requestRateLimiter(
+                          config -> {
+                            config.setRateLimiter(recommendationRedisRateLimiter);
+                            config.setKeyResolver(clientIpKeyResolver);
+                            config.setDenyEmptyKey(true);
+                          });
+                    }
+                    return filters;
+                  });
+              return r.uri(RECOMMENDATION_SERVICE_URI);
+            })
         .route(
             AI_SERVICE_ROUTE_ID,
             route ->
@@ -160,6 +186,14 @@ class GatewayRoutesConfig {
   RedisRateLimiter chatRedisRateLimiter(
       @Value("${tripsense.gateway.chat-rate-limit.replenish-rate:5}") int replenishRate,
       @Value("${tripsense.gateway.chat-rate-limit.burst-capacity:10}") int burstCapacity) {
+    return new RedisRateLimiter(replenishRate, burstCapacity);
+  }
+
+  @Bean
+  RedisRateLimiter recommendationRedisRateLimiter(
+      @Value("${tripsense.gateway.recommendations-rate-limit.replenish-rate:5}") int replenishRate,
+      @Value("${tripsense.gateway.recommendations-rate-limit.burst-capacity:10}")
+          int burstCapacity) {
     return new RedisRateLimiter(replenishRate, burstCapacity);
   }
 

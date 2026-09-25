@@ -31,6 +31,7 @@ public class PlaceDto implements Serializable {
 
   private Double rating;
   private Integer userRatingCount;
+  private QuietnessEvidenceDto quietnessEvidence;
 
   @Builder.Default private List<String> photos = new ArrayList<>();
 

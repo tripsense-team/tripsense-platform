@@ -19,6 +19,7 @@ Service ownership is the primary design constraint for TripSense feature plannin
 - `context-service`: contextual signals used for planning or recommendations.
 - `itinerary-service`: itinerary structure, schedule, generated or curated plan items.
 - `review-service`: reviews, ratings, moderation state.
+- `recommendation-service`: recommendation orchestration, candidate fusion, feature engineering, personalized ranking, diversity, impressions, feedback, and derived observed profiles.
 - `notification-service`: notification preferences, delivery requests, delivery state.
 - `ai-service`: AI orchestration, prompts, model calls, AI-specific evaluation.
 

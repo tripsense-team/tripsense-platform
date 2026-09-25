@@ -6,6 +6,9 @@ Track every feature that enters the multi-agent workflow.
 | --- | --- | --- | --- |
 | `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |
 | `web-typography-system` | DONE | `apps/web/tripsense` | [Docs](./web-typography-system.md) |
+| `recommendation-decision-intelligence` | IMPLEMENTING | `services/recommendation-service`, `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./recommendation-decision-intelligence.md) |
+| `evidence-aware-recommendation-ranking` | DONE | `services/place-service`, `services/recommendation-service`, `services/ai-service`, `apps/web/tripsense` | [Docs](./evidence-aware-recommendation-ranking.md) |
+| `recommendation-engine-v2` | DONE | `services/recommendation-service`, `services/place-service`, `services/context-service`, `services/trip-service`, `services/user-service`, `services/api-gateway`, `services/ai-service` | [Docs](./recommendation-engine-v2.md) |
 | `adaptive-ai-travel-chat-redesign` | DONE | `services/ai-service`, `services/place-service`, `apps/web/tripsense` | [Docs](./adaptive-ai-travel-chat-redesign.md) |
 | `live-ai-agent-activity-stream` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./live-ai-agent-activity-stream.md) |
 | `agentic-place-discovery-ingestion` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/place-service` | [Docs](./agentic-place-discovery-ingestion.md) |
