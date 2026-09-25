@@ -129,7 +129,7 @@ export function EditProfileModal({
       });
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch {
       // Error is handled by hook
     }
   };

@@ -84,7 +84,7 @@ export function PendingInvitationsBanner() {
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h4 className="text-sm font-black tracking-normal">
+                  <h4 className="text-sm font-bold tracking-normal">
                     Trip Invitation: {inv.tripName || 'Trip collaboration'}
                   </h4>
                   <Badge variant="secondary" className="rounded-full text-xs font-semibold">

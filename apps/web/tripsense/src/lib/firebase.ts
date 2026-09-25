@@ -10,9 +10,7 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:416102507883:web:2bee46b95a96120c16d82e",
 };
 
-export const VAPID_KEY =
-  process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
-  "BOAADDGPBCDwIPOi-0XYh2EnRknNGpfHYahftBsa5B4y5bslvaiCdrLiqu8yCe8Mh8gGEQD7Xb79l1KFiyBhXmw";
+export const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "";
 
 let app: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
@@ -48,6 +46,13 @@ export async function requestFcmToken(): Promise<string | null> {
   if (!firebaseConfig.apiKey) {
     console.warn(
       "[FCM] ⚠️ Thiếu NEXT_PUBLIC_FIREBASE_API_KEY trong file .env! Firebase Web SDK yêu cầu API Key để tạo token push.",
+    );
+    return null;
+  }
+
+  if (!VAPID_KEY) {
+    console.warn(
+      "[FCM] ⚠️ Thiếu NEXT_PUBLIC_FIREBASE_VAPID_KEY trong file .env! Vui lòng cấu hình Web Push Certificate VAPID Key.",
     );
     return null;
   }

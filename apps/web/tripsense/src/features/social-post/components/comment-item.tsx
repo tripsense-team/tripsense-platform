@@ -29,7 +29,7 @@ export function CommentItem({
   onReplyClick,
   className,
 }: CommentItemProps) {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const { comment, visualDepth, replyToAuthorName } = node;
   const [isReplying, setIsReplying] = React.useState(false);
   const [reportOpen, setReportOpen] = React.useState(false);

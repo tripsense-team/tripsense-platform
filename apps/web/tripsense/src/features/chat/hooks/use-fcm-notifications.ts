@@ -144,27 +144,27 @@ export function useFcmNotifications() {
     };
   }, [isAuthenticated, user?.id, syncToken]);
 
-  const unregisterDevice = async () => {
-    try {
-      const storedToken =
-        typeof window !== "undefined"
-          ? localStorage.getItem(FCM_TOKEN_STORAGE_KEY)
-          : null;
-      if (storedToken) {
-        await chatApi.unregisterFcmToken(storedToken);
-        if (typeof window !== "undefined") {
-          localStorage.removeItem(FCM_TOKEN_STORAGE_KEY);
-        }
-      }
-    } catch {
-      // Ignore cleanup error on logout
-    }
-  };
-
   return {
     permission,
     requestPermission,
     sendTestNotification,
-    unregisterDevice,
+    unregisterDevice: revokeFcmTokenOnLogout,
   };
+}
+
+export async function revokeFcmTokenOnLogout(): Promise<void> {
+  try {
+    const storedToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem(FCM_TOKEN_STORAGE_KEY)
+        : null;
+    if (storedToken) {
+      await chatApi.unregisterFcmToken(storedToken).catch(() => {});
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(FCM_TOKEN_STORAGE_KEY);
+      }
+    }
+  } catch {
+    // Ignore cleanup error on logout
+  }
 }

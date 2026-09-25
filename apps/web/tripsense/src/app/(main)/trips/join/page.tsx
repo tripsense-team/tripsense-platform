@@ -69,7 +69,7 @@ function JoinTripContent() {
       <div className="flex min-h-[60vh] items-center justify-center p-4">
         <div className="max-w-md w-full rounded-3xl border border-border bg-card p-8 text-center shadow-lg">
           <XCircle className="mx-auto h-12 w-12 text-destructive mb-3" />
-          <h1 className="text-xl font-black">Invalid Invitation Link</h1>
+          <h1 className="text-xl font-bold">Invalid Invitation Link</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             No invitation token was found in the URL. Please check your invitation email.
           </p>
@@ -91,7 +91,7 @@ function JoinTripContent() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 mb-4">
             <CheckCircle2 className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-black">Welcome to the Trip!</h1>
+          <h1 className="text-2xl font-bold">Welcome to the Trip!</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             You have successfully joined the trip as a collaborator. You can now view and edit the itinerary with your team.
           </p>
@@ -113,7 +113,7 @@ function JoinTripContent() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground mb-4">
             <XCircle className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-black">Invitation Declined</h1>
+          <h1 className="text-2xl font-bold">Invitation Declined</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             You have declined the invitation to join this trip.
           </p>
@@ -140,7 +140,7 @@ function JoinTripContent() {
           <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
             <Sparkles className="h-3.5 w-3.5" /> Collaboration Invitation
           </div>
-          <h1 className="text-2xl font-black tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             You&apos;re invited to collaborate on a trip!
           </h1>
           <p className="text-sm text-muted-foreground">

@@ -132,7 +132,7 @@ export function TripMembersDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md sm:max-w-lg rounded-3xl p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-black">
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold">
             <Users className="h-5 w-5 text-primary" />
             Trip Collaboration
           </DialogTitle>
@@ -187,17 +187,17 @@ export function TripMembersDialog({
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {m.role === 'OWNER' && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
                             <Crown className="h-3 w-3" /> Owner
                           </span>
                         )}
                         {m.role === 'EDITOR' && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-bold text-blue-600 dark:text-blue-400">
                             <Shield className="h-3 w-3" /> Editor
                           </span>
                         )}
                         {m.role === 'VIEWER' && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
                             Viewer
                           </span>
                         )}
@@ -376,7 +376,7 @@ export function TripMembersDialog({
                     >
                       <div className="min-w-0 pr-2">
                         <p className="font-bold truncate">{inv.inviteeEmail}</p>
-                        <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] mt-0.5">
+                        <div className="flex items-center gap-1.5 text-muted-foreground text-xs mt-0.5">
                           <Clock className="h-3 w-3" />
                           <span>Expires {new Date(inv.expiresAt).toLocaleDateString()}</span>
                           <span className="font-semibold text-primary">({inv.role})</span>

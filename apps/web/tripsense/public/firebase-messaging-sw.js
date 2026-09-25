@@ -3,40 +3,42 @@
 
 const params = new URL(location).searchParams;
 const firebaseConfig = {
-  apiKey: params.get("apiKey") || "AIzaSyB9vsNeTdGAEugmXs78BDc_id7Ad7A5OOA",
+  apiKey: params.get("apiKey") || "",
   authDomain: params.get("authDomain") || "tripsense-642bd.firebaseapp.com",
   projectId: params.get("projectId") || "tripsense-642bd",
   storageBucket: params.get("storageBucket") || "tripsense-642bd.firebasestorage.app",
   messagingSenderId: params.get("messagingSenderId") || "416102507883",
-  appId: params.get("appId") || "1:416102507883:web:2bee46b95a96120c16d82e",
+  appId: params.get("appId") || "",
 };
 
 try {
-  importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
-  importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
+  if (firebaseConfig.apiKey && firebaseConfig.appId) {
+    importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
+    importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
 
-  if (typeof firebase !== "undefined") {
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+    if (typeof firebase !== "undefined") {
+      firebase.initializeApp(firebaseConfig);
+      const messaging = firebase.messaging();
 
-    messaging.onBackgroundMessage((payload) => {
-      const notificationTitle = payload.notification?.title || payload.data?.title || "TripSense";
-      const clickActionUrl = payload.data?.clickActionUrl || (payload.data?.conversationId ? `/chat?t=${payload.data.conversationId}` : "/chat");
-      const notificationOptions = {
-        body: payload.notification?.body || payload.data?.body || "Bạn có tin nhắn mới",
-        icon: "/globe.svg",
-        badge: "/globe.svg",
-        data: {
-          ...payload.data,
-          clickActionUrl,
-        },
-        tag: payload.data?.conversationId ? `chat-${payload.data.conversationId}` : `chat-${Date.now()}`,
-        renotify: true,
-        requireInteraction: true,
-      };
+      messaging.onBackgroundMessage((payload) => {
+        const notificationTitle = payload.notification?.title || payload.data?.title || "TripSense";
+        const clickActionUrl = payload.data?.clickActionUrl || (payload.data?.conversationId ? `/chat?t=${payload.data.conversationId}` : "/chat");
+        const notificationOptions = {
+          body: payload.notification?.body || payload.data?.body || "Bạn có tin nhắn mới",
+          icon: "/globe.svg",
+          badge: "/globe.svg",
+          data: {
+            ...payload.data,
+            clickActionUrl,
+          },
+          tag: payload.data?.conversationId ? `chat-${payload.data.conversationId}` : `chat-${Date.now()}`,
+          renotify: true,
+          requireInteraction: true,
+        };
 
-      return self.registration.showNotification(notificationTitle, notificationOptions);
-    });
+        return self.registration.showNotification(notificationTitle, notificationOptions);
+      });
+    }
   }
 } catch (err) {
   // If compat scripts fail to load, fallback to native push listener below
