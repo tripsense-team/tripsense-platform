@@ -157,6 +157,28 @@ describe("chatApi methods", () => {
     expect(result.items).toEqual([]);
   });
 
+  it("chatApi.search sends GET to /users?query=...", async () => {
+    const mockApiClient = vi.mocked(apiClientModule.apiClient);
+    mockApiClient.mockResolvedValueOnce({
+      data: [{ userId: "u-real-1", displayName: "Real User", avatarUrl: null }],
+    } as any);
+
+    const result = await chatApi.search("Real");
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/social/chat/users?query=Real&limit=10",
+      undefined
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].displayName).toBe("Real User");
+  });
+
+  it("chatApi.search returns empty array if query has fewer than 2 characters", async () => {
+    const mockApiClient = vi.mocked(apiClientModule.apiClient);
+    const result = await chatApi.search("a");
+    expect(mockApiClient).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+  });
+
   it("chatApi.create sends POST request with recipientId", async () => {
     const mockApiClient = vi.mocked(apiClientModule.apiClient);
     mockApiClient.mockResolvedValueOnce({

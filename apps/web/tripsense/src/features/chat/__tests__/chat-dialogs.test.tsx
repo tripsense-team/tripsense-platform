@@ -39,7 +39,7 @@ vi.mock("@/components/ui/dialog", () => ({
 }));
 
 describe("Chat Dialogs Rendering", () => {
-  it("renders NewChatDialog with header, search input, and suggested contacts", () => {
+  it("renders NewChatDialog with header, search input, and initial search prompt", () => {
     const html = renderToString(
       <NewChatDialog open={true} onOpenChange={() => {}} onSelectUser={() => {}} />
     );
@@ -47,9 +47,9 @@ describe("Chat Dialogs Rendering", () => {
     expect(html).toContain("chat.dialogs.newChat.title");
     expect(html).toContain("chat.dialogs.newChat.description");
     expect(html).toContain("chat.dialogs.newChat.placeholder");
-    expect(html).toContain("chat.dialogs.newChat.recentTitle");
-    expect(html).toContain("Khánh Linh");
-    expect(html).toContain("Tuấn Kiệt");
+    expect(html).toContain("chat.dialogs.newChat.minimumQuery");
+    expect(html).not.toContain("Khánh Linh");
+    expect(html).not.toContain("Tuấn Kiệt");
   });
 
   it("renders ShareTripDialog with title and description", () => {

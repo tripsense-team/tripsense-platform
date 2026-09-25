@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatUser } from "../types/chat.types";
-import { chatApi, DEFAULT_SUGGESTED_USERS, removeDiacritics } from "../services/chat-api";
+import { chatApi } from "../services/chat-api";
 import { useTranslation } from "@/i18n";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 
@@ -33,36 +33,24 @@ export function NewChatDialog({
   const authUser = useAuthStore((s) => s.user);
   const activeUserId = currentUserId || authUser?.id || "";
 
-  const availableSuggestions = React.useMemo(() => {
-    return DEFAULT_SUGGESTED_USERS.filter((u) => u.id !== activeUserId);
-  }, [activeUserId]);
-
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [users, setUsers] = React.useState<ChatUser[]>(availableSuggestions);
+  const [users, setUsers] = React.useState<ChatUser[]>([]);
   const [searchFailed, setSearchFailed] = React.useState(false);
   const [searching, setSearching] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
     const trimmed = searchQuery.trim();
-    if (!trimmed) {
-      setUsers(availableSuggestions);
+    if (trimmed.length < 2) {
+      setUsers([]);
       setSearching(false);
       setSearchFailed(false);
       return;
     }
 
-    const normalized = removeDiacritics(trimmed);
-    const localMatches = availableSuggestions.filter((u) =>
-      removeDiacritics(u.name).includes(normalized)
-    );
-
-    // Provide instant local feedback
-    setUsers(localMatches);
-    setSearchFailed(false);
-
     let canceled = false;
     setSearching(true);
+    setSearchFailed(false);
     const timer = window.setTimeout(() => {
       void chatApi
         .search(trimmed)
@@ -70,56 +58,42 @@ export function NewChatDialog({
           if (!canceled) {
             const mapped: ChatUser[] = rows
               .filter((row) => row.userId !== activeUserId)
-              .map((row) => {
-                const existing = availableSuggestions.find((s) => s.id === row.userId);
-                return {
-                  id: row.userId,
-                  name: row.displayName,
-                  avatar: row.avatarUrl || existing?.avatar || undefined,
-                  isOnline: existing?.isOnline ?? true,
-                  statusText: existing?.statusText,
-                };
-              });
+              .map((row) => ({
+                id: row.userId,
+                name: row.displayName,
+                avatar: row.avatarUrl || undefined,
+                isOnline: false,
+              }));
 
-            const seen = new Set<string>();
-            const combined: ChatUser[] = [];
-            for (const item of [...mapped, ...localMatches]) {
-              if (!seen.has(item.id)) {
-                seen.add(item.id);
-                combined.push(item);
-              }
-            }
-            setUsers(combined);
+            setUsers(mapped);
             setSearchFailed(false);
           }
         })
         .catch(() => {
           if (!canceled) {
-            if (localMatches.length === 0) {
-              setSearchFailed(true);
-            }
+            setSearchFailed(true);
           }
         })
         .finally(() => {
           if (!canceled) setSearching(false);
         });
-    }, 200);
+    }, 250);
 
     return () => {
       canceled = true;
       window.clearTimeout(timer);
     };
-  }, [open, searchQuery, availableSuggestions, activeUserId]);
+  }, [open, searchQuery, activeUserId]);
 
-  // Reset search and show suggestions when opened
+  // Reset search state when dialog opens
   React.useEffect(() => {
     if (open) {
       setSearchQuery("");
-      setUsers(availableSuggestions);
+      setUsers([]);
       setSearchFailed(false);
       setSearching(false);
     }
-  }, [open, availableSuggestions]);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,9 +140,11 @@ export function NewChatDialog({
 
         {/* User List */}
         <div className="max-h-80 overflow-y-auto px-4 pb-4 space-y-1">
-          <div className="px-2 py-1 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            {t("chat.dialogs.newChat.recentTitle")}
-          </div>
+          {users.length > 0 && (
+            <div className="px-2 py-1 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              {t("chat.dialogs.newChat.recentTitle")}
+            </div>
+          )}
 
           {searchFailed && users.length === 0 ? (
             <div role="alert" className="py-8 text-center text-sm text-destructive">
