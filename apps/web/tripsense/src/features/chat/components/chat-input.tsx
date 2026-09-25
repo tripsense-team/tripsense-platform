@@ -13,6 +13,18 @@ export interface ChatInputProps {
   className?: string;
 }
 
+export function shouldSubmitChatOnEnter(event: {
+  key: string;
+  shiftKey: boolean;
+  isComposing: boolean;
+  keyCode?: number;
+}) {
+  return event.key === "Enter"
+    && !event.shiftKey
+    && !event.isComposing
+    && event.keyCode !== 229;
+}
+
 export function ChatInput({
   onSend,
   isLoading = false,
@@ -20,16 +32,22 @@ export function ChatInput({
   className,
 }: ChatInputProps) {
   const [value, setValue] = React.useState("");
+  const isComposingRef = React.useRef(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!value.trim() || isLoading) return;
+    if (isComposingRef.current || !value.trim() || isLoading) return;
     onSend(value.trim());
     setValue("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (shouldSubmitChatOnEnter({
+      key: e.key,
+      shiftKey: e.shiftKey,
+      isComposing: e.nativeEvent.isComposing || isComposingRef.current,
+      keyCode: e.nativeEvent.keyCode,
+    })) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -47,6 +65,8 @@ export function ChatInput({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onCompositionStart={() => { isComposingRef.current = true; }}
+        onCompositionEnd={() => { isComposingRef.current = false; }}
         placeholder={placeholder}
         rows={1}
         className="min-h-[38px] max-h-32 resize-none border-0 p-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm shadow-none"

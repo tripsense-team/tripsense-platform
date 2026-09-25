@@ -50,6 +50,20 @@ export type AiPlaceEvidence = {
   fieldEvidence?: Record<string, { source?: string; fetchedAt?: string | null; confidenceClass: "VERIFIED" | "STALE" | "INFERRED" | "UNKNOWN" }>;
 };
 
+export function isDevelopmentFixturePlace(place: {
+  id?: string;
+  canonicalPlaceId?: string;
+  name?: string;
+  title?: string;
+  provider?: string;
+}): boolean {
+  const id = place.id || place.canonicalPlaceId || "";
+  const name = place.name || place.title || "";
+  return id.startsWith("fixture-son-tra-")
+    || place.provider === "tripsense-dev-fixture"
+    || name.startsWith("TripSense Test ");
+}
+
 export type AiItineraryDay = {
   dayNumber: number;
   date?: string;

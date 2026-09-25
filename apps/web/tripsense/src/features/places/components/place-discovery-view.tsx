@@ -104,6 +104,7 @@ export function PlaceDiscoveryView() {
   const activeCategoryQueryRef = React.useRef("địa điểm nổi tiếng ở Đà Nẵng");
   const viewportDebounceTimer = React.useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = React.useRef<AbortController | null>(null);
+  const initialSearchPendingRef = React.useRef(true);
   const inMemoryGridCacheRef = React.useRef<Set<string>>(new Set());
 
   // In-memory cache for deep details to avoid redundant API calls and prevent layout jumps
@@ -160,12 +161,19 @@ export function PlaceDiscoveryView() {
         }
       } catch (err: unknown) {
         if ((err as Error)?.name !== "AbortError") {
-          console.error("Place search error:", err);
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[PlaceDiscovery] Search failed", { operation: "place_search" });
+          }
           setPlaces([]);
           setSelectedPlaceId(null);
         }
       } finally {
-        setIsLoading(false);
+        if (!useCurrentViewport) {
+          initialSearchPendingRef.current = false;
+        }
+        if (abortControllerRef.current === controller) {
+          setIsLoading(false);
+        }
       }
     },
     [],
@@ -173,30 +181,15 @@ export function PlaceDiscoveryView() {
 
   // Initial load: Fetch real places across Da Nang directly on open without filling search input
   React.useEffect(() => {
-    let ignore = false;
-
-    searchPlaces({ q: "địa điểm nổi tiếng ở Đà Nẵng" })
-      .then((res) => {
-        if (!ignore && res.success && Array.isArray(res.data)) {
-          setPlaces(res.data);
-        }
-      })
-      .catch((err) => {
-        if (!ignore) {
-          console.error("Place search error:", err);
-          setPlaces([]);
-        }
-      })
-      .finally(() => {
-        if (!ignore) {
-          setIsLoading(false);
-        }
-      });
+    const initialSearchTimer = window.setTimeout(() => {
+      void executeSearch("địa điểm nổi tiếng ở Đà Nẵng", false, false);
+    }, 0);
 
     return () => {
-      ignore = true;
+      window.clearTimeout(initialSearchTimer);
+      abortControllerRef.current?.abort();
     };
-  }, []);
+  }, [executeSearch]);
 
   // Performance-Optimized Complete-Stop Viewport Discovery
   const handleViewportChange = React.useCallback(
@@ -219,6 +212,9 @@ export function PlaceDiscoveryView() {
 
       // User must come to a COMPLETE REST for 600ms before sending query
       viewportDebounceTimer.current = setTimeout(async () => {
+        // The map emits its first viewport immediately after mount. The initial broad search already
+        // covers that state, so do not abort it and create a proxy-side ECONNRESET.
+        if (initialSearchPendingRef.current) return;
         if (abortControllerRef.current) {
           abortControllerRef.current.abort();
         }
@@ -245,7 +241,9 @@ export function PlaceDiscoveryView() {
           }
         } catch (err: unknown) {
           if ((err as Error)?.name !== "AbortError") {
-            console.warn("Viewport dynamic discovery error:", err);
+            if (process.env.NODE_ENV === "development") {
+              console.warn("[PlaceDiscovery] Viewport search failed", { operation: "viewport_search" });
+            }
           }
         }
       }, 600);
@@ -471,8 +469,10 @@ export function PlaceDiscoveryView() {
           ),
         );
       }
-    } catch (err) {
-      console.warn("Place details fetch error:", err);
+    } catch {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[PlaceDiscovery] Details fetch failed", { operation: "place_details" });
+      }
     } finally {
       inflightRef.current.delete(lookupId);
       setIsLoadingDetails(false);
@@ -497,11 +497,12 @@ export function PlaceDiscoveryView() {
             setIsLoading(false);
             return;
           }
-        } catch (e) {
-          console.warn(
-            "Direct suggestion detail fetch error, falling back to search:",
-            e,
-          );
+        } catch {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[PlaceDiscovery] Suggestion detail failed", {
+              operation: "suggestion_details",
+            });
+          }
         }
       }
 

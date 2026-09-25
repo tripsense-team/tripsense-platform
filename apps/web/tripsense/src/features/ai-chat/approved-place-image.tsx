@@ -103,7 +103,7 @@ function ImageWithFallback({
 
   const attributionText = photo.attribution?.length
     ? photo.attribution.map((author) => author.displayName).join(" · ")
-    : photo.source || "Điểm đến";
+    : null;
 
   return (
     <figure className="overflow-hidden rounded-lg bg-muted relative group">
@@ -117,9 +117,11 @@ function ImageWithFallback({
         onError={() => setHasError(true)}
         className={`${className} w-full object-cover transition-transform duration-300 group-hover:scale-105`}
       />
-      <figcaption className="px-2 py-1 text-micro text-muted-foreground truncate bg-card/80 backdrop-blur-xs">
-        Ảnh: {attributionText}
-      </figcaption>
+      {attributionText && (
+        <figcaption className="px-2 py-1 text-micro text-muted-foreground truncate bg-card/80 backdrop-blur-xs">
+          Ảnh: {attributionText}
+        </figcaption>
+      )}
     </figure>
   );
 }

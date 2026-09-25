@@ -20,7 +20,7 @@ import {
 } from "@/features/ai-chat";
 import { RichItineraryWorkspace } from "@/features/ai-chat/rich-itinerary-workspace";
 import { RichAnswer } from "@/features/ai-chat/rich-answer";
-import type { AiItineraryPreview } from "@/features/ai-chat/types";
+import { isDevelopmentFixturePlace, type AiItineraryPreview } from "@/features/ai-chat/types";
 import { upsertArtifact } from "@/features/ai-chat/upsert-artifact";
 import { upsertAgentActivity } from "@/features/ai-chat/agent-activity";
 import { listTrips } from "@/features/trip-management/services/trip-management-api";
@@ -144,10 +144,12 @@ export default function AiPlannerPage() {
       const artifact = [...(message.artifacts || [])].reverse().find((item) => item.type === "PLACE_LIST" || item.type === "PLACE_CARD");
       if (artifact) {
         if (Array.isArray((artifact.data as { places?: Place[] })?.places)) {
-          return (artifact.data as { places: Place[] }).places;
+          return (artifact.data as { places: Place[] }).places
+            .filter((place) => !isDevelopmentFixturePlace(place));
         }
         if ((artifact.data as { place?: Place })?.place) {
-          return [(artifact.data as { place: Place }).place];
+          const place = (artifact.data as { place: Place }).place;
+          return isDevelopmentFixturePlace(place) ? [] : [place];
         }
       }
     }
@@ -271,7 +273,7 @@ export default function AiPlannerPage() {
         const answerPlaceList = (message.artifacts?.find((artifact) => artifact.type === "PLACE_LIST")?.data as { places?: Place[] } | undefined)?.places;
         const answerPlaces = (answerPreview?.days?.flatMap((day) => day.items) || []).length > 0
           ? (answerPreview?.days?.flatMap((day) => day.items) || [])
-          : (answerPlaceList || []).map((p) => ({
+          : (answerPlaceList || []).filter((p) => !isDevelopmentFixturePlace(p)).map((p) => ({
               canonicalPlaceId: p.id,
               title: p.name,
               address: p.address,

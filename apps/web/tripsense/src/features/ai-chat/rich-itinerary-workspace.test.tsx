@@ -75,4 +75,28 @@ describe("ArtifactRenderer and Workspace info button integration", () => {
     expect(html).toContain("Cầu Rồng Đà Nẵng");
     expect(html).toContain("Xem chi tiết địa điểm (ⓘ)");
   });
+
+  it("never renders development fixture places from restored artifacts", () => {
+    const artifact: AiArtifact = {
+      artifactId: "legacy-fixture-artifact",
+      schemaVersion: 1,
+      version: 1,
+      type: "PLACE_LIST",
+      data: {
+        places: [
+          {
+            id: "fixture-son-tra-rating-missing",
+            provider: "tripsense-dev-fixture",
+            name: "TripSense Test Cafe Mist",
+          },
+          { id: "real-place", provider: "ziomap", name: "Cafe Du Musee" },
+        ],
+      },
+    };
+
+    const html = renderToStaticMarkup(<ArtifactRenderer artifacts={[artifact]} />);
+
+    expect(html).not.toContain("TripSense Test Cafe Mist");
+    expect(html).toContain("Cafe Du Musee");
+  });
 });

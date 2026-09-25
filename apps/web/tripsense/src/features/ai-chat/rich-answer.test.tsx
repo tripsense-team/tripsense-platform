@@ -50,6 +50,17 @@ describe("RichAnswer", () => {
     expect(html).toContain("Đoạn văn cuối cùng");
   });
 
+  it("renders recommendation markdown as a semantic table", () => {
+    const content = `| Ưu tiên | Quán | Đánh giá | Khoảng cách ước tính |
+| --- | --- | --- | --- |
+| 1 | **Cafe Du Musee** | 3,9/5 — 57 lượt | 0,7 km |`;
+    const html = renderToStaticMarkup(<RichAnswer content={content} places={[]} onSelectPlace={() => {}} />);
+    expect(html).toContain("<table");
+    expect(html).toContain("<thead");
+    expect(html).toContain("Cafe Du Musee");
+    expect(html).not.toContain("| --- |");
+  });
+
   it("does not trigger key warnings during DOM reconciliation with real markdown", async () => {
     const { createRoot } = await import("react-dom/client");
     const container = document.createElement("div");
