@@ -1,4 +1,6 @@
 from functools import lru_cache
+from typing import Any
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,7 +8,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", env_file=".env", extra="ignore")
 
     ai_database_url: str = "sqlite:///./tripsense_ai.db"
-    jwt_access_secret: str = ""
+    jwt_access_secret: str = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
+
+    @field_validator("jwt_access_secret", mode="before")
+    @classmethod
+    def validate_jwt_access_secret(cls, v: Any) -> str:
+        if not v or not str(v).strip():
+            return "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
+        return str(v).strip()
     openai_api_key: str = ""
     ai_model: str = "gpt-4o-mini"
     ai_model_base_url: str | None = None

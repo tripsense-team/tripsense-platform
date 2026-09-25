@@ -365,10 +365,6 @@ services:
         required: false
     environment:
       AI_DATABASE_URL: ${AI_DATABASE_URL:-postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-${OPENAI_MODEL:-gpt-4o-mini}}
-      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
       PLACE_SERVICE_URL: http://place-service:8082
       TRIP_SERVICE_URL: http://trip-service:8084
       WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
