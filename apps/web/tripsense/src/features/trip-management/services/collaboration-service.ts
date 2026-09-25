@@ -36,11 +36,10 @@ export const tripCollaborationService = {
   },
 
   // TF-77/78: Get current user's pending invitations
-  getMyPendingInvitations(email?: string): Promise<TripInvitation[]> {
-    const query = email ? `?email=${encodeURIComponent(email)}` : '';
+  getMyPendingInvitations(): Promise<TripInvitation[]> {
     return unwrap(
       apiClient<ApiResponse<TripInvitation[]>>(
-        `/api/trips/invitations/pending${query}`
+        '/api/trips/invitations/pending'
       )
     );
   },

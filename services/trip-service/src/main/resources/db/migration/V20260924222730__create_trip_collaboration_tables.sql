@@ -36,3 +36,15 @@ CREATE TABLE IF NOT EXISTS trip_invitations (
 CREATE INDEX IF NOT EXISTS idx_trip_invitations_trip_id ON trip_invitations(trip_id);
 CREATE INDEX IF NOT EXISTS idx_trip_invitations_invitee_email_status ON trip_invitations(invitee_email, status);
 CREATE INDEX IF NOT EXISTS idx_trip_invitations_invitee_user_id ON trip_invitations(invitee_user_id);
+
+-- Partial unique index to prevent duplicate pending invites per email
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trip_invitations_pending 
+ON trip_invitations(trip_id, invitee_email) 
+WHERE status = 'PENDING';
+
+-- Backfill existing trips with their owners as OWNER in trip_members
+INSERT INTO trip_members (id, trip_id, user_id, role, joined_at, created_at, updated_at)
+SELECT gen_random_uuid(), id, owner_user_id, 'OWNER', created_at, created_at, updated_at
+FROM trips
+ON CONFLICT (trip_id, user_id) DO NOTHING;
+

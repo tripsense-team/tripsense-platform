@@ -43,14 +43,14 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
   @Transactional
   public TripInvitationResponse inviteMember(
       UUID userId, UUID tripId, InviteTripMemberRequest request) {
+    if (request.role() == TripMemberRole.OWNER) {
+      throw new ValidationException("INVALID_ROLE", "Cannot invite a member with OWNER role");
+    }
+
     Trip trip = getActiveTrip(tripId);
     ensureCanInvite(userId, trip);
 
     String email = request.email().trim().toLowerCase();
-
-    // Check if user is already a member
-    List<TripMember> members = tripMemberRepository.findByTripId(tripId);
-    boolean isOwner = trip.getOwnerUserId().equals(userId);
 
     // Check active pending invite
     Optional<TripInvitation> existingInvite =
@@ -129,14 +129,14 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
   @CacheEvict(
       cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
       allEntries = true)
-  public TripMemberResponse acceptInvitation(UUID userId, UUID invitationId) {
+  public TripMemberResponse acceptInvitation(UUID userId, String userEmail, UUID invitationId) {
     TripInvitation invitation =
         tripInvitationRepository
             .findById(invitationId)
             .orElseThrow(
                 () -> new NotFoundException("INVITATION_NOT_FOUND", "Invitation not found"));
 
-    return processAcceptance(userId, invitation);
+    return processAcceptance(userId, userEmail, invitation);
   }
 
   @Override
@@ -144,38 +144,38 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
   @CacheEvict(
       cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
       allEntries = true)
-  public TripMemberResponse acceptInvitationByToken(UUID userId, String token) {
+  public TripMemberResponse acceptInvitationByToken(UUID userId, String userEmail, String token) {
     TripInvitation invitation =
         tripInvitationRepository
             .findByInvitationToken(token)
             .orElseThrow(
                 () -> new NotFoundException("INVITATION_NOT_FOUND", "Invitation token invalid"));
 
-    return processAcceptance(userId, invitation);
+    return processAcceptance(userId, userEmail, invitation);
   }
 
   @Override
   @Transactional
-  public void declineInvitation(UUID userId, UUID invitationId) {
+  public void declineInvitation(UUID userId, String userEmail, UUID invitationId) {
     TripInvitation invitation =
         tripInvitationRepository
             .findById(invitationId)
             .orElseThrow(
                 () -> new NotFoundException("INVITATION_NOT_FOUND", "Invitation not found"));
 
-    processDecline(userId, invitation);
+    processDecline(userId, userEmail, invitation);
   }
 
   @Override
   @Transactional
-  public void declineInvitationByToken(UUID userId, String token) {
+  public void declineInvitationByToken(UUID userId, String userEmail, String token) {
     TripInvitation invitation =
         tripInvitationRepository
             .findByInvitationToken(token)
             .orElseThrow(
                 () -> new NotFoundException("INVITATION_NOT_FOUND", "Invitation token invalid"));
 
-    processDecline(userId, invitation);
+    processDecline(userId, userEmail, invitation);
   }
 
   @Override
@@ -223,6 +223,11 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
   @Transactional
   public TripMemberResponse updateMemberRole(
       UUID userId, UUID tripId, UUID memberId, UpdateMemberRoleRequest request) {
+    if (request.role() == TripMemberRole.OWNER) {
+      throw new ValidationException(
+          "INVALID_ROLE", "Cannot assign member with OWNER role");
+    }
+
     Trip trip = getActiveTrip(tripId);
     ensureOwner(userId, trip);
 
@@ -330,7 +335,10 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
         .orElse(false);
   }
 
-  private TripMemberResponse processAcceptance(UUID userId, TripInvitation invitation) {
+  private TripMemberResponse processAcceptance(
+      UUID userId, String userEmail, TripInvitation invitation) {
+    ensureInviteeMatch(userId, userEmail, invitation);
+
     if (invitation.getStatus() != TripInvitationStatus.PENDING) {
       throw new ConflictException(
           "INVITATION_INACTIVE",
@@ -378,7 +386,9 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
     return toMemberResponse(member);
   }
 
-  private void processDecline(UUID userId, TripInvitation invitation) {
+  private void processDecline(UUID userId, String userEmail, TripInvitation invitation) {
+    ensureInviteeMatch(userId, userEmail, invitation);
+
     if (invitation.getStatus() != TripInvitationStatus.PENDING) {
       throw new ConflictException(
           "INVITATION_INACTIVE",
@@ -389,6 +399,21 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
     invitation.setInviteeUserId(userId);
     tripInvitationRepository.save(invitation);
     log.info("User {} declined invitation {}", userId, invitation.getId());
+  }
+
+  private void ensureInviteeMatch(UUID userId, String userEmail, TripInvitation invitation) {
+    boolean matchesEmail =
+        userEmail != null
+            && !userEmail.isBlank()
+            && invitation.getInviteeEmail() != null
+            && invitation.getInviteeEmail().equalsIgnoreCase(userEmail.trim());
+    boolean matchesUserId =
+        invitation.getInviteeUserId() != null && invitation.getInviteeUserId().equals(userId);
+
+    if (!matchesEmail && !matchesUserId) {
+      throw new ForbiddenException(
+          "FORBIDDEN", "This invitation was not sent to your account");
+    }
   }
 
   private Trip getActiveTrip(UUID tripId) {

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import fu.tripsense.tripservice.dto.request.InviteTripMemberRequest;
+import fu.tripsense.tripservice.dto.request.UpdateMemberRoleRequest;
 import fu.tripsense.tripservice.dto.response.TripCollaborationSummaryResponse;
 import fu.tripsense.tripservice.dto.response.TripInvitationResponse;
 import fu.tripsense.tripservice.dto.response.TripMemberResponse;
@@ -103,6 +104,19 @@ class TripCollaborationServiceTest {
   }
 
   @Test
+  void inviteMember_withOwnerRole_throwsValidationException() {
+    InviteTripMemberRequest request =
+        InviteTripMemberRequest.builder()
+            .email("co-owner@example.com")
+            .role(TripMemberRole.OWNER)
+            .build();
+
+    assertThatThrownBy(() -> collaborationService.inviteMember(ownerId, tripId, request))
+        .isInstanceOf(ValidationException.class)
+        .hasMessageContaining("Cannot invite a member with OWNER role");
+  }
+
+  @Test
   void inviteMember_whenPendingInvitationExists_throwsConflict_TF76() {
     InviteTripMemberRequest request =
         InviteTripMemberRequest.builder()
@@ -156,7 +170,7 @@ class TripCollaborationServiceTest {
             });
 
     TripMemberResponse response =
-        collaborationService.acceptInvitation(memberUserId, invitationId);
+        collaborationService.acceptInvitation(memberUserId, "friend@example.com", invitationId);
 
     assertThat(response).isNotNull();
     assertThat(response.tripId()).isEqualTo(tripId);
@@ -164,6 +178,31 @@ class TripCollaborationServiceTest {
     assertThat(response.role()).isEqualTo(TripMemberRole.EDITOR);
     assertThat(invitation.getStatus()).isEqualTo(TripInvitationStatus.ACCEPTED);
     assertThat(invitation.getInviteeUserId()).isEqualTo(memberUserId);
+  }
+
+  @Test
+  void acceptInvitation_withMismatchedEmail_throwsForbidden_SecurityGuard() {
+    UUID invitationId = UUID.randomUUID();
+    TripInvitation invitation =
+        TripInvitation.builder()
+            .id(invitationId)
+            .trip(sampleTrip)
+            .inviterUserId(ownerId)
+            .inviteeEmail("friend@example.com")
+            .role(TripMemberRole.EDITOR)
+            .status(TripInvitationStatus.PENDING)
+            .invitationToken("token123")
+            .expiresAt(Instant.now().plus(3, ChronoUnit.DAYS))
+            .build();
+
+    when(tripInvitationRepository.findById(invitationId)).thenReturn(Optional.of(invitation));
+
+    assertThatThrownBy(
+            () ->
+                collaborationService.acceptInvitation(
+                    strangerUserId, "stranger@example.com", invitationId))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("not sent to your account");
   }
 
   @Test
@@ -181,10 +220,35 @@ class TripCollaborationServiceTest {
 
     when(tripInvitationRepository.findById(invitationId)).thenReturn(Optional.of(invitation));
 
-    collaborationService.declineInvitation(memberUserId, invitationId);
+    collaborationService.declineInvitation(memberUserId, "friend@example.com", invitationId);
 
     assertThat(invitation.getStatus()).isEqualTo(TripInvitationStatus.DECLINED);
     assertThat(invitation.getInviteeUserId()).isEqualTo(memberUserId);
+  }
+
+  @Test
+  void updateMemberRole_withOwnerRole_throwsValidationException() {
+    UUID memberRecordId = UUID.randomUUID();
+    TripMember member =
+        TripMember.builder()
+            .id(memberRecordId)
+            .trip(sampleTrip)
+            .userId(memberUserId)
+            .role(TripMemberRole.VIEWER)
+            .joinedAt(Instant.now())
+            .build();
+
+    when(tripMemberRepository.findById(memberRecordId)).thenReturn(Optional.of(member));
+
+    assertThatThrownBy(
+            () ->
+                collaborationService.updateMemberRole(
+                    ownerId,
+                    tripId,
+                    memberRecordId,
+                    new UpdateMemberRoleRequest(TripMemberRole.OWNER)))
+        .isInstanceOf(ValidationException.class)
+        .hasMessageContaining("Cannot assign member with OWNER role");
   }
 
   @Test

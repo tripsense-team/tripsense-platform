@@ -10,23 +10,25 @@ import { useMyPendingInvitations } from '../hooks/use-trip-collaboration';
 
 export function PendingInvitationsBanner() {
   const router = useRouter();
-  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const {
     invitations,
     acceptInvitation,
     declineInvitation,
     isAccepting,
     isDeclining,
-  } = useMyPendingInvitations(user?.email);
+  } = useMyPendingInvitations(isAuthenticated);
 
   const [activeActionId, setActiveActionId] = React.useState<string | null>(null);
   const [successNotice, setSuccessNotice] = React.useState<string | null>(null);
+  const [errorNotice, setErrorNotice] = React.useState<string | null>(null);
 
   if (!invitations || invitations.length === 0) {
     return null;
   }
 
   const handleAccept = async (invitationId: string, tripId: string) => {
+    setErrorNotice(null);
     try {
       setActiveActionId(invitationId);
       await acceptInvitation(invitationId);
@@ -35,19 +37,22 @@ export function PendingInvitationsBanner() {
         router.push(`/trips/${tripId}`);
         router.refresh();
       }, 1000);
-    } catch {
-      // Error handled by query
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to accept invitation.';
+      setErrorNotice(msg);
     } finally {
       setActiveActionId(null);
     }
   };
 
   const handleDecline = async (invitationId: string) => {
+    setErrorNotice(null);
     try {
       setActiveActionId(invitationId);
       await declineInvitation(invitationId);
-    } catch {
-      // Error handled by query
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to decline invitation.';
+      setErrorNotice(msg);
     } finally {
       setActiveActionId(null);
     }
@@ -59,6 +64,12 @@ export function PendingInvitationsBanner() {
         <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
           <Check className="h-4 w-4" />
           {successNotice}
+        </div>
+      )}
+      {errorNotice && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-semibold text-destructive">
+          <X className="h-4 w-4" />
+          {errorNotice}
         </div>
       )}
       <div className="space-y-3">

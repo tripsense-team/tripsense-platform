@@ -41,12 +41,12 @@ public class TripCollaborationController {
         collaborationService.getTripInvitations(currentUserProvider.userId(), tripId));
   }
 
-  // TF-77/78: Get current user's pending invitations
+  // TF-77/78: Get current user's pending invitations (securely via JWT email)
   @GetMapping("/invitations/pending")
-  public ApiResponse<List<TripInvitationResponse>> getMyPendingInvitations(
-      @RequestParam(required = false) String email) {
+  public ApiResponse<List<TripInvitationResponse>> getMyPendingInvitations() {
     return ApiResponse.success(
-        collaborationService.getMyPendingInvitations(currentUserProvider.userId(), email));
+        collaborationService.getMyPendingInvitations(
+            currentUserProvider.userId(), currentUserProvider.userEmail()));
   }
 
   // TF-77: Accept trip invitation by ID
@@ -54,7 +54,8 @@ public class TripCollaborationController {
   public ApiResponse<TripMemberResponse> acceptInvitation(@PathVariable UUID invitationId) {
     return ApiResponse.success(
         "Invitation accepted",
-        collaborationService.acceptInvitation(currentUserProvider.userId(), invitationId));
+        collaborationService.acceptInvitation(
+            currentUserProvider.userId(), currentUserProvider.userEmail(), invitationId));
   }
 
   // TF-77: Accept trip invitation by Token
@@ -62,20 +63,23 @@ public class TripCollaborationController {
   public ApiResponse<TripMemberResponse> acceptInvitationByToken(@PathVariable String token) {
     return ApiResponse.success(
         "Invitation accepted",
-        collaborationService.acceptInvitationByToken(currentUserProvider.userId(), token));
+        collaborationService.acceptInvitationByToken(
+            currentUserProvider.userId(), currentUserProvider.userEmail(), token));
   }
 
   // TF-78: Decline trip invitation by ID
   @PostMapping("/invitations/{invitationId}/decline")
   public ApiResponse<Void> declineInvitation(@PathVariable UUID invitationId) {
-    collaborationService.declineInvitation(currentUserProvider.userId(), invitationId);
+    collaborationService.declineInvitation(
+        currentUserProvider.userId(), currentUserProvider.userEmail(), invitationId);
     return ApiResponse.success("Invitation declined", null);
   }
 
   // TF-78: Decline trip invitation by Token
   @PostMapping("/invitations/token/{token}/decline")
   public ApiResponse<Void> declineInvitationByToken(@PathVariable String token) {
-    collaborationService.declineInvitationByToken(currentUserProvider.userId(), token);
+    collaborationService.declineInvitationByToken(
+        currentUserProvider.userId(), currentUserProvider.userEmail(), token);
     return ApiResponse.success("Invitation declined", null);
   }
 

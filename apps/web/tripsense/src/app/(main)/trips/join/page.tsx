@@ -4,10 +4,11 @@ import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Users, CheckCircle2, XCircle, ArrowRight, Loader2, Sparkles, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoadingState } from '@/components/shared/loading-state';
 import { tripCollaborationService } from '@/features/trip-management/services/collaboration-service';
 import { useAuthStore } from '@/features/auth';
 
-export default function JoinTripPage() {
+function JoinTripContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
@@ -186,5 +187,13 @@ export default function JoinTripPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function JoinTripPage() {
+  return (
+    <React.Suspense fallback={<LoadingState className="min-h-[60vh]" text="Loading invitation..." />}>
+      <JoinTripContent />
+    </React.Suspense>
   );
 }

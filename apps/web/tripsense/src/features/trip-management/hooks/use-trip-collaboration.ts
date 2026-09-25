@@ -121,14 +121,14 @@ export function useTripCollaboration(tripId: string) {
   };
 }
 
-export function useMyPendingInvitations(email?: string | null) {
+export function useMyPendingInvitations(enabled: boolean = true) {
   const queryClient = useQueryClient();
-  const queryKey = ['my-pending-invitations', email];
+  const queryKey = ['my-pending-invitations'];
 
   const query = useQuery({
     queryKey,
-    queryFn: () => tripCollaborationService.getMyPendingInvitations(email || undefined),
-    enabled: Boolean(email),
+    queryFn: () => tripCollaborationService.getMyPendingInvitations(),
+    enabled,
     staleTime: 10 * 1000,
   });
 

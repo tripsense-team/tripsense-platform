@@ -20,16 +20,16 @@ public interface TripCollaborationService {
   List<TripInvitationResponse> getMyPendingInvitations(UUID userId, String userEmail);
 
   // TF-77: Accept trip invitation
-  TripMemberResponse acceptInvitation(UUID userId, UUID invitationId);
+  TripMemberResponse acceptInvitation(UUID userId, String userEmail, UUID invitationId);
 
   // TF-77 (by token): Accept invitation via public link token
-  TripMemberResponse acceptInvitationByToken(UUID userId, String token);
+  TripMemberResponse acceptInvitationByToken(UUID userId, String userEmail, String token);
 
   // TF-78: Decline trip invitation
-  void declineInvitation(UUID userId, UUID invitationId);
+  void declineInvitation(UUID userId, String userEmail, UUID invitationId);
 
   // TF-78 (by token): Decline invitation via token
-  void declineInvitationByToken(UUID userId, String token);
+  void declineInvitationByToken(UUID userId, String userEmail, String token);
 
   // TF-79: View trip members
   List<TripMemberResponse> getTripMembers(UUID userId, UUID tripId);

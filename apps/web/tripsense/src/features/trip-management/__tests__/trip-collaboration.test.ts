@@ -68,6 +68,29 @@ describe('tripCollaborationService', () => {
     expect(result).toEqual(mockMember);
   });
 
+  it('fetches user pending invitations (TF-77/78)', async () => {
+    const mockInvitations = [
+      {
+        id: 'inv-1',
+        tripId: 'trip-1',
+        inviteeEmail: 'alex@example.com',
+        role: 'EDITOR',
+        status: 'PENDING',
+        invitationToken: 'token123',
+      },
+    ];
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: mockInvitations,
+    });
+
+    const result = await tripCollaborationService.getMyPendingInvitations();
+
+    expect(apiClient).toHaveBeenCalledWith('/api/trips/invitations/pending');
+    expect(result).toEqual(mockInvitations);
+  });
+
   it('declines an invitation (TF-78)', async () => {
     vi.mocked(apiClient).mockResolvedValueOnce({
       success: true,

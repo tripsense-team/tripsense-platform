@@ -62,6 +62,12 @@ export function TripMembersDialog({
   const [message, setMessage] = React.useState('');
   const [formError, setFormError] = React.useState<string | null>(null);
   const [formSuccess, setFormSuccess] = React.useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = React.useState<{
+    type: 'REMOVE' | 'LEAVE';
+    memberId?: string;
+    memberName?: string;
+  } | null>(null);
+  const [actionError, setActionError] = React.useState<string | null>(null);
   const [copiedToken, setCopiedToken] = React.useState<string | null>(null);
 
   const handleSendInvite = async (e: React.FormEvent) => {
@@ -92,35 +98,25 @@ export function TripMembersDialog({
     }
   };
 
-  const handleRemoveMember = async (memberId: string, memberName?: string) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to remove ${memberName || 'this member'} from the trip?`
-      )
-    ) {
-      return;
-    }
+  const executeConfirmAction = async () => {
+    if (!confirmAction) return;
+    setActionError(null);
     try {
-      await removeMember(memberId);
-    } catch {
-      alert('Failed to remove member. Please try again.');
-    }
-  };
-
-  const handleLeaveTrip = async () => {
-    if (
-      !window.confirm(
-        'Are you sure you want to leave this shared trip? You will no longer have access.'
-      )
-    ) {
-      return;
-    }
-    try {
-      await leaveTrip();
-      onOpenChange(false);
-      router.push('/trips');
-    } catch {
-      alert('Failed to leave trip.');
+      if (confirmAction.type === 'REMOVE' && confirmAction.memberId) {
+        await removeMember(confirmAction.memberId);
+        setConfirmAction(null);
+      } else if (confirmAction.type === 'LEAVE') {
+        await leaveTrip();
+        setConfirmAction(null);
+        onOpenChange(false);
+        router.push('/trips');
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Action failed. Please try again.';
+      setActionError(msg);
     }
   };
 
@@ -216,7 +212,13 @@ export function TripMembersDialog({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full"
-                        onClick={() => handleRemoveMember(m.id, m.displayName || m.email)}
+                        onClick={() =>
+                          setConfirmAction({
+                            type: 'REMOVE',
+                            memberId: m.id,
+                            memberName: m.displayName || m.email || 'this member',
+                          })
+                        }
                         disabled={isRemovingMember}
                         title="Remove member"
                       >
@@ -228,13 +230,52 @@ export function TripMembersDialog({
               ))}
             </div>
 
+            {actionError && (
+              <div className="rounded-2xl bg-destructive/10 p-3 text-xs font-bold text-destructive">
+                {actionError}
+              </div>
+            )}
+
+            {/* Inline Confirmation Card */}
+            {confirmAction && (
+              <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+                <p className="text-xs font-bold text-destructive">
+                  {confirmAction.type === 'REMOVE'
+                    ? `Are you sure you want to remove ${confirmAction.memberName} from the trip?`
+                    : 'Are you sure you want to leave this shared trip? You will lose access.'}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 rounded-xl text-xs font-bold flex-1"
+                    onClick={() => setConfirmAction(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-bold flex-1"
+                    onClick={executeConfirmAction}
+                    disabled={isRemovingMember || isLeavingTrip}
+                  >
+                    {isRemovingMember || isLeavingTrip ? 'Processing...' : 'Confirm'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* TF-81: Leave trip button for non-owners */}
-            {!isOwner && currentUserRole !== 'NON_MEMBER' && (
+            {!isOwner && currentUserRole !== 'NON_MEMBER' && !confirmAction && (
               <div className="pt-2 border-t border-border">
                 <Button
                   variant="outline"
                   className="w-full text-destructive hover:bg-destructive/10 border-destructive/30 rounded-2xl font-bold text-sm h-10"
-                  onClick={handleLeaveTrip}
+                  onClick={() =>
+                    setConfirmAction({
+                      type: 'LEAVE',
+                    })
+                  }
                   disabled={isLeavingTrip}
                 >
                   <LogOut className="mr-2 h-4 w-4" />

@@ -34,6 +34,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -115,19 +117,19 @@ public class TripServiceImpl implements TripService {
 
     PageRequest pageRequest =
         PageRequest.of(page, Math.min(size, 100), Sort.by("startDate").ascending());
-    List<UUID> memberTripIds =
-        tripMemberRepository.findByUserId(userId).stream()
-            .map(m -> m.getTrip().getId())
-            .toList();
 
     Specification<Trip> specification =
         (root, query, criteriaBuilder) -> {
+          Subquery<UUID> memberSubquery = query.subquery(UUID.class);
+          Root<TripMember> memberRoot = memberSubquery.from(TripMember.class);
+          memberSubquery
+              .select(memberRoot.get("trip").get("id"))
+              .where(criteriaBuilder.equal(memberRoot.get("userId"), userId));
+
           Predicate accessPredicate =
-              memberTripIds.isEmpty()
-                  ? criteriaBuilder.equal(root.get("ownerUserId"), userId)
-                  : criteriaBuilder.or(
-                      criteriaBuilder.equal(root.get("ownerUserId"), userId),
-                      root.get("id").in(memberTripIds));
+              criteriaBuilder.or(
+                  criteriaBuilder.equal(root.get("ownerUserId"), userId),
+                  root.get("id").in(memberSubquery));
 
           return criteriaBuilder.and(
               accessPredicate,
