@@ -88,11 +88,56 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return r * c
 
 
+FOOD_SYNONYM_GROUPS: list[set[str]] = [
+    {"bánh tráng cuốn thịt heo", "bánh tráng thịt heo", "thịt heo cuốn bánh tráng", "thịt heo bánh tráng", "bánh tráng cuốn"},
+    {"bún chả cá", "chả cá", "bún chả"},
+    {"mì quảng", "mi quang", "mì quảng gà", "mì quảng tôm thịt", "mì quảng ếch", "mì quảng bà mua", "mì quảng sườn"},
+    {"bún mắm nêm", "bún mắm", "bún mắm heo quay", "bún mắm đà nẵng"},
+    {"cá nục cuốn bánh tráng", "cá nục cuốn", "bánh tráng cá nục", "cá nục"},
+    {"hải sản", "seafood", "tôm", "cua", "ghẹ", "mực", "nghêu", "ngao", "sò", "ốc", "hàu"},
+    {"cơm gà", "cơm gà xé", "cơm gà quay", "cơm gà đà nẵng"},
+    {"bánh xèo", "bánh xèo tôm nhảy", "nem lụi", "bánh xèo nem lụi"},
+    {"cao lầu", "cao lau"},
+    {"bánh mì", "banh mi", "bánh my"},
+    {"bún bò", "bún bò huế", "bun bo"},
+    {"bánh bèo", "bánh nậm", "bánh lọc", "bánh bột lọc", "bánh nậm lọc"},
+    {"chè", "chè sầu", "chè thái", "kem bơ"},
+]
+
+
+def matches_food_intent(food_target: str, text: str) -> tuple[bool, str]:
+    if not food_target or not text:
+        return False, ""
+    target_norm = food_target.strip().casefold()
+    text_norm = text.strip().casefold()
+
+    # 1. Direct substring match
+    if target_norm in text_norm:
+        return True, food_target
+
+    # 2. Check synonym groups
+    for group in FOOD_SYNONYM_GROUPS:
+        if any(alias in target_norm or target_norm in alias for alias in group):
+            for alias in group:
+                if alias in text_norm:
+                    return True, alias
+
+    # 3. Key multi-word token overlap (e.g. "bánh tráng" and "thịt heo")
+    tokens = [t for t in target_norm.split() if len(t) >= 3 and t not in ("quán", "món", "cuốn", "đặc", "sản")]
+    if len(tokens) >= 2 and all(token in text_norm for token in tokens):
+        return True, food_target
+
+    return False, ""
+
+
 class CandidateEvaluator:
     """Evaluates candidate places against GeographicScope and CoverageRequirements
 
     using typed provenance, without naive substring matching.
     """
+
+    def __init__(self, place_details_provider=None):
+        self.place_details_provider = place_details_provider
 
     def evaluate(self, place: dict[str, Any], scope: GeographicScope,
                  requirements: list[CoverageRequirement]) -> CandidateEvaluation:
@@ -271,28 +316,36 @@ class CandidateEvaluator:
                     excerpt=rev[:120],
                 )
 
-        # 1. Direct Name match (high confidence verified)
-        if target_norm in name:
+        # 1. Direct Name match (high confidence verified via intent matching)
+        matched_name, term_name = matches_food_intent(food_target, name)
+        if matched_name:
             return FoodEvidence(
                 food=food_target,
                 status=FoodEvidenceStatus.VERIFIED,
                 source_type=FoodEvidenceSource.OFFICIAL_DESCRIPTION,
                 confidence=0.95,
-                excerpt=f"Tên quán '{place.get('name')}' thể hiện món '{food_target}'",
+                excerpt=f"Tên quán '{place.get('name')}' thể hiện món '{term_name}'",
             )
 
         # 2. Categories match
-        if any(target_norm in cat for cat in categories):
+        cat_matched = False
+        for cat in categories:
+            m_cat, _ = matches_food_intent(food_target, cat)
+            if m_cat:
+                cat_matched = True
+                break
+        if cat_matched:
             return FoodEvidence(
                 food=food_target,
                 status=FoodEvidenceStatus.VERIFIED,
                 source_type=FoodEvidenceSource.PROVIDER_CATEGORY,
                 confidence=0.90,
-                excerpt=f"Danh mục quán chứa '{food_target}'",
+                excerpt=f"Danh mục quán chứa món '{food_target}'",
             )
 
         # 3. Description positive match
-        if target_norm in description and not any(neg in description for neg in ("không có", "không bán")):
+        m_desc, _ = matches_food_intent(food_target, description)
+        if m_desc and not any(neg in description for neg in ("không có", "không bán")):
             return FoodEvidence(
                 food=food_target,
                 status=FoodEvidenceStatus.LIKELY,
@@ -303,7 +356,8 @@ class CandidateEvaluator:
 
         # 4. Review positive match (must have positive sentiment towards the dish)
         for rev in reviews:
-            if target_norm in rev and any(pos in rev for pos in ("ngon", "đặc sản", "nổi tiếng", "đậm đà", "chuẩn vị", "rất thích", "tươi", "phục vụ")):
+            m_rev, _ = matches_food_intent(food_target, rev)
+            if m_rev and any(pos in rev for pos in ("ngon", "đặc sản", "nổi tiếng", "đậm đà", "chuẩn vị", "rất thích", "tươi", "phục vụ")):
                 return FoodEvidence(
                     food=food_target,
                     status=FoodEvidenceStatus.LIKELY,
@@ -336,6 +390,7 @@ class CandidateEvaluator:
         attraction_terms = (
             "attraction", "sightseeing", "tham quan", "di tích", "museum", "bảo tàng",
             "công viên", "park", "bãi biển", "beach", "cầu", "bridge", "chùa", "pagoda",
-            "hải đăng", "lighthouse", "bán đảo", "peninsula", "chợ", "market", "ngũ hành sơn", "bà nà"
+            "hải đăng", "lighthouse", "bán đảo", "peninsula", "chợ", "market", "ngũ hành sơn",
+            "bà nà", "sơn trà", "linh ứng", "mỹ khê", "hòn", "đảo", "vịnh", "tháp", "động"
         )
         return any(term in cat for cat in categories for term in attraction_terms) or any(term in name for term in attraction_terms)

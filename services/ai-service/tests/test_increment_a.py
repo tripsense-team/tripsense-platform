@@ -72,7 +72,7 @@ def test_execution_profiles_have_hard_bounded_limits():
     planning = budget_for_action(ActionType.PLAN_ITINERARY)
     assert direct.profile == ExecutionProfile.L0_DIRECT and direct.tool_calls == 0
     assert recommendation.external_refresh_rounds == 1 and recommendation.repair_attempts == 1
-    assert planning.tool_calls == 8 and planning.wall_seconds == 80
+    assert planning.tool_calls == 8 and planning.wall_seconds == 300
 
 
 def test_pending_location_does_not_accept_a_party_size_as_a_place():

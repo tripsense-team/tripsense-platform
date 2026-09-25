@@ -550,6 +550,136 @@ def extract_clean_search_query(user_text: str, fallback_query: str = "") -> str:
 
 
 
+def is_proposal_reference(text: str) -> bool:
+    if not text:
+        return False
+    norm = text.casefold()
+    patterns = (
+        r"(?:từ|theo|lấy|chốt|dựa\s+trên|dùng)\s+(?:đề\s+xuất|gợi\s+ý|lịch\s+trình|kế\s+hoạch|danh\s+sách|các\s+quán|các\s+điểm|những\s+điểm)\s*(?:này|trên|vừa\s+rồi|đó)?",
+        r"(?:tạo|lập|lên)\s+(?:lịch\s+trình|chuyến\s+đi)?\s*(?:từ|theo|dựa\s+trên)\s+(?:đề\s+xuất|gợi\s+ý|những\s+điểm|các\s+quán|bản\s+này)",
+        r"(?:ok|được|chốt|đồng\s+ý|duyệt)\s+(?:tạo|lập|lên|dùng)?\s*(?:lịch\s+trình|kế\s+hoạch|chuyến\s+đi)?\s*(?:từ|theo)?\s*(?:đề\s+xuất|gợi\s+ý)?",
+        r"(?:lấy|chọn)\s+(?:các\s+quán|các\s+điểm|đề\s+xuất)\s+này",
+        r"(?:tạo\s+chuyến\s+đi\s+từ\s+gợi\s+ý)",
+    )
+    return any(re.search(p, norm) for p in patterns)
+
+
+def extract_proposed_places_from_history(history: list[Any]) -> list[dict]:
+    found_places: list[dict] = []
+    seen_names: set[str] = set()
+
+    for msg in reversed(history):
+        role = getattr(msg, "role", None) if not isinstance(msg, dict) else msg.get("role")
+        role_str = str(getattr(role, "value", role) or "").lower()
+        if role_str != "assistant":
+            continue
+
+        # 1. Extract from artifacts if present
+        content_json = getattr(msg, "content_json", None) if not isinstance(msg, dict) else msg.get("content_json")
+        artifacts = (content_json or {}).get("artifacts", [])
+        for art in artifacts:
+            art_type = art.get("type")
+            art_data = art.get("data") or {}
+            if art_type == "PLACE_LIST" and isinstance(art_data.get("places"), list):
+                for p in art_data["places"]:
+                    if isinstance(p, dict) and p.get("name") and p["name"].casefold() not in seen_names:
+                        found_places.append({**p, "source": "PROPOSAL_REFERENCE", "isProposed": True})
+                        seen_names.add(p["name"].casefold())
+            elif art_type == "PLACE_CARD" and isinstance(art_data.get("place"), dict):
+                p = art_data["place"]
+                if p.get("name") and p["name"].casefold() not in seen_names:
+                    found_places.append({**p, "source": "PROPOSAL_REFERENCE", "isProposed": True})
+                    seen_names.add(p["name"].casefold())
+            elif art_type == "ITINERARY_PREVIEW" and isinstance(art_data.get("days"), list):
+                for day in art_data["days"]:
+                    for item in day.get("items", []):
+                        pid = item.get("canonicalPlaceId")
+                        title = item.get("title")
+                        if title and title.casefold() not in seen_names:
+                            found_places.append({
+                                "id": pid or f"prop-{re.sub(r'[^a-zA-Z0-9]+', '-', title.casefold()).strip('-')}",
+                                "name": title,
+                                "address": item.get("address"),
+                                "location": item.get("location"),
+                                "categories": item.get("categories") or ["attraction"],
+                                "source": "PROPOSAL_REFERENCE",
+                                "isProposed": True,
+                            })
+                            seen_names.add(title.casefold())
+
+        # 2. Extract from markdown text (e.g. "Tóm tắt tuyến đường" or timeline stops)
+        content = (getattr(msg, "content", "") if not isinstance(msg, dict) else msg.get("content")) or ""
+        if "tóm tắt tuyến đường" in content.casefold():
+            route_part = content.casefold().split("tóm tắt tuyến đường")[-1].split("chi phí")[0]
+            stops = re.findall(r"[→\-\*]\s*([^\n\r]+)", route_part)
+            for stop in stops:
+                clean_stop = stop.strip(" -→*#_").title()
+                if len(clean_stop) >= 3 and clean_stop.casefold() not in seen_names:
+                    found_places.append({
+                        "id": f"prop-{re.sub(r'[^a-zA-Z0-9]+', '-', clean_stop.casefold()).strip('-')}",
+                        "name": clean_stop,
+                        "source": "PROPOSAL_REFERENCE",
+                        "isExternal": True,
+                        "isProposed": True,
+                    })
+                    seen_names.add(clean_stop.casefold())
+
+        # Timeline and table pattern: e.g.
+        # "| 08:30–11:00 | Tham quan Ngũ Hành Sơn – quần thể núi nổi tiếng |"
+        # "08:15–10:30 — Tham quan Ngũ Hành Sơn"
+        table_stops = re.findall(
+            r"\|\s*\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}\s*\|\s*([^|\n\r]+)",
+            content
+        )
+        list_stops = re.findall(
+            r"(?:^|\n)\s*(?:[-*]\s*)?\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}\s*[:—–-]\s*([^\n\r]+)",
+            content
+        )
+        timeline_stops = table_stops + list_stops
+        for stop in timeline_stops:
+            raw_text = stop.strip(" *#_|\t")
+            # If line has " – " or " - " describing the place, take the leading place name
+            parts = re.split(r"\s+[-–—]\s+", raw_text)
+            candidate_texts = [parts[0]] if len(parts) > 1 else [raw_text]
+
+            for cand in candidate_texts:
+                clean_name = re.sub(
+                    r"^(?:ăn\s+(?:sáng|trưa|tối)(?:\s+hải\s+sản)?|tham\s+quan|dạo\s+bộ|nghỉ\s+ngơi|khám\s+phá|danh\s+thắng|chùa|tắm\s+biển|ngắm)\s+(?:tại|ở)?\s*",
+                    "",
+                    cand.strip(),
+                    flags=re.I
+                ).strip(" *#_:")
+                clean_name = re.sub(r"^(?:tại|ở)\s+", "", clean_name, flags=re.I).strip(" *#_:")
+                if " và " in clean_name and len(clean_name) > 20:
+                    sub_places = clean_name.split(" và ")
+                else:
+                    sub_places = [clean_name]
+
+                for sp in sub_places:
+                    sp_clean = re.sub(r"\s+(?:phun\s+lửa|đón\s+hoàng\s+hôn|về\s+đêm|ngắm\s+cảnh)$", "", sp.strip(), flags=re.I).strip()
+                    if len(sp_clean) >= 3 and sp_clean.casefold() not in seen_names:
+                        addr_match = re.search(
+                            rf"{re.escape(sp_clean)}[\s\S]*?địa\s+chỉ(?:\s+thường\s+được\s+(?:ghi\s+nhận|biết\s+đến))?\s*:\s*([^\n\r|]+)",
+                            content,
+                            flags=re.I
+                        )
+                        address = addr_match.group(1).strip() if addr_match else None
+                        found_places.append({
+                            "id": f"prop-{re.sub(r'[^a-zA-Z0-9]+', '-', sp_clean.casefold()).strip('-')}",
+                            "name": sp_clean,
+                            "address": address,
+                            "source": "PROPOSAL_REFERENCE",
+                            "isExternal": True,
+                            "isProposed": True,
+                        })
+                        seen_names.add(sp_clean.casefold())
+
+        if found_places:
+            break
+
+    return found_places
+
+
 def apply_goal_to_place_calls(calls: list[dict], goal, user_text: str = "", location_name: str = "") -> list[dict]:
     if goal is None:
         return calls
@@ -785,6 +915,13 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
         post_preview_missing: list[str] = []
         retrieval_outcome = None
         preview = None
+
+        is_proposal_ref = is_proposal_reference(tool_request_text)
+        proposed_places: list[dict] = []
+        if is_proposal_ref and run.action_type in {ActionType.PLAN_ITINERARY, ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN}:
+            proposed_places = extract_proposed_places_from_history(history)
+            if proposed_places:
+                grounding_results.append({"tool": "proposed_places", "data": proposed_places})
         try:
             model_started = time.monotonic()
             async with asyncio.timeout(min(settings.run_timeout_seconds, budget.wall_seconds)):
@@ -792,39 +929,52 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                 selected: list[dict] = []
                 allowed = allowed_tools(run.action_type, travel_goal)
                 if allowed:
-                    is_explicit_web_requested = any(k in tool_request_text.casefold() for k in ("search đi", "tìm trên mạng", "search online", "search web", "tìm kiếm online"))
-                    is_weather_or_live_requested = bool(
-                        travel_goal and any(sg in travel_goal.subgoals for sg in ("check_weather", "web_search"))
-                        or any(w in tool_request_text.casefold() for w in ("mưa", "thời tiết", "weather", "sự kiện", "event"))
-                    )
-                    try:
-                        selected = (fallback_tool_calls(run.action_type, tool_request_text, trip_id)
-                                    if refinement_base is not None else
-                                    [call for call in await adapter.select_tools(prompts, 1)
-                                     if call["name"] in allowed and (run.action_type == ActionType.CURRENT_RESEARCH
-                                                                     or is_explicit_web_requested
-                                                                     or is_weather_or_live_requested
-                                                                     or call["name"] not in {"web_search", "open_web_result"})
-                                     and (settings.brave_search_api_key or call["name"] not in {"web_search", "open_web_result"})])
-                    except Exception as exc:
-                        logger.info("tool_selection_fallback run_id=%s error=%s", run_id, type(exc).__name__)
-                    if not selected:
-                        selected = fallback_tool_calls(run.action_type, tool_request_text, trip_id)
-                    elif run.action_type in {ActionType.PLAN_ITINERARY, ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN}:
-                        required = fallback_tool_calls(run.action_type, tool_request_text, trip_id)
-                        place_reads = {"search_places", "nearby_places", "get_place_details", "recommend_places"}
-                        chosen_place = next((call for call in selected if call["name"] in place_reads), required[0])
-                        prioritized = [chosen_place, *[call for call in required if call["name"] not in place_reads]]
-                        selected_names = {call["name"] for call in prioritized}
-                        for call in selected:
-                            if len(prioritized) >= budget.tool_calls:
-                                break
-                            if call["name"] not in selected_names:
-                                prioritized.append(call)
-                                selected_names.add(call["name"])
-                        selected = prioritized[:budget.tool_calls]
                     loc_context = str(resolution.facts.get("LOCATION") or resolution.facts.get("DESTINATION") or (goal.searchArea or {}).get("name") or "").strip() if goal else ""
-                    selected = apply_goal_to_place_calls(selected, goal, tool_request_text, loc_context)
+                    dest_context_str = loc_context or str(resolution.facts.get("DESTINATION") or "").strip() or "Đà Nẵng"
+
+                    if is_proposal_ref and proposed_places:
+                        # User explicitly asked to create itinerary from recent proposal: resolve those specific places directly
+                        selected = [
+                            {
+                                "id": f"prop-resolve-{uuid4()}",
+                                "name": "search_places",
+                                "arguments": {"query": f"{p['name']} {dest_context_str}".strip(), "limit": 1}
+                            }
+                            for p in proposed_places[:budget.tool_calls]
+                        ]
+                    else:
+                        is_explicit_web_requested = any(k in tool_request_text.casefold() for k in ("search đi", "tìm trên mạng", "search online", "search web", "tìm kiếm online"))
+                        is_weather_or_live_requested = bool(
+                            travel_goal and any(sg in travel_goal.subgoals for sg in ("check_weather", "web_search"))
+                            or any(w in tool_request_text.casefold() for w in ("mưa", "thời tiết", "weather", "sự kiện", "event"))
+                        )
+                        try:
+                            selected = (fallback_tool_calls(run.action_type, tool_request_text, trip_id)
+                                        if refinement_base is not None else
+                                        [call for call in await adapter.select_tools(prompts, 1)
+                                         if call["name"] in allowed and (run.action_type == ActionType.CURRENT_RESEARCH
+                                                                         or is_explicit_web_requested
+                                                                         or is_weather_or_live_requested
+                                                                         or call["name"] not in {"web_search", "open_web_result"})
+                                         and (settings.brave_search_api_key or call["name"] not in {"web_search", "open_web_result"})])
+                        except Exception as exc:
+                            logger.info("tool_selection_fallback run_id=%s error=%s", run_id, type(exc).__name__)
+                        if not selected:
+                            selected = fallback_tool_calls(run.action_type, tool_request_text, trip_id)
+                        elif run.action_type in {ActionType.PLAN_ITINERARY, ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN}:
+                            required = fallback_tool_calls(run.action_type, tool_request_text, trip_id)
+                            place_reads = {"search_places", "nearby_places", "get_place_details", "recommend_places"}
+                            chosen_place = next((call for call in selected if call["name"] in place_reads), required[0])
+                            prioritized = [chosen_place, *[call for call in required if call["name"] not in place_reads]]
+                            selected_names = {call["name"] for call in prioritized}
+                            for call in selected:
+                                if len(prioritized) >= budget.tool_calls:
+                                    break
+                                if call["name"] not in selected_names:
+                                    prioritized.append(call)
+                                    selected_names.add(call["name"])
+                            selected = prioritized[:budget.tool_calls]
+                        selected = apply_goal_to_place_calls(selected, goal, tool_request_text, loc_context)
                     if run.action_type in {ActionType.PLACE_RECOMMENDATION, ActionType.PLAN_ITINERARY,
                                            ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN} \
                             and len(selected) < budget.tool_calls \

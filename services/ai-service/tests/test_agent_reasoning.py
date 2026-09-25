@@ -120,3 +120,67 @@ def test_permanently_closed_is_hard_rejected():
     res = evaluator.evaluate(closed_place, scope, [])
     assert res.eligible is False
     assert "PERMANENTLY_CLOSED" in res.rejection_reasons
+
+
+def test_food_intent_synonym_normalization():
+    from app.retrieval.candidate_evaluator import matches_food_intent
+
+    # Bánh tráng cuốn thịt heo synonyms
+    matched, term = matches_food_intent("bánh tráng cuốn thịt heo", "Bánh tráng thịt heo Quán Cơm Đại Lộc")
+    assert matched is True
+    assert term in ("bánh tráng cuốn thịt heo", "bánh tráng thịt heo")
+
+    matched, _ = matches_food_intent("bánh tráng cuốn thịt heo", "Đặc sản thịt heo cuốn bánh tráng Trần")
+    assert matched is True
+
+    # Bún chả cá synonyms
+    matched, _ = matches_food_intent("bún chả cá", "Chả cá Hờn - 113 Nguyễn Chí Thanh")
+    assert matched is True
+
+    # Seafood synonyms
+    matched, _ = matches_food_intent("hải sản", "Hải sản Bé Mặn")
+    assert matched is True
+
+
+def test_proposal_reference_detection_and_extraction():
+    from app.main import is_proposal_reference, extract_proposed_places_from_history
+
+    # Reference detection
+    assert is_proposal_reference("ok tạo lịch trình từ đề xuất này") is True
+    assert is_proposal_reference("chốt theo đề xuất trên") is True
+    assert is_proposal_reference("lên lịch theo gợi ý vừa rồi") is True
+    assert is_proposal_reference("tìm quán cà phê gần đây") is False
+
+    # Place extraction from prior assistant message
+    history = [
+        {"role": "user", "content": "tạo chuyến đi đà nẵng 1 ngày"},
+        {
+            "role": "assistant",
+            "content": (
+                "| 08:30–11:00 | Tham quan Ngũ Hành Sơn – quần thể núi nổi tiếng |\n"
+                "| 11:30–13:00 | Ăn trưa tại Bánh tráng cuốn thịt heo Đại Lộc |\n"
+                "| 14:00–16:00 | Khám phá Bán đảo Sơn Trà và Chùa Linh Ứng |\n"
+                "| 16:30–18:00 | Tắm biển tại Bãi biển Mỹ Khê |\n"
+                "| 18:30–20:00 | Ăn tối tại Hải sản Bé Mặn |\n"
+                "| 20:30–21:30 | Ngắm Cầu Rồng phun lửa |"
+            ),
+        },
+    ]
+    extracted = extract_proposed_places_from_history(history)
+    assert len(extracted) >= 5
+    extracted_names = [p["name"] for p in extracted]
+    assert any("Ngũ Hành Sơn" in n for n in extracted_names)
+    assert any("Sơn Trà" in n or "Linh Ứng" in n for n in extracted_names)
+    assert any("Mỹ Khê" in n for n in extracted_names)
+    assert any("Cầu Rồng" in n for n in extracted_names)
+
+
+def test_attraction_detection_expansion():
+    evaluator = CandidateEvaluator()
+    assert evaluator._is_attraction_venue({"name": "Ngũ Hành Sơn", "categories": []}) is True
+    assert evaluator._is_attraction_venue({"name": "Bán đảo Sơn Trà", "categories": []}) is True
+    assert evaluator._is_attraction_venue({"name": "Chùa Linh Ứng", "categories": []}) is True
+    assert evaluator._is_attraction_venue({"name": "Bãi biển Mỹ Khê", "categories": []}) is True
+    assert evaluator._is_attraction_venue({"name": "Cầu Rồng", "categories": []}) is True
+    assert evaluator._is_attraction_venue({"name": "Quán Cơm Bình Dân", "categories": ["restaurant"]}) is False
+

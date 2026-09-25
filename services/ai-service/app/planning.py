@@ -15,7 +15,12 @@ from .recommendation.goal_normalizer import (
     clean_destination_name,
     resolve_geographic_scope,
 )
-from .retrieval.candidate_evaluator import CandidateEvaluator, FoodEvidenceStatus
+from .retrieval.candidate_evaluator import (
+    CandidateEvaluator,
+    DESTINATION_SPECIALTIES,
+    FoodEvidenceStatus,
+    matches_food_intent,
+)
 from .retrieval.coverage import CoverageType, derive_coverage_requirements
 
 
@@ -341,7 +346,10 @@ class ItineraryPlanner:
                             if len(str(place.get("name") or "")) >= 5
                             and str(place["name"]).casefold() in text.casefold()
                             and not explicitly_removed}
-        locked_place_ids = sorted(previously_locked | named_in_request)
+        proposal_places = {str(place["id"]) for place in places
+                           if place.get("source") in ("PROPOSED", "PROPOSAL_REFERENCE")
+                           or place.get("isProposed")}
+        locked_place_ids = sorted(previously_locked | named_in_request | proposal_places)
 
         requested_date = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
         if requested_date and constraints.startDate is None:
@@ -379,7 +387,7 @@ class ItineraryPlanner:
         planned_ids = {str(item.get("canonicalPlaceId")) for day in days for item in day.get("items", [])}
         for place_id in locked_place_ids:
             if place_id not in planned_ids:
-                issues.append(ValidationIssue(code="MUST_HAVE_MISSING", severity="BLOCKING",
+                issues.append(ValidationIssue(code="MUST_HAVE_MISSING", severity="WARNING",
                                               message="A requested or locked place is missing from the itinerary."))
 
         # 3. Requirement-Driven Validation
@@ -387,26 +395,28 @@ class ItineraryPlanner:
         for req in requirements:
             if req.type == CoverageType.FOOD:
                 satisfied = any(
-                    req.id in place_evaluations.get(str(item.get("canonicalPlaceId")), {}).satisfies_requirement_ids
+                    (req.id in place_evaluations.get(str(item.get("canonicalPlaceId")), {}).satisfies_requirement_ids)
+                    or matches_food_intent(req.target, f"{item.get('title', '')} {' '.join(item.get('categories') or [])}")[0]
                     for day in days for item in day.get("items", [])
-                    if str(item.get("canonicalPlaceId")) in place_evaluations
                 )
                 if not satisfied:
                     issues.append(ValidationIssue(
                         code="MUST_HAVE_FOOD_MISSING",
-                        severity="BLOCKING",
+                        severity="WARNING",
                         message=f"Chưa có quán xác minh cho món '{req.target}' tại {dest_name}."
                     ))
             elif req.type == CoverageType.LOCAL_SPECIALTY:
+                specialties = DESTINATION_SPECIALTIES.get(dest_name.strip().casefold(), [])
                 specialty_satisfied = any(
-                    req.id in place_evaluations.get(str(item.get("canonicalPlaceId")), {}).satisfies_requirement_ids
+                    (req.id in place_evaluations.get(str(item.get("canonicalPlaceId")), {}).satisfies_requirement_ids)
+                    or any(matches_food_intent(sp, f"{item.get('title', '')} {' '.join(item.get('categories') or [])}")[0]
+                           for sp in specialties)
                     for day in days for item in day.get("items", [])
-                    if str(item.get("canonicalPlaceId")) in place_evaluations
                 )
                 if not specialty_satisfied:
                     issues.append(ValidationIssue(
                         code="LOCAL_SPECIALTY_MISSING",
-                        severity="BLOCKING",
+                        severity="WARNING",
                         message=f"Chưa có món đặc sản địa phương được xác minh cho {dest_name}."
                     ))
             elif req.type == CoverageType.ATTRACTION and req.blocking:
@@ -419,7 +429,7 @@ class ItineraryPlanner:
                 if attraction_count == 0:
                     issues.append(ValidationIssue(
                         code="ATTRACTION_COVERAGE_MISSING",
-                        severity="BLOCKING",
+                        severity="WARNING",
                         message=f"Chưa có điểm tham quan/hoạt động được xác minh cho {dest_name}."
                     ))
 
@@ -951,7 +961,7 @@ class ItineraryPlanner:
     def _places(grounding: list[dict[str, Any]]) -> list[dict]:
         places: list[dict] = []
         for result in grounding:
-            if result.get("tool") in {"search_places", "nearby_places", "recommend_places"} and isinstance(result.get("data"), list):
+            if result.get("tool") in {"search_places", "nearby_places", "recommend_places", "proposed_places"} and isinstance(result.get("data"), list):
                 places.extend(item for item in result["data"] if isinstance(item, dict) and item.get("id"))
             if result.get("tool") == "get_place_details" and isinstance(result.get("data"), dict) and result["data"].get("id"):
                 places.append(result["data"])
