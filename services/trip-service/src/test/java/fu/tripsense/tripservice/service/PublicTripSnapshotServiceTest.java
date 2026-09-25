@@ -16,6 +16,7 @@ import fu.tripsense.tripservice.enums.TripStatus;
 import fu.tripsense.tripservice.repository.ItineraryDayRepository;
 import fu.tripsense.tripservice.repository.ItineraryItemRepository;
 import fu.tripsense.tripservice.repository.TripRepository;
+import fu.tripsense.tripservice.repository.TripMemberRepository;
 import fu.tripsense.tripservice.service.impl.TripServiceImpl;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -35,6 +36,7 @@ class PublicTripSnapshotServiceTest {
   private TripRepository trips;
   private ItineraryDayRepository days;
   private ItineraryItemRepository items;
+  private TripMemberRepository tripMembers;
   private TripService service;
 
   @BeforeEach
@@ -42,11 +44,13 @@ class PublicTripSnapshotServiceTest {
     trips = mock(TripRepository.class);
     days = mock(ItineraryDayRepository.class);
     items = mock(ItineraryItemRepository.class);
+    tripMembers = mock(TripMemberRepository.class);
     service =
         new TripServiceImpl(
             trips,
             days,
             items,
+            tripMembers,
             mock(PlaceClient.class),
             Clock.fixed(Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC),
             new ObjectMapper().findAndRegisterModules());

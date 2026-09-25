@@ -10,12 +10,15 @@ import fu.tripsense.tripservice.dto.response.*;
 import fu.tripsense.tripservice.entity.ItineraryDay;
 import fu.tripsense.tripservice.entity.ItineraryItem;
 import fu.tripsense.tripservice.entity.Trip;
+import fu.tripsense.tripservice.entity.TripMember;
 import fu.tripsense.tripservice.enums.*;
 import fu.tripsense.tripservice.exception.ConflictException;
+import fu.tripsense.tripservice.exception.ForbiddenException;
 import fu.tripsense.tripservice.exception.NotFoundException;
 import fu.tripsense.tripservice.exception.ValidationException;
 import fu.tripsense.tripservice.repository.ItineraryDayRepository;
 import fu.tripsense.tripservice.repository.ItineraryItemRepository;
+import fu.tripsense.tripservice.repository.TripMemberRepository;
 import fu.tripsense.tripservice.repository.TripRepository;
 import fu.tripsense.tripservice.service.TripService;
 import java.net.URI;
@@ -30,6 +33,9 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -57,6 +63,7 @@ public class TripServiceImpl implements TripService {
   private final TripRepository tripRepository;
   private final ItineraryDayRepository dayRepository;
   private final ItineraryItemRepository itemRepository;
+  private final TripMemberRepository tripMemberRepository;
   private final PlaceClient placeClient;
   private final Clock clock;
   private final ObjectMapper objectMapper;
@@ -87,6 +94,13 @@ public class TripServiceImpl implements TripService {
 
     Trip saved = tripRepository.save(trip);
     generateMissingDays(saved);
+    tripMemberRepository.save(
+        TripMember.builder()
+            .trip(saved)
+            .userId(userId)
+            .role(TripMemberRole.OWNER)
+            .joinedAt(saved.getCreatedAt() != null ? saved.getCreatedAt() : Instant.now())
+            .build());
     return toTripResponse(saved);
   }
 
@@ -103,20 +117,33 @@ public class TripServiceImpl implements TripService {
 
     PageRequest pageRequest =
         PageRequest.of(page, Math.min(size, 100), Sort.by("startDate").ascending());
+
     Specification<Trip> specification =
-        (root, query, criteriaBuilder) ->
-            criteriaBuilder.and(
-                criteriaBuilder.equal(root.get("ownerUserId"), userId),
-                criteriaBuilder.isNull(root.get("archivedAt")),
-                status == null
-                    ? criteriaBuilder.conjunction()
-                    : criteriaBuilder.equal(root.get("status"), status),
-                from == null
-                    ? criteriaBuilder.conjunction()
-                    : criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), from),
-                to == null
-                    ? criteriaBuilder.conjunction()
-                    : criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), to));
+        (root, query, criteriaBuilder) -> {
+          Subquery<UUID> memberSubquery = query.subquery(UUID.class);
+          Root<TripMember> memberRoot = memberSubquery.from(TripMember.class);
+          memberSubquery
+              .select(memberRoot.get("trip").get("id"))
+              .where(criteriaBuilder.equal(memberRoot.get("userId"), userId));
+
+          Predicate accessPredicate =
+              criteriaBuilder.or(
+                  criteriaBuilder.equal(root.get("ownerUserId"), userId),
+                  root.get("id").in(memberSubquery));
+
+          return criteriaBuilder.and(
+              accessPredicate,
+              criteriaBuilder.isNull(root.get("archivedAt")),
+              status == null
+                  ? criteriaBuilder.conjunction()
+                  : criteriaBuilder.equal(root.get("status"), status),
+              from == null
+                  ? criteriaBuilder.conjunction()
+                  : criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), from),
+              to == null
+                  ? criteriaBuilder.conjunction()
+                  : criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), to));
+        };
     Page<Trip> trips = tripRepository.findAll(specification, pageRequest);
 
     return new TripListResponse(
@@ -131,7 +158,7 @@ public class TripServiceImpl implements TripService {
   @Cacheable(cacheNames = "trip-detail", key = "#userId + ':' + #tripId")
   @Override
   public TripResponse getTrip(UUID userId, UUID tripId) {
-    return toTripResponse(getOwnedTrip(userId, tripId));
+    return toTripResponse(getReadableTrip(userId, tripId));
   }
 
   @Transactional
@@ -140,7 +167,7 @@ public class TripServiceImpl implements TripService {
       allEntries = true)
   @Override
   public TripResponse updateTrip(UUID userId, UUID tripId, UpdateTripRequest request) {
-    Trip trip = getOwnedTrip(userId, tripId);
+    Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
 
     LocalDate nextStart = request.startDate() != null ? request.startDate() : trip.getStartDate();
@@ -209,7 +236,7 @@ public class TripServiceImpl implements TripService {
   @Cacheable(cacheNames = "trip-itinerary", key = "#userId + ':' + #tripId")
   @Override
   public ItineraryResponse getItinerary(UUID userId, UUID tripId) {
-    Trip trip = getOwnedTrip(userId, tripId);
+    Trip trip = getReadableTrip(userId, tripId);
     List<ItineraryDay> days = dayRepository.findByTripIdOrderByDayNumberAsc(trip.getId());
     return new ItineraryResponse(
         trip.getId(),
@@ -226,7 +253,7 @@ public class TripServiceImpl implements TripService {
   @Transactional(readOnly = true)
   @Override
   public ItineraryDayResponse getItineraryDay(UUID userId, UUID tripId, UUID dayId) {
-    Trip trip = getOwnedTrip(userId, tripId);
+    Trip trip = getReadableTrip(userId, tripId);
     ItineraryDay day = getTripDay(trip.getId(), dayId);
     return toDayResponse(
         day, itemRepository.findByTripIdAndDayIdOrderBySortOrderAsc(trip.getId(), day.getId()));
@@ -239,7 +266,7 @@ public class TripServiceImpl implements TripService {
   @Override
   public ItineraryItemResponse createItem(
       UUID userId, UUID tripId, UUID dayId, CreateItineraryItemRequest request) {
-    Trip trip = getOwnedTrip(userId, tripId);
+    Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
     ItineraryDay day = getTripDay(trip.getId(), dayId);
     validateTimeRange(request.startTime(), request.endTime());
@@ -285,7 +312,7 @@ public class TripServiceImpl implements TripService {
   @Override
   public ItineraryItemResponse updateItem(
       UUID userId, UUID tripId, UUID itemId, UpdateItineraryItemRequest request) {
-    Trip trip = getOwnedTrip(userId, tripId);
+    Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
     ItineraryItem item =
         itemRepository
@@ -338,7 +365,7 @@ public class TripServiceImpl implements TripService {
       allEntries = true)
   @Override
   public void deleteItem(UUID userId, UUID tripId, UUID itemId) {
-    Trip trip = getOwnedTrip(userId, tripId);
+    Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
     itemRepository
         .findByIdAndTripId(itemId, trip.getId())
@@ -357,7 +384,7 @@ public class TripServiceImpl implements TripService {
   @Override
   public ItineraryDayResponse reorderItems(
       UUID userId, UUID tripId, UUID dayId, ReorderItemsRequest request) {
-    Trip trip = getOwnedTrip(userId, tripId);
+    Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
     ItineraryDay day =
         dayRepository
@@ -624,6 +651,38 @@ public class TripServiceImpl implements TripService {
     return tripRepository
         .findByIdAndOwnerUserIdAndArchivedAtIsNull(tripId, userId)
         .orElseThrow(() -> new NotFoundException("TRIP_NOT_FOUND", "Trip not found"));
+  }
+
+  private Trip getReadableTrip(UUID userId, UUID tripId) {
+    Trip trip =
+        tripRepository
+            .findById(tripId)
+            .orElseThrow(() -> new NotFoundException("TRIP_NOT_FOUND", "Trip not found"));
+    ensureNotArchived(trip);
+    if (trip.getOwnerUserId().equals(userId)
+        || tripMemberRepository.existsByTripIdAndUserId(tripId, userId)) {
+      return trip;
+    }
+    throw new NotFoundException("TRIP_NOT_FOUND", "Trip not found");
+  }
+
+  private Trip getEditableTrip(UUID userId, UUID tripId) {
+    Trip trip =
+        tripRepository
+            .findById(tripId)
+            .orElseThrow(() -> new NotFoundException("TRIP_NOT_FOUND", "Trip not found"));
+    ensureNotArchived(trip);
+    if (trip.getOwnerUserId().equals(userId)) {
+      return trip;
+    }
+    Optional<TripMember> member = tripMemberRepository.findByTripIdAndUserId(tripId, userId);
+    if (member.isPresent()
+        && (member.get().getRole() == TripMemberRole.OWNER
+            || member.get().getRole() == TripMemberRole.EDITOR)) {
+      return trip;
+    }
+    throw new ForbiddenException(
+        "PERMISSION_DENIED", "You do not have permission to edit this trip");
   }
 
   private ItineraryDay getTripDay(UUID tripId, UUID dayId) {
