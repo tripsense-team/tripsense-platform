@@ -1,6 +1,7 @@
 package fu.tripsense.apigateway;
 
 import java.util.List;
+import org.springframework.http.HttpMethod;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
@@ -33,6 +34,7 @@ class GatewayRoutesConfig {
   static final String SOCIAL_SERVICE_ROUTE_ID = "social-service";
   static final String SOCIAL_SERVICE_PATH = "/api/social/**";
   static final String SOCIAL_SERVICE_URI = "lb://social-service";
+  static final String CHAT_STREAM_PATH = "/api/social/chat/events";
   static final String CONTEXT_SERVICE_ROUTE_ID = "context-service";
   static final String CONTEXT_SERVICE_PATH = "/api/context/**";
   static final String CONTEXT_SERVICE_URI = "lb://context-service";
@@ -46,11 +48,14 @@ class GatewayRoutesConfig {
       RouteLocatorBuilder routes,
       RedisRateLimiter placeRedisRateLimiter,
       RedisRateLimiter socialRedisRateLimiter,
+      RedisRateLimiter chatRedisRateLimiter,
       KeyResolver clientIpKeyResolver,
       @Value("${tripsense.gateway.places-rate-limit.enabled:false}")
           boolean placeRateLimitingEnabled,
       @Value("${tripsense.gateway.social-rate-limit.enabled:false}")
-          boolean socialRateLimitingEnabled) {
+          boolean socialRateLimitingEnabled,
+      @Value("${tripsense.gateway.chat-rate-limit.enabled:true}")
+          boolean chatRateLimitingEnabled) {
     return routes
         .routes()
         .route(
@@ -87,6 +92,34 @@ class GatewayRoutesConfig {
                                 .setResponseHeader("X-Accel-Buffering", "no"))
                     .uri(AI_SERVICE_URI))
         .route(
+            "chat-stream",
+            route -> route.path(CHAT_STREAM_PATH)
+                .filters(filters -> filters.setResponseHeader("Cache-Control","no-store")
+                    .setResponseHeader("X-Accel-Buffering","no"))
+                .uri(SOCIAL_SERVICE_URI))
+        .route(
+            "chat-send",
+            route -> {
+              var r=route.path("/api/social/chat/conversations/*/messages").and().method(HttpMethod.POST);
+              if (chatRateLimitingEnabled) r.filters(filters -> filters.requestRateLimiter(config -> {
+                config.setRateLimiter(chatRedisRateLimiter);
+                config.setKeyResolver(clientIpKeyResolver);
+                config.setDenyEmptyKey(true);
+              }));
+              return r.uri(SOCIAL_SERVICE_URI);
+            })
+        .route(
+            "chat-user-search",
+            route -> {
+              var r=route.path("/api/social/chat/users").and().method(HttpMethod.GET);
+              if (chatRateLimitingEnabled) r.filters(filters -> filters.requestRateLimiter(config -> {
+                config.setRateLimiter(chatRedisRateLimiter);
+                config.setKeyResolver(clientIpKeyResolver);
+                config.setDenyEmptyKey(true);
+              }));
+              return r.uri(SOCIAL_SERVICE_URI);
+            })
+        .route(
             SOCIAL_SERVICE_ROUTE_ID,
             route -> {
               var r = route.path(SOCIAL_SERVICE_PATH);
@@ -120,6 +153,13 @@ class GatewayRoutesConfig {
   RedisRateLimiter socialRedisRateLimiter(
       @Value("${tripsense.gateway.social-rate-limit.replenish-rate:30}") int replenishRate,
       @Value("${tripsense.gateway.social-rate-limit.burst-capacity:60}") int burstCapacity) {
+    return new RedisRateLimiter(replenishRate, burstCapacity);
+  }
+
+  @Bean
+  RedisRateLimiter chatRedisRateLimiter(
+      @Value("${tripsense.gateway.chat-rate-limit.replenish-rate:5}") int replenishRate,
+      @Value("${tripsense.gateway.chat-rate-limit.burst-capacity:10}") int burstCapacity) {
     return new RedisRateLimiter(replenishRate, burstCapacity);
   }
 

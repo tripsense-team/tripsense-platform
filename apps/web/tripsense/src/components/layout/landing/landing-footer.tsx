@@ -25,21 +25,21 @@ export function LandingFooter() {
             <div className="flex items-center gap-3 pt-2">
               <Link
                 href="#"
-                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
               >
-                <Globe className="h-4 w-4" />
+                <Globe className="h-5 w-5" />
               </Link>
               <Link
                 href="#"
-                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
               >
-                <Share2 className="h-4 w-4" />
+                <Share2 className="h-5 w-5" />
               </Link>
               <Link
                 href="#"
-                className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
               >
-                <MessageCircle className="h-4 w-4" />
+                <MessageCircle className="h-5 w-5" />
               </Link>
             </div>
           </div>

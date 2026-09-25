@@ -35,6 +35,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/social/moderation/**")
                     .hasAnyRole("MODERATOR", "ADMIN")
+                    .requestMatchers("/api/social/chat/**")
+                    .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/social/**")
                     .permitAll()
                     .anyRequest()

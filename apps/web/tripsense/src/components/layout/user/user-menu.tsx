@@ -45,8 +45,8 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-            <Avatar className="h-8 w-8">
+          <button className="flex h-10 w-10 items-center justify-center rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+            <Avatar className="h-9 w-9">
               <AvatarImage
                 src={displayAvatar}
                 alt={displayName || activeUser?.email || t("common.guestUser")}

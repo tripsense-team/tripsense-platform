@@ -18,7 +18,7 @@ export function LandingInspiration() {
               Instant Import
             </Badge>
 
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
               Start with an idea <br />
               or a photo.
             </h2>
@@ -62,7 +62,7 @@ export function LandingInspiration() {
                 </span>
                 <Badge
                   variant="outline"
-                  className="ml-auto text-[10px] shrink-0 bg-background"
+                  className="ml-auto text-micro shrink-0 bg-background"
                 >
                   Imported
                 </Badge>

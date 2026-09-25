@@ -52,12 +52,15 @@ export const authApi = {
         .getState()
         .setAuth(response.data.user, response.data.accessToken);
 
-      // Fetch profile to populate avatar in global store
+      // Fetch profile to populate avatar and name in global store
       profileService
         .getUserProfile(response.data.user.id)
         .then((profile) => {
-          if (profile?.avatarUrl) {
-            useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+          if (profile) {
+            useAuthStore.getState().updateUserProfile({
+              avatar: profile.avatarUrl || undefined,
+              name: profile.displayName || undefined,
+            });
           }
         })
         .catch(() => {
@@ -83,12 +86,15 @@ export const authApi = {
         .getState()
         .setAuth(response.data.user, response.data.accessToken);
 
-      // Fetch profile to populate avatar in global store
+      // Fetch profile to populate avatar and name in global store
       profileService
         .getUserProfile(response.data.user.id)
         .then((profile) => {
-          if (profile?.avatarUrl) {
-            useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+          if (profile) {
+            useAuthStore.getState().updateUserProfile({
+              avatar: profile.avatarUrl || undefined,
+              name: profile.displayName || undefined,
+            });
           }
         })
         .catch(() => {
@@ -132,6 +138,21 @@ export const authApi = {
         timestamp: new Date().toISOString(),
       };
     } finally {
+      // Unregister FCM device token if present
+      if (typeof window !== "undefined") {
+        const storedToken = localStorage.getItem("tripsense_fcm_token");
+        if (storedToken) {
+          try {
+            await apiClient("/api/social/chat/devices/fcm-token", {
+              method: "DELETE",
+              body: JSON.stringify({ fcmToken: storedToken }),
+            });
+            localStorage.removeItem("tripsense_fcm_token");
+          } catch {
+            // Ignore non-blocking error
+          }
+        }
+      }
       // 2. Clear frontend state after dispatching request
       useAuthStore.getState().clearAuth();
     }

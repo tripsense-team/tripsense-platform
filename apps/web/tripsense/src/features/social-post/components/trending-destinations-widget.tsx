@@ -30,7 +30,7 @@ export function TrendingDestinationsWidget({
             <h2 className="font-bold text-sm sm:text-base text-foreground">
               {t("social.trendingDestinations")}
             </h2>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-micro text-muted-foreground">
               {t("social.trendingDestinationsSubtitle")}
             </p>
           </div>
@@ -71,12 +71,12 @@ export function TrendingDestinationsWidget({
                     ? t(`social.${dest.cityNameKey}`)
                     : dest.name}
                 </h3>
-                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-micro font-bold text-primary">
                   {dest.shareCountText}
                 </span>
               </div>
 
-              <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+              <p className="text-micro text-muted-foreground truncate mt-0.5">
                 {dest.subtitleKey
                   ? t(`social.${dest.subtitleKey}`)
                   : dest.subtitle}

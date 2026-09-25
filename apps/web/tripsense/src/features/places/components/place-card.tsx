@@ -67,7 +67,7 @@ export function PlaceCard({
           )}
 
           {typeof index === "number" && (
-            <div className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/80 text-white font-extrabold text-xs shadow-md backdrop-blur-xs">
+            <div className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/80 text-white font-bold text-xs shadow-md backdrop-blur-xs">
               {index}
             </div>
           )}
@@ -75,7 +75,7 @@ export function PlaceCard({
           {primaryCategory && (
             <Badge
               variant="secondary"
-              className="absolute top-2.5 left-2.5 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-medium text-[11px] px-2.5 py-0.5 shadow-2xs capitalize"
+              className="absolute top-2.5 left-2.5 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-medium text-micro px-2.5 py-0.5 shadow-2xs capitalize"
             >
               {primaryCategory.replace(/_/g, " ")}
             </Badge>
@@ -117,7 +117,7 @@ export function PlaceCard({
 
             {/* Opening Hours */}
             {place.openingHours && (
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-micro text-muted-foreground">
                 <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
                 <span className="line-clamp-1">{place.openingHours}</span>
               </div>
@@ -132,7 +132,7 @@ export function PlaceCard({
                 e.stopPropagation();
                 onViewDetails();
               }}
-              className="w-full rounded-xl text-xs font-semibold h-8 mt-1 hover:bg-primary hover:text-primary-foreground transition-all"
+              className="w-full rounded-xl text-xs font-semibold mt-1 hover:bg-primary hover:text-primary-foreground transition-all"
             >
               Xem chi tiết
             </Button>
@@ -167,14 +167,14 @@ export function PlaceCard({
         ) : (
           <div className="flex flex-col h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-muted/80 text-muted-foreground text-xs font-medium text-center p-3 gap-1">
             <MapPin className="h-5 w-5 text-primary/70" />
-            <span className="line-clamp-1 font-semibold text-foreground text-[11px]">
+            <span className="line-clamp-1 font-semibold text-foreground text-micro">
               {place.name}
             </span>
           </div>
         )}
 
         {typeof index === "number" && (
-          <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950/80 text-white font-extrabold text-[10px] shadow-sm backdrop-blur-xs">
+          <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-950/80 text-white font-bold text-micro shadow-sm backdrop-blur-xs">
             {index}
           </div>
         )}
@@ -182,7 +182,7 @@ export function PlaceCard({
         {primaryCategory && (
           <Badge
             variant="secondary"
-            className="absolute top-2 left-2 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-medium text-[10px] px-2 py-0.5 shadow-2xs capitalize"
+            className="absolute top-2 left-2 bg-background/90 text-foreground backdrop-blur-md border border-border/40 font-medium text-micro px-2 py-0.5 shadow-2xs capitalize"
           >
             {primaryCategory.replace(/_/g, " ")}
           </Badge>
@@ -205,7 +205,7 @@ export function PlaceCard({
               </div>
               {typeof place.userRatingCount === "number" &&
                 place.userRatingCount > 0 && (
-                  <span className="text-muted-foreground text-[11px]">
+                  <span className="text-muted-foreground text-micro">
                     ({place.userRatingCount.toLocaleString()})
                   </span>
                 )}
@@ -222,7 +222,7 @@ export function PlaceCard({
 
           {/* Opening Hours */}
           {place.openingHours && (
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-micro text-muted-foreground">
               <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
               <span className="truncate">{place.openingHours}</span>
             </div>
@@ -231,7 +231,7 @@ export function PlaceCard({
 
         {/* Action Row */}
         <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border/40 mt-1">
-          <span className="text-[11px] font-medium text-primary">Đà Nẵng</span>
+          <span className="text-micro font-medium text-primary">Đà Nẵng</span>
           {onViewDetails && (
             <Button
               variant="ghost"
@@ -240,7 +240,7 @@ export function PlaceCard({
                 e.stopPropagation();
                 onViewDetails();
               }}
-              className="h-7 text-xs font-semibold px-2.5 hover:bg-primary hover:text-primary-foreground rounded-lg transition-all"
+              className="text-xs font-semibold px-2.5 hover:bg-primary hover:text-primary-foreground rounded-lg transition-all"
             >
               Chi tiết
             </Button>

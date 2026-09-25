@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   MapPin,
@@ -11,6 +12,10 @@ import {
   Globe,
   Link as LinkIcon,
   Briefcase,
+  UserPlus,
+  UserCheck,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,17 +24,24 @@ import { EmptyState, ErrorState } from "@/components/shared";
 import { useUserPosts } from "../hooks";
 import { PostCard } from "./post-card";
 import { PostCardSkeleton } from "./post-card-skeleton";
+import { getSocialPostRepository } from "../services";
 import { useUserProfile, EditProfileModal } from "@/features/profile";
 import { useAuth } from "@/features/auth/context/auth-context";
+import { useTranslation } from "@/i18n";
+import { cn } from "@/lib/utils";
 
 interface UserPostsScreenProps {
   userId: string;
 }
 
 export function UserPostsScreen({ userId }: UserPostsScreenProps) {
+  const { t } = useTranslation();
+  const router = useRouter();
   const { user: currentUser } = useAuth();
   const isOwnProfile = currentUser?.id === userId;
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isFollowing, setIsFollowing] = React.useState<boolean>(false);
+  const [followingPending, setFollowingPending] = React.useState<boolean>(false);
 
   const {
     posts,
@@ -52,6 +64,34 @@ export function UserPostsScreen({ userId }: UserPostsScreenProps) {
     }
     return author.name.slice(0, 2).toUpperCase();
   }, [author]);
+
+  React.useEffect(() => {
+    if (author?.isFollowing !== undefined) {
+      setIsFollowing(author.isFollowing);
+    }
+  }, [author?.isFollowing]);
+
+  const handleFollowToggle = async () => {
+    if (followingPending) return;
+    const nextState = !isFollowing;
+    setIsFollowing(nextState);
+    setFollowingPending(true);
+    try {
+      await getSocialPostRepository().toggleFollowCreator(userId, isFollowing);
+    } catch {
+      // Keep optimistic follow state in mock environment if not in presets
+    } finally {
+      setFollowingPending(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/community");
+    }
+  };
 
   const avatarUrl = profile?.avatarUrl || author?.avatar;
   const coverUrl = profile?.coverUrl;
@@ -91,13 +131,11 @@ export function UserPostsScreen({ userId }: UserPostsScreenProps) {
         <Button
           variant="ghost"
           size="sm"
-          asChild
-          className="gap-2 rounded-full px-3 text-sm font-medium text-muted-foreground hover:text-foreground -ml-2"
+          onClick={handleBack}
+          className="gap-2 rounded-full px-3 text-sm font-medium text-muted-foreground hover:text-foreground -ml-2 cursor-pointer hover:bg-muted transition-colors"
         >
-          <Link href="/community">
-            <ArrowLeft className="h-4 w-4" />
-            <span>Quay lại cộng đồng</span>
-          </Link>
+          <ArrowLeft className="h-4 w-4" />
+          <span>{t("common.back")}</span>
         </Button>
       </div>
 
@@ -128,7 +166,7 @@ export function UserPostsScreen({ userId }: UserPostsScreenProps) {
               </AvatarFallback>
             </Avatar>
 
-            {isOwnProfile && (
+            {isOwnProfile ? (
               <Button
                 variant="outline"
                 className="gap-2 rounded-full font-semibold mt-12 sm:mt-0"
@@ -136,12 +174,52 @@ export function UserPostsScreen({ userId }: UserPostsScreenProps) {
               >
                 <Edit className="w-4 h-4" /> Chỉnh sửa cá nhân
               </Button>
+            ) : (
+              <div className="flex items-center gap-2.5 mt-12 sm:mt-0 flex-wrap">
+                {/* Follow / Following Button */}
+                <Button
+                  type="button"
+                  variant={isFollowing ? "secondary" : "default"}
+                  disabled={followingPending}
+                  onClick={handleFollowToggle}
+                  className={cn(
+                    "gap-2 rounded-full font-semibold text-sm h-10 px-5 shadow-xs transition-all cursor-pointer",
+                    isFollowing
+                      ? "bg-muted text-foreground border border-border/80 hover:bg-muted/80"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  )}
+                >
+                  {followingPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isFollowing ? (
+                    <UserCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  <span>
+                    {isFollowing ? t("social.following") : t("social.follow")}
+                  </span>
+                </Button>
+
+                {/* Message Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  asChild
+                  className="gap-2 rounded-full font-semibold text-sm h-10 px-5 border-border/80 text-foreground hover:bg-muted shadow-2xs transition-all cursor-pointer"
+                >
+                  <Link href={`/chat?userId=${userId}`}>
+                    <MessageSquare className="h-4 w-4" />
+                    <span>{t("social.messageUser")}</span>
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
 
           <div className="space-y-4">
             <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                 {authorName}
               </h1>
               {location && (

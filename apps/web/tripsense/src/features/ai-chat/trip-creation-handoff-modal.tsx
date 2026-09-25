@@ -297,7 +297,7 @@ export function TripCreationHandoffModal({
             <Sparkles className="h-4 w-4" />
             <span>Chuyển giao kế hoạch từ AI Planner</span>
           </div>
-          <DialogTitle className="text-lg sm:text-xl font-extrabold tracking-tight text-foreground">
+          <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
             Tạo Chuyến Đi & Lưu Lịch Trình
           </DialogTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -345,7 +345,7 @@ export function TripCreationHandoffModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground">Tên chuyến đi *</label>
+                  <label className="text-micro font-medium text-muted-foreground">Tên chuyến đi *</label>
                   <input
                     type="text"
                     required
@@ -357,7 +357,7 @@ export function TripCreationHandoffModal({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground">Điểm đến *</label>
+                  <label className="text-micro font-medium text-muted-foreground">Điểm đến *</label>
                   <input
                     type="text"
                     required
@@ -369,7 +369,7 @@ export function TripCreationHandoffModal({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                  <label className="text-micro font-medium text-muted-foreground flex items-center gap-1">
                     <Calendar className="h-3 w-3" /> Ngày bắt đầu *
                   </label>
                   <input
@@ -383,7 +383,7 @@ export function TripCreationHandoffModal({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                  <label className="text-micro font-medium text-muted-foreground flex items-center gap-1">
                     <Calendar className="h-3 w-3" /> Ngày kết thúc * ({daysCount} ngày)
                   </label>
                   <input
@@ -397,7 +397,7 @@ export function TripCreationHandoffModal({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                  <label className="text-micro font-medium text-muted-foreground flex items-center gap-1">
                     <Users className="h-3 w-3" /> Số người
                   </label>
                   <input
@@ -411,7 +411,7 @@ export function TripCreationHandoffModal({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                  <label className="text-micro font-medium text-muted-foreground flex items-center gap-1">
                     <Wallet className="h-3 w-3" /> Ngân sách dự kiến (VND)
                   </label>
                   <input
@@ -452,7 +452,7 @@ export function TripCreationHandoffModal({
                 <h4 className="font-semibold text-xs text-foreground">
                   Chọn địa điểm đưa vào lịch trình ({selectedItems.size}/{totalItemsCount})
                 </h4>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-micro text-muted-foreground">
                   Bỏ chọn những điểm bạn không muốn thêm vào chuyến đi này.
                 </p>
               </div>
@@ -460,7 +460,7 @@ export function TripCreationHandoffModal({
                 <button
                   type="button"
                   onClick={selectAll}
-                  className="text-[11px] font-medium text-primary hover:underline"
+                  className="text-micro font-medium text-primary hover:underline"
                 >
                   Chọn tất cả
                 </button>
@@ -468,7 +468,7 @@ export function TripCreationHandoffModal({
                 <button
                   type="button"
                   onClick={deselectAll}
-                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                  className="text-micro font-medium text-muted-foreground hover:text-foreground"
                 >
                   Bỏ chọn
                 </button>
@@ -491,13 +491,13 @@ export function TripCreationHandoffModal({
                   >
                     <div className="flex items-center justify-between text-xs font-bold text-foreground px-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary text-[11px]">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary text-micro">
                           {day.dayNumber}
                         </span>
                         Ngày {day.dayNumber}
                         {day.date ? ` · ${day.date}` : ""}
                       </span>
-                      <span className="text-[11px] font-normal text-muted-foreground">
+                      <span className="text-micro font-normal text-muted-foreground">
                         {dayItems.length} địa điểm
                       </span>
                     </div>
@@ -542,7 +542,7 @@ export function TripCreationHandoffModal({
                                 <h5 className="font-semibold text-xs text-foreground truncate">
                                   {item.title}
                                 </h5>
-                                <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                                <p className="text-micro text-muted-foreground truncate flex items-center gap-1">
                                   {item.address ? (
                                     <span>{item.address}</span>
                                   ) : (
@@ -553,7 +553,7 @@ export function TripCreationHandoffModal({
                             </div>
 
                             {item.startTime && (
-                              <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground shrink-0 bg-muted px-2 py-0.5 rounded-full">
+                              <div className="flex items-center gap-1 text-micro font-medium text-muted-foreground shrink-0 bg-muted px-2 py-0.5 rounded-full">
                                 <Clock className="h-3 w-3 text-muted-foreground" />
                                 <span>{item.startTime}</span>
                               </div>

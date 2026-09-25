@@ -57,7 +57,7 @@ export function LandingDestinationsSection() {
             >
               Popular Destinations
             </Badge>
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
               Explore handpicked places loved by travelers.
             </h2>
             <p className="text-base text-muted-foreground">

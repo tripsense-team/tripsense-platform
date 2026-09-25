@@ -62,6 +62,10 @@ tripsense:
       enabled: ${SOCIAL_RATE_LIMIT_ENABLED:false}
       replenish-rate: ${SOCIAL_RATE_LIMIT_REPLENISH_RATE:30}
       burst-capacity: ${SOCIAL_RATE_LIMIT_BURST_CAPACITY:60}
+    chat-rate-limit:
+      enabled: ${CHAT_RATE_LIMIT_ENABLED:true}
+      replenish-rate: ${CHAT_RATE_LIMIT_REPLENISH_RATE:5}
+      burst-capacity: ${CHAT_RATE_LIMIT_BURST_CAPACITY:10}
     ai:
       response-timeout: ${AI_RESPONSE_TIMEOUT:120s}
     client-ip:

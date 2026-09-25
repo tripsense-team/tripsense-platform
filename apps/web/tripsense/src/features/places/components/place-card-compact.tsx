@@ -37,7 +37,7 @@ export function PlaceCardCompact({
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+          <div className="flex h-full w-full items-center justify-center text-micro text-muted-foreground">
             No Img
           </div>
         )}
@@ -47,7 +47,7 @@ export function PlaceCardCompact({
           {name}
         </h5>
         {category && (
-          <p className="text-[11px] text-muted-foreground truncate">
+          <p className="text-micro text-muted-foreground truncate">
             {category}
           </p>
         )}

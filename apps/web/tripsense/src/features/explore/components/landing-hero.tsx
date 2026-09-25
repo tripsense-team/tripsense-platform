@@ -25,7 +25,7 @@ export function LandingHero({ onOpenAuthModal }: LandingHeroProps) {
               <span>Next-Gen AI Travel Companion</span>
             </div>
 
-            <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.08] text-white">
+            <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.08] text-white">
               Travel <br className="hidden sm:inline" />
               differently.
             </h1>
@@ -90,7 +90,7 @@ export function LandingHero({ onOpenAuthModal }: LandingHeroProps) {
                 <div className="flex items-center gap-1 font-bold">
                   <span>Eiffel Tower, Paris</span>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] text-amber-300 mt-0.5">
+                <div className="flex items-center gap-1 text-micro text-amber-300 mt-0.5">
                   <Star className="h-3 w-3 fill-current" />
                   <span>4.9 (12.4k reviews)</span>
                 </div>

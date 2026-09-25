@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { ErrorState, LoadingState } from "@/components/shared";
+import { Button } from "@/components/ui/button";
 import { TripTabs } from "./trip-tabs";
 import type { TripResponse } from "../types";
 
@@ -34,24 +35,25 @@ export function CalendarScreen({
 
   return (
     <section className="min-h-screen px-6 py-10 sm:px-8 lg:px-12 xl:px-16">
-      <h1 className="text-3xl font-black tracking-normal">Your calendar</h1>
+      <h1 className="text-3xl font-bold tracking-normal">Your calendar</h1>
       <TripTabs active="calendar" />
       <div className="mt-10 flex items-center justify-between">
-        <div className="flex items-center gap-5 text-base font-black tracking-normal">
-          <button type="button" aria-label="Previous week">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
+        <div className="flex items-center gap-5 text-base font-bold tracking-normal">
+          <Button type="button" variant="ghost" size="icon" className="rounded-full" aria-label="Previous week">
+            <ChevronLeft />
+          </Button>
           <span>{formatWeekLabel(days[0], days[6])}</span>
-          <button type="button" aria-label="Next week">
-            <ChevronRight className="h-5 w-5" />
-          </button>
+          <Button type="button" variant="ghost" size="icon" className="rounded-full" aria-label="Next week">
+            <ChevronRight />
+          </Button>
         </div>
-        <button
+        <Button
           type="button"
-          className="flex items-center gap-2 text-base font-medium"
+          variant="ghost"
+          className="gap-2 px-3 text-base font-medium"
         >
-          Week <ChevronDown className="h-5 w-5" />
-        </button>
+          Week <ChevronDown />
+        </Button>
       </div>
       {error && (
         <ErrorState className="mt-8" message={error} onRetry={onRetry} />

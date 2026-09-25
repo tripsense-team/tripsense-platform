@@ -280,9 +280,9 @@ export function AuthModal({
               setErrorMsg("");
               setStep("email");
             }}
-            className="absolute left-6 top-6 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-5 w-5" />
             <span className="sr-only">Back</span>
           </button>
         )}
@@ -293,7 +293,7 @@ export function AuthModal({
             <div className="text-4xl animate-bounce-subtle">👋</div>
 
             <div className="space-y-1">
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                 {mode === "signin"
                   ? `Welcome to ${siteConfig.name}`
                   : `Join ${siteConfig.name}`}
@@ -432,7 +432,7 @@ export function AuthModal({
               )}
             </div>
 
-            <p className="text-[11px] text-muted-foreground leading-relaxed pt-2">
+            <p className="text-micro text-muted-foreground leading-relaxed pt-2">
               By continuing, you agree to {siteConfig.name}&apos;s{" "}
               <Link href="#" className="underline hover:text-foreground">
                 Terms of Service
@@ -449,7 +449,7 @@ export function AuthModal({
         {/* Step 2: Login Password */}
         {step === "login-password" && (
           <div className="flex flex-col items-center text-center space-y-6 pt-4">
-            <h3 className="text-xl font-extrabold text-foreground">
+            <h3 className="text-xl font-bold text-foreground">
               Welcome back
             </h3>
             <p className="text-xs text-muted-foreground">
@@ -492,7 +492,7 @@ export function AuthModal({
         {/* Step 2: Register Details (with Password Confirmation) */}
         {step === "register-details" && (
           <div className="flex flex-col items-center text-center space-y-6 pt-4">
-            <h3 className="text-xl font-extrabold text-foreground">
+            <h3 className="text-xl font-bold text-foreground">
               Create your account
             </h3>
             <p className="text-xs text-muted-foreground">
@@ -548,7 +548,7 @@ export function AuthModal({
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-xl font-extrabold text-foreground">
+              <h3 className="text-xl font-bold text-foreground">
                 Check your email
               </h3>
               <p className="text-xs text-muted-foreground max-w-xs">

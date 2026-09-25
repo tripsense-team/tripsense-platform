@@ -102,8 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             profileService
               .getUserProfile(recoveredUser.id)
               .then((profile) => {
-                if (profile?.avatarUrl) {
-                  useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+                if (profile) {
+                  useAuthStore.getState().updateUserProfile({
+                    avatar: profile.avatarUrl || undefined,
+                    name: profile.displayName || undefined,
+                  });
                 }
               })
               .catch(() => {

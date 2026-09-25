@@ -103,4 +103,53 @@ class UserServiceImplTest {
         .isInstanceOf(ResponseStatusException.class)
         .hasMessageContaining("User not found");
   }
+
+  @Test
+  @DisplayName("searchPublicProfiles returns mapped public profiles and escapes wildcard characters")
+  void searchPublicProfiles_ValidQuerySuccess() {
+    UUID id = UUID.randomUUID();
+    Object[] row = new Object[] {id, "Khánh Linh", "avatar.jpg"};
+    when(userProfileRepository.searchEnabledPublicNames("khánh!%linh%", 10))
+        .thenReturn(List.<Object[]>of(row));
+
+    List<PublicProfileDto> results = userService.searchPublicProfiles("Khánh%Linh", 10);
+
+    assertThat(results).hasSize(1);
+    assertThat(results.get(0).userId()).isEqualTo(id);
+    assertThat(results.get(0).displayName()).isEqualTo("Khánh Linh");
+    assertThat(results.get(0).avatarUrl()).isEqualTo("avatar.jpg");
+    verify(userProfileRepository).searchEnabledPublicNames("khánh!%linh%", 10);
+  }
+
+  @Test
+  @DisplayName("searchPublicProfiles throws 400 when query is less than 2 characters or null")
+  void searchPublicProfiles_ShortQueryThrows400() {
+    assertThatThrownBy(() -> userService.searchPublicProfiles("a", 10))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("Invalid search query");
+
+    assertThatThrownBy(() -> userService.searchPublicProfiles(null, 10))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("Invalid search query");
+  }
+
+  @Test
+  @DisplayName("searchPublicProfiles throws 400 when query contains control characters")
+  void searchPublicProfiles_ControlCharsThrows400() {
+    assertThatThrownBy(() -> userService.searchPublicProfiles("ab\u0000cd", 10))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("Invalid search query");
+  }
+
+  @Test
+  @DisplayName("searchPublicProfiles throws 400 when limit is out of 1..20 bounds")
+  void searchPublicProfiles_InvalidLimitThrows400() {
+    assertThatThrownBy(() -> userService.searchPublicProfiles("linh", 0))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("Invalid search query");
+
+    assertThatThrownBy(() -> userService.searchPublicProfiles("linh", 21))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("Invalid search query");
+  }
 }

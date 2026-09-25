@@ -254,7 +254,7 @@ export default function AiPlannerPage() {
             type="button"
             size="sm"
             onClick={() => setIsHandoffModalOpen(true)}
-            className="shrink-0 h-7 text-xs font-semibold gap-1.5 shadow-xs"
+            className="shrink-0 text-xs font-semibold gap-1.5 shadow-xs"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Tạo chuyến đi từ gợi ý

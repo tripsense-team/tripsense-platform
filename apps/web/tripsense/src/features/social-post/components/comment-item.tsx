@@ -29,7 +29,7 @@ export function CommentItem({
   onReplyClick,
   className,
 }: CommentItemProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { comment, visualDepth, replyToAuthorName } = node;
   const [isReplying, setIsReplying] = React.useState(false);
   const [reportOpen, setReportOpen] = React.useState(false);
@@ -64,7 +64,7 @@ export function CommentItem({
         >
           <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
             <AvatarImage src={authorAvatar} alt={comment.author.name} />
-            <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-[10px] sm:text-xs">
+            <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-micro sm:text-xs">
               {authorInitials}
             </AvatarFallback>
           </Avatar>
@@ -81,7 +81,7 @@ export function CommentItem({
               >
                 {comment.author.name}
               </Link>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-micro text-muted-foreground">
                 · {formatRelativeTime(comment.createdAt)}
               </span>
             </div>
@@ -115,7 +115,7 @@ export function CommentItem({
                 {comment.isLiked ? t("social.liked") : t("social.like")}
               </span>
               {comment.likeCount > 0 && (
-                <span className="flex items-center gap-0.5 ml-0.5 text-[11px]">
+                <span className="flex items-center gap-0.5 ml-0.5 text-micro">
                   <Heart className="h-3 w-3 fill-current text-rose-500" />
                   <span>{comment.likeCount}</span>
                 </span>

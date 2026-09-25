@@ -45,10 +45,10 @@ export function PostActionsMenu({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+                className="rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
                 aria-label={t("common.actions")}
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
