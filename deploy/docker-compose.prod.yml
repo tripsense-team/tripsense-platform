@@ -237,6 +237,8 @@ services:
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
       EUREKA_SERVER: http://discovery-server:8761/eureka/
       AI_SERVICE_PORT: 8085
+      RUN_TIMEOUT_SECONDS: ${RUN_TIMEOUT_SECONDS:-600}
+      RUN_LEASE_SECONDS: ${RUN_LEASE_SECONDS:-600}
     depends_on:
       discovery-server:
         condition: service_healthy

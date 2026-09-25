@@ -35,7 +35,10 @@ class ModelAdapter:
     def __init__(self, settings: Settings):
         if not settings.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is required for real AI chat")
-        kwargs = {"api_key": settings.openai_api_key}
+        kwargs = {
+            "api_key": settings.openai_api_key,
+            "timeout": float(settings.run_timeout_seconds),
+        }
         if settings.ai_model_base_url:
             kwargs["base_url"] = settings.ai_model_base_url
         self.client = AsyncOpenAI(**kwargs)
