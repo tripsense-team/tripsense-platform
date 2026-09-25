@@ -9,6 +9,7 @@ import {
   setLoggedInCookie,
   clearLoggedInCookie,
 } from "../utils/cookie-indicator";
+import { revokeFcmTokenOnLogout } from "@/features/chat/hooks/use-fcm-notifications";
 import {
   User,
   UserRole,
@@ -175,6 +176,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     clearLoggedInCookie();
     try {
+      await revokeFcmTokenOnLogout();
+    } catch {
+      // Non-blocking cleanup
+    }
+    try {
       await authApi.logout();
     } finally {
       clearAuth();
@@ -183,6 +189,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logoutAll = async (): Promise<void> => {
     clearLoggedInCookie();
+    try {
+      await revokeFcmTokenOnLogout();
+    } catch {
+      // Non-blocking cleanup
+    }
     try {
       await authApi.logoutAll();
     } finally {

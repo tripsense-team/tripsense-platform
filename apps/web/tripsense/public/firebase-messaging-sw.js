@@ -3,21 +3,22 @@
 
 const params = new URL(location).searchParams;
 const firebaseConfig = {
-  apiKey: params.get("apiKey") || "AIzaSyB9vsNeTdGAEugmXs78BDc_id7Ad7A5OOA",
+  apiKey: params.get("apiKey") || "",
   authDomain: params.get("authDomain") || "tripsense-642bd.firebaseapp.com",
   projectId: params.get("projectId") || "tripsense-642bd",
   storageBucket: params.get("storageBucket") || "tripsense-642bd.firebasestorage.app",
   messagingSenderId: params.get("messagingSenderId") || "416102507883",
-  appId: params.get("appId") || "1:416102507883:web:2bee46b95a96120c16d82e",
+  appId: params.get("appId") || "",
 };
 
 try {
-  importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
-  importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
+  if (firebaseConfig.apiKey && firebaseConfig.appId) {
+    importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
+    importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
 
-  if (typeof firebase !== "undefined") {
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+    if (typeof firebase !== "undefined") {
+      firebase.initializeApp(firebaseConfig);
+      const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
       const notificationTitle = payload.notification?.title || payload.data?.title || "TripSense";

@@ -119,6 +119,13 @@ jobs:
           build-args: |
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_GOOGLE_CLIENT_ID={0}', secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID) || '' }}
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_MAPVINA_API_KEY={0}', secrets.NEXT_PUBLIC_MAPVINA_API_KEY) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_API_KEY={0}', secrets.NEXT_PUBLIC_FIREBASE_API_KEY) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_PROJECT_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN={0}', secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET={0}', secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_APP_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_APP_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_VAPID_KEY={0}', secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY) || '' }}
           tags: |
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:${{ github.event.workflow_run.head_sha || github.sha }}
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:latest

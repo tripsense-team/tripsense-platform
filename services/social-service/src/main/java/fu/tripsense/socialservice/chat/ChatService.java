@@ -10,11 +10,14 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class ChatService {
@@ -275,7 +278,22 @@ public class ChatService {
         PublicProfileClientResponse senderProfile = profiles.fetchPublicProfiles(List.of(user)).get(user);
         String senderName = senderProfile != null && senderProfile.displayName() != null ? senderProfile.displayName() : "TripSense";
         String displayText = "SHARED_TRIP".equals(request.type()) ? "Đã chia sẻ một chuyến đi" : body;
-        pushNotificationService.sendNewMessageNotification(recipient, senderName, displayText, id);
+        Runnable pushTask = () -> {
+          try {
+            pushNotificationService.sendNewMessageNotification(recipient, senderName, displayText, id);
+          } catch (Exception ex) {
+            // Non-blocking: background push failure should never break message delivery
+          }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+          TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+              CompletableFuture.runAsync(pushTask);
+            }
+          });
+        } else {
+          CompletableFuture.runAsync(pushTask);
+        }
       }
     } catch (Exception e) {
       // Non-blocking: push failure should never break message sending
