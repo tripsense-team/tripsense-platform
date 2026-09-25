@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRouter } from 'next/navigation';
 import { useTripCollaboration } from '../hooks/use-trip-collaboration';
 import type { TripMemberRole } from '../types/collaboration';
 
@@ -40,6 +41,7 @@ export function TripMembersDialog({
   tripId,
   tripName,
 }: TripMembersDialogProps) {
+  const router = useRouter();
   const {
     members,
     pendingInvitations,
@@ -116,7 +118,7 @@ export function TripMembersDialog({
     try {
       await leaveTrip();
       onOpenChange(false);
-      window.location.href = '/trips';
+      router.push('/trips');
     } catch {
       alert('Failed to leave trip.');
     }

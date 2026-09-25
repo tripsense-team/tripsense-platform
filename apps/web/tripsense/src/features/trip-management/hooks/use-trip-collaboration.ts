@@ -5,7 +5,6 @@ import { tripCollaborationService } from '../services/collaboration-service';
 import type {
   InviteTripMemberRequest,
   TripMemberRole,
-  UpdateMemberRoleRequest,
 } from '../types/collaboration';
 
 export function useTripCollaboration(tripId: string) {
