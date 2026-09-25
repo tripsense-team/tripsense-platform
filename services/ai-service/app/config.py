@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     max_message_chars: int = 8000
     max_context_messages: int = 20
     max_output_tokens: int = 1200
-    run_timeout_seconds: int = 240
+    run_timeout_seconds: int = 300
     per_user_active_runs: int = 3
     per_user_requests_per_minute: int = 10
     model_input_cost_per_million: float = 0
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     brave_search_api_key: str = ""
     max_web_searches_per_run: int = 2
     routing_osrm_base_url: str = ""
-    run_lease_seconds: int = 240
+    run_lease_seconds: int = 300
     run_lease_poll_millis: int = 100
     max_clarifications_per_goal: int = 2
     summary_recent_messages: int = 8

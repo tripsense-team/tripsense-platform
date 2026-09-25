@@ -1,4 +1,5 @@
-import { Check, ChevronDown, CircleAlert, LoaderCircle, Minus } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, Minus } from "lucide-react";
+import { AiLoadingSpinner } from "@/components/shared";
 import type { AgentActivity } from "./types";
 
 export function AgentActivityPanel({ activities = [] }: { activities?: AgentActivity[] }) {
@@ -18,7 +19,7 @@ export function AgentActivityPanel({ activities = [] }: { activities?: AgentActi
           data-testid="agent-activity-current"
           className="flex items-start gap-2 break-words"
         >
-          <LoaderCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none text-primary" />
+          <AiLoadingSpinner size={15} className="mt-0.5 text-primary" />
           <div className="min-w-0 flex-1">
             <p className="font-medium text-foreground">{current.label}</p>
             {current.summary && <p className="mt-0.5 text-muted-foreground">{current.summary}</p>}

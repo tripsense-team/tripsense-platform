@@ -10,3 +10,4 @@ export * from "./price-display";
 export * from "./responsive-dialog";
 export * from "./confirmation-dialog";
 export * from "./auth-loading-screen";
+export * from "./ai-loading-spinner";

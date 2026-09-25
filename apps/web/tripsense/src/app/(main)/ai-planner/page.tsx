@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bot, History, LoaderCircle, Plus, Sparkles, StopCircle } from "lucide-react";
+import { Bot, History, Plus, Sparkles, StopCircle } from "lucide-react";
+import { AiLoadingSpinner } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ChatPanel } from "@/features/chat";
 import {
@@ -264,43 +265,67 @@ export default function AiPlannerPage() {
         )}
       </div>
 
-      {runStatus && <div role="status" aria-live="polite" className="flex items-center gap-2 px-2 text-xs text-muted-foreground"><LoaderCircle className="h-3.5 w-3.5 animate-spin" />{agentActivity || runStatus}</div>}
+      {runStatus && (
+        <div role="status" aria-live="polite" className="flex items-center gap-2 px-2 text-xs text-muted-foreground">
+          <AiLoadingSpinner size={16} className="text-primary" />
+          <span>{agentActivity || runStatus}</span>
+        </div>
+      )}
       {error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
-      <ChatPanel messages={messages.map((message, msgIndex) => {
-        const answerPreview = message.artifacts?.find((artifact) => artifact.type === "ITINERARY_PREVIEW")?.data as AiItineraryPreview | undefined;
-        const answerPlaceList = (message.artifacts?.find((artifact) => artifact.type === "PLACE_LIST")?.data as { places?: Place[] } | undefined)?.places;
-        const answerPlaces = (answerPreview?.days?.flatMap((day) => day.items) || []).length > 0
-          ? (answerPreview?.days?.flatMap((day) => day.items) || [])
-          : (answerPlaceList || []).map((p) => ({
-              canonicalPlaceId: p.id,
-              title: p.name,
-              address: p.address,
-              location: p.location,
-              primaryPhoto: p.primaryPhoto,
-              ratingSummary: p.rating != null ? { value: p.rating, count: p.userRatingCount, source: p.provider || "place-service" } : undefined,
-            }));
-        return {
-          ...message,
-          id: message.id ? `ai-msg-${message.id}` : `ai-msg-idx-${msgIndex}`,
-          contentNode: message.role === "assistant" ? <RichAnswer content={message.content} places={answerPlaces} onSelectPlace={setSelectedPlaceId} /> : undefined,
-          richContent: (
-            <>
-              <AgentActivityPanel activities={message.activities} />
-              <ArtifactRenderer
-                artifacts={message.artifacts}
-                onFeedback={sendFeedback}
-                onConfirm={(id) => void confirmProposal(id)}
-                onReject={(id) => void rejectProposal(id)}
-                onSelectPlace={setSelectedPlaceId}
-                selectedPlaceId={activeSelectedPlaceId}
-                onViewDetails={handleOpenDetails}
-                onCreateTripFromPlan={() => setIsHandoffModalOpen(true)}
-              />
-            </>
-          ),
-        };
-      })}
-        onSendMessage={(value) => void handleSend(value)} isLoading={Boolean(activeRunId)} className="min-h-0 flex-1" />
+      <ChatPanel
+        isLoading={Boolean(activeRunId)}
+        messages={messages.map((message, msgIndex) => {
+          const isLatestAssistantMessage =
+            message.role === "assistant" &&
+            (Boolean(activeRunId && (message.id?.startsWith("stream-") || msgIndex === messages.length - 1)));
+          const isStreamingOrLoading = Boolean(activeRunId && isLatestAssistantMessage);
+
+          const answerPreview = message.artifacts?.find((artifact) => artifact.type === "ITINERARY_PREVIEW")?.data as AiItineraryPreview | undefined;
+          const answerPlaceList = (message.artifacts?.find((artifact) => artifact.type === "PLACE_LIST")?.data as { places?: Place[] } | undefined)?.places;
+          const answerPlaces = (answerPreview?.days?.flatMap((day) => day.items) || []).length > 0
+            ? (answerPreview?.days?.flatMap((day) => day.items) || [])
+            : (answerPlaceList || []).map((p) => ({
+                canonicalPlaceId: p.id,
+                title: p.name,
+                address: p.address,
+                location: p.location,
+                primaryPhoto: p.primaryPhoto,
+                ratingSummary: p.rating != null ? { value: p.rating, count: p.userRatingCount, source: p.provider || "place-service" } : undefined,
+              }));
+          return {
+            ...message,
+            id: message.id ? `ai-msg-${message.id}` : `ai-msg-idx-${msgIndex}`,
+            isLoading: isStreamingOrLoading,
+            contentNode: message.role === "assistant" ? (
+              message.content ? (
+                <RichAnswer content={message.content} places={answerPlaces} onSelectPlace={setSelectedPlaceId} />
+              ) : isStreamingOrLoading ? (
+                <div className="flex items-center gap-2 py-0.5 text-xs text-muted-foreground">
+                  <AiLoadingSpinner size={16} className="text-primary" />
+                  <span className="animate-pulse">{agentActivity || "Đang chuẩn bị câu trả lời..."}</span>
+                </div>
+              ) : undefined
+            ) : undefined,
+            richContent: (
+              <>
+                <AgentActivityPanel activities={message.activities} />
+                <ArtifactRenderer
+                  artifacts={message.artifacts}
+                  onFeedback={sendFeedback}
+                  onConfirm={(id) => void confirmProposal(id)}
+                  onReject={(id) => void rejectProposal(id)}
+                  onSelectPlace={setSelectedPlaceId}
+                  selectedPlaceId={activeSelectedPlaceId}
+                  onViewDetails={handleOpenDetails}
+                  onCreateTripFromPlan={() => setIsHandoffModalOpen(true)}
+                />
+              </>
+            ),
+          };
+        })}
+        onSendMessage={(value) => void handleSend(value)}
+        className="min-h-0 flex-1"
+      />
       </section>
       <div className="flex flex-col min-h-[34rem] h-full lg:min-h-0">
         <RichItineraryWorkspace

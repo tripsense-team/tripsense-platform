@@ -1,6 +1,7 @@
 import { Sparkles, User } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { AiLoadingSpinner } from "@/components/shared";
 
 export interface ChatMessageProps {
   id?: string;
@@ -11,6 +12,7 @@ export interface ChatMessageProps {
   richContent?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  isLoading?: boolean;
 }
 
 export function ChatMessage({
@@ -21,6 +23,7 @@ export function ChatMessage({
   richContent,
   actions,
   className,
+  isLoading = false,
 }: ChatMessageProps) {
   const isUser = role === "user";
 
@@ -43,6 +46,8 @@ export function ChatMessage({
         <AvatarFallback className="text-xs">
           {isUser ? (
             <User className="h-4 w-4" />
+          ) : isLoading ? (
+            <AiLoadingSpinner size={18} className="text-primary" />
           ) : (
             <Sparkles className="h-4 w-4 text-primary" />
           )}
@@ -58,7 +63,16 @@ export function ChatMessage({
               : "bg-card border border-border text-card-foreground rounded-tl-xs",
           )}
         >
-          {contentNode ?? <p className="whitespace-pre-wrap">{content}</p>}
+          {contentNode ?? (
+            content ? (
+              <p className="whitespace-pre-wrap">{content}</p>
+            ) : isLoading ? (
+              <div className="flex items-center gap-2 py-0.5 text-xs text-muted-foreground">
+                <AiLoadingSpinner size={16} className="text-primary" />
+                <span className="animate-pulse">Đang chuẩn bị câu trả lời...</span>
+              </div>
+            ) : null
+          )}
         </div>
 
         {richContent && <div className="w-full mt-1">{richContent}</div>}

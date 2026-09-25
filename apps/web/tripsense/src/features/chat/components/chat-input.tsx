@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { AiLoadingSpinner } from "@/components/shared";
 
 export interface ChatInputProps {
   onSend: (message: string) => void;
@@ -58,7 +59,11 @@ export function ChatInput({
         size="icon"
         className="h-11 w-11 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
       >
-        <Send />
+        {isLoading ? (
+          <AiLoadingSpinner size={18} className="text-primary-foreground" />
+        ) : (
+          <Send />
+        )}
         <span className="sr-only">Send message</span>
       </Button>
     </form>
