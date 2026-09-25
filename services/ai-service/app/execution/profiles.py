@@ -28,12 +28,12 @@ class ExecutionBudget:
 
 
 _BUDGETS = {
-    ExecutionProfile.L0_DIRECT: ExecutionBudget(ExecutionProfile.L0_DIRECT, 0, 0, 0, 0, 0, 0, 2_000, 500, 300),
-    ExecutionProfile.L1_CONTEXTUAL: ExecutionBudget(ExecutionProfile.L1_CONTEXTUAL, 1, 1, 0, 1, 1, 0, 4_000, 800, 300),
-    ExecutionProfile.L2_GROUNDED_LOOKUP: ExecutionBudget(ExecutionProfile.L2_GROUNDED_LOOKUP, 1, 2, 1, 3, 1, 0, 6_000, 1_000, 360),
-    ExecutionProfile.L3_RECOMMEND: ExecutionBudget(ExecutionProfile.L3_RECOMMEND, 1, 2, 1, 4, 1, 1, 8_000, 1_500, 360),
-    ExecutionProfile.L4_PLAN: ExecutionBudget(ExecutionProfile.L4_PLAN, 1, 2, 1, 8, 2, 1, 12_000, 2_000, 600),
-    ExecutionProfile.L5_PROPOSE_ACTION: ExecutionBudget(ExecutionProfile.L5_PROPOSE_ACTION, 0, 1, 0, 3, 1, 0, 4_000, 800, 300),
+    ExecutionProfile.L0_DIRECT: ExecutionBudget(ExecutionProfile.L0_DIRECT, 0, 0, 0, 0, 0, 0, 2_000, 500, 180),
+    ExecutionProfile.L1_CONTEXTUAL: ExecutionBudget(ExecutionProfile.L1_CONTEXTUAL, 1, 1, 0, 1, 1, 0, 4_000, 800, 180),
+    ExecutionProfile.L2_GROUNDED_LOOKUP: ExecutionBudget(ExecutionProfile.L2_GROUNDED_LOOKUP, 1, 2, 1, 3, 1, 0, 6_000, 1_000, 240),
+    ExecutionProfile.L3_RECOMMEND: ExecutionBudget(ExecutionProfile.L3_RECOMMEND, 1, 2, 1, 4, 1, 1, 8_000, 1_500, 240),
+    ExecutionProfile.L4_PLAN: ExecutionBudget(ExecutionProfile.L4_PLAN, 1, 2, 1, 8, 2, 1, 12_000, 2_000, 240),
+    ExecutionProfile.L5_PROPOSE_ACTION: ExecutionBudget(ExecutionProfile.L5_PROPOSE_ACTION, 0, 1, 0, 3, 1, 0, 4_000, 800, 180),
 }
 
 

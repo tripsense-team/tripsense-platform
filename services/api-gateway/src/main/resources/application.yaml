@@ -7,7 +7,7 @@ spring:
   cloud:
     gateway:
       httpclient:
-        response-timeout: ${GATEWAY_HTTP_RESPONSE_TIMEOUT:600s}
+        response-timeout: ${GATEWAY_HTTP_RESPONSE_TIMEOUT:240s}
       globalcors:
         cors-configurations:
           "[/**]":
@@ -68,6 +68,6 @@ tripsense:
       replenish-rate: ${CHAT_RATE_LIMIT_REPLENISH_RATE:5}
       burst-capacity: ${CHAT_RATE_LIMIT_BURST_CAPACITY:10}
     ai:
-      response-timeout: ${AI_RESPONSE_TIMEOUT:600s}
+      response-timeout: ${AI_RESPONSE_TIMEOUT:240s}
     client-ip:
       trusted-proxies: ${TRUSTED_PROXY_CIDRS:127.0.0.1/32,::1/128}
