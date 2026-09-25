@@ -8,8 +8,8 @@ import fu.tripsense.recommendation.domain.Candidate;
 import fu.tripsense.recommendation.domain.CandidateSource;
 import fu.tripsense.recommendation.domain.GeoPoint;
 import fu.tripsense.recommendation.domain.PlaceSnapshot;
-import fu.tripsense.recommendation.domain.RecommendationContext;
 import fu.tripsense.recommendation.domain.QuietnessEvidence;
+import fu.tripsense.recommendation.domain.RecommendationContext;
 import fu.tripsense.recommendation.domain.RetrievalEvidence;
 import java.time.Instant;
 import java.util.List;
@@ -89,10 +89,8 @@ public class PlaceServiceCandidateGenerator implements CandidateGenerator {
   }
 
   private String retrievalQuery(RecommendationContext context) {
-    if (!context.requiredCategories().isEmpty()) {
-      return context.requiredCategories().stream().sorted().findFirst().orElse(context.query());
-    }
-    return context.query();
+    if (context.query() != null && !context.query().isBlank()) return context.query();
+    return context.requiredCategories().stream().sorted().findFirst().orElse("");
   }
 
   private RetrievalEvidence mapEvidence(EvidenceDto value) {

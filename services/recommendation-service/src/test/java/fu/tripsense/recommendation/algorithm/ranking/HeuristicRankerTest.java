@@ -7,8 +7,8 @@ import fu.tripsense.recommendation.config.RecommendationProperties;
 import fu.tripsense.recommendation.domain.CandidateFeatures;
 import fu.tripsense.recommendation.domain.FusedCandidate;
 import fu.tripsense.recommendation.domain.PlaceSnapshot;
-import fu.tripsense.recommendation.domain.RecommendationContext;
 import fu.tripsense.recommendation.domain.RankingCriterion;
+import fu.tripsense.recommendation.domain.RecommendationContext;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -52,22 +52,83 @@ class HeuristicRankerTest {
 
   @Test
   void unavailableRatingIsExcludedInsteadOfReceivingZeroOrPriorScore() {
-    CandidateFeatures distanceOnly = base(candidate("distance-only", "cafe"), 0.02)
-        .withGeographic(new CandidateFeatures.Geographic(true, 0.5, 0.9))
-        .withQuality(new CandidateFeatures.Quality(false, true, null, 57, 0, 0.6));
-    RecommendationContext context = new RecommendationContext(
-        UUID.randomUUID(), UUID.randomUUID(), null, "session", "cafe", null, null,
-        Set.of(), Set.of(), Set.of("cafe"), null,
-        List.of(
-            new RankingCriterion(RankingCriterion.Feature.DISTANCE, RankingCriterion.Direction.MINIMIZE, RankingCriterion.Importance.HIGH),
-            new RankingCriterion(RankingCriterion.Feature.RATING, RankingCriterion.Direction.MAXIMIZE, RankingCriterion.Importance.HIGH)),
-        null, null, 5);
+    CandidateFeatures distanceOnly =
+        base(candidate("distance-only", "cafe"), 0.02)
+            .withGeographic(new CandidateFeatures.Geographic(true, 0.5, 0.9))
+            .withQuality(new CandidateFeatures.Quality(false, true, null, 57, 0, 0.6));
+    RecommendationContext context =
+        new RecommendationContext(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            "session",
+            "cafe",
+            null,
+            null,
+            Set.of(),
+            Set.of(),
+            Set.of("cafe"),
+            null,
+            List.of(
+                new RankingCriterion(
+                    RankingCriterion.Feature.DISTANCE,
+                    RankingCriterion.Direction.MINIMIZE,
+                    RankingCriterion.Importance.HIGH),
+                new RankingCriterion(
+                    RankingCriterion.Feature.RATING,
+                    RankingCriterion.Direction.MAXIMIZE,
+                    RankingCriterion.Importance.HIGH)),
+            null,
+            null,
+            5);
 
     var ranked = ranker.rank(context, List.of(distanceOnly)).getFirst();
 
     assertThat(ranked.score()).isEqualTo(0.9);
     assertThat(ranked.breakdown().quality()).isZero();
     assertThat(ranked.breakdown().evidenceCoverage()).isEqualTo(0.5);
+  }
+
+  @Test
+  void requestedDirectionChangesRankingWhileDistanceKeepsMinimizeSemantics() {
+    CandidateFeatures highRating =
+        base(candidate("high", "cafe"), 0.02)
+            .withQuality(new CandidateFeatures.Quality(true, false, 5.0, null, 0.9, 0));
+    CandidateFeatures lowRating =
+        base(candidate("low", "cafe"), 0.02)
+            .withQuality(new CandidateFeatures.Quality(true, false, 2.0, null, 0.2, 0));
+
+    assertThat(
+            ranker.rank(
+                ratingContext(RankingCriterion.Direction.MAXIMIZE), List.of(lowRating, highRating)))
+        .extracting(value -> value.features().placeId())
+        .containsExactly("high", "low");
+    assertThat(
+            ranker.rank(
+                ratingContext(RankingCriterion.Direction.MINIMIZE), List.of(lowRating, highRating)))
+        .extracting(value -> value.features().placeId())
+        .containsExactly("low", "high");
+  }
+
+  private RecommendationContext ratingContext(RankingCriterion.Direction direction) {
+    return new RecommendationContext(
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        null,
+        "session",
+        "cafe",
+        null,
+        null,
+        Set.of(),
+        Set.of(),
+        Set.of("cafe"),
+        null,
+        List.of(
+            new RankingCriterion(
+                RankingCriterion.Feature.RATING, direction, RankingCriterion.Importance.HIGH)),
+        null,
+        null,
+        5);
   }
 
   private List<String> rank(

@@ -7,7 +7,6 @@ import fu.tripsense.recommendation.domain.GeographicScope;
 import fu.tripsense.recommendation.domain.RecommendationContext;
 import java.text.Normalizer;
 import java.util.Locale;
-import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,10 +18,7 @@ public class StrictNamedAreaFilter implements CandidateFilter {
       return FilterDecision.accept();
     }
     String candidateDistrict = candidate.place().district();
-    if (blank(candidateDistrict)) {
-      candidateDistrict = explicitDistrict(candidate.place().address());
-    }
-    if (blank(candidateDistrict)) return FilterDecision.accept();
+    if (blank(candidateDistrict)) return FilterDecision.reject("ADMIN_LOCATION_EVIDENCE_MISSING");
     return normalize(candidateDistrict).equals(normalize(scope.district()))
         ? FilterDecision.accept()
         : FilterDecision.reject("ADMIN_LOCATION_CONFLICT");
@@ -39,15 +35,5 @@ public class StrictNamedAreaFilter implements CandidateFilter {
         .replace('Đ', 'd')
         .toLowerCase(Locale.ROOT)
         .trim();
-  }
-
-  private String explicitDistrict(String address) {
-    if (blank(address)) return null;
-    String normalizedAddress = normalize(address);
-    return List.of("Sơn Trà", "Hải Châu", "Ngũ Hành Sơn", "Thanh Khê", "Liên Chiểu", "Cẩm Lệ")
-        .stream()
-        .filter(district -> normalizedAddress.contains(normalize(district)))
-        .findFirst()
-        .orElse(null);
   }
 }

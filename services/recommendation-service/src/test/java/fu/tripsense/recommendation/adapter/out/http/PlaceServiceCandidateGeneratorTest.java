@@ -2,8 +2,8 @@ package fu.tripsense.recommendation.adapter.out.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -29,7 +29,7 @@ class PlaceServiceCandidateGeneratorTest {
     server
         .expect(requestTo("http://place-service:8082/api/places/recommendations"))
         .andExpect(method(POST))
-        .andExpect(jsonPath("$.query").value("cafe"))
+        .andExpect(jsonPath("$.query").value("quiet cafe"))
         .andRespond(
             withSuccess(
                 """

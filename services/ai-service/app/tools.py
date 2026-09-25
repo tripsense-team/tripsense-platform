@@ -132,8 +132,7 @@ class ToolExecutor:
                         "geographicScope": {
                             "name": area.get("name"),
                             "adminArea": "Đà Nẵng" if "Đà Nẵng" in str(area.get("name") or "") else None,
-                            "district": next((district for district in ("Sơn Trà", "Hải Châu", "Ngũ Hành Sơn", "Thanh Khê", "Liên Chiểu", "Cẩm Lệ")
-                                              if district.casefold() in str(area.get("name") or "").casefold()), None),
+                            "district": area.get("district"),
                             "strictNamedArea": bool(area.get("anchorType") == "NAMED_AREA"),
                         },
                         "rankingCriteria": self._ranking_criteria(params.goal),

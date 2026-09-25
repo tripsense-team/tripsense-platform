@@ -63,6 +63,13 @@ tripsense:
     feedback:
       max-clock-skew: ${RECOMMENDATION_FEEDBACK_MAX_CLOCK_SKEW:10m}
       max-history-events: ${RECOMMENDATION_MAX_HISTORY_EVENTS:5000}
+    taxonomy:
+      category-aliases:
+        cafe: [cafe, coffee, ca phe, quan ca phe]
+        restaurant: [restaurant, quan an, nha hang]
+        vegetarian_restaurant: [vegetarian restaurant, vegan restaurant, nha hang chay, quan chay, com chay, chay]
+        hotel: [hotel, lodging, accommodation, resort, motel, homestay, guest house, khach san, khu nghi duong, luu tru]
+        attraction: [attraction, tourist, temple, pagoda, chua, diem tham quan]
 
 management:
   endpoint:

@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Duration;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -25,6 +27,12 @@ public class RecommendationProperties {
   @Valid private Semantic semantic = new Semantic();
   @Valid private Feedback feedback = new Feedback();
   @Valid private Versions versions = new Versions();
+  @Valid private Taxonomy taxonomy = new Taxonomy();
+
+  @Data
+  public static class Taxonomy {
+    private Map<String, List<String>> categoryAliases = new LinkedHashMap<>();
+  }
 
   @Data
   public static class Retrieval {

@@ -8,6 +8,7 @@ import fu.tripsense.recommendation.algorithm.filter.BusinessStatusFilter;
 import fu.tripsense.recommendation.algorithm.filter.CanonicalPlaceFilter;
 import fu.tripsense.recommendation.algorithm.filter.ExplicitExclusionFilter;
 import fu.tripsense.recommendation.algorithm.filter.MaximumRadiusFilter;
+import fu.tripsense.recommendation.algorithm.filter.PlaceCategoryTaxonomy;
 import fu.tripsense.recommendation.algorithm.filter.RequiredCategoryFilter;
 import fu.tripsense.recommendation.algorithm.filter.StrictNamedAreaFilter;
 import fu.tripsense.recommendation.application.port.CandidateGenerationResult;
@@ -19,7 +20,9 @@ import fu.tripsense.recommendation.domain.GeoPoint;
 import fu.tripsense.recommendation.domain.GeographicScope;
 import fu.tripsense.recommendation.domain.PlaceSnapshot;
 import fu.tripsense.recommendation.domain.RecommendationContext;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -74,52 +77,225 @@ class CandidatePipelinesTest {
 
   @Test
   void requiredCategoryAndStrictAreaAreFilteredBeforeRankingWithTypedReasons() {
-    CandidateFilterPipeline pipeline = new CandidateFilterPipeline(
-        List.of(new RequiredCategoryFilter(), new StrictNamedAreaFilter()));
-    RecommendationContext context = new RecommendationContext(
-        UUID.randomUUID(), UUID.randomUUID(), null, "session", "cafe", new GeoPoint(16.1068, 108.2772),
-        5_000, Set.of(), Set.of(), Set.of("CAFE"),
-        new GeographicScope("Sơn Trà, Đà Nẵng", "Đà Nẵng", "Sơn Trà", true), List.of(),
-        null, null, 5);
-    PlaceSnapshot matchingCafe = new PlaceSnapshot("cafe", "fixture", "cafe", "cafe", new GeoPoint(16.1068, 108.2772),
-        "Hoàng Sa, Sơn Trà, Đà Nẵng", "Đà Nẵng", "Sơn Trà", List.of("quán cà phê"), 4.5, 20,
-        List.of(), null, "OPERATIONAL", null, null, "FRESH");
-    PlaceSnapshot restaurantInArea = new PlaceSnapshot("food", "fixture", "food", "food", new GeoPoint(16.1068, 108.2772),
-        "Hoàng Sa, Sơn Trà, Đà Nẵng", "Đà Nẵng", "Sơn Trà", List.of("restaurant"), 4.5, 20,
-        List.of(), null, "OPERATIONAL", null, null, "FRESH");
+    CandidateFilterPipeline pipeline =
+        new CandidateFilterPipeline(List.of(requiredCategoryFilter(), new StrictNamedAreaFilter()));
+    RecommendationContext context =
+        new RecommendationContext(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            "session",
+            "cafe",
+            new GeoPoint(16.1068, 108.2772),
+            5_000,
+            Set.of(),
+            Set.of(),
+            Set.of("CAFE"),
+            new GeographicScope("Sơn Trà, Đà Nẵng", "Đà Nẵng", "Sơn Trà", true),
+            List.of(),
+            null,
+            null,
+            5);
+    PlaceSnapshot matchingCafe =
+        new PlaceSnapshot(
+            "cafe",
+            "fixture",
+            "cafe",
+            "cafe",
+            new GeoPoint(16.1068, 108.2772),
+            "Hoàng Sa, Sơn Trà, Đà Nẵng",
+            "Đà Nẵng",
+            "Sơn Trà",
+            List.of("quán cà phê"),
+            4.5,
+            20,
+            List.of(),
+            null,
+            "OPERATIONAL",
+            null,
+            null,
+            "FRESH");
+    PlaceSnapshot restaurantInArea =
+        new PlaceSnapshot(
+            "food",
+            "fixture",
+            "food",
+            "food",
+            new GeoPoint(16.1068, 108.2772),
+            "Hoàng Sa, Sơn Trà, Đà Nẵng",
+            "Đà Nẵng",
+            "Sơn Trà",
+            List.of("restaurant"),
+            4.5,
+            20,
+            List.of(),
+            null,
+            "OPERATIONAL",
+            null,
+            null,
+            "FRESH");
     var cafe = fused(matchingCafe);
     var restaurant = fused(restaurantInArea);
-    PlaceSnapshot wrongDistrict = new PlaceSnapshot("wrong", "fixture", "wrong", "wrong", new GeoPoint(16.1068, 108.2772),
-        "Hải Châu, Đà Nẵng", "Đà Nẵng", "Hải Châu", List.of("cafe"), 4.9, 50,
-        List.of(), null, "OPERATIONAL", null, null, "FRESH");
-    PlaceSnapshot conflictingAddress = new PlaceSnapshot("wrong-address", "ziomap", "wrong-address", "wrong address", new GeoPoint(16.1068, 108.2772),
-        "Gần chùa Linh Ứng, Hải Châu, Đà Nẵng", "Đà Nẵng", null, List.of("cafe"), 4.0, 10,
-        List.of(), null, "OPERATIONAL", null, null, "FRESH");
+    PlaceSnapshot wrongDistrict =
+        new PlaceSnapshot(
+            "wrong",
+            "fixture",
+            "wrong",
+            "wrong",
+            new GeoPoint(16.1068, 108.2772),
+            "Hải Châu, Đà Nẵng",
+            "Đà Nẵng",
+            "Hải Châu",
+            List.of("cafe"),
+            4.9,
+            50,
+            List.of(),
+            null,
+            "OPERATIONAL",
+            null,
+            null,
+            "FRESH");
+    PlaceSnapshot conflictingAddress =
+        new PlaceSnapshot(
+            "wrong-address",
+            "ziomap",
+            "wrong-address",
+            "wrong address",
+            new GeoPoint(16.1068, 108.2772),
+            "Gần chùa Linh Ứng, Hải Châu, Đà Nẵng",
+            "Đà Nẵng",
+            null,
+            List.of("cafe"),
+            4.0,
+            10,
+            List.of(),
+            null,
+            "OPERATIONAL",
+            null,
+            null,
+            "FRESH");
 
-    var outcome = pipeline.filterWithEvidence(
-        context, List.of(cafe, restaurant, fused(wrongDistrict), fused(conflictingAddress)));
+    var outcome =
+        pipeline.filterWithEvidence(
+            context, List.of(cafe, restaurant, fused(wrongDistrict), fused(conflictingAddress)));
 
     assertThat(outcome.eligible()).extracting(FusedCandidate::placeId).containsExactly("cafe");
-    assertThat(outcome.rejectedByReason()).containsEntry("CATEGORY_MISMATCH", 1)
-        .containsEntry("ADMIN_LOCATION_CONFLICT", 2);
+    assertThat(outcome.rejectedByReason())
+        .containsEntry("CATEGORY_MISMATCH", 1)
+        .containsEntry("ADMIN_LOCATION_CONFLICT", 1)
+        .containsEntry("ADMIN_LOCATION_EVIDENCE_MISSING", 1);
   }
 
   @Test
   void hotelCategoryAliasesMatchLodgingButRejectAttractions() {
     CandidateFilterPipeline pipeline =
-        new CandidateFilterPipeline(List.of(new RequiredCategoryFilter()));
-    RecommendationContext hotelContext = new RecommendationContext(
-        UUID.randomUUID(), UUID.randomUUID(), null, "session", "khách sạn", null,
-        null, Set.of(), Set.of(), Set.of("HOTEL"), null, List.of(), null, null, 5);
+        new CandidateFilterPipeline(List.of(requiredCategoryFilter()));
+    RecommendationContext hotelContext =
+        new RecommendationContext(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            "session",
+            "khách sạn",
+            null,
+            null,
+            Set.of(),
+            Set.of(),
+            Set.of("HOTEL"),
+            null,
+            List.of(),
+            null,
+            null,
+            5);
     PlaceSnapshot hotel = place("hotel", List.of("Khách sạn", "lodging"), "OPERATIONAL", null);
-    PlaceSnapshot pagoda = place(
-        "linh-ung", List.of("tourist attraction", "pagoda"), "OPERATIONAL", null);
+    PlaceSnapshot pagoda =
+        place("linh-ung", List.of("tourist attraction", "pagoda"), "OPERATIONAL", null);
 
-    var outcome = pipeline.filterWithEvidence(
-        hotelContext, List.of(fused(hotel), fused(pagoda)));
+    var outcome = pipeline.filterWithEvidence(hotelContext, List.of(fused(hotel), fused(pagoda)));
 
     assertThat(outcome.eligible()).extracting(FusedCandidate::placeId).containsExactly("hotel");
     assertThat(outcome.rejectedByReason()).containsEntry("CATEGORY_MISMATCH", 1);
+  }
+
+  @Test
+  void categoryAlternativesUseOrSemanticsAndVietnameseAliases() {
+    CandidateFilterPipeline pipeline =
+        new CandidateFilterPipeline(List.of(requiredCategoryFilter()));
+    RecommendationContext context =
+        new RecommendationContext(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            "session",
+            "địa điểm",
+            null,
+            null,
+            Set.of(),
+            Set.of(),
+            Set.of("RESTAURANT", "ATTRACTION"),
+            null,
+            List.of(),
+            null,
+            null,
+            5);
+
+    var outcome =
+        pipeline.filterWithEvidence(
+            context,
+            List.of(
+                fused(place("restaurant", List.of("nhà hàng"), "OPERATIONAL", null)),
+                fused(place("attraction", List.of("điểm tham quan"), "OPERATIONAL", null)),
+                fused(place("hotel", List.of("khách sạn"), "OPERATIONAL", null))));
+
+    assertThat(outcome.eligible())
+        .extracting(FusedCandidate::placeId)
+        .containsExactly("restaurant", "attraction");
+  }
+
+  @Test
+  void vegetarianRestaurantRequiresSpecificCategoryEvidence() {
+    CandidateFilterPipeline pipeline =
+        new CandidateFilterPipeline(List.of(requiredCategoryFilter()));
+    RecommendationContext context =
+        new RecommendationContext(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            "session",
+            "nhà hàng chay",
+            null,
+            null,
+            Set.of(),
+            Set.of(),
+            Set.of("VEGETARIAN_RESTAURANT"),
+            null,
+            List.of(),
+            null,
+            null,
+            5);
+
+    PlaceSnapshot vegetarian = place("vegetarian", List.of("nhà hàng chay"), "OPERATIONAL", null);
+    PlaceSnapshot meat = place("meat", List.of("nhà hàng"), "OPERATIONAL", null);
+
+    var outcome = pipeline.filterWithEvidence(context, List.of(fused(vegetarian), fused(meat)));
+
+    assertThat(outcome.eligible())
+        .extracting(FusedCandidate::placeId)
+        .containsExactly("vegetarian");
+    assertThat(outcome.rejectedByReason()).containsEntry("CATEGORY_MISMATCH", 1);
+  }
+
+  private RequiredCategoryFilter requiredCategoryFilter() {
+    var properties = new fu.tripsense.recommendation.config.RecommendationProperties();
+    Map<String, List<String>> aliases = new LinkedHashMap<>();
+    aliases.put("cafe", List.of("cafe", "coffee", "ca phe", "quan ca phe"));
+    aliases.put("restaurant", List.of("restaurant", "quan an", "nha hang"));
+    aliases.put(
+        "vegetarian_restaurant", List.of("vegetarian restaurant", "nha hang chay", "quan chay"));
+    aliases.put("hotel", List.of("hotel", "lodging", "khach san"));
+    aliases.put("attraction", List.of("attraction", "pagoda", "chua", "diem tham quan"));
+    properties.getTaxonomy().setCategoryAliases(aliases);
+    return new RequiredCategoryFilter(new PlaceCategoryTaxonomy(properties));
   }
 
   private CandidateGenerator generator(CandidateSource source, boolean optional, boolean fail) {

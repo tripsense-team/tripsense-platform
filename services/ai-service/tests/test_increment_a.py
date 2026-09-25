@@ -62,6 +62,19 @@ def test_vietnamese_cafe_request_preserves_category_count_area_radius_and_prefer
     assert {item.feature for item in goal.softPreferences} == {"QUIETNESS"}
 
 
+def test_vegetarian_restaurant_is_a_specific_typed_subject():
+    prompt = "Gợi ý 10 nhà hàng chay ở Liên Chiểu, Đà Nẵng"
+    normalizer = RecommendationGoalNormalizer()
+    direct_goal = normalizer.normalize(prompt)
+    travel_goal = normalizer.fallback_travel_goal(prompt, {"destination": "Đà Nẵng"})
+    converted_goal = travel_goal_to_recommendation_goal(travel_goal)
+
+    assert direct_goal.subjectTypes == ["VEGETARIAN_RESTAURANT"]
+    assert converted_goal.subjectTypes == ["VEGETARIAN_RESTAURANT"]
+    assert converted_goal.searchArea["district"] == "Liên Chiểu"
+    assert converted_goal.requestedResultCount == 10
+
+
 def test_near_hotel_requires_owned_anchor_instead_of_inventing_coordinates():
     normalizer = RecommendationGoalNormalizer()
     missing = normalizer.normalize("romantic café near my hotel")
