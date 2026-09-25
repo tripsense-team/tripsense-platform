@@ -26,7 +26,6 @@ import {
   deleteItineraryItem,
   getItinerary,
   getTrip,
-  listTrips,
   reorderItineraryItems,
   updateItineraryItem,
   updateTrip,

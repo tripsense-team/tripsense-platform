@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   LOCALES,
   DEFAULT_LOCALE,
@@ -6,14 +6,14 @@ import {
   LOCALE_STORAGE_KEY,
 } from "../config";
 
-function resolvePath(obj: any, path: string): string | undefined {
+function resolvePath(obj: unknown, path: string): string | undefined {
   if (!obj || typeof obj !== "object") return undefined;
   const parts = path.split(".");
-  let current: any = obj;
+  let current: unknown = obj;
 
   for (const part of parts) {
     if (current == null || typeof current !== "object") return undefined;
-    current = current[part];
+    current = (current as Record<string, unknown>)[part];
   }
 
   return typeof current === "string" ? current : undefined;
