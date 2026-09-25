@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "ziomap-api.socibi.com",
+      },
+      {
+        protocol: "https",
         hostname: "*.googleusercontent.com",
       },
       {
