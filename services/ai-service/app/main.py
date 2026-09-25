@@ -57,6 +57,7 @@ logger = logging.getLogger("tripsense.ai")
 settings = get_settings()
 subscribers: dict[str, set[asyncio.Queue]] = defaultdict(set)
 activity_trackers: dict[str, ActivityTracker] = {}
+_run_sequences: dict[str, int] = {}  # in-memory sequence counter per run, avoids SELECT MAX per publish
 local_conversation_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)  # optimization only; DB lease is authoritative
 context_resolver = ContextResolver()
 goal_normalizer = RecommendationGoalNormalizer()
@@ -372,8 +373,9 @@ def latest_preview(db: Session, owner: str, conversation_id: str) -> dict | None
 
 
 async def publish(run_id: str, conversation_id: str, event_type: str, payload: dict) -> None:
+    sequence = _run_sequences.get(run_id, 0) + 1
+    _run_sequences[run_id] = sequence
     with SessionLocal() as db:
-        sequence = (db.scalar(select(func.max(RunEvent.sequence)).where(RunEvent.run_id == run_id)) or 0) + 1
         stored = RunEvent(run_id=run_id, conversation_id=conversation_id, sequence=sequence,
                           event_type=event_type, payload_json=payload)
         db.add(stored)
@@ -702,10 +704,10 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
             trip_id = metadata.get("tripId") or client_context.get("tripId") or extract_trip_id(trigger.content)
             conversation = db.get(Conversation, run.conversation_id)
             pending_preview = active_post_preview(db, owner, run.conversation_id) if run.action_type == ActionType.REFINE_PLAN else None
-            revision_preview = (latest_preview(db, owner, run.conversation_id)
-                                if run.action_type == ActionType.REFINE_PLAN else None)
-            question_preview = (latest_preview(db, owner, run.conversation_id)
-                                if run.action_type == ActionType.GENERAL_CHAT else None)
+            _cached_preview = (latest_preview(db, owner, run.conversation_id)
+                               if run.action_type in {ActionType.REFINE_PLAN, ActionType.GENERAL_CHAT} else None)
+            revision_preview = _cached_preview if run.action_type == ActionType.REFINE_PLAN else None
+            question_preview = _cached_preview if run.action_type == ActionType.GENERAL_CHAT else None
             open_now_question = bool(question_preview and re.search(
                 r"(?:đang mở|mở cửa không|open now|currently open)", trigger.content.casefold()))
             refinement_base = None
@@ -785,7 +787,6 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
         preview = None
         try:
             model_started = time.monotonic()
-            adapter = ModelAdapter(settings)
             async with asyncio.timeout(min(settings.run_timeout_seconds, budget.wall_seconds)):
                 prompts = bounded_prompts(prompts, budget.input_tokens)
                 selected: list[dict] = []
@@ -1130,7 +1131,9 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                              "Comparing the available options...",
                                              "Evaluating gathered places against your request.")
                         remaining = max(0, budget.tool_calls - min(len(selected), budget.tool_calls))
-                        for place_id in detail_candidates_for_plan(grounding_results, min(2, remaining)):
+                        candidates_to_fetch = detail_candidates_for_plan(grounding_results, min(2, remaining))
+
+                        async def _fetch_candidate_detail(place_id: str) -> None:
                             tool_call_id = f"detail-{uuid4()}"
                             await publish(run_id, conversation_id, "tool.started", {"toolCallId": tool_call_id, "name": "get_place_details"})
                             try:
@@ -1152,6 +1155,9 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 await publish(run_id, conversation_id, "tool.failed", {"toolCallId": tool_call_id,
                                                                                        "name": "get_place_details",
                                                                                        "error": {"code": exc.code, "retryable": True}})
+
+                        if candidates_to_fetch:
+                            await asyncio.gather(*[_fetch_candidate_detail(pid) for pid in candidates_to_fetch])
                         all_eval_places = {
                             str(place["id"]): place for item in grounding_results
                             if item.get("tool") in {"search_places", "nearby_places", "recommend_places"}
@@ -1212,6 +1218,10 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 "- Always provide the street address for each recommended place."
                             )
                         })
+                    if hasattr(executor, "close") and callable(getattr(executor, "close")):
+                        _close_res = executor.close()
+                        if asyncio.iscoroutine(_close_res):
+                            await _close_res
                 if run.action_type in {ActionType.PLAN_ITINERARY, ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN}:
                     build_key = "revising_itinerary" if revision_preview else "building_itinerary"
                     build_label = "Revising your itinerary..." if revision_preview else "Drafting your itinerary..."
@@ -1501,6 +1511,7 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                     await publish(run_id, conversation_id, "run.failed",
                                   {"error": {"code": current.error_code, "message": current.error_message, "retryable": True}})
         activity_trackers.pop(run_id, None)
+        _run_sequences.pop(run_id, None)
         release_conversation_lease(conversation_id, lease_token)
 
 

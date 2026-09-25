@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -587,6 +588,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     if (places == null || places.isEmpty()) {
       return List.of();
     }
+    List<PlaceDto> needExternalEnrichment = new ArrayList<>();
     for (PlaceDto place : places) {
       if (place.getPrimaryPhoto() != null && StringUtils.hasText(place.getPrimaryPhoto().url())) {
         continue;
@@ -622,27 +624,40 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       if (StringUtils.hasText(place.getProviderPlaceId())
           && (place.getProvider() == null
               || place.getProvider().equalsIgnoreCase(provider.getProviderName()))) {
-        try {
-          List<PlacePhotoDto> gallery = provider.getPhotoGallery(place.getProviderPlaceId(), 3);
-          if (!gallery.isEmpty()) {
-            place.setPhotoGallery(gallery);
-            place.setPrimaryPhoto(gallery.get(0));
-            List<String> urls =
-                gallery.stream().map(PlacePhotoDto::url).filter(StringUtils::hasText).toList();
-            if (!urls.isEmpty()) {
-              place.setPhotos(new ArrayList<>(urls));
-              persistPhotoUrls(place, urls);
-            }
-          }
-        } catch (Exception ex) {
-          log.warn(
-              "Failed to enrich photo gallery for place '{}': {}",
-              place.getName(),
-              ex.getMessage());
-        }
+        needExternalEnrichment.add(place);
       }
     }
+
+    if (!needExternalEnrichment.isEmpty()) {
+      List<CompletableFuture<Void>> futures =
+          needExternalEnrichment.stream()
+              .map(place -> CompletableFuture.runAsync(() -> enrichSinglePlacePhoto(place)))
+              .toList();
+      CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    }
+
     return places;
+  }
+
+  private void enrichSinglePlacePhoto(PlaceDto place) {
+    try {
+      List<PlacePhotoDto> gallery = provider.getPhotoGallery(place.getProviderPlaceId(), 3);
+      if (!gallery.isEmpty()) {
+        place.setPhotoGallery(gallery);
+        place.setPrimaryPhoto(gallery.get(0));
+        List<String> urls =
+            gallery.stream().map(PlacePhotoDto::url).filter(StringUtils::hasText).toList();
+        if (!urls.isEmpty()) {
+          place.setPhotos(new ArrayList<>(urls));
+          persistPhotoUrls(place, urls);
+        }
+      }
+    } catch (Exception ex) {
+      log.warn(
+          "Failed to enrich photo gallery for place '{}': {}",
+          place.getName(),
+          ex.getMessage());
+    }
   }
 
   private void persistPhotoUrls(PlaceDto place, List<String> photoUrls) {

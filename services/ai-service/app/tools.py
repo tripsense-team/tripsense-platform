@@ -1,5 +1,6 @@
 import re
 import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -96,11 +97,25 @@ class ToolExecutor:
         self.settings = settings
         self.headers = {"Authorization": f"Bearer {bearer_token}"}
         self.web = WebResearch(settings.brave_search_api_key)
+        self._client = httpx.AsyncClient(
+            timeout=settings.tool_timeout_seconds,
+            follow_redirects=False,
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+        )
+
+    async def close(self):
+        """Close the shared HTTP client and release pooled connections."""
+        await self._client.aclose()
+
+    @asynccontextmanager
+    async def _pooled_client(self):
+        """Yield the shared client without closing it, preserving connection pool."""
+        yield self._client
 
     async def execute(self, name: str, arguments: dict[str, Any]) -> ToolResult:
         started = time.monotonic()
         try:
-            async with httpx.AsyncClient(timeout=self.settings.tool_timeout_seconds, follow_redirects=False) as client:
+            async with self._pooled_client() as client:
                 if name == "web_search":
                     params = WebSearchInput.model_validate(arguments)
                     if len(self.web.queries) >= self.settings.max_web_searches_per_run:

@@ -15,6 +15,7 @@ import fu.tripsense.tripservice.exception.ValidationException;
 import fu.tripsense.tripservice.repository.*;
 import fu.tripsense.tripservice.service.ItineraryBatchService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +24,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ItineraryBatchServiceImpl implements ItineraryBatchService {
@@ -54,7 +59,8 @@ public class ItineraryBatchServiceImpl implements ItineraryBatchService {
             throw new ConflictException("TRIP_VERSION_CONFLICT", "Trip aggregate revision changed");
         }
         validateOperations(trip, request.operations());
-        for (ItineraryBatchOperation operation : request.operations()) applyOperation(trip, operation);
+        Map<String, PlaceSnapshot> snapshotCache = preloadPlaceSnapshots(request.operations());
+        for (ItineraryBatchOperation operation : request.operations()) applyOperation(trip, operation, snapshotCache);
         trip.setAggregateRevision(revision + 1);
         tripRepository.save(trip);
 
@@ -88,21 +94,50 @@ public class ItineraryBatchServiceImpl implements ItineraryBatchService {
         }
     }
 
-    private void applyOperation(Trip trip, ItineraryBatchOperation operation) {
+    private Map<String, PlaceSnapshot> preloadPlaceSnapshots(List<ItineraryBatchOperation> operations) {
+        if (operations == null || operations.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Set<String> placeRefs = operations.stream()
+                .filter(op -> "ADD".equals(op.type()) || "UPDATE".equals(op.type()))
+                .map(ItineraryBatchOperation::placeRef)
+                .filter(ref -> ref != null && !ref.isBlank())
+                .collect(Collectors.toSet());
+        if (placeRefs.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, PlaceSnapshot> cache = new ConcurrentHashMap<>();
+        List<CompletableFuture<Void>> futures = placeRefs.stream()
+                .map(ref -> CompletableFuture.runAsync(() -> {
+                    try {
+                        PlaceSnapshot snapshot = placeClient.requireCanonicalPlace(ref);
+                        if (snapshot != null) {
+                            cache.put(ref, snapshot);
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Failed to prefetch place snapshot for ref '{}': {}", ref, ex.getMessage());
+                    }
+                }))
+                .toList();
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return cache;
+    }
+
+    private void applyOperation(Trip trip, ItineraryBatchOperation operation, Map<String, PlaceSnapshot> snapshotCache) {
         switch (operation.type()) {
-            case "ADD" -> add(trip, operation);
-            case "UPDATE" -> update(trip, operation);
+            case "ADD" -> add(trip, operation, snapshotCache);
+            case "UPDATE" -> update(trip, operation, snapshotCache);
             case "DELETE" -> delete(trip, operation);
             case "REORDER" -> reorder(trip, operation);
             default -> throw new ValidationException("INVALID_BATCH_OPERATION", "Unsupported operation type");
         }
     }
 
-    private void add(Trip trip, ItineraryBatchOperation operation) {
+    private void add(Trip trip, ItineraryBatchOperation operation, Map<String, PlaceSnapshot> snapshotCache) {
         if (operation.dayId() == null || operation.itemType() == null || operation.title() == null || operation.title().isBlank()) {
             throw new ValidationException("INVALID_BATCH_OPERATION", "ADD requires dayId, itemType and title");
         }
-        PlaceSnapshot snapshot = operation.placeRef() == null ? null : placeClient.requireCanonicalPlace(operation.placeRef());
+        PlaceSnapshot snapshot = operation.placeRef() == null ? null : snapshotCache.computeIfAbsent(operation.placeRef(), placeClient::requireCanonicalPlace);
         int order = operation.sortOrder() != null ? operation.sortOrder()
                 : itemRepository.maxSortOrderByTripIdAndDayId(trip.getId(), operation.dayId()) + 100;
         itemRepository.save(ItineraryItem.builder().tripId(trip.getId()).dayId(operation.dayId())
@@ -115,14 +150,14 @@ public class ItineraryBatchServiceImpl implements ItineraryBatchService {
                 .build());
     }
 
-    private void update(Trip trip, ItineraryBatchOperation operation) {
+    private void update(Trip trip, ItineraryBatchOperation operation, Map<String, PlaceSnapshot> snapshotCache) {
         ItineraryItem item = itemRepository.findByIdAndTripIdForUpdate(operation.itemId(), trip.getId())
                 .orElseThrow(() -> new ValidationException("INVALID_BATCH_ITEM", "Item is not part of the trip"));
         if (operation.expectedItemVersion() != null && !operation.expectedItemVersion().equals(item.getVersion())) {
             throw new ConflictException("ITEM_VERSION_CONFLICT", "Itinerary item changed");
         }
         if (operation.placeRef() != null && !operation.placeRef().equals(item.getPlaceRef())) {
-            PlaceSnapshot snapshot = placeClient.requireCanonicalPlace(operation.placeRef());
+            PlaceSnapshot snapshot = snapshotCache.computeIfAbsent(operation.placeRef(), placeClient::requireCanonicalPlace);
             item.setPlaceRef(operation.placeRef());
             item.setPlaceNameSnapshot(snapshot == null ? null : snapshot.name());
             item.setPlaceAddressSnapshot(snapshot == null ? null : snapshot.address());
