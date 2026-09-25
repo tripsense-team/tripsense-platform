@@ -2,6 +2,7 @@ package fu.tripsense.socialservice.config;
 
 import fu.tripsense.socialservice.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.*;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
@@ -29,7 +30,9 @@ public class SecurityConfig {
             e -> e.authenticationEntryPoint((r, s, x) -> s.sendError(401, "Unauthorized")))
         .authorizeHttpRequests(
             a ->
-                a.requestMatchers("/actuator/**")
+                a.dispatcherTypeMatchers(DispatcherType.ASYNC)
+                    .permitAll()
+                    .requestMatchers("/actuator/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
