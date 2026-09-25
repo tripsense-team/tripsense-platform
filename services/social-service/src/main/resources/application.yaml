@@ -6,12 +6,11 @@ spring:
     name: social-service
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      url: ${REDIS_URL}
   datasource:
-    url: jdbc:postgresql://${SOCIAL_DB_HOST:localhost}:${SOCIAL_DB_PORT:5432}/${SOCIAL_DB_NAME:tripsense_social}
-    username: ${SOCIAL_DB_USER:postgres}
-    password: ${SOCIAL_DB_PASS:}
+    url: ${SOCIAL_DATASOURCE_URL}
+    username: ${SOCIAL_DB_USER}
+    password: ${SOCIAL_DB_PASS}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -39,6 +38,10 @@ trip-service:
   url: ${TRIP_SERVICE_URL:http://localhost:${TRIP_SERVICE_PORT:8084}}
   connect-timeout: ${TRIP_SERVICE_CONNECT_TIMEOUT:2s}
   read-timeout: ${TRIP_SERVICE_READ_TIMEOUT:5s}
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:${USER_SERVICE_PORT:8081}}
+  connect-timeout: ${USER_SERVICE_CONNECT_TIMEOUT:2s}
+  read-timeout: ${USER_SERVICE_READ_TIMEOUT:5s}
 management:
   endpoints:
     web:
@@ -53,4 +56,3 @@ weather:
 firebase:
   credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
   credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
-

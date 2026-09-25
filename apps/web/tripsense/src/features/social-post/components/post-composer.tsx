@@ -20,6 +20,7 @@ import { useAuth } from "@/features/auth";
 import { useUserProfile } from "@/features/profile";
 import { useTripStore } from "@/features/trip-management";
 import type { TripResponse } from "@/features/trip-management/types";
+import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useCreatePost } from "../hooks";
 import { socialPostRepository } from "../services";
@@ -37,6 +38,7 @@ type ComposerMode = "update" | "trip";
 type ShareVisibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
 
 export function PostComposer({ onPostCreated, className }: PostComposerProps) {
+  const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const { data: profile } = useUserProfile(user?.id || "");
   const {
@@ -354,7 +356,7 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <Sparkles className="h-4 w-4" /> Bài cập nhật
+          <Sparkles className="h-4 w-4" /> {t("social.postTypeUpdate")}
         </button>
         <button
           type="button"
@@ -367,7 +369,7 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <Compass className="h-4 w-4" /> Chia sẻ chuyến đi
+          <Compass className="h-4 w-4" /> {t("social.shareTrip")}
         </button>
       </div>
       <form
@@ -597,12 +599,12 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
                   disabled={pending}
                   className="rounded-full text-muted-foreground"
                 >
-                  <ImagePlus className="h-4 w-4" /> Thêm ảnh
+                  <ImagePlus className="h-4 w-4" /> {t("social.addPhoto")}
                 </Button>
               </>
             ) : (
               <span className="text-xs font-semibold text-muted-foreground">
-                Xác nhận bản xem trước · {preview?.consentVersion || "đang chờ"}
+                {t("social.previewConfirmation")} · {preview?.consentVersion || t("social.pending")}
               </span>
             )}
           </div>

@@ -75,8 +75,11 @@ public class ChatService {
     if (rows.isEmpty()) throw error(HttpStatus.NOT_FOUND, "CHAT_NOT_FOUND", "Conversation not found");
     return rows.getFirst();
   }
+  private static boolean isLower(UUID a, UUID b) {
+    return a.toString().compareTo(b.toString()) < 0;
+  }
   private void pairLock(UUID a, UUID b) {
-    String key = a.compareTo(b) < 0 ? a + ":" + b : b + ":" + a;
+    String key = isLower(a, b) ? a + ":" + b : b + ":" + a;
     db.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", rs -> {}, key);
   }
   private boolean blocked(UUID a, UUID b) {
@@ -152,7 +155,7 @@ public class ChatService {
     pairLock(user,recipient);
     assertAllowed(user,recipient);
     profiles.requireEnabled(recipient,token());
-    UUID low = user.compareTo(recipient) < 0 ? user : recipient;
+    UUID low = isLower(user, recipient) ? user : recipient;
     UUID high = low.equals(user) ? recipient : user;
     List<Thread> existing = db.query("SELECT * FROM chat_conversations WHERE user_low_id=? AND user_high_id=?",this::thread,low,high);
     if (!existing.isEmpty()) {

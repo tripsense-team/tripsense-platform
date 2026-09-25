@@ -44,7 +44,7 @@ class ChatServiceTest {
   private final AuthenticatedUser authUser = new AuthenticatedUser(me, "me@tripsense.app", "ROLE_USER");
 
   private ChatService.Thread mockThread(String state, UUID initiator) {
-    UUID low = me.compareTo(peer) < 0 ? me : peer;
+    UUID low = me.toString().compareTo(peer.toString()) < 0 ? me : peer;
     UUID high = low.equals(me) ? peer : me;
     return new ChatService.Thread(conversationId, low, high, initiator, state, 10L, null, Instant.now());
   }
@@ -262,7 +262,7 @@ class ChatServiceTest {
   @Test
   @DisplayName("send throws 409 when conversation was DECLINED within 30 days")
   void send_DeclinedCooldown_Throws409() {
-    UUID low = me.compareTo(peer) < 0 ? me : peer;
+    UUID low = me.toString().compareTo(peer.toString()) < 0 ? me : peer;
     UUID high = low.equals(me) ? peer : me;
     ChatService.Thread declined = new ChatService.Thread(
         conversationId, low, high, me, "DECLINED", 1L, Instant.now().minus(5, ChronoUnit.DAYS), Instant.now());

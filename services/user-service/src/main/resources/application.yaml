@@ -6,9 +6,9 @@ spring:
     name: user-service
 
   datasource:
-    url: jdbc:postgresql://${USER_DB_HOST:localhost}:${USER_DB_PORT:5432}/tripsense_user
-    username: ${USER_DB_USER:postgres}
-    password: ${USER_DB_PASS:}
+    url: ${USER_DATASOURCE_URL}
+    username: ${USER_DB_USER}
+    password: ${USER_DB_PASS}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -47,3 +47,9 @@ email-service:
 oauth:
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
+
+auth:
+  cleanup:
+    enabled: ${AUTH_CLEANUP_ENABLED:true}
+    on-startup: ${AUTH_CLEANUP_ON_STARTUP:true}
+    cron: ${AUTH_CLEANUP_CRON:0 0 3 * * ?}

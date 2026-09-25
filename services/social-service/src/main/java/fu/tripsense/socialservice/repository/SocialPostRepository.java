@@ -101,4 +101,23 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select p from SocialPost p where p.id = :id and p.deletedAt is null")
   Optional<SocialPost> lockActiveById(@Param("id") UUID id);
+
+  @Query(
+      """
+      SELECT p.authorId, MAX(p.authorDisplayName), COUNT(p.id)
+      FROM SocialPost p
+      WHERE p.deletedAt IS NULL
+      AND (
+          p.postType = 'STANDARD'
+          OR p.id IN (
+              SELECT s.postId FROM SocialTripShare s
+              WHERE s.visibility = 'PUBLIC' AND s.removedAt IS NULL
+          )
+      )
+      AND (:viewerId IS NULL OR p.authorId != :viewerId)
+      GROUP BY p.authorId
+      ORDER BY COUNT(p.id) DESC
+      """)
+  List<Object[]> findActiveCreatorSummaries(
+      @Param("viewerId") UUID viewerId, Pageable pageable);
 }

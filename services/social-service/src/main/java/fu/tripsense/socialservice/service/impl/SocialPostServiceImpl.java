@@ -3,8 +3,10 @@ package fu.tripsense.socialservice.service.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.tripsense.socialservice.client.PublicProfileClientResponse;
 import fu.tripsense.socialservice.client.TripPublicationClientResponse;
 import fu.tripsense.socialservice.client.TripServiceClient;
+import fu.tripsense.socialservice.client.UserPublicProfileClient;
 import fu.tripsense.socialservice.dto.request.CreateCommentRequest;
 import fu.tripsense.socialservice.dto.request.CreatePostRequest;
 import fu.tripsense.socialservice.dto.request.CreateTripShareRequest;
@@ -53,6 +55,7 @@ public class SocialPostServiceImpl implements SocialPostService {
   private final ObjectMapper objectMapper;
   private final TripShareWriter tripShareWriter;
   private final SocialUserFollowRepository userFollows;
+  private final UserPublicProfileClient userPublicProfileClient;
 
   @Value("${cloudinary.cloud-name:}")
   private String cloudName;
@@ -620,27 +623,40 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .map(x -> x.getId().getCommentId())
                 .collect(Collectors.toSet());
 
+    List<UUID> commentAuthorIds = list.stream().map(SocialComment::getAuthorId).distinct().toList();
+    Map<UUID, PublicProfileClientResponse> profilesByUserId =
+        (userPublicProfileClient == null || commentAuthorIds.isEmpty())
+            ? Map.of()
+            : userPublicProfileClient.fetchPublicProfiles(commentAuthorIds);
+
     Map<UUID, String> names =
         list.stream()
             .collect(Collectors.toMap(SocialComment::getId, SocialComment::getAuthorDisplayName));
 
     return list.stream()
         .map(
-            c ->
-                new PostCommentResponse(
-                    c.getId(),
-                    c.getPostId(),
-                    c.getParentCommentId(),
-                    author(c.getAuthorId(), c.getAuthorDisplayName()),
-                    c.getContent(),
-                    c.getCreatedAt(),
-                    c.getLikeCount(),
-                    liked.contains(c.getId()),
-                    c.getReplyToAuthorName() != null
-                        ? c.getReplyToAuthorName()
-                        : (c.getParentCommentId() == null
-                            ? null
-                            : names.get(c.getParentCommentId()))))
+            c -> {
+              PublicProfileClientResponse profile = profilesByUserId.get(c.getAuthorId());
+              String authorAvatar = profile != null ? profile.avatarUrl() : null;
+              String authorName =
+                  (profile != null && profile.displayName() != null && !profile.displayName().isBlank())
+                      ? profile.displayName()
+                      : c.getAuthorDisplayName();
+              return new PostCommentResponse(
+                  c.getId(),
+                  c.getPostId(),
+                  c.getParentCommentId(),
+                  author(c.getAuthorId(), authorName, authorAvatar, false),
+                  c.getContent(),
+                  c.getCreatedAt(),
+                  c.getLikeCount(),
+                  liked.contains(c.getId()),
+                  c.getReplyToAuthorName() != null
+                      ? c.getReplyToAuthorName()
+                      : (c.getParentCommentId() == null
+                          ? null
+                          : names.get(c.getParentCommentId())));
+            })
         .toList();
   }
 
@@ -713,11 +729,23 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     post.setCommentCount(post.getCommentCount() + 1);
 
+    PublicProfileClientResponse profile = null;
+    if (userPublicProfileClient != null) {
+      Map<UUID, PublicProfileClientResponse> profiles =
+          userPublicProfileClient.fetchPublicProfiles(List.of(user.id()));
+      profile = profiles.get(user.id());
+    }
+    String authorAvatar = profile != null ? profile.avatarUrl() : null;
+    String authorName =
+        (profile != null && profile.displayName() != null && !profile.displayName().isBlank())
+            ? profile.displayName()
+            : comment.getAuthorDisplayName();
+
     return new PostCommentResponse(
         comment.getId(),
         comment.getPostId(),
         comment.getParentCommentId(),
-        author(comment.getAuthorId(), comment.getAuthorDisplayName()),
+        author(comment.getAuthorId(), authorName, authorAvatar, false),
         comment.getContent(),
         comment.getCreatedAt(),
         0,
@@ -805,6 +833,11 @@ public class SocialPostServiceImpl implements SocialPostService {
             .collect(Collectors.toMap(SocialTripShare::getPostId, Function.identity()));
 
     List<UUID> authorIds = postList.stream().map(SocialPost::getAuthorId).distinct().toList();
+    Map<UUID, PublicProfileClientResponse> profilesByUserId =
+        (userPublicProfileClient == null || authorIds.isEmpty())
+            ? Map.of()
+            : userPublicProfileClient.fetchPublicProfiles(authorIds);
+
     Set<UUID> followedAuthorIds =
         (viewer == null || userFollows == null || authorIds.isEmpty())
             ? Set.of()
@@ -821,12 +854,19 @@ public class SocialPostServiceImpl implements SocialPostService {
               SharedTripSummaryResponse tripSummary = share != null ? toTripSummary(share) : null;
               String visibility = share != null ? share.getVisibility() : "PUBLIC";
               String postType = p.getPostType() != null ? p.getPostType() : "STANDARD";
+              PublicProfileClientResponse profile = profilesByUserId.get(p.getAuthorId());
+              String authorAvatar = profile != null ? profile.avatarUrl() : null;
+              String authorName =
+                  (profile != null && profile.displayName() != null && !profile.displayName().isBlank())
+                      ? profile.displayName()
+                      : p.getAuthorDisplayName();
               return new SocialPostResponse(
                   p.getId(),
                   postType,
                   author(
                       p.getAuthorId(),
-                      p.getAuthorDisplayName(),
+                      authorName,
+                      authorAvatar,
                       followedAuthorIds.contains(p.getAuthorId())),
                   p.getContent(),
                   urls.getOrDefault(p.getId(), List.of()),
@@ -949,11 +989,15 @@ public class SocialPostServiceImpl implements SocialPostService {
   }
 
   private SocialPostAuthorResponse author(UUID id, String name) {
-    return author(id, name, false);
+    return author(id, name, null, false);
   }
 
   private SocialPostAuthorResponse author(UUID id, String name, boolean isFollowing) {
-    return new SocialPostAuthorResponse(id, name, null, isFollowing);
+    return author(id, name, null, isFollowing);
+  }
+
+  private SocialPostAuthorResponse author(UUID id, String name, String avatar, boolean isFollowing) {
+    return new SocialPostAuthorResponse(id, name, avatar, isFollowing);
   }
 
   private String displayName(AuthenticatedUser user) {

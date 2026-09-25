@@ -22,4 +22,9 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
   @Query(
       "UPDATE Session s SET s.revokedAt = :now WHERE s.user.id = :userId AND s.revokedAt IS NULL")
   int revokeAllByUserId(@Param("userId") UUID userId, @Param("now") LocalDateTime now);
+
+  @Modifying(clearAutomatically = true)
+  @Query(
+      "DELETE FROM Session s WHERE s.absoluteExpiresAt < :now OR s.idleExpiresAt < :now")
+  int deleteExpiredSessions(@Param("now") LocalDateTime now);
 }

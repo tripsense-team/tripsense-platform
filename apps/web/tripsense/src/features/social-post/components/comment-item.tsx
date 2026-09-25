@@ -29,7 +29,7 @@ export function CommentItem({
   onReplyClick,
   className,
 }: CommentItemProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { comment, visualDepth, replyToAuthorName } = node;
   const [isReplying, setIsReplying] = React.useState(false);
   const [reportOpen, setReportOpen] = React.useState(false);
@@ -82,7 +82,7 @@ export function CommentItem({
                 {comment.author.name}
               </Link>
               <span className="text-micro text-muted-foreground">
-                · {formatRelativeTime(comment.createdAt)}
+                · {formatRelativeTime(comment.createdAt, locale)}
               </span>
             </div>
 

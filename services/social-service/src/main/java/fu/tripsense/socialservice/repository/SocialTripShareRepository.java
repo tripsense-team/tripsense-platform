@@ -21,4 +21,10 @@ public interface SocialTripShareRepository extends JpaRepository<SocialTripShare
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select s from SocialTripShare s where s.postId = :postId and s.removedAt is null")
   Optional<SocialTripShare> lockActiveByPostId(@Param("postId") UUID postId);
+
+  @Query(
+      "select lower(trim(s.destinationName)), count(s) from SocialTripShare s "
+          + "where s.visibility = 'PUBLIC' and s.removedAt is null and s.destinationName is not null and trim(s.destinationName) <> '' "
+          + "group by lower(trim(s.destinationName))")
+  List<Object[]> countPublicTripSharesByDestination();
 }
