@@ -38,6 +38,10 @@ trip-service:
   url: ${TRIP_SERVICE_URL:http://localhost:${TRIP_SERVICE_PORT:8084}}
   connect-timeout: ${TRIP_SERVICE_CONNECT_TIMEOUT:2s}
   read-timeout: ${TRIP_SERVICE_READ_TIMEOUT:5s}
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:${USER_SERVICE_PORT:8081}}
+  connect-timeout: ${USER_SERVICE_CONNECT_TIMEOUT:2s}
+  read-timeout: ${USER_SERVICE_READ_TIMEOUT:5s}
 management:
   endpoints:
     web:
@@ -52,4 +56,3 @@ weather:
 firebase:
   credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
   credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
-

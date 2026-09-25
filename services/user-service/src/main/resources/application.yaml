@@ -47,3 +47,9 @@ email-service:
 oauth:
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
+
+auth:
+  cleanup:
+    enabled: ${AUTH_CLEANUP_ENABLED:true}
+    on-startup: ${AUTH_CLEANUP_ON_STARTUP:true}
+    cron: ${AUTH_CLEANUP_CRON:0 0 3 * * ?}

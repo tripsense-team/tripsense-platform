@@ -37,7 +37,7 @@ export function PostCard({
 }: PostCardProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { remove, deleting } = useDeletePost();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
@@ -172,7 +172,7 @@ export function PostCard({
               </Badge>
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>{formatRelativeTime(post.createdAt)}</span>
+              <span>{formatRelativeTime(post.createdAt, locale)}</span>
               <span>•</span>
               <span>{visibilityLabel(post.visibility)}</span>
             </div>
