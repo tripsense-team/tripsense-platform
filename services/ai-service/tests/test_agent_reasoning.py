@@ -184,3 +184,27 @@ def test_attraction_detection_expansion():
     assert evaluator._is_attraction_venue({"name": "Cầu Rồng", "categories": []}) is True
     assert evaluator._is_attraction_venue({"name": "Quán Cơm Bình Dân", "categories": ["restaurant"]}) is False
 
+
+def test_iconic_venue_recognition_and_prioritization():
+    from app.retrieval.candidate_evaluator import is_iconic_venue
+    from app.planning import ItineraryPlanner
+
+    # 1. Iconic venues recognition
+    assert is_iconic_venue("Mì Quảng Ếch bếp Trang") is True
+    assert is_iconic_venue("Mì Quảng Đà Nẵng - Mỳ Quảng Bà Mua") is True
+    assert is_iconic_venue("Mì Quảng Bà Vị") is True
+    assert is_iconic_venue("Bánh Xèo Bà Dưỡng") is True
+    assert is_iconic_venue("Bún chả cá Hờn") is True
+    assert is_iconic_venue("Quán Ăn Bình Dân 123") is False
+
+    # 2. Test Planner prefers iconic venue over an obscure place
+    planner = ItineraryPlanner()
+    candidates = [
+        {"id": "p-obscure", "name": "Quán Mì Quảng 92 Xa Xôi", "categories": ["restaurant"], "rating": 4.9, "userRatingCount": 10},
+        {"id": "p-iconic", "name": "Mì Quảng Ếch bếp Trang", "categories": ["restaurant", "đặc sản đà nẵng"], "rating": 4.5, "userRatingCount": 3500},
+    ]
+    chosen = planner._diverse_places(candidates, count=1, locked_ids=set())
+    assert len(chosen) == 1
+    assert chosen[0]["name"] == "Mì Quảng Ếch bếp Trang"
+
+

@@ -56,6 +56,45 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
           "cho", "duoc", "tu", "den", "ve", "voi", "trong", "ngoai", "tren", "duoi", "so", "duong",
           "phuong", "huyen", "xa", "thanh", "pho", "da", "nang", "tp");
 
+  private static final java.util.Set<String> ICONIC_BRAND_KEYWORDS =
+      java.util.Set.of(
+          "bep trang", "bếp trang",
+          "ba mua", "bà mua",
+          "ba vi", "bà vị",
+          "ba duong", "bà dưỡng",
+          "be man", "bé mặn",
+          "nam danh", "năm đảnh",
+          "quan tran", "quán trần",
+          "quan mau", "quán mậu",
+          "dai loc", "đại lộc",
+          "hon", "hờn",
+          "ba lu", "bà lữ",
+          "ba van", "bà vân",
+          "che lien", "chè liên",
+          "a hai", "a hải",
+          "hong ngoc", "hồng ngọc",
+          "ut tich", "út tịch",
+          "nam house", "trinh ca phe", "trình cà phê",
+          "ngu hanh son", "ngũ hành sơn",
+          "linh ung", "linh ứng",
+          "cau rong", "cầu rồng",
+          "my khe", "mỹ khê",
+          "son tra", "sơn trà",
+          "ba na", "bà nà",
+          "nui than tai", "núi thần tài");
+
+  public boolean isIconicBrand(String name) {
+    if (!StringUtils.hasText(name)) return false;
+    String nameLower = name.toLowerCase().trim();
+    String nameStripped = stripAccents(nameLower);
+    for (String kw : ICONIC_BRAND_KEYWORDS) {
+      if (nameLower.contains(kw) || nameStripped.contains(kw)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public double computeTextMatchScore(PlaceDto place, String query) {
     if (!StringUtils.hasText(query) || place == null) {
       return 1.0;
@@ -204,6 +243,11 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
       } else {
         score -= Math.min(20.0, (distKm - 15.0) * 0.5);
       }
+    }
+
+    // 5. Iconic / Famous Local Culinary & Landmark Brand Boost (+50.0 points)
+    if (isIconicBrand(place.getName())) {
+      score += 50.0;
     }
 
     return score;

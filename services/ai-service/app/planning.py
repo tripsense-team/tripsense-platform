@@ -1,4 +1,5 @@
 import hashlib
+import math
 import re
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
@@ -20,6 +21,7 @@ from .retrieval.candidate_evaluator import (
     DESTINATION_SPECIALTIES,
     FoodEvidenceStatus,
     matches_food_intent,
+    is_iconic_venue,
 )
 from .retrieval.coverage import CoverageType, derive_coverage_requirements
 
@@ -753,27 +755,57 @@ class ItineraryPlanner:
                     return d
             return ""
 
+        def place_priority(p: dict) -> tuple[int, int, float]:
+            name = str(p.get("name") or "")
+            iconic = 1 if is_iconic_venue(name) else 0
+            has_coords = 1 if isinstance(p.get("location"), dict) and "lat" in p["location"] and "lng" in p["location"] else 0
+            rating = float(p.get("rating") or 4.0)
+            reviews = int(p.get("userRatingCount") or 1) if p.get("userRatingCount") is not None else 1
+            popularity = rating * math.log10(max(1, reviews) + 1)
+            return (iconic, has_coords, popularity)
+
         for position in range(count):
             wanted = desired[position]
             locked = next((place for place in remaining if str(place.get("id")) in locked_ids), None)
             matching = None
             chosen_dishes = {dish_family(p) for p in chosen if dish_family(p)}
             if wanted == "FOOD":
-                # 1. Prefer a food venue with a dish not yet chosen
-                matching = next((place for place in remaining if role(place) == "FOOD" and (not dish_family(place) or dish_family(place) not in chosen_dishes)), None)
-                # 2. If no eligible food venue exists in remaining, but attractions exist, fill with an attraction
+                food_candidates = [
+                    place for place in remaining
+                    if role(place) == "FOOD" and (not dish_family(place) or dish_family(place) not in chosen_dishes)
+                ]
+                food_candidates.sort(key=place_priority, reverse=True)
+                matching = food_candidates[0] if food_candidates else None
                 if not matching and not any(role(p) == "FOOD" for p in remaining):
-                    matching = next((place for place in remaining if role(place) in {"ATTRACTION", "EVENING"}), None)
+                    attr_candidates = [place for place in remaining if role(place) in {"ATTRACTION", "EVENING"}]
+                    attr_candidates.sort(key=place_priority, reverse=True)
+                    matching = attr_candidates[0] if attr_candidates else None
             elif wanted == "EVENING":
-                matching = next((place for place in remaining if role(place) == "EVENING"), None)
+                eve_candidates = [place for place in remaining if role(place) == "EVENING"]
+                eve_candidates.sort(key=place_priority, reverse=True)
+                matching = eve_candidates[0] if eve_candidates else None
                 if not matching:
-                    matching = next((place for place in remaining if role(place) == "ATTRACTION"), None)
+                    attr_candidates = [place for place in remaining if role(place) == "ATTRACTION"]
+                    attr_candidates.sort(key=place_priority, reverse=True)
+                    matching = attr_candidates[0] if attr_candidates else None
                 if not matching:
-                    matching = next((place for place in remaining if role(place) == "FOOD" and (not dish_family(place) or dish_family(place) not in chosen_dishes)), None)
+                    food_candidates = [
+                        place for place in remaining
+                        if role(place) == "FOOD" and (not dish_family(place) or dish_family(place) not in chosen_dishes)
+                    ]
+                    food_candidates.sort(key=place_priority, reverse=True)
+                    matching = food_candidates[0] if food_candidates else None
             else:  # ATTRACTION
-                matching = next((place for place in remaining if role(place) in {"ATTRACTION", "EVENING"}), None)
+                attr_candidates = [place for place in remaining if role(place) in {"ATTRACTION", "EVENING"}]
+                attr_candidates.sort(key=place_priority, reverse=True)
+                matching = attr_candidates[0] if attr_candidates else None
                 if not matching and not any(role(p) in {"ATTRACTION", "EVENING"} for p in remaining):
-                    matching = next((place for place in remaining if role(place) == "FOOD" and (not dish_family(place) or dish_family(place) not in chosen_dishes)), None)
+                    food_candidates = [
+                        place for place in remaining
+                        if role(place) == "FOOD" and (not dish_family(place) or dish_family(place) not in chosen_dishes)
+                    ]
+                    food_candidates.sort(key=place_priority, reverse=True)
+                    matching = food_candidates[0] if food_candidates else None
 
             # Never repeat the same dish family across meals
             candidate = locked if locked and (position == 0 or not matching) else matching

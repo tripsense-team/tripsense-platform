@@ -130,6 +130,26 @@ def matches_food_intent(food_target: str, text: str) -> tuple[bool, str]:
     return False, ""
 
 
+ICONIC_BRANDS: list[str] = [
+    "bếp trang", "bep trang", "bà mua", "ba mua", "bà vị", "ba vi", "mì quảng thi", "mì quảng 1a",
+    "bà dưỡng", "ba duong", "tôm nhảy cô ba", "năm hiền",
+    "bún chả cá hờn", "chả cá hờn", "bà lữ", "109 nguyễn chí thanh",
+    "quán trần", "quán mậu", "đại lộc", "bà hường",
+    "bé mặn", "be man", "năm đảnh", "nam danh", "bà rô", "cua đỏ", "mộc quán",
+    "bà vân", "bún mắm bà vân", "bún mắm ngọc",
+    "cơm gà a hải", "cơm gà hồng ngọc", "cơm gà tài ký",
+    "chè liên", "chè sầu liên", "chè thái ý phương", "út tịch", "trình cà phê", "nam house",
+    "ngũ hành sơn", "chùa linh ứng", "cầu rồng", "bãi biển mỹ khê", "bán đảo sơn trà", "bà nà hills"
+]
+
+
+def is_iconic_venue(name: str) -> bool:
+    if not name:
+        return False
+    norm = name.strip().casefold()
+    return any(b in norm for b in ICONIC_BRANDS)
+
+
 class CandidateEvaluator:
     """Evaluates candidate places against GeographicScope and CoverageRequirements
 

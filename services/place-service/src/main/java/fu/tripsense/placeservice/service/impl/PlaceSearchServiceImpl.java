@@ -86,13 +86,17 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       }
     }
 
-    List<Place> localEntities = findLocalPlaces(normalizedQuery, effectiveLimit);
+    int candidateFetchLimit = Math.max(effectiveLimit * 3, 50);
+    List<Place> localEntities = findLocalPlaces(normalizedQuery, candidateFetchLimit);
     List<PlaceDto> rankedLocal =
         ranking.rank(
             localEntities.stream().map(persistence::toDto).toList(),
             query,
             effectiveLat,
             effectiveLng);
+    if (rankedLocal.size() > effectiveLimit) {
+      rankedLocal = new ArrayList<>(rankedLocal.subList(0, effectiveLimit));
+    }
 
     boolean isSpecificQuery =
         !isBroadCategory(normalizedQuery)
