@@ -60,135 +60,6 @@ services:
       retries: 10
       start_period: 20s
 
-  db:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: "0.50"
-    environment:
-      POSTGRES_DB: tripsense_user
-      POSTGRES_USER: ${USER_DB_USER}
-      POSTGRES_PASSWORD: ${USER_DB_PASS}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${USER_DB_USER} -d tripsense_user"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  trip-db:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: "0.50"
-    environment:
-      POSTGRES_DB: tripsense_trip
-      POSTGRES_USER: ${TRIP_DB_USER}
-      POSTGRES_PASSWORD: ${TRIP_DB_PASS}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${TRIP_DB_USER} -d tripsense_trip"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    volumes:
-      - trip_postgres_data:/var/lib/postgresql/data
-
-  ai-db:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: "0.50"
-    environment:
-      POSTGRES_DB: ${AI_DB_NAME:-tripsense_ai}
-      POSTGRES_USER: ${AI_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${AI_DB_PASS}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-postgres} -d ${AI_DB_NAME:-tripsense_ai}"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    volumes:
-      - ai_postgres_data:/var/lib/postgresql/data
-
-  mongodb:
-    image: mongo:7.0
-    restart: unless-stopped
-    mem_limit: 512m
-    cpus: "0.75"
-    command: ["mongod", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.25"]
-    healthcheck:
-      test:
-        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-    volumes:
-      - mongodb_data:/data/db
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    mem_limit: 96m
-    cpus: "0.25"
-    command:
-      [
-        "redis-server",
-        "--maxmemory",
-        "64mb",
-        "--maxmemory-policy",
-        "allkeys-lru",
-      ]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    volumes:
-      - redis_data:/data
-
-  social-db:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: "0.50"
-    environment:
-      POSTGRES_DB: ${SOCIAL_DB_NAME:-tripsense_social}
-      POSTGRES_USER: ${SOCIAL_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${SOCIAL_DB_PASS}
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${SOCIAL_DB_USER:-postgres} -d ${SOCIAL_DB_NAME:-tripsense_social}",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    volumes:
-      - social_postgres_data:/var/lib/postgresql/data
-
-  context-db:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    mem_limit: 256m
-    cpus: "0.50"
-    environment:
-      POSTGRES_DB: ${CONTEXT_DB_NAME:-tripsense_context}
-      POSTGRES_USER: ${CONTEXT_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${CONTEXT_DB_PASS}
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${CONTEXT_DB_USER:-postgres} -d ${CONTEXT_DB_NAME:-tripsense_context}",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-    volumes:
-      - context_postgres_data:/var/lib/postgresql/data
-
   discovery-server:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-discovery-server:${IMAGE_TAG}
     restart: unless-stopped
@@ -235,10 +106,9 @@ services:
     cpus: "0.75"
     environment:
       <<: *java-small
-      MONGODB_URI: mongodb://mongodb:27017/tripsense_places
-      MONGODB_DATABASE: tripsense_places
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-tripsense_places}
+      REDIS_URL: ${REDIS_URL}
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_API_KEY: ${ZIOMAP_API_KEY}
@@ -250,10 +120,6 @@ services:
     depends_on:
       discovery-server:
         condition: service_healthy
-      mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   user-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-user-service:${IMAGE_TAG}
@@ -262,8 +128,7 @@ services:
     cpus: "0.75"
     environment:
       <<: *java-small
-      USER_DB_HOST: db
-      USER_DB_PORT: "5432"
+      USER_DATASOURCE_URL: ${USER_DATASOURCE_URL}
       USER_DB_USER: ${USER_DB_USER}
       USER_DB_PASS: ${USER_DB_PASS}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
@@ -275,8 +140,6 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      db:
-        condition: service_healthy
       mail-service:
         condition: service_started
 
@@ -287,12 +150,10 @@ services:
     cpus: "0.75"
     environment:
       <<: *java-small
-      TRIP_DB_HOST: trip-db
-      TRIP_DB_PORT: 5432
+      TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL}
       TRIP_DB_USER: ${TRIP_DB_USER}
       TRIP_DB_PASS: ${TRIP_DB_PASS}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_URL: ${REDIS_URL}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
       EUREKA_CLIENT_ENABLED: "true"
@@ -300,10 +161,6 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      trip-db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       place-service:
         condition: service_started
       discovery-server:
@@ -316,14 +173,11 @@ services:
     cpus: "0.75"
     environment:
       <<: *java-small
-      SOCIAL_DB_HOST: social-db
-      SOCIAL_DB_PORT: "5432"
-      SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
-      SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
+      SOCIAL_DATASOURCE_URL: ${SOCIAL_DATASOURCE_URL}
+      SOCIAL_DB_USER: ${SOCIAL_DB_USER}
       SOCIAL_DB_PASS: ${SOCIAL_DB_PASS}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_URL: ${REDIS_URL}
       USER_SERVICE_URL: http://user-service:8081
       FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
       FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
@@ -337,10 +191,6 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      social-db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       user-service:
         condition: service_started
       trip-service:
@@ -356,10 +206,8 @@ services:
     environment:
       <<: *java-small
       CONTEXT_SERVICE_PORT: "8087"
-      CONTEXT_DB_HOST: context-db
-      CONTEXT_DB_PORT: "5432"
-      CONTEXT_DB_NAME: ${CONTEXT_DB_NAME:-tripsense_context}
-      CONTEXT_DB_USER: ${CONTEXT_DB_USER:-postgres}
+      CONTEXT_DATASOURCE_URL: ${CONTEXT_DATASOURCE_URL}
+      CONTEXT_DB_USER: ${CONTEXT_DB_USER}
       CONTEXT_DB_PASS: ${CONTEXT_DB_PASS}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       CONTEXT_ENCRYPTION_SECRET: ${CONTEXT_ENCRYPTION_SECRET}
@@ -368,8 +216,6 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
-      context-db:
-        condition: service_healthy
       discovery-server:
         condition: service_healthy
 
@@ -379,7 +225,7 @@ services:
     mem_limit: 512m
     cpus: "0.75"
     environment:
-      AI_DATABASE_URL: postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}
+      AI_DATABASE_URL: ${AI_DATABASE_URL}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
@@ -391,8 +237,6 @@ services:
       EUREKA_SERVER: http://discovery-server:8761/eureka/
       AI_SERVICE_PORT: 8085
     depends_on:
-      ai-db:
-        condition: service_healthy
       discovery-server:
         condition: service_healthy
       place-service:
@@ -407,13 +251,10 @@ services:
     cpus: "0.75"
     environment:
       <<: *java-small
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      REDIS_URL: ${REDIS_URL}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       user-service:
         condition: service_started
@@ -439,12 +280,3 @@ services:
       timeout: 5s
       retries: 15
       start_period: 30s
-
-volumes:
-  postgres_data:
-  trip_postgres_data:
-  mongodb_data:
-  redis_data:
-  social_postgres_data:
-  context_postgres_data:
-  ai_postgres_data:

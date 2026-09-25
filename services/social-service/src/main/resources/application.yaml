@@ -6,12 +6,11 @@ spring:
     name: social-service
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      url: ${REDIS_URL}
   datasource:
-    url: jdbc:postgresql://${SOCIAL_DB_HOST:localhost}:${SOCIAL_DB_PORT:5432}/${SOCIAL_DB_NAME:tripsense_social}
-    username: ${SOCIAL_DB_USER:postgres}
-    password: ${SOCIAL_DB_PASS:}
+    url: ${SOCIAL_DATASOURCE_URL}
+    username: ${SOCIAL_DB_USER}
+    password: ${SOCIAL_DB_PASS}
   jpa:
     hibernate:
       ddl-auto: validate

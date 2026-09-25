@@ -16,6 +16,18 @@ LEGACY_CONTAINERS=(
   user-service
   social-service
   context-service
+  db
+  trip-db
+  social-db
+  context-db
+  ai-db
+  mongodb
+  redis
+  user-postgres
+  trip-postgres
+  social-postgres
+  context-postgres
+  ai-postgres
 )
 
 echo "=== [Step 1/9] Pre-flight Check: Validating environment variables ==="
@@ -39,11 +51,21 @@ get_env_val() {
 }
 
 REQUIRED_VARS=(
-  "USER_DB_PASS:Mật khẩu PostgreSQL cho user-service (db)"
-  "TRIP_DB_PASS:Mật khẩu PostgreSQL cho trip-service (trip-db)"
-  "SOCIAL_DB_PASS:Mật khẩu PostgreSQL cho social-service (social-db)"
-  "CONTEXT_DB_PASS:Mật khẩu PostgreSQL cho context-service (context-db)"
-  "AI_DB_PASS:Mật khẩu PostgreSQL cho ai-service (ai-db)"
+  "USER_DATASOURCE_URL:JDBC URL kết nối database Neon cho user-service"
+  "USER_DB_USER:Username Neon PostgreSQL cho user-service"
+  "USER_DB_PASS:Mật khẩu PostgreSQL cho user-service"
+  "TRIP_DATASOURCE_URL:JDBC URL kết nối database Neon cho trip-service"
+  "TRIP_DB_USER:Username Neon PostgreSQL cho trip-service"
+  "TRIP_DB_PASS:Mật khẩu PostgreSQL cho trip-service"
+  "SOCIAL_DATASOURCE_URL:JDBC URL kết nối database Neon cho social-service"
+  "SOCIAL_DB_USER:Username Neon PostgreSQL cho social-service"
+  "SOCIAL_DB_PASS:Mật khẩu PostgreSQL cho social-service"
+  "CONTEXT_DATASOURCE_URL:JDBC URL kết nối database Neon cho context-service"
+  "CONTEXT_DB_USER:Username Neon PostgreSQL cho context-service"
+  "CONTEXT_DB_PASS:Mật khẩu PostgreSQL cho context-service"
+  "AI_DATABASE_URL:URL kết nối database Neon cho ai-service"
+  "MONGODB_URI:URI kết nối MongoDB Atlas cho place-service"
+  "REDIS_URL:URL kết nối Upstash Redis"
   "JWT_ACCESS_SECRET:Khóa bí mật JWT Access Token"
   "JWT_REFRESH_SECRET:Khóa bí mật JWT Refresh Token"
   "RESEND_API_KEY:API Key Resend cho mail-service gửi email"

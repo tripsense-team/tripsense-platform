@@ -81,18 +81,23 @@ jobs:
           IMAGE_OWNER: ${{ secrets.DOCKERHUB_USERNAME }}
           IMAGE_PROJECT: tripsense
           IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
-          DB_USER: postgres
-          DB_PASS: ci-placeholder
+          USER_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_user
           USER_DB_USER: postgres
           USER_DB_PASS: ci-placeholder
+          TRIP_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_trip
           TRIP_DB_USER: postgres
           TRIP_DB_PASS: ci-placeholder
-          SOCIAL_DB_NAME: tripsense_social
+          SOCIAL_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_social
           SOCIAL_DB_USER: postgres
           SOCIAL_DB_PASS: ci-placeholder
-          CONTEXT_DB_NAME: tripsense_context
+          CONTEXT_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_context
           CONTEXT_DB_USER: postgres
           CONTEXT_DB_PASS: ci-placeholder
+          AI_DATABASE_URL: postgresql://postgres:ci-placeholder@localhost:5432/tripsense_ai
+          MONGODB_URI: mongodb://localhost:27017/tripsense_places
+          REDIS_URL: redis://localhost:6379
+          CONTEXT_ENCRYPTION_SECRET: ci-placeholder-encryption-secret-32b
+          OPENAI_API_KEY: ci-placeholder
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
           RESEND_API_KEY: ci-placeholder
