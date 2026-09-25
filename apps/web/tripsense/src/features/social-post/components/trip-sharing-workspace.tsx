@@ -35,6 +35,8 @@ import { ApiError } from "@/services/api-client";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { socialPostRepository } from "@/features/social-post/services";
 import { AddItemDialog, EditItemDialog } from "@/features/trip-management/components/trip-dialogs";
+import { TripMembersDialog } from "@/features/trip-management/components/trip-members-dialog";
+import { PendingInvitationsBanner } from "@/features/trip-management/components/pending-invitations-banner";
 import { createItineraryItem, deleteItineraryItem, getItinerary, getTrip, listTrips, reorderItineraryItems, updateItineraryItem } from "@/features/trip-management/services/trip-management-api";
 import type { CreateItineraryItemRequest, ItineraryDayResponse, ItineraryItemResponse, ItineraryResponse, TripResponse, UpdateItineraryItemRequest } from "@/features/trip-management/types";
 import { countTripDays, coverImageForTrip, displayTripTitle, formatShortRange, titleCaseDestination, tripCoverOptions } from "@/features/trip-management/utils/format";
@@ -260,6 +262,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   const [switchingTripId, setSwitchingTripId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = React.useState(false);
   const [visibilityOpen, setVisibilityOpen] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
   const [visibility, setVisibility] = React.useState<ShareWorkspaceVisibility>("PUBLIC");
@@ -695,23 +698,27 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
 
   if (!trip) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-8">
-        <EmptyState
-          icon={Compass}
-          title="No trips found"
-          description="Create a trip in My Trips first, then come back to share it."
-          action={
-            <Button asChild className="rounded-full">
-              <Link href="/trips/new">Create a Trip</Link>
-            </Button>
-          }
-        />
+      <div className="min-h-screen">
+        <PendingInvitationsBanner />
+        <div className="flex min-h-[70vh] items-center justify-center p-8">
+          <EmptyState
+            icon={Compass}
+            title="No trips found"
+            description="Create a trip in My Trips first, then come back to share it."
+            action={
+              <Button asChild className="rounded-full">
+                <Link href="/trips/new">Create a Trip</Link>
+              </Button>
+            }
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <main className="min-h-screen bg-muted/30 pb-12">
+      <PendingInvitationsBanner />
       {feedbackMessage && <WorkspaceNotification message={feedbackMessage} onDismiss={() => setFeedbackMessage(null)} />}
 
       <TripHero
@@ -721,6 +728,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         visibilityLabel={visibilityLabel}
         onShare={() => setShareOpen(true)}
         onAddPlace={() => setAddItemDay(itinerary?.days[0] ?? null)}
+        onInvite={() => setMembersDialogOpen(true)}
       />
 
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -825,6 +833,12 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         onDraftChange={setEditItemDraft}
         onSubmit={handleUpdateItem}
       />
+      <TripMembersDialog
+        tripId={trip.id}
+        tripName={displayTripTitle(trip)}
+        open={membersDialogOpen}
+        onOpenChange={setMembersDialogOpen}
+      />
     </main>
   );
 }
@@ -873,6 +887,7 @@ function TripHero({
   visibilityLabel,
   onShare,
   onAddPlace,
+  onInvite,
 }: {
   trip: TripResponse;
   itinerary: ItineraryResponse | null;
@@ -880,6 +895,7 @@ function TripHero({
   visibilityLabel: string;
   onShare: () => void;
   onAddPlace: () => void;
+  onInvite?: () => void;
 }) {
   return (
     <section className="relative isolate overflow-hidden">
@@ -923,7 +939,7 @@ function TripHero({
               <Plus className="h-4 w-4" />
               Add Place
             </Button>
-            <Button variant="secondary" className="rounded-full font-bold">
+            <Button variant="secondary" className="rounded-full font-bold" onClick={onInvite}>
               <Users className="h-4 w-4" />
               Invite
             </Button>
