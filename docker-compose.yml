@@ -158,6 +158,7 @@ services:
       REDIS_PORT: 6379
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
+      ZIOMAP_API_KEY: ${ZIOMAP_API_KEY}
       ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
