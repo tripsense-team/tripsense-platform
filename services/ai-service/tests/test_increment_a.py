@@ -3,6 +3,8 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 os.environ.setdefault("AI_DATABASE_URL", "sqlite:///./test_ai_increment_a.db")
 os.environ.setdefault("JWT_ACCESS_SECRET", "test-secret-with-sufficient-length")
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
@@ -15,8 +17,9 @@ from sqlalchemy import select
 from app.execution import ExecutionProfile, budget_for_action
 from app.main import (SessionLocal, acquire_conversation_lease, app, release_conversation_lease,
                       settings)
-from app.models import ActionType, ModelCall, RunEvent
+from app.models import ActionType, ModelCall, Run, RunEvent
 from app.recommendation import RecommendationGoalNormalizer
+from app.recommendation.goal_normalizer import travel_goal_to_recommendation_goal
 from app.retrieval import RetrievalSufficiencyPolicy
 from app.context import ContextResolver
 
@@ -42,6 +45,34 @@ def test_recommendation_goal_normalizes_supported_and_unsupported_features():
     late = normalizer.normalize("café open after 23:00")
     assert late.requestedTime["localTime"] == "23:00"
     assert any(item.feature == "OPEN_AT" for item in late.hardConstraints)
+
+
+def test_vietnamese_cafe_request_preserves_category_count_area_radius_and_preferences():
+    prompt = "Gợi ý địa điểm: tìm 5 quán cà phê yên tĩnh ở bán đảo Sơn Trà, Đà Nẵng, trong bán kính 5 km, ưu tiên gần và đánh giá tốt."
+    normalizer = RecommendationGoalNormalizer()
+    travel_goal = normalizer.fallback_travel_goal(prompt, {"destination": "Đà Nẵng"})
+    goal = travel_goal_to_recommendation_goal(travel_goal)
+
+    assert goal.subjectTypes == ["CAFE"]
+    assert goal.requestedResultCount == 5
+    assert goal.searchArea["name"] == "Sơn Trà, Đà Nẵng"
+    assert goal.searchArea["radiusMeters"] == 5_000
+    assert goal.searchArea["lat"] == pytest.approx(16.1068)
+    assert goal.rankingObjectives[:2] == ["PROXIMITY", "QUALITY"]
+    assert {item.feature for item in goal.softPreferences} == {"QUIETNESS"}
+
+
+def test_vegetarian_restaurant_is_a_specific_typed_subject():
+    prompt = "Gợi ý 10 nhà hàng chay ở Liên Chiểu, Đà Nẵng"
+    normalizer = RecommendationGoalNormalizer()
+    direct_goal = normalizer.normalize(prompt)
+    travel_goal = normalizer.fallback_travel_goal(prompt, {"destination": "Đà Nẵng"})
+    converted_goal = travel_goal_to_recommendation_goal(travel_goal)
+
+    assert direct_goal.subjectTypes == ["VEGETARIAN_RESTAURANT"]
+    assert converted_goal.subjectTypes == ["VEGETARIAN_RESTAURANT"]
+    assert converted_goal.searchArea["district"] == "Liên Chiểu"
+    assert converted_goal.requestedResultCount == 10
 
 
 def test_near_hotel_requires_owned_anchor_instead_of_inventing_coordinates():
@@ -107,6 +138,44 @@ def test_missing_location_produces_durable_clarification_without_model_call():
         assert replay.status_code == 200
         assert "id: 1\n" not in replay.text
         assert "event: run.completed" in replay.text
+
+
+def test_location_answer_continues_the_pending_place_recommendation(monkeypatch):
+    class FakeAdapter:
+        def __init__(self, _): pass
+        async def select_tools(self, _, max_tool_calls=None): return []
+        async def stream(self, _, max_output_tokens=None): yield "Không tìm thấy kết quả phù hợp."
+
+    class NoResultTools:
+        def __init__(self, *_): pass
+        async def execute(self, name, arguments):
+            from app.tools import ToolResult
+            return ToolResult(name=name, data=[], provenance={"source": "UNKNOWN"}, artifact=None, duration_ms=1)
+
+    monkeypatch.setattr("app.main.ModelAdapter", FakeAdapter)
+    monkeypatch.setattr("app.main.ToolExecutor", NoResultTools)
+    headers = {"Authorization": f"Bearer {access_token()}"}
+    with TestClient(app) as client:
+        conversation = client.post("/api/ai/v1/conversations", headers=headers, json={}).json()
+        first = client.post(
+            f"/api/ai/v1/conversations/{conversation['id']}/messages",
+            headers={**headers, "Idempotency-Key": f"pending-{uuid.uuid4()}"},
+            json={"content": "gợi ý 5 quán cà phê yên tĩnh", "clientMessageId": str(uuid.uuid4()), "intent": "NORMAL"},
+        ).json()
+        assert client.get(f"/api/ai/v1/runs/{first['runId']}", headers=headers).json()["contextSufficiency"] == "NEEDS_CLARIFICATION"
+
+        second = client.post(
+            f"/api/ai/v1/conversations/{conversation['id']}/messages",
+            headers={**headers, "Idempotency-Key": f"answer-{uuid.uuid4()}"},
+            json={"content": "Sơn Trà, Đà Nẵng", "clientMessageId": str(uuid.uuid4()), "intent": "NORMAL"},
+        ).json()
+        run = client.get(f"/api/ai/v1/runs/{second['runId']}", headers=headers).json()
+        assert run["actionType"] == "PLACE_RECOMMENDATION"
+        assert run["contextSufficiency"] == "SUFFICIENT"
+        with SessionLocal() as db:
+            stored = db.get(Run, second["runId"])
+            assert stored.goal_json["subjectTypes"] == ["CAFE"]
+            assert stored.goal_json["requestedResultCount"] == 5
 
 
 def test_explicit_coordinates_make_context_sufficient(monkeypatch):

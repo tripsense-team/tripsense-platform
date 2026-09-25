@@ -82,6 +82,13 @@ class TravelGoal(BaseModel):
 
 
 _KNOWN_LOCATION_SCOPES: dict[str, dict[str, Any]] = {
+    "sơn trà": {
+        "admin_area": "Đà Nẵng",
+        "center_lat": 16.1068,
+        "center_lng": 108.2772,
+        "soft_radius_km": 5.0,
+        "hard_radius_km": 5.0,
+    },
     "đà nẵng": {
         "admin_area": "Đà Nẵng",
         "center_lat": 16.0544,
@@ -293,19 +300,55 @@ def resolve_geographic_scope(destination_name: str, allowed_excursions: list[str
     )
 
 
+def refine_geographic_scope(scope: GeographicScope, text: str) -> GeographicScope:
+    """Apply an explicitly named sub-area and radius without changing the destination city."""
+    lowered = text.casefold()
+    area = next((name for name in ("sơn trà", "hải châu", "ngũ hành sơn", "thanh khê", "liên chiểu", "cẩm lệ")
+                 if name in lowered), None)
+    info = _KNOWN_LOCATION_SCOPES.get(area or "", {})
+    radius = re.search(r"(?:within|under|trong\s+bán\s+kính|trong\s+vòng|dưới)\s*(\d+(?:[.,]\d+)?)\s*(km|m)\b", lowered)
+    radius_km = (float(radius.group(1).replace(",", ".")) * (1 if radius.group(2) == "km" else 0.001)) if radius else None
+    return scope.model_copy(update={
+        "center_lat": info.get("center_lat", scope.center_lat),
+        "center_lng": info.get("center_lng", scope.center_lng),
+        "soft_radius_km": radius_km or info.get("soft_radius_km", scope.soft_radius_km),
+        "hard_radius_km": radius_km or info.get("hard_radius_km", scope.hard_radius_km),
+    })
+
+
+_SUBJECT_TYPE_TERMS: dict[str, tuple[str, ...]] = {
+    "VEGETARIAN_RESTAURANT": (
+        "vegetarian restaurant",
+        "vegan restaurant",
+        "nhà hàng chay",
+        "quán chay",
+        "cơm chay",
+        "đồ chay",
+        "món chay",
+    ),
+    "CAFE": ("cafe", "café", "coffee", "cà phê", "quán cà phê"),
+    "RESTAURANT": (
+        "restaurant", "nhà hàng", "quán ăn", "food",
+        "bánh mì", "banh mi", "mì quảng", "mi quang", "cao lầu", "cao lau",
+        "phở", "pho", "bún chả", "bun cha", "bún bò", "bun bo", "bánh xèo",
+        "hải sản", "ẩm thực", "ăn uống", "đặc sản", "dac san", "món ăn",
+        "mon an", "đồ ăn", "do an", "món", "specialty", "specialties",
+    ),
+    "HOTEL": ("hotel", "khách sạn"),
+    "ATTRACTION": ("attraction", "sightseeing", "tham quan", "địa điểm du lịch", "đi chơi"),
+}
+
+
+def _detect_subject_types(text: str) -> list[str]:
+    detected = [key for key, terms in _SUBJECT_TYPE_TERMS.items() if any(term in text for term in terms)]
+    # A specific restaurant subtype is sufficient; do not add its generic parent as a second hard alternative.
+    if "VEGETARIAN_RESTAURANT" in detected and "RESTAURANT" in detected:
+        detected.remove("RESTAURANT")
+    return detected
+
+
 class RecommendationGoalNormalizer:
-    _categories = {
-        "CAFE": ("cafe", "café", "coffee", "cà phê", "quán cà phê"),
-        "RESTAURANT": (
-            "restaurant", "nhà hàng", "quán ăn", "food", "quán",
-            "bánh mì", "banh mi", "mì quảng", "mi quang", "cao lầu", "cao lau",
-            "phở", "pho", "bún chả", "bun cha", "bún bò", "bun bo", "bánh xèo",
-            "hải sản", "ẩm thực", "ăn uống", "đặc sản", "dac san", "món ăn",
-            "mon an", "đồ ăn", "do an", "món", "specialty", "specialties"
-        ),
-        "HOTEL": ("hotel", "khách sạn"),
-        "ATTRACTION": ("attraction", "sightseeing", "tham quan", "địa điểm du lịch", "đi chơi"),
-    }
+    _categories = _SUBJECT_TYPE_TERMS
     _known_locations = tuple(_KNOWN_LOCATION_SCOPES.keys()) + (
         "quy nhơn", "quy nhon", "vũng tàu", "vung tau", "hạ long", "ha long", "ninh bình", "ninh binh",
         "sa pa", "sapa", "phan thiết", "phan thiet", "mũi né", "mui ne", "cần thơ", "can tho",
@@ -316,9 +359,16 @@ class RecommendationGoalNormalizer:
     def normalize(self, text: str, context: dict[str, Any] | None = None) -> RecommendationGoal:
         context = context or {}
         lowered = text.casefold()
-        subjects = [key for key, terms in self._categories.items() if any(term in lowered for term in terms)]
+        subjects = _detect_subject_types(lowered)
         recommend = any(term in lowered for term in ("recommend", "best", "suggest", "gợi ý", "đề xuất", "nên"))
         goal = RecommendationGoal(goalType="RECOMMEND" if recommend else "DISCOVER", subjectTypes=subjects)
+
+        count = re.search(
+            r"(?:^|\s)(\d{1,2})\s+(?:quán|khách\s+sạn|hotels?|nhà\s+hàng|places?|locations?|kết quả)\b",
+            lowered,
+        )
+        if count:
+            goal.requestedResultCount = min(10, max(1, int(count.group(1))))
 
         location = next((item for item in self._known_locations if item in lowered), None)
         if not location:
@@ -419,7 +469,7 @@ class RecommendationGoalNormalizer:
             if exc in lowered and exc not in [e.casefold() for e in allowed_excursions]:
                 allowed_excursions.append(exc.title())
 
-        geo_scope = resolve_geographic_scope(dest, allowed_excursions)
+        geo_scope = refine_geographic_scope(resolve_geographic_scope(dest, allowed_excursions), text)
 
         # Duration
         days = 1
@@ -505,26 +555,60 @@ class RecommendationGoalNormalizer:
 
 def travel_goal_to_recommendation_goal(goal: TravelGoal) -> RecommendationGoal:
     """Converts a TravelGoal into a RecommendationGoal for place-service compatibility."""
-    subjects = []
-    if goal.mustEatFoods or goal.localSpecialtiesRequired:
+    raw_request = goal.raw_request.casefold()
+    subjects = _detect_subject_types(raw_request)
+    if "find_cafe" in goal.subgoals and "CAFE" not in subjects:
+        subjects.append("CAFE")
+    if "hotel_nearby" in goal.subgoals and "HOTEL" not in subjects:
+        subjects.append("HOTEL")
+    if (goal.mustEatFoods or goal.localSpecialtiesRequired) and not any(
+        subject.endswith("RESTAURANT") for subject in subjects
+    ):
         subjects.append("RESTAURANT")
-    if goal.requestedExperiences:
+    if goal.requestedExperiences and "ATTRACTION" not in subjects:
         subjects.append("ATTRACTION")
     if not subjects:
-        subjects = ["RESTAURANT", "ATTRACTION"]
+        subjects = ["ATTRACTION"]
 
-    search_area: dict[str, Any] = {"name": goal.destination}
+    mentioned_areas = [
+        area for area in ("sơn trà", "hải châu", "ngũ hành sơn", "thanh khê", "liên chiểu", "cẩm lệ")
+        if area in raw_request
+    ]
+    # A contextual follow-up can contain the previous and replacement areas.
+    # The last mention is the user's newest instruction and must win.
+    named_area = max(mentioned_areas, key=raw_request.rfind) if mentioned_areas else None
+    area_info = _KNOWN_LOCATION_SCOPES.get(named_area or "", {})
+    search_area: dict[str, Any] = {"name": f"{named_area.title()}, {goal.destination}" if named_area else goal.destination}
+    if named_area:
+        search_area["district"] = named_area.title()
     if goal.geographicScope.center_lat and goal.geographicScope.center_lng:
         search_area.update({
             "anchorType": "NAMED_AREA",
-            "lat": goal.geographicScope.center_lat,
-            "lng": goal.geographicScope.center_lng,
-            "radiusMeters": int(goal.geographicScope.hard_radius_km * 1000),
+            "lat": area_info.get("center_lat", goal.geographicScope.center_lat),
+            "lng": area_info.get("center_lng", goal.geographicScope.center_lng),
+            "radiusMeters": int(area_info.get("hard_radius_km", goal.geographicScope.hard_radius_km) * 1000),
         })
+
+    radius = re.search(r"(?:within|under|trong\s+bán\s+kính|trong\s+vòng|dưới)\s*(\d+(?:[.,]\d+)?)\s*(km|m)\b", raw_request)
+    if radius:
+        distance = float(radius.group(1).replace(",", ".")) * (1000 if radius.group(2) == "km" else 1)
+        search_area["radiusMeters"] = int(distance)
+
+    count = re.search(
+        r"(?:^|\s)(\d{1,2})\s+(?:quán|khách\s+sạn|hotels?|nhà\s+hàng|places?|locations?|kết quả)\b",
+        raw_request,
+    )
+    requested_count = min(10, max(1, int(count.group(1)))) if count else 5
+    preferences = []
+    if any(term in raw_request for term in ("yên tĩnh", "quiet", "vắng", "ít đông")):
+        preferences.append(SoftPreference(feature="QUIETNESS", importance="HIGH"))
+    objectives = ["PROXIMITY", "QUALITY"] if any(term in raw_request for term in ("ưu tiên gần", "gần nhất", "nearby", "closest")) else ["RELEVANCE", "QUALITY"]
 
     return RecommendationGoal(
         goalType="RECOMMEND",
-        subjectTypes=subjects,
+        subjectTypes=list(dict.fromkeys(subjects)),
         searchArea=search_area,
-        requestedResultCount=10,
+        softPreferences=preferences,
+        rankingObjectives=objectives,
+        requestedResultCount=requested_count,
     )

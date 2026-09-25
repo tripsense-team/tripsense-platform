@@ -161,4 +161,18 @@ describe("AgentActivityPanel", () => {
     expect(html).toContain("Search was unavailable");
     expect(html).toContain("Using cached places.");
   });
+
+  it("does not render completed-only activity history in the final answer", () => {
+    const html = renderToStaticMarkup(
+      <AgentActivityPanel
+        activities={[{
+          ...base,
+          status: "COMPLETED",
+          label: " ",
+          completedAt: "2026-09-21T00:00:01Z",
+        }]}
+      />
+    );
+    expect(html).toBe("");
+  });
 });

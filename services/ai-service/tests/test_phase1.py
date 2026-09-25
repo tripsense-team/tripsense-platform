@@ -12,8 +12,9 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from app.main import app, classify_action, settings
+from app.main import app, classify_action, fallback_tool_calls, settings, should_publish_place_artifact
 from app.models import ActionType
+from app.recommendation.goal_normalizer import RecommendationGoalNormalizer, travel_goal_to_recommendation_goal
 from app.tools import ToolExecutionError, ToolExecutor, ToolResult, TripInput
 
 
@@ -53,6 +54,54 @@ def test_action_classification_is_bounded():
     assert classify_action("Please plan a trip to Hue") == ActionType.PLAN_ITINERARY
     assert classify_action("Hello there") == ActionType.GENERAL_CHAT
     assert classify_action("Tìm địa điểm cà phê gần đây") == ActionType.PLACE_SEARCH
+    assert classify_action("vậy khách sanj gần thanh khê đi") == ActionType.PLACE_SEARCH
+
+
+def test_recommendation_fallback_never_uses_raw_place_search():
+    calls = fallback_tool_calls(
+        ActionType.PLACE_RECOMMENDATION,
+        "Gợi ý 5 khách sạn ở bán đảo Sơn Trà",
+        None,
+    )
+
+    assert [call["name"] for call in calls] == ["recommend_places"]
+
+
+def test_empty_recommendation_artifact_is_typed_and_display_safe():
+    executor = ToolExecutor(settings, "short-lived-test-token")
+    artifact = executor._place_artifact(
+        [],
+        provenance={
+            "source": "REAL",
+            "provider": "recommendation-service",
+            "returnedCount": 0,
+            "rankingStatus": "UNRANKED",
+        },
+    )
+
+    assert artifact["type"] == "PLACE_LIST"
+    assert artifact["data"]["places"] == []
+    assert artifact["provenance"][0]["provider"] == "recommendation-service"
+
+
+def test_hotel_followup_uses_hotel_category_and_latest_named_area():
+    text = (
+        "Gợi ý 5 khách sạn ở bán đảo Sơn Trà, Đà Nẵng, trong bán kính 5 km. "
+        "vậy khách sanj gần thanh khê đi"
+    )
+    travel_goal = RecommendationGoalNormalizer().fallback_travel_goal(text, {"destination": "Đà Nẵng"})
+    goal = travel_goal_to_recommendation_goal(travel_goal)
+
+    assert "HOTEL" in goal.subjectTypes
+    assert goal.searchArea["name"] == "Thanh Khê, Đà Nẵng"
+
+
+def test_raw_search_cannot_replace_authoritative_empty_recommendation_artifact():
+    assert should_publish_place_artifact("recommend_places", "PLACE_LIST", False) is True
+    assert should_publish_place_artifact("recommend_places", "PLACE_LIST", True) is True
+    assert should_publish_place_artifact("search_places", "PLACE_LIST", False) is True
+    assert should_publish_place_artifact("search_places", "PLACE_LIST", True) is False
+    assert should_publish_place_artifact("get_place_details", "PLACE_CARD", True) is True
 
 
 def test_conversation_is_owner_scoped():

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { AlertTriangle, CalendarDays, CloudSun, Heart, Info, MapPin, Route, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { AiArtifact, AiItineraryPreview, AiPlaceEvidence } from "./types";
+import { isDevelopmentFixturePlace, type AiArtifact, type AiItineraryPreview, type AiPlaceEvidence } from "./types";
 import type { Place as CorePlace, PlacePhotoEvidence } from "@/features/places/types";
 import { getPlaceDetails } from "@/features/places/services/places-api";
 import { ApprovedPlaceImage } from "./approved-place-image";
@@ -26,7 +26,8 @@ function Places({ artifact, onFeedback, onSelectPlace, selectedPlaceId, onViewDe
   selectedPlaceId?: string | null;
   onViewDetails?: (place: CorePlace) => void;
 }) {
-  const places = (artifact.data.places as Place[] | undefined) || [];
+  const places = ((artifact.data.places as Place[] | undefined) || [])
+    .filter((place) => !isDevelopmentFixturePlace(place));
   const [enrichedPhotos, setEnrichedPhotos] = React.useState<Record<string, PlacePhotoEvidence>>({});
   const inFlightRef = React.useRef<Set<string>>(new Set());
 
@@ -195,7 +196,11 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
   const [enrichedPlaces, setEnrichedPlaces] = React.useState<Record<string, Partial<Place>>>({});
   const inFlightRef = React.useRef<Set<string>>(new Set());
 
-  const items = React.useMemo(() => (data.days || []).flatMap((day) => day.items || []), [data.days]);
+  const items = React.useMemo(
+    () => (data.days || []).flatMap((day) => day.items || [])
+      .filter((item) => !isDevelopmentFixturePlace(item)),
+    [data.days],
+  );
 
   React.useEffect(() => {
     items.forEach((item) => {
@@ -279,7 +284,7 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
         {day.weather && <span className="flex items-center gap-1 text-micro text-muted-foreground"><CloudSun className="h-3 w-3 text-amber-500" />{day.weather.temperatureC}°C</span>}
       </div>
       <div className="flex gap-2.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-        {day.items?.map((rawItem, index) => {
+        {day.items?.filter((item) => !isDevelopmentFixturePlace(item)).map((rawItem, index) => {
           const enriched = enrichedPlaces[rawItem.canonicalPlaceId];
           const item = {
             ...rawItem,

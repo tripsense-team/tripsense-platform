@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import time
+import uuid
 import httpx
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -229,6 +230,15 @@ def active_post_preview(db: Session, owner: str, conversation_id: str) -> Pendin
     return next((item for item in candidates if (item.answer_schema_json or {}).get("kind") == POST_PREVIEW_KIND), None)
 
 
+def active_clarification(db: Session, owner: str, conversation_id: str) -> PendingClarification | None:
+    return db.scalar(select(PendingClarification).where(
+        PendingClarification.owner_user_id == owner,
+        PendingClarification.conversation_id == conversation_id,
+        PendingClarification.status == "ACTIVE",
+        PendingClarification.expires_at > now(),
+    ).order_by(PendingClarification.created_at.desc()))
+
+
 def active_run_id(db: Session, owner: str, conversation_id: str) -> str | None:
     run = db.scalar(select(Run).where(Run.owner_user_id == owner, Run.conversation_id == conversation_id,
                     Run.status.in_([RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.CANCEL_REQUESTED]))
@@ -248,6 +258,9 @@ def run_json(item: Run) -> dict:
 
 def classify_action(content: str) -> ActionType:
     text = content.casefold()
+    # Tolerate common unfinished Telex input so a place request cannot silently
+    # degrade to ungrounded general chat (for example, "khách sanj" -> "khách sạn").
+    text = re.sub(r"\bkhách\s+sanj\b", "khách sạn", text)
     if re.search(r"(?:đang mở|mở cửa không|open now|currently open)", text) and \
             ("?" in text or "nào" in text or "which" in text):
         return ActionType.GENERAL_CHAT
@@ -315,6 +328,38 @@ def is_contextual_followup(content: str) -> bool:
     if text in {"ok", "okay", "cảm ơn", "thanks", "thank you", "xin chào", "hello", "hi"}:
         return False
     return len(text.split()) >= 3
+
+
+def is_place_contextual_followup(content: str) -> bool:
+    """Return true only for wording that explicitly continues a prior place request."""
+    text = content.casefold().strip()
+    return bool(re.match(
+        r"^(?:vậy|thế|còn|hay là|chuyển sang|đổi sang|tìm gần|gần)\b",
+        text,
+    ))
+
+
+def should_publish_place_artifact(tool_name: str, artifact_type: str | None,
+                                  recommendation_artifact_seen: bool) -> bool:
+    """Keep raw retrieval evidence internal once recommender membership is authoritative."""
+    return not (
+        artifact_type == "PLACE_LIST"
+        and recommendation_artifact_seen
+        and tool_name != "recommend_places"
+    )
+
+
+def latest_place_run(db: Session, owner: str, conversation_id: str, before_run_id: str | None = None) -> Run | None:
+    query = select(Run).where(
+        Run.owner_user_id == owner,
+        Run.conversation_id == conversation_id,
+        Run.action_type.in_([ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION]),
+    )
+    if before_run_id:
+        current = db.get(Run, before_run_id)
+        if current:
+            query = query.where(Run.created_at < current.created_at)
+    return db.scalar(query.order_by(Run.created_at.desc()))
 
 
 def is_trivial_fast_path(content: str) -> bool:
@@ -440,7 +485,8 @@ def bounded_prompts(messages: list[dict], max_input_tokens: int) -> list[dict]:
 def compact_grounding_for_prompt(results: list[dict]) -> list[dict]:
     allowed_place_fields = {"id", "name", "address", "city", "district", "categories", "rating",
                             "userRatingCount", "location", "openingHours", "businessStatus", "description",
-                            "trustTier", "isExternal", "semanticMatchReason"}
+                            "trustTier", "isExternal", "semanticMatchReason", "recommendationEvidence",
+                            "quietnessEvidence"}
     compact: list[dict] = []
     for result in results:
         item = {"tool": result.get("tool"), "provenance": result.get("provenance"), "error": result.get("error")}
@@ -504,7 +550,10 @@ def fallback_tool_calls(action: ActionType, user_text: str, trip_id: str | None)
         return [{"id": f"web-{uuid4()}", "name": "web_search",
                  "arguments": {"query": user_text[:200], "gap": "current travel information", "limit": 5}}]
     if action == ActionType.PLACE_RECOMMENDATION:
-        return [{"id": f"fallback-{uuid4()}", "name": "search_places", "arguments": {"query": user_text, "limit": 10}}]
+        # Recommendation requests must never degrade into a raw place search. The
+        # goal-aware rewrite below supplies the typed goal before execution.
+        return [{"id": f"fallback-{uuid4()}", "name": "recommend_places",
+                 "arguments": {"query": user_text, "goal": {}}}]
     if action == ActionType.PLACE_SEARCH:
         return [{"id": f"fallback-{uuid4()}", "name": "search_places", "arguments": {"query": user_text, "limit": 5}}]
     if action == ActionType.TRIP_QA and trip_id:
@@ -701,6 +750,7 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
             client_context = metadata.get("context") or {}
             trip_id = metadata.get("tripId") or client_context.get("tripId") or extract_trip_id(trigger.content)
             conversation = db.get(Conversation, run.conversation_id)
+            pending_clarification = active_clarification(db, owner, run.conversation_id)
             pending_preview = active_post_preview(db, owner, run.conversation_id) if run.action_type == ActionType.REFINE_PLAN else None
             revision_preview = (latest_preview(db, owner, run.conversation_id)
                                 if run.action_type == ActionType.REFINE_PLAN else None)
@@ -710,6 +760,18 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                 r"(?:đang mở|mở cửa không|open now|currently open)", trigger.content.casefold()))
             refinement_base = None
             tool_request_text = trigger.content
+            if run.action_type in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION} \
+                    and is_place_contextual_followup(trigger.content):
+                prior_place_run = latest_place_run(db, owner, run.conversation_id, run.id)
+                prior_place_trigger = db.get(Message, prior_place_run.trigger_message_id) if prior_place_run else None
+                if prior_place_trigger:
+                    tool_request_text = f"{prior_place_trigger.content} {trigger.content}".strip()
+            if pending_clarification and (pending_clarification.answer_schema_json or {}).get("kind") != POST_PREVIEW_KIND \
+                    and run.action_type in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION}:
+                prior_run = db.get(Run, pending_clarification.originating_run_id)
+                prior_trigger = db.get(Message, prior_run.trigger_message_id) if prior_run else None
+                if prior_trigger:
+                    tool_request_text = f"{prior_trigger.content} {trigger.content}".strip()
             if pending_preview and extract_post_preview_answers(trigger.content, pending_preview.required_keys_json or []):
                 prior_run = db.get(Run, pending_preview.originating_run_id)
                 prior_answer = db.get(Message, prior_run.assistant_message_id) if prior_run and prior_run.assistant_message_id else None
@@ -750,9 +812,9 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 "lat": resolution.facts.get("LAT"), "lng": resolution.facts.get("LNG"),
                                 "hotelPlaceId": client_context.get("hotelPlaceId")}
                 if is_trivial_fast_path(trigger.content) or resolution.status != "SUFFICIENT" or not hasattr(adapter, "extract_travel_goal"):
-                    travel_goal = goal_normalizer.fallback_travel_goal(trigger.content, goal_context)
+                    travel_goal = goal_normalizer.fallback_travel_goal(tool_request_text, goal_context)
                 else:
-                    travel_goal = await adapter.extract_travel_goal(prompts, trigger.content, goal_context)
+                    travel_goal = await adapter.extract_travel_goal(prompts, tool_request_text, goal_context)
                 goal = travel_goal_to_recommendation_goal(travel_goal)
                 coverage_requirements = derive_coverage_requirements(travel_goal)
                 run.goal_json = goal.model_dump(mode="json")
@@ -778,6 +840,7 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
 
         content = ""
         artifacts: list[dict] = []
+        recommendation_artifact_seen = False
         grounding_results: list[dict] = []
         post_preview_question = ""
         post_preview_missing: list[str] = []
@@ -882,13 +945,26 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 personalization_enabled = result.data.get("personalizationEnabled") is True
 
                             eval_progress = None
+                            accepted_candidate_ids: set[str] | None = None
                             if call["name"] in {"search_places", "nearby_places", "get_place_details", "recommend_places"}:
                                 candidates = result.data if isinstance(result.data, list) else [result.data] if isinstance(result.data, dict) else []
                                 if travel_goal and coverage_requirements:
                                     step_evals = [candidate_evaluator.evaluate(c, travel_goal.geographicScope, coverage_requirements)
                                                   for c in candidates if isinstance(c, dict) and c.get("id")]
                                     found_c = len(step_evals)
-                                    accepted_c = sum(1 for e in step_evals if e.eligible and (not req or req.id in e.satisfies_requirement_ids))
+                                    requires_semantic_match = bool(
+                                        "find_cafe" in travel_goal.subgoals
+                                        or travel_goal.mustEatFoods
+                                        or travel_goal.localSpecialtiesRequired
+                                        or travel_goal.requestedExperiences
+                                        or travel_goal.mustVisitPlaces
+                                    )
+                                    accepted_evals = [e for e in step_evals if e.eligible and (
+                                        req.id in e.satisfies_requirement_ids if req
+                                        else (bool(e.satisfies_requirement_ids) if requires_semantic_match else True)
+                                    )]
+                                    accepted_candidate_ids = {e.canonical_place_id for e in accepted_evals}
+                                    accepted_c = len(accepted_evals)
                                     rejected_c = found_c - accepted_c
                                     eval_progress = {"found": found_c, "accepted": accepted_c, "rejected": rejected_c}
 
@@ -907,15 +983,42 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                                                  "retrievalRounds": 2 if retrieval and retrieval.get("refreshPerformed") else 1,
                                                                  "externalRefreshes": 1 if retrieval and retrieval.get("refreshPerformed") else 0}
                                         db.commit()
+                            artifact = None
                             if result.artifact:
+                                if result.artifact.get("type") == "PLACE_LIST" and accepted_candidate_ids is not None:
+                                    accepted_places = [
+                                        place for place in (result.artifact.get("data") or {}).get("places", [])
+                                        if str(place.get("id")) in accepted_candidate_ids
+                                    ]
+                                    result.artifact = {
+                                        **result.artifact,
+                                        "data": {
+                                            **(result.artifact.get("data") or {}),
+                                            "places": accepted_places,
+                                        },
+                                    }
+                                    # Only evaluated candidates may ground the final answer. Rejected raw
+                                    # candidates remain represented by progress counters, never user-visible data.
+                                    result.data = accepted_places
+                                is_place_list = result.artifact.get("type") == "PLACE_LIST"
+                                is_authoritative_recommendation = (
+                                    is_place_list and call["name"] == "recommend_places"
+                                )
+                                publish_place_artifact = should_publish_place_artifact(
+                                    call["name"], result.artifact.get("type"), recommendation_artifact_seen
+                                )
+                                if is_authoritative_recommendation:
+                                    recommendation_artifact_seen = True
                                 is_planning_action = run.action_type in {
                                     ActionType.PLAN_ITINERARY,
                                     ActionType.MODIFY_ITINERARY,
                                     ActionType.REFINE_PLAN,
                                 }
-                                if not (is_planning_action and result.artifact.get("type") == "PLACE_LIST"):
+                                if publish_place_artifact \
+                                        and not (is_planning_action and is_place_list):
                                     previous_list = next((item for item in artifacts if item.get("type") == "PLACE_LIST"), None)
-                                    if result.artifact.get("type") == "PLACE_LIST" and previous_list:
+                                    if result.artifact.get("type") == "PLACE_LIST" and previous_list \
+                                            and call["name"] != "recommend_places":
                                         combined = {str(place.get("id")): place for place in
                                                     previous_list.get("data", {}).get("places", [])
                                                     if isinstance(place, dict) and place.get("id")}
@@ -925,6 +1028,14 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                         artifact = {**result.artifact, "artifactId": previous_list["artifactId"],
                                                     "version": int(previous_list.get("version") or 1) + 1,
                                                     "data": {"places": list(combined.values())[:28]}}
+                                        artifacts[artifacts.index(previous_list)] = artifact
+                                    elif result.artifact.get("type") == "PLACE_LIST" and previous_list:
+                                        # A recommendation response is authoritative for final
+                                        # display membership. Replace any earlier raw retrieval
+                                        # list, including with an empty list, so rejected
+                                        # candidates cannot leak into cards.
+                                        artifact = {**result.artifact, "artifactId": previous_list["artifactId"],
+                                                    "version": int(previous_list.get("version") or 1) + 1}
                                         artifacts[artifacts.index(previous_list)] = artifact
                                     else:
                                         artifact = {**result.artifact, "artifactId": str(uuid4())}
@@ -963,17 +1074,20 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 await complete_activity(run_id, conversation_id, "Gathered place details",
                                                         "Fetched verified place attributes.",
                                                         progress=eval_progress)
-                            if call["name"] == "recommend_places" and goal is not None and personalization_enabled \
-                                    and result.provenance.get("retrieval", {}).get("status") == "SUFFICIENT":
+                            if call["name"] == "recommend_places" and goal is not None \
+                                    and result.provenance.get("recommendationId") and artifact is not None:
                                 with SessionLocal() as db:
                                     ranking = result.provenance.get("ranking") if isinstance(result.provenance, dict) else {}
                                     db.add(RecommendationImpression(
+                                        id=str(result.provenance["recommendationId"]),
                                         owner_user_id=owner,
                                         conversation_id=conversation_id,
                                         run_id=run_id,
                                         artifact_id=artifact["artifactId"],
                                         goal_json=goal.model_dump(mode="json"),
-                                        candidates_json=[{"id": item.get("id"), "rank": index + 1}
+                                        candidates_json=[{"id": item.get("id"),
+                                                          "rank": (item.get("recommendationEvidence") or {}).get("rank", index + 1),
+                                                          "recommendationEvidence": item.get("recommendationEvidence")}
                                                          for index, item in enumerate(result.data)
                                                          if isinstance(item, dict) and item.get("id")],
                                         ranking_version=str((ranking or {}).get("version") or "recommendation-rank-v1"),
@@ -1046,8 +1160,14 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 added_any = False
                                 if proposed and isinstance(proposed, dict) and proposed.get("concept"):
                                     p_action = str(proposed.get("action") or "SEARCH_PLACES").upper()
-                                    p_concept = str(proposed.get("concept") or "").strip()
-                                    p_req_id = proposed.get("targetRequirementId")
+                                    proposed_req_id = proposed.get("targetRequirementId")
+                                    matched_gap = next((gap for gap in open_gaps if gap.requirement_id == proposed_req_id), None)
+                                    if matched_gap is None and open_gaps:
+                                        matched_gap = open_gaps[0]
+                                    p_req_id = matched_gap.requirement_id if matched_gap else None
+                                    # The model chooses the strategy; concrete provider terms always come from
+                                    # the typed requirement so an unrelated cuisine/category cannot drift in.
+                                    p_concept = matched_gap.target if matched_gap else ""
                                     concept_items = [c.strip() for c in p_concept.split(",") if c.strip()]
                                     for c_item in concept_items:
                                         if len(selected) >= budget.tool_calls:
@@ -1130,7 +1250,12 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                              "Comparing the available options...",
                                              "Evaluating gathered places against your request.")
                         remaining = max(0, budget.tool_calls - min(len(selected), budget.tool_calls))
-                        for place_id in detail_candidates_for_plan(grounding_results, min(2, remaining)):
+                        detail_limit = min(2, remaining) if run.action_type in {
+                            ActionType.PLAN_ITINERARY,
+                            ActionType.MODIFY_ITINERARY,
+                            ActionType.REFINE_PLAN,
+                        } else 0
+                        for place_id in detail_candidates_for_plan(grounding_results, detail_limit):
                             tool_call_id = f"detail-{uuid4()}"
                             await publish(run_id, conversation_id, "tool.started", {"toolCallId": tool_call_id, "name": "get_place_details"})
                             try:
@@ -1177,26 +1302,6 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                         ),
                     })
                     if run.action_type in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION}:
-                        all_candidates = [
-                            p for item in grounding_results
-                            if item.get("tool") in {"search_places", "nearby_places", "recommend_places"}
-                            and isinstance(item.get("data"), list)
-                            for p in item["data"] if isinstance(p, dict) and p.get("id")
-                        ]
-                        if all_candidates and hasattr(adapter, "semantic_rerank"):
-                            try:
-                                reranked_places = await adapter.semantic_rerank(
-                                    all_candidates,
-                                    trigger.content,
-                                    travel_goal.semantic_desires if travel_goal else [],
-                                    top_k=min(len(all_candidates), 6)
-                                )
-                                for art in artifacts:
-                                    if art.get("type") == "PLACE_LIST" and isinstance(art.get("data"), dict):
-                                        art["data"]["places"] = reranked_places
-                                        await publish(run_id, conversation_id, "artifact.upsert", art)
-                            except Exception as exc:
-                                logger.info("semantic_rerank_step_error run_id=%s error=%s", run_id, type(exc).__name__)
                         prompts.append({
                             "role": "system",
                             "content": (
@@ -1369,6 +1474,20 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                             "For missing required opening hours, price, route or other fields, explicitly leave that claim "
                             "unverified; do not describe the hard constraint as satisfied. Offer a useful partial answer "
                             "and a concrete next option where possible."})
+                    recommendation_result = next((item for item in grounding_results
+                                                  if item.get("tool") == "recommend_places"), None)
+                    if recommendation_result:
+                        prompts.append({"role": "system", "content": (
+                            "RECOMMENDATION_PRESENTATION_RULES:\n"
+                            "Preserve the recommendation-service item order exactly. Never calculate distance or score from coordinates. "
+                            "Use only recommendationEvidence.distance, reasons, availableCriteria, unavailableCriteria and provenance ranking metadata. "
+                            "Never expose internal trust labels such as Tier A. Never turn null into a guess. "
+                            "For 2 or more ranked results, render one compact Markdown table with columns: Ưu tiên, Quán, Địa chỉ, Đánh giá, Khoảng cách ước tính. "
+                            "If rankingBasis is empty, label the first column STT, never Ưu tiên. "
+                            "If returnedCount is zero, do not name or attach rejected retrieval candidates and do not claim there is a suggested place. "
+                            "State the ranking basis and unavailable requested criteria explicitly. Label distance as straight-line, not route distance. "
+                            "Do not ask the user to provide Google Maps results; offer widening radius or waiting for more verified data instead."
+                        )})
                 if run.action_type == ActionType.CURRENT_RESEARCH:
                     prompts.append({"role": "system", "content":
                         "This is a time-sensitive question. Use only retrieved current sources with dates for current claims. "
@@ -1587,6 +1706,17 @@ def create_message(conversation_id: str, body: MessageCreate, background: Backgr
                                                                                        "idempotencyKey": idempotency_key})
     db.add(message); db.flush()
     action = classify_action(body.content)
+    if action in {ActionType.GENERAL_CHAT, ActionType.PLACE_SEARCH} \
+            and is_place_contextual_followup(body.content):
+        prior_place_run = latest_place_run(db, owner, conversation_id)
+        if prior_place_run:
+            action = prior_place_run.action_type
+    pending_clarification = active_clarification(db, owner, conversation_id)
+    if pending_clarification and (pending_clarification.answer_schema_json or {}).get("kind") != POST_PREVIEW_KIND \
+            and action == ActionType.GENERAL_CHAT and ContextResolver._valid_location_answer(body.content):
+        originating_run = db.get(Run, pending_clarification.originating_run_id)
+        if originating_run and originating_run.action_type in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION}:
+            action = originating_run.action_type
     is_new_plan = is_explicit_new_plan(body.content)
     if not is_new_plan and ((action in {ActionType.GENERAL_CHAT, ActionType.PLACE_SEARCH, ActionType.MODIFY_ITINERARY} and is_plan_revision(body.content))
             or (action == ActionType.PLAN_ITINERARY and is_plan_revision(body.content))
@@ -1638,37 +1768,64 @@ def create_recommendation_feedback(
         body: RecommendationFeedbackCreate,
         idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=1, max_length=120),
         owner: str = Depends(current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(bearer),
         db: Session = Depends(get_db),
 ):
-    existing = db.scalar(select(RecommendationFeedback).where(
-        RecommendationFeedback.owner_user_id == owner,
-        RecommendationFeedback.idempotency_key == idempotency_key,
-    ))
-    if existing:
-        existing_impression = db.get(RecommendationImpression, existing.impression_id)
-        if (existing.candidate_id != body.candidateId or existing.action != body.action
-                or existing_impression is None or existing_impression.artifact_id != artifact_id):
-            raise HTTPException(409, detail={"code": "IDEMPOTENCY_CONFLICT", "message": "Idempotency key was reused with a different payload", "retryable": False})
-        return {"id": existing.id, "artifactId": artifact_id, "candidateId": existing.candidate_id, "action": existing.action}
     impression = db.scalar(select(RecommendationImpression).where(
         RecommendationImpression.artifact_id == artifact_id,
         RecommendationImpression.owner_user_id == owner,
     ))
     if not impression:
         raise not_found()
-    candidate_ids = {str(item.get("id")) for item in impression.candidates_json if isinstance(item, dict)}
-    if body.candidateId not in candidate_ids:
+    candidate = next((item for item in impression.candidates_json
+                      if isinstance(item, dict) and str(item.get("id")) == body.candidateId), None)
+    if candidate is None:
         raise HTTPException(422, detail={"code": "INVALID_CANDIDATE", "message": "Candidate was not part of this impression", "retryable": False})
-    feedback = RecommendationFeedback(impression_id=impression.id, owner_user_id=owner,
-                                      candidate_id=body.candidateId, action=body.action,
-                                      idempotency_key=idempotency_key)
-    db.add(feedback)
-    db.commit()
-    return {"id": feedback.id, "artifactId": artifact_id, "candidateId": feedback.candidate_id, "action": feedback.action}
+    event_type = {"SAVE": "SAVE", "REJECT": "DISLIKE", "MORE_LIKE_THIS": "LIKE"}[body.action]
+    upstream_key = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{owner}:{idempotency_key}"))
+    recommendation_evidence = candidate.get("recommendationEvidence")
+    position = (recommendation_evidence.get("rank")
+                if isinstance(recommendation_evidence, dict) else None)
+    try:
+        response = httpx.post(
+            f"{settings.recommendation_service_url}/api/recommendations/{impression.id}/events",
+            headers={"Authorization": f"Bearer {credentials.credentials}", "Idempotency-Key": upstream_key},
+            json={
+                "placeId": body.candidateId,
+                "eventType": event_type,
+                "position": int(position or 1),
+                "occurredAt": now().isoformat(),
+            },
+            timeout=settings.tool_timeout_seconds,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 409:
+            raise HTTPException(409, detail={"code": "IDEMPOTENCY_CONFLICT", "message": "Idempotency key was reused with a different payload", "retryable": False}) from exc
+        logger.info("recommendation_feedback_proxy_failed artifact_id=%s status=%s", artifact_id, exc.response.status_code)
+        raise HTTPException(503, detail={"code": "DEPENDENCY_UNAVAILABLE", "message": "Recommendation feedback is temporarily unavailable", "retryable": True}) from exc
+    except httpx.HTTPError as exc:
+        logger.info("recommendation_feedback_proxy_failed artifact_id=%s error=%s", artifact_id, type(exc).__name__)
+        raise HTTPException(503, detail={"code": "DEPENDENCY_UNAVAILABLE", "message": "Recommendation feedback is temporarily unavailable", "retryable": True}) from exc
+    return {"id": upstream_key, "artifactId": artifact_id, "candidateId": body.candidateId, "action": body.action}
 
 
 @app.delete("/api/ai/v1/personalization-data", status_code=204)
-def reset_ai_personalization(owner: str = Depends(current_user), db: Session = Depends(get_db)):
+def reset_ai_personalization(
+        owner: str = Depends(current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(bearer),
+        db: Session = Depends(get_db),
+):
+    try:
+        response = httpx.delete(
+            f"{settings.recommendation_service_url}/api/recommendations/personalization-data",
+            headers={"Authorization": f"Bearer {credentials.credentials}"},
+            timeout=settings.tool_timeout_seconds,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        logger.info("recommendation_personalization_reset_failed error=%s", type(exc).__name__)
+        raise HTTPException(503, detail={"code": "DEPENDENCY_UNAVAILABLE", "message": "Personalization data could not be reset", "retryable": True}) from exc
     db.execute(delete(RecommendationFeedback).where(RecommendationFeedback.owner_user_id == owner))
     db.execute(delete(RecommendationImpression).where(RecommendationImpression.owner_user_id == owner))
     db.commit()

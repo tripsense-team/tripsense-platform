@@ -1,0 +1,82 @@
+server:
+  port: ${RECOMMENDATION_SERVICE_PORT:${SERVER_PORT:8088}}
+  shutdown: graceful
+
+spring:
+  application:
+    name: recommendation-service
+  datasource:
+    url: ${RECOMMENDATION_DATASOURCE_URL:jdbc:postgresql://${RECOMMENDATION_DB_HOST:localhost}:${RECOMMENDATION_DB_PORT:5437}/${RECOMMENDATION_DB_NAME:tripsense_recommendation}}
+    username: ${RECOMMENDATION_DB_USER:postgres}
+    password: ${RECOMMENDATION_DB_PASS:}
+  flyway:
+    enabled: true
+  data:
+    redis:
+      url: ${REDIS_URL:}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2s}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  access-secret: ${JWT_ACCESS_SECRET}
+
+tripsense:
+  recommendation:
+    retrieval:
+      source-limit: ${RECOMMENDATION_SOURCE_LIMIT:50}
+      rrf-k: ${RECOMMENDATION_RRF_K:60}
+      candidate-multiplier: ${RECOMMENDATION_CANDIDATE_MULTIPLIER:3}
+      maximum-place-age: ${RECOMMENDATION_MAXIMUM_PLACE_AGE:30d}
+    features:
+      distance-tau-km: ${RECOMMENDATION_DISTANCE_TAU_KM:5.0}
+      prior-rating: ${RECOMMENDATION_PRIOR_RATING:4.0}
+      rating-confidence-threshold: ${RECOMMENDATION_RATING_CONFIDENCE:20.0}
+    ranking:
+      rrf-normalization-pivot: ${RECOMMENDATION_RRF_NORMALIZATION_PIVOT:0.01}
+      dislike-conflict-penalty: ${RECOMMENDATION_DISLIKE_CONFLICT_PENALTY:0.50}
+      quietness-weight: ${RECOMMENDATION_QUIETNESS_WEIGHT:0.15}
+    diversity:
+      enabled: ${RECOMMENDATION_MMR_ENABLED:true}
+      lambda: ${RECOMMENDATION_MMR_LAMBDA:0.75}
+    downstream:
+      place-url: ${PLACE_SERVICE_URL:http://place-service:8082}
+      context-url: ${CONTEXT_SERVICE_URL:http://context-service:8087}
+      trip-url: ${TRIP_SERVICE_URL:http://trip-service:8084}
+      user-url: ${USER_SERVICE_URL:http://user-service:8081}
+      timeout: ${RECOMMENDATION_DOWNSTREAM_TIMEOUT:12s}
+    semantic:
+      enabled: ${RECOMMENDATION_SEMANTIC_ENABLED:false}
+      embedding-base-url: ${EMBEDDING_BASE_URL:}
+      embedding-api-key: ${EMBEDDING_API_KEY:}
+      embedding-model: ${EMBEDDING_MODEL:text-embedding-3-small}
+      qdrant-url: ${QDRANT_URL:http://qdrant:6333}
+      qdrant-api-key: ${QDRANT_API_KEY:}
+      collection: ${QDRANT_PLACE_COLLECTION:tripsense_places}
+    feedback:
+      max-clock-skew: ${RECOMMENDATION_FEEDBACK_MAX_CLOCK_SKEW:10m}
+      max-history-events: ${RECOMMENDATION_MAX_HISTORY_EVENTS:5000}
+    taxonomy:
+      category-aliases:
+        cafe: [cafe, coffee, ca phe, quan ca phe]
+        restaurant: [restaurant, quan an, nha hang]
+        vegetarian_restaurant: [vegetarian restaurant, vegan restaurant, nha hang chay, quan chay, com chay, chay]
+        hotel: [hotel, lodging, accommodation, resort, motel, homestay, guest house, khach san, khu nghi duong, luu tru]
+        attraction: [attraction, tourist, temple, pagoda, chua, diem tham quan]
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

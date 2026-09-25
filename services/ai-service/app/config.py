@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     model_input_cost_per_million: float = 0
     model_output_cost_per_million: float = 0
     place_service_url: str = "http://place-service:8082"
+    recommendation_service_url: str = "http://recommendation-service:8088"
     trip_service_url: str = "http://trip-service:8084"
     user_service_url: str = "http://user-service:8081"
     tool_timeout_seconds: float = 20

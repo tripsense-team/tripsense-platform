@@ -1,10 +1,18 @@
 import { Check, ChevronDown, CircleAlert, LoaderCircle, Minus } from "lucide-react";
 import type { AgentActivity } from "./types";
 
+function activityLabel(item: AgentActivity): string {
+  const persistedLabel = item.label?.trim();
+  if (persistedLabel) return persistedLabel;
+  return item.kind.replaceAll("_", " ").toLowerCase();
+}
+
 export function AgentActivityPanel({ activities = [] }: { activities?: AgentActivity[] }) {
   if (!activities.length) return null;
   const current = [...activities].reverse().find((item) => item.status === "RUNNING");
   const history = activities.filter((item) => item.status !== "RUNNING");
+  const hasFailure = history.some((item) => item.status === "FAILED");
+  if (!current && !hasFailure) return null;
 
   return (
     <div
@@ -20,7 +28,7 @@ export function AgentActivityPanel({ activities = [] }: { activities?: AgentActi
         >
           <LoaderCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none text-primary" />
           <div className="min-w-0 flex-1">
-            <p className="font-medium text-foreground">{current.label}</p>
+            <p className="font-medium text-foreground">{activityLabel(current)}</p>
             {current.summary && <p className="mt-0.5 text-muted-foreground">{current.summary}</p>}
             {current.progress && (
               <p className="mt-0.5 text-micro text-muted-foreground/80">
@@ -30,7 +38,7 @@ export function AgentActivityPanel({ activities = [] }: { activities?: AgentActi
           </div>
         </div>
       )}
-      {history.length > 0 && (
+      {(current || hasFailure) && history.length > 0 && (
         <details className={current ? "mt-2 border-t border-border pt-2" : ""}>
           <summary
             data-testid="agent-activity-history-toggle"
@@ -55,7 +63,7 @@ export function AgentActivityPanel({ activities = [] }: { activities?: AgentActi
                   <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-500" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-foreground">{item.label}</p>
+                  <p className="text-foreground">{activityLabel(item)}</p>
                   {item.summary && <p className="text-muted-foreground">{item.summary}</p>}
                   {item.progress && (
                     <p className="mt-0.5 text-micro text-muted-foreground/80">

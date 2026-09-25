@@ -13,7 +13,14 @@ os.environ["EUREKA_SERVER"] = ""
 import jwt
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app, classify_action, is_contextual_followup, is_plan_addition, is_plan_revision
+from app.main import (
+    app,
+    classify_action,
+    is_contextual_followup,
+    is_place_contextual_followup,
+    is_plan_addition,
+    is_plan_revision,
+)
 from app.models import ActionType
 from app.model_adapter import ModelAdapter
 from app.planning import ConstraintExtractor, ItineraryPlanner
@@ -48,6 +55,11 @@ def test_follow_up_adds_only_grounded_place_and_keeps_previous_days():
     missing = planner.add_to_preview(previous, generated, [], "thêm Bánh mì Phượng nữa")
     assert missing["validForPreview"] is False
     assert missing["days"] == previous["days"]
+
+
+def test_place_contextual_followup_is_explicitly_detected():
+    assert is_place_contextual_followup("vậy khách sanj gần thanh khê đi") is True
+    assert is_place_contextual_followup("cảm ơn bạn rất nhiều") is False
 
 
 def test_follow_up_generic_specialty_addition_updates_preview():

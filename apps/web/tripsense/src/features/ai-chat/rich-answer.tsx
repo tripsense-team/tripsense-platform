@@ -6,6 +6,7 @@ const INLINE = /(\*\*([^*]+)\*\*)|(\[([^\]]+)\]\([^)]*\))/g;
 const HEADING = /^#{2,3}\s+(.+)$/;
 const BULLET = /^[-*]\s+(.+)$/;
 const NUMBERED = /^\d+[.)]\s+(.+)$/;
+const TABLE_SEPARATOR_CELL = /^:?-{3,}:?$/;
 
 type Section = { heading?: string; lines: string[] };
 
@@ -54,6 +55,37 @@ export function RichAnswer({ content, places, onSelectPlace }: {
     while (index < lines.length) {
       const line = lines[index].trim();
       if (!line) { index++; continue; }
+      if (line.includes("|") && index + 1 < lines.length) {
+        const cells = (value: string) => value.trim().replace(/^\|/, "").replace(/\|$/, "")
+          .split("|").map((cell) => cell.trim());
+        const headers = cells(line);
+        const separator = cells(lines[index + 1]);
+        if (headers.length > 1 && separator.length === headers.length
+          && separator.every((cell) => TABLE_SEPARATOR_CELL.test(cell))) {
+          const rows: string[][] = [];
+          index += 2;
+          while (index < lines.length && lines[index].includes("|")) {
+            const row = cells(lines[index]);
+            if (row.length !== headers.length) break;
+            rows.push(row);
+            index++;
+          }
+          const tableId = `${sectionPrefix}-table-${index}-${blockCount++}`;
+          output.push(
+            <div key={tableId} className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full min-w-[640px] border-collapse text-left text-xs">
+                <thead className="bg-muted/60">
+                  <tr>{headers.map((header, column) => <th key={`${tableId}-h-${column}`} className="border-b border-border px-3 py-2 font-semibold">{inline(header, `${tableId}-h-${column}`)}</th>)}</tr>
+                </thead>
+                <tbody>{rows.map((row, rowIndex) => <tr key={`${tableId}-r-${rowIndex}`} className="border-b border-border/60 last:border-b-0">
+                  {row.map((cell, column) => <td key={`${tableId}-r-${rowIndex}-c-${column}`} className="px-3 py-2 align-top">{inline(cell, `${tableId}-r-${rowIndex}-c-${column}`)}</td>)}
+                </tr>)}</tbody>
+              </table>
+            </div>,
+          );
+          continue;
+        }
+      }
       const kind = BULLET.test(line) ? BULLET : NUMBERED.test(line) ? NUMBERED : null;
       if (kind) {
         const listStartIndex = index;

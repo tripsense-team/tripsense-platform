@@ -13,6 +13,21 @@ const MAPVINA_STYLE_URL = MAPVINA_API_KEY
   ? `https://maps.mapvina.com/styles/v2/streets.json?key=${encodeURIComponent(MAPVINA_API_KEY)}`
   : null;
 
+function isBenignMapAbort(event: unknown): boolean {
+  const candidate =
+    event && typeof event === "object" && "error" in event
+      ? (event as { error?: unknown }).error
+      : event;
+  if (!candidate || typeof candidate !== "object") return false;
+  const name = "name" in candidate ? String(candidate.name || "") : "";
+  const message =
+    "message" in candidate ? String(candidate.message || "") : "";
+  return (
+    name === "AbortError" ||
+    /signal is aborted|request (?:was )?aborted/i.test(message)
+  );
+}
+
 // Fallback raster style if vector tile style is unavailable
 const FALLBACK_STYLE: mapvinagl.StyleSpecification = {
   version: 8,
@@ -502,8 +517,20 @@ export function MapVinaContainer({
       "top-right",
     );
 
-    mapInstance.on("error", (e) => {
-      console.warn("MapVina event:", e);
+    mapInstance.on("error", (event) => {
+      // Map removal aborts in-flight sprite/tile requests. This is expected
+      // during route transitions and must not surface through Next's dev
+      // overlay (the raw error may also contain the provider API key URL).
+      if (isBenignMapAbort(event)) return;
+      if (process.env.NODE_ENV === "development") {
+        const candidate =
+          event && typeof event === "object" && "error" in event
+            ? (event as { error?: { name?: string } }).error
+            : undefined;
+        console.warn("[TripSense Map] Provider resource failed", {
+          errorType: candidate?.name || "MapResourceError",
+        });
+      }
     });
 
     mapInstance.on("load", () => {

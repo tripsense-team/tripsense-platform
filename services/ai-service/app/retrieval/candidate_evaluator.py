@@ -140,7 +140,12 @@ class CandidateEvaluator:
             elif req.type == CoverageType.ACTIVITY:
                 target_name = req.target.casefold().strip()
                 place_name = str(place.get("name") or "").casefold()
-                if target_name in place_name or place_name in target_name:
+                if req.context.get("category") == "CAFE":
+                    if self._is_cafe_venue(place):
+                        satisfies_ids.append(req.id)
+                    else:
+                        rejection_reasons.append("CATEGORY_MISMATCH: Expected a cafe.")
+                elif target_name in place_name or place_name in target_name:
                     satisfies_ids.append(req.id)
 
         # Detect trust tier and external source
@@ -329,6 +334,13 @@ class CandidateEvaluator:
             return False
         food_terms = ("restaurant", "food", "quán ăn", "nhà hàng", "ẩm thực", "quán", "bún", "mì", "cơm", "phở", "bánh mì", "hải sản")
         return any(term in cat for cat in categories for term in food_terms) or any(term in name for term in ("nhà hàng", "quán ăn", "bún", "mì", "cơm", "phở", "bánh mì", "hải sản", "quán"))
+
+    @staticmethod
+    def _is_cafe_venue(place: dict[str, Any]) -> bool:
+        categories = [str(c).casefold() for c in (place.get("categories") or [])]
+        name = str(place.get("name") or "").casefold()
+        cafe_terms = ("cafe", "café", "coffee", "cà phê")
+        return any(term in value for value in categories for term in cafe_terms) or any(term in name for term in cafe_terms)
 
     def _is_attraction_venue(self, place: dict[str, Any]) -> bool:
         categories = [str(c).casefold() for c in (place.get("categories") or [])]

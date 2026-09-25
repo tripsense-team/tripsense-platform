@@ -3,11 +3,13 @@ package fu.tripsense.placeservice.service.impl;
 import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceReview;
+import fu.tripsense.placeservice.domain.model.QuietnessEvidence;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceReviewDto;
+import fu.tripsense.placeservice.dto.QuietnessEvidenceDto;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -181,6 +183,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .categories(place.getCategories() == null ? List.of() : place.getCategories())
         .rating(place.getRating())
         .userRatingCount(place.getUserRatingCount())
+        .quietnessEvidence(toQuietnessEvidenceDto(place.getQuietnessEvidence()))
         .photos(place.getPhotos() == null ? List.of() : place.getPhotos())
         .primaryPhoto(primaryPhoto)
         .photoGallery(photoGallery)
@@ -227,6 +230,16 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
       entity.setCategories(new ArrayList<>(dto.getCategories()));
     if (dto.getRating() != null) entity.setRating(dto.getRating());
     if (dto.getUserRatingCount() != null) entity.setUserRatingCount(dto.getUserRatingCount());
+    if (validQuietnessEvidence(dto.getQuietnessEvidence())) {
+      QuietnessEvidenceDto evidence = dto.getQuietnessEvidence();
+      entity.setQuietnessEvidence(
+          QuietnessEvidence.builder()
+              .score(evidence.score())
+              .evidenceCount(evidence.evidenceCount())
+              .source(evidence.source())
+              .observedAt(evidence.observedAt())
+              .build());
+    }
     if (dto.getPhotos() != null && !dto.getPhotos().isEmpty())
       entity.setPhotos(new ArrayList<>(dto.getPhotos()));
     if (StringUtils.hasText(dto.getPhone())) entity.setPhone(dto.getPhone());
@@ -274,5 +287,30 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .relativeTimeDescription(review.getRelativeTimeDescription())
         .time(review.getTime())
         .build();
+  }
+
+  private QuietnessEvidenceDto toQuietnessEvidenceDto(QuietnessEvidence evidence) {
+    if (evidence == null
+        || evidence.getScore() == null
+        || evidence.getScore() < 0
+        || evidence.getScore() > 1
+        || evidence.getEvidenceCount() == null
+        || evidence.getEvidenceCount() < 0) {
+      return null;
+    }
+    return new QuietnessEvidenceDto(
+        evidence.getScore(),
+        evidence.getEvidenceCount(),
+        evidence.getSource(),
+        evidence.getObservedAt());
+  }
+
+  private boolean validQuietnessEvidence(QuietnessEvidenceDto evidence) {
+    return evidence != null
+        && evidence.score() != null
+        && evidence.score() >= 0
+        && evidence.score() <= 1
+        && evidence.evidenceCount() != null
+        && evidence.evidenceCount() >= 0;
   }
 }

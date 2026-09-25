@@ -62,6 +62,10 @@ jobs:
             context: .
             dockerfile: services/context-service/Dockerfile
 
+          - image: recommendation-service
+            context: .
+            dockerfile: services/recommendation-service/Dockerfile
+
           - image: ai-service
             context: services/ai-service
             dockerfile: services/ai-service/Dockerfile
@@ -98,6 +102,9 @@ jobs:
           REDIS_URL: redis://localhost:6379
           CONTEXT_ENCRYPTION_SECRET: ci-placeholder-encryption-secret-32b
           OPENAI_API_KEY: ci-placeholder
+          RECOMMENDATION_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_recommendation
+          RECOMMENDATION_DB_USER: postgres
+          RECOMMENDATION_DB_PASS: ci-placeholder
           JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
           JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
           RESEND_API_KEY: ci-placeholder

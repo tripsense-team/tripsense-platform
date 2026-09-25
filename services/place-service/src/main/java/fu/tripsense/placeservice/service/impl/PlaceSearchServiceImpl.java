@@ -217,7 +217,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     Optional<List<PlaceDto>> cached =
         cache.getSearchResults(normalizedQuery, lat, lng, radius, target);
     if (cached.isPresent() && !cached.get().isEmpty()) {
-      List<PlaceDto> values = ranking.rank(cached.get(), query, lat, lng);
+      List<PlaceDto> values =
+          withinRadius(ranking.rank(cached.get(), query, lat, lng), lat, lng, radius);
       values.forEach(
           place ->
               decorate(
@@ -234,13 +235,20 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     }
 
     List<PlaceDto> local =
-        ranking.rank(
-            findLocalPlaces(normalizedQuery, Math.max(target * 2, target)).stream()
+        withinRadius(
+            ranking.rank(
+            // Text relevance alone can crowd nearby category matches out of a small page.
+            // Retrieve a wider bounded pool, then let deterministic geo/category ranking
+            // select the candidates returned to the recommendation service.
+            findLocalPlaces(normalizedQuery, retrievalWindow(target)).stream()
                 .map(persistence::toDto)
                 .toList(),
             query,
             lat,
-            lng);
+            lng),
+            lat,
+            lng,
+            radius);
     local.forEach(
         place ->
             decorate(
@@ -267,7 +275,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               lat,
               lng,
               radius,
-              Math.min(50, Math.max(target * 2, target)));
+              retrievalWindow(target));
       List<PlaceDto> persisted =
           external.stream()
               .map(item -> persistence.upsertProviderPlace(item, provider.getProviderName()))
@@ -279,7 +287,12 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
                           retrievedAt,
                           request.effectiveMaximumAgeSeconds()))
               .toList();
-      List<PlaceDto> merged = ranking.rank(mergeResults(persisted, local), query, lat, lng);
+      List<PlaceDto> merged =
+          withinRadius(
+              ranking.rank(mergeResults(persisted, local), query, lat, lng),
+              lat,
+              lng,
+              radius);
       RetrievalEvidenceDto evidence =
           assess(
               merged,
@@ -488,6 +501,37 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
   private volatile long lastLocalSearchFailureTime = 0;
 
+  private int retrievalWindow(int target) {
+    return Math.min(50, Math.max(target * 10, target));
+  }
+
+  private List<PlaceDto> withinRadius(
+      List<PlaceDto> places, double targetLat, double targetLng, int radiusMeters) {
+    return places.stream()
+        .filter(place -> place.getLocation() != null)
+        .filter(
+            place ->
+                haversineMeters(
+                        targetLat,
+                        targetLng,
+                        place.getLocation().getLat(),
+                        place.getLocation().getLng())
+                    <= radiusMeters)
+        .toList();
+  }
+
+  private double haversineMeters(double lat1, double lng1, double lat2, double lng2) {
+    double latDelta = Math.toRadians(lat2 - lat1);
+    double lngDelta = Math.toRadians(lng2 - lng1);
+    double value =
+        Math.sin(latDelta / 2) * Math.sin(latDelta / 2)
+            + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lngDelta / 2)
+                * Math.sin(lngDelta / 2);
+    return 6_371_000 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+  }
+
   private List<Place> findLocalPlaces(String normalizedQuery, int limit) {
     if (System.currentTimeMillis() - lastLocalSearchFailureTime < 30_000) {
       return Collections.emptyList();
@@ -619,52 +663,10 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
         }
         continue;
       }
-      if (StringUtils.hasText(place.getProviderPlaceId())
-          && (place.getProvider() == null
-              || place.getProvider().equalsIgnoreCase(provider.getProviderName()))) {
-        try {
-          List<PlacePhotoDto> gallery = provider.getPhotoGallery(place.getProviderPlaceId(), 3);
-          if (!gallery.isEmpty()) {
-            place.setPhotoGallery(gallery);
-            place.setPrimaryPhoto(gallery.get(0));
-            List<String> urls =
-                gallery.stream().map(PlacePhotoDto::url).filter(StringUtils::hasText).toList();
-            if (!urls.isEmpty()) {
-              place.setPhotos(new ArrayList<>(urls));
-              persistPhotoUrls(place, urls);
-            }
-          }
-        } catch (Exception ex) {
-          log.warn(
-              "Failed to enrich photo gallery for place '{}': {}",
-              place.getName(),
-              ex.getMessage());
-        }
-      }
+      // List/search responses stay on the retrieval critical path. Missing galleries are loaded by
+      // the detail endpoint instead of issuing one provider request per returned candidate here.
     }
     return places;
   }
 
-  private void persistPhotoUrls(PlaceDto place, List<String> photoUrls) {
-    try {
-      Optional<Place> stored = Optional.empty();
-      if (StringUtils.hasText(place.getId())) {
-        stored = repository.findById(place.getId());
-      }
-      if (stored.isEmpty()
-          && StringUtils.hasText(place.getProvider())
-          && StringUtils.hasText(place.getProviderPlaceId())) {
-        stored =
-            repository.findByProviderAndProviderPlaceId(
-                place.getProvider(), place.getProviderPlaceId());
-      }
-      if (stored.isPresent()) {
-        Place entity = stored.get();
-        entity.setPhotos(new ArrayList<>(photoUrls));
-        repository.save(entity);
-      }
-    } catch (Exception ex) {
-      log.warn("Failed to persist photo URLs for place '{}': {}", place.getId(), ex.getMessage());
-    }
-  }
 }

@@ -12,6 +12,7 @@ COPY services/mail-service/pom.xml services/mail-service/pom.xml
 COPY services/trip-service/pom.xml services/trip-service/pom.xml
 COPY services/social-service/pom.xml services/social-service/pom.xml
 COPY services/context-service/pom.xml services/context-service/pom.xml
+COPY services/recommendation-service/pom.xml services/recommendation-service/pom.xml
 
 RUN --mount=type=cache,target=/root/.m2 mvn -B -pl services/social-service -am dependency:go-offline
 

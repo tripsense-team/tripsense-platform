@@ -220,6 +220,49 @@ services:
       discovery-server:
         condition: service_healthy
 
+  recommendation-service:
+    image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-recommendation-service:${IMAGE_TAG}
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "0.75"
+    environment:
+      <<: *java-small
+      RECOMMENDATION_DATASOURCE_URL: ${RECOMMENDATION_DATASOURCE_URL}
+      RECOMMENDATION_DB_USER: ${RECOMMENDATION_DB_USER}
+      RECOMMENDATION_DB_PASS: ${RECOMMENDATION_DB_PASS}
+      REDIS_URL: ${REDIS_URL}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      PLACE_SERVICE_URL: http://place-service:8082
+      USER_SERVICE_URL: http://user-service:8081
+      CONTEXT_SERVICE_URL: http://context-service:8087
+      TRIP_SERVICE_URL: http://trip-service:8084
+      RECOMMENDATION_SEMANTIC_ENABLED: ${RECOMMENDATION_SEMANTIC_ENABLED:-false}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      QDRANT_URL: http://qdrant:6333
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      place-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      context-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'curl -fsS http://localhost:8088/actuator/health | grep -q ''"status":"UP"'' || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
   ai-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-ai-service:${IMAGE_TAG}
     restart: unless-stopped
@@ -232,6 +275,7 @@ services:
       AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
       AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
       PLACE_SERVICE_URL: http://place-service:8082
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       TRIP_SERVICE_URL: http://trip-service:8084
       WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
       ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
@@ -244,6 +288,8 @@ services:
         condition: service_started
       trip-service:
         condition: service_started
+      recommendation-service:
+        condition: service_healthy
 
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
@@ -271,6 +317,8 @@ services:
         condition: service_started
       ai-service:
         condition: service_started
+      recommendation-service:
+        condition: service_healthy
     healthcheck:
       test:
         [
