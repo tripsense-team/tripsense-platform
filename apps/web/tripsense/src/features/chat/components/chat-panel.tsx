@@ -32,7 +32,7 @@ export function ChatPanel({
         </div>
         <div>
           <h3 className="font-bold text-sm text-foreground">{title}</h3>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-micro text-muted-foreground">
             Ask anything about trips & places
           </p>
         </div>

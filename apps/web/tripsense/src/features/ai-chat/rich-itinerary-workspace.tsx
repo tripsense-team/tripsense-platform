@@ -7,6 +7,7 @@ import type { Place } from "@/features/places/types";
 import { approvedPhoto, getFallbackPlacePhoto } from "@/features/places/utils/approved-photo";
 import { ApprovedPlaceImage } from "./approved-place-image";
 import { PlaceDetailModal } from "@/features/places/components/place-detail-modal";
+import { Button } from "@/components/ui/button";
 import type { AiItineraryPreview, AiPlaceEvidence } from "./types";
 
 const MapVinaContainer = dynamic(
@@ -158,30 +159,33 @@ export function RichItineraryWorkspace({
           <MapPin className="h-3.5 w-3.5 text-primary" />
           <span>{rawStops.length > 0 ? "Bản đồ hành trình" : "Bản đồ địa điểm"}</span>
         </div>
-        <span className="text-[11px] font-medium text-muted-foreground">· {mapPlaces.length} {rawStops.length > 0 ? "điểm dừng" : "địa điểm"}</span>
+        <span className="text-micro font-medium text-muted-foreground">· {mapPlaces.length} {rawStops.length > 0 ? "điểm dừng" : "địa điểm"}</span>
         {mapPlaces.length > 1 && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="xs"
             onClick={() => {
               onSelectPlace(null);
               setFitTrigger((n) => n + 1);
             }}
-            className="ml-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
+            className="ml-1 gap-1 rounded-full px-2 text-micro font-medium"
           >
-            <Compass className="h-3 w-3" />
+            <Compass />
             Xem tất cả
-          </button>
+          </Button>
         )}
         {onCreateTripFromPlan && mapPlaces.length > 0 && (
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={onCreateTripFromPlan}
-            className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all cursor-pointer"
+            className="ml-1 gap-1.5 rounded-full px-3 text-micro font-semibold shadow-xs cursor-pointer"
             title="Lưu các địa điểm này vào chuyến đi thực tế"
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Sparkles />
             <span>{rawStops.length > 0 ? "Tạo chuyến đi từ lịch trình" : "Tạo chuyến đi từ gợi ý"}</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -214,9 +218,9 @@ export function RichItineraryWorkspace({
             </div>
             <div className="min-w-0">
               <h4 className="font-semibold text-xs text-foreground truncate hover:text-primary transition-colors">{selectedPlace.name}</h4>
-              <p className="text-[11px] text-muted-foreground truncate">{selectedPlace.address || "Địa điểm trong lịch trình"}</p>
+              <p className="text-micro text-muted-foreground truncate">{selectedPlace.address || "Địa điểm trong lịch trình"}</p>
               {selectedPlace.rating && (
-                <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium">
+                <span className="flex items-center gap-1 text-micro text-amber-500 font-medium">
                   <Star className="h-3 w-3 fill-amber-500" />
                   {selectedPlace.rating.toFixed(1)}
                 </span>
@@ -224,23 +228,27 @@ export function RichItineraryWorkspace({
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={() => handleOpenDetails(selectedPlace)}
-              className="rounded-full p-1.5 text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+              className="w-8 rounded-full px-0 text-muted-foreground hover:text-primary hover:bg-muted"
               title="Xem thông tin chi tiết (ⓘ)"
               aria-label="Xem thông tin chi tiết"
             >
-              <Info className="h-4 w-4" />
-            </button>
-            <button
+              <Info />
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={() => onSelectPlace(null)}
-              className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="w-8 rounded-full px-0 text-muted-foreground hover:text-foreground hover:bg-muted"
               aria-label="Đóng chi tiết"
             >
-              <X className="h-4 w-4" />
-            </button>
+              <X />
+            </Button>
           </div>
         </div>
       )}

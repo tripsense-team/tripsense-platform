@@ -43,7 +43,7 @@ export function LandingTestimonials() {
           >
             Testimonials
           </Badge>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
             Loved by travelers worldwide.
           </h2>
           <p className="text-base text-muted-foreground">

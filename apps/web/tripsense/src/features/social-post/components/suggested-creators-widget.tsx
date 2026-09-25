@@ -35,7 +35,7 @@ export function SuggestedCreatorsWidget({
             <h2 className="font-bold text-sm sm:text-base text-foreground">
               {t("social.suggestedCreators")}
             </h2>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-micro text-muted-foreground">
               {t("social.suggestedCreatorsSubtitle")}
             </p>
           </div>
@@ -74,12 +74,12 @@ export function SuggestedCreatorsWidget({
                   <p className="font-semibold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors">
                     {creator.name}
                   </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
+                  <p className="text-micro text-muted-foreground truncate">
                     {creator.nicheKey
                       ? t(`social.${creator.nicheKey}`)
                       : creator.niche}
                   </p>
-                  <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                  <p className="text-micro text-muted-foreground/80 mt-0.5">
                     {t("social.followersCount", {
                       count: creator.followerCount,
                     })}
@@ -94,7 +94,7 @@ export function SuggestedCreatorsWidget({
                 variant={creator.isFollowing ? "secondary" : "outline"}
                 disabled={isPending}
                 onClick={() => onToggleFollow(creator.id)}
-                className={`shrink-0 rounded-full text-xs font-semibold px-3 h-7.5 transition-all ${
+                className={`shrink-0 rounded-full text-xs font-semibold px-3 transition-all ${
                   creator.isFollowing
                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
                     : "border-primary/40 text-primary hover:bg-primary/10 hover:border-primary"

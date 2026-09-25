@@ -52,7 +52,7 @@ export function LandingAiChatDemo() {
               <span>AI Trip Planning</span>
             </div>
 
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
               Plan a trip by <br />
               talking to AI.
             </h2>
@@ -96,7 +96,7 @@ export function LandingAiChatDemo() {
                   <h4 className="font-bold text-sm text-foreground">
                     TripSense AI Assistant
                   </h4>
-                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <p className="text-micro text-muted-foreground flex items-center gap-1">
                     <span className="h-2 w-2 rounded-full bg-green-500 inline-block animate-pulse" />
                     <span>Online & Ready</span>
                   </p>

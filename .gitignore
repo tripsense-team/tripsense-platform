@@ -43,3 +43,6 @@ deploy/tripsense-dev-vm-key.pem
 deploy/nginx/certs/
 deploy/certbot/
 *.pem
+
+firebase*.json
+*-firebase-adminsdk-*.json

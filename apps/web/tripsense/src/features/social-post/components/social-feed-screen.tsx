@@ -168,10 +168,10 @@ function CommunityHero({ onCreate }: { onCreate: () => void }) {
       <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
       <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
         <div className="max-w-2xl">
-          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-primary">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
             <Compass className="h-4 w-4" /> {t("social.communityTag")}
           </p>
-          <h1 className="mt-3 text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {t("social.communityHeroTitle")}
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
@@ -257,7 +257,7 @@ function RailCard({
       <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
         <Icon className="h-5 w-5" />
       </div>
-      <h2 className="mt-4 font-black text-foreground">{title}</h2>
+      <h2 className="mt-4 font-bold text-foreground">{title}</h2>
       <p className="mt-1 text-sm leading-5 text-muted-foreground">
         {description}
       </p>

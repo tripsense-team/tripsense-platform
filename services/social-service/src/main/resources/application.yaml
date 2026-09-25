@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: social-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   datasource:
     url: jdbc:postgresql://${SOCIAL_DB_HOST:localhost}:${SOCIAL_DB_PORT:5432}/${SOCIAL_DB_NAME:tripsense_social}
     username: ${SOCIAL_DB_USER:postgres}
@@ -40,3 +44,13 @@ management:
     web:
       exposure:
         include: health,info
+weather:
+  open-meteo:
+    base-url: ${OPEN_METEO_BASE_URL:https://api.open-meteo.com/v1/forecast}
+    connect-timeout-ms: ${WEATHER_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${WEATHER_READ_TIMEOUT_MS:4000}
+
+firebase:
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
+

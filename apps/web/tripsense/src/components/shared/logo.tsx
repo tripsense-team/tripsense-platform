@@ -13,7 +13,7 @@ export function Logo({ className, iconOnly = false }: LogoProps) {
     <Link
       href="/"
       className={cn(
-        "inline-flex items-center gap-2 font-bold text-lg text-foreground hover:opacity-95 transition-opacity",
+        "inline-flex items-center gap-2 text-section-title text-foreground hover:opacity-95 transition-opacity",
         className,
       )}
     >

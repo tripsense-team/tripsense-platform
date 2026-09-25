@@ -56,9 +56,9 @@ export function ChatInput({
         type="submit"
         disabled={!value.trim() || isLoading}
         size="icon"
-        className="h-9 w-9 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+        className="h-11 w-11 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
       >
-        <Send className="h-4 w-4" />
+        <Send />
         <span className="sr-only">Send message</span>
       </Button>
     </form>

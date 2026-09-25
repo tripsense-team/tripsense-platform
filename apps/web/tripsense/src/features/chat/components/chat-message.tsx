@@ -68,7 +68,7 @@ export function ChatMessage({
         )}
 
         {timestamp && (
-          <span className="text-[10px] text-muted-foreground px-1">
+          <span className="text-micro text-muted-foreground px-1">
             {timestamp}
           </span>
         )}

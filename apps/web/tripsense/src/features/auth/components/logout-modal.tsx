@@ -67,7 +67,7 @@ export function LogoutModal({ open, onOpenChange }: LogoutModalProps) {
           <div className="p-3 rounded-2xl bg-destructive/10 text-destructive">
             <LogOut className="h-7 w-7" />
           </div>
-          <DialogTitle className="text-xl font-extrabold tracking-tight">
+          <DialogTitle className="text-xl font-bold tracking-tight">
             Log Out
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">

@@ -51,6 +51,159 @@
     "welcomeSubtitle": "Sign in to access your saved trips and personalized itineraries",
     "welcomeTitle": "Welcome to TripSense"
   },
+  "chat": {
+    "actions": {
+      "accept": "Accept",
+      "block": "Block",
+      "cancel": "Cancel",
+      "close": "Close",
+      "confirm": "Confirm",
+      "decline": "Decline",
+      "delete": "Delete",
+      "mute": "Mute notifications",
+      "report": "Report",
+      "retry": "Retry",
+      "send": "Send",
+      "unmute": "Unmute notifications",
+      "viewProfile": "View profile",
+      "viewTrip": "View trip"
+    },
+    "blocks": {
+      "description": "People you block cannot start or continue a chat with you.",
+      "empty": "You have not blocked anyone.",
+      "title": "Blocked people",
+      "unblock": "Unblock"
+    },
+    "composer": {
+      "charCount": "{{current}}/{{max}}",
+      "charLimitExceeded": "Message exceeds limit of {{max}} characters",
+      "keyboardHelp": "Enter to send, Shift+Enter for new line",
+      "placeholder": "Type a message...",
+      "requestLockedPlaceholder": "Accept this request to reply...",
+      "sendTooltip": "Send message (Enter)"
+    },
+    "dialogs": {
+      "blockConfirm": {
+        "cancel": "Cancel",
+        "confirm": "Block user",
+        "description": "Are you sure you want to block {{name}}? They will no longer be able to message you.",
+        "title": "Block user"
+      },
+      "newChat": {
+        "description": "Search users by display name to start a direct message.",
+        "empty": "No users found matching \"{{query}}\"",
+        "minimumQuery": "Enter at least two characters to search.",
+        "placeholder": "Search by display name...",
+        "recentTitle": "Suggested contacts",
+        "title": "New Conversation"
+      },
+      "reportConfirm": {
+        "cancel": "Cancel",
+        "confirm": "Submit report",
+        "description": "Report {{name}} for inappropriate behavior or spam?",
+        "reasonLabel": "Reason",
+        "reasons": {
+          "DANGEROUS_CONTENT": "Dangerous content",
+          "HARASSMENT": "Harassment",
+          "OTHER": "Other",
+          "PRIVACY": "Privacy concern",
+          "SPAM": "Spam"
+        },
+        "title": "Report conversation"
+      }
+    },
+    "empty": {
+      "noActiveChatDesc": "Select a conversation from the left to start messaging, or create a new one.",
+      "noActiveChatTitle": "No conversation selected",
+      "noConversationsDesc": "You don't have any conversations yet. Connect with other travelers to share trip plans!",
+      "noConversationsTitle": "Your inbox is empty",
+      "noRequestsDesc": "You have no incoming message requests at this time.",
+      "noRequestsTitle": "No message requests",
+      "noSearchResultsDesc": "No conversations found matching \"{{query}}\". Try a different search term.",
+      "noSearchResultsTitle": "No results found",
+      "noUnreadDesc": "You're all caught up! There are no unread messages.",
+      "noUnreadTitle": "No unread messages"
+    },
+    "errors": {
+      "actionFailed": "Could not complete this action. Please try again.",
+      "failedToSend": "Failed to send",
+      "loadErrorDesc": "Unable to load conversations. Please check your connection and try again.",
+      "loadErrorTitle": "Failed to load chats",
+      "searchFailed": "Could not search people. Please try again."
+    },
+    "messages": "Messages",
+    "offline": {
+      "banner": "Offline mode — Reconnecting...",
+      "toggleBackOnline": "Switch online",
+      "toggleOffline": "Simulate offline"
+    },
+    "prototype": {
+      "badge": "Interactive Prototype",
+      "dataDisclaimer": "This is a frontend UX prototype. Conversations and messages are kept in memory for this session and are not saved to a real server or database.",
+      "offlineMode": "Simulate offline",
+      "onlineMode": "Switch online",
+      "resetData": "Reset sample data",
+      "simulateError": "Simulate next send failure",
+      "simulateSuccess": "Clear simulated failure",
+      "tools": "Prototype tools"
+    },
+    "requestBanner": {
+      "accept": "Accept",
+      "block": "Block",
+      "decline": "Decline",
+      "description": "This user sent you a message request. They will not know if you decline unless you accept.",
+      "title": "Message request from {{name}}"
+    },
+    "searchPlaceholder": "Search conversations...",
+    "sharedTrip": {
+      "choosePublic": "Choose one of your published public trip posts.",
+      "duration": "{{days}} days {{nights}} nights",
+      "noPublicTrips": "You have no public trip posts to share.",
+      "shareAction": "Share a trip",
+      "tag": "Shared Trip",
+      "unavailable": "This shared trip is no longer public.",
+      "viewTrip": "View Trip"
+    },
+    "sidebar": {
+      "loadingAria": "Loading conversations..."
+    },
+    "status": {
+      "activeNow": "Active now",
+      "activeTimeAgo": "Active {{time}} ago",
+      "delivered": "Delivered",
+      "failed": "Failed",
+      "muted": "Muted",
+      "offline": "Offline",
+      "read": "Read",
+      "sending": "Sending...",
+      "sent": "Sent"
+    },
+    "tabs": {
+      "all": "All",
+      "requests": "Requests",
+      "unread": "Unread"
+    },
+    "thread": {
+      "backToList": "Back to conversations",
+      "blockUser": "Block user",
+      "conversationActions": "Conversation actions",
+      "conversationAria": "Conversation with {{name}}",
+      "dateSeparators": {
+        "today": "Today",
+        "yesterday": "Yesterday"
+      },
+      "emptyThread": "No messages yet. Say hello!",
+      "loadingAria": "Loading messages...",
+      "loadOlder": "Load older messages",
+      "moreOptions": "More options",
+      "muteNotifications": "Mute notifications",
+      "reportUser": "Report user",
+      "sharedTripPreview": "Shared trip",
+      "unmuteNotifications": "Unmute notifications",
+      "viewProfile": "View profile"
+    },
+    "totalUnread": "{{count}} unread"
+  },
   "common": {
     "actions": "Actions",
     "active": "Active",
@@ -279,6 +432,7 @@
     "loadingMore": "Loading more...",
     "loadingWeather": "Updating weather...",
     "loadMore": "Load more posts",
+    "messageUser": "Message",
     "moderation": "Community moderation",
     "moderationAuditNotice": "Only ROLE_MODERATOR or ROLE_ADMIN accounts can review. All decisions are audited.",
     "moderationConfirmDeleteDesc": "Content will disappear from feeds and detail views. Decision and actor are recorded in audit logs.",

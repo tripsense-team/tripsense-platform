@@ -29,16 +29,16 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="pl-9 pr-8"
+          className="pl-9 pr-10"
           {...props}
         />
         {value && (
           <button
             type="button"
             onClick={onClear}
-            className="absolute right-2.5 p-1 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+            className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
             <span className="sr-only">Clear search</span>
           </button>
         )}

@@ -34,10 +34,10 @@ export function PlacePlaceholder({
       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/90 text-primary shadow-2xs ring-1 ring-border/50 mb-1.5 transition-transform duration-200 group-hover:scale-105">
         <Icon className="h-5 w-5" />
       </div>
-      <span className="text-[11px] font-semibold text-foreground/90 text-center line-clamp-1 max-w-full px-2">
+      <span className="text-micro font-semibold text-foreground/90 text-center line-clamp-1 max-w-full px-2">
         {name}
       </span>
-      <span className="text-[9px] text-muted-foreground line-clamp-1">
+      <span className="text-micro text-muted-foreground line-clamp-1">
         {category || "Địa điểm thực tế"}
       </span>
     </div>
@@ -117,7 +117,7 @@ function ImageWithFallback({
         onError={() => setHasError(true)}
         className={`${className} w-full object-cover transition-transform duration-300 group-hover:scale-105`}
       />
-      <figcaption className="px-2 py-1 text-[10px] text-muted-foreground truncate bg-card/80 backdrop-blur-xs">
+      <figcaption className="px-2 py-1 text-micro text-muted-foreground truncate bg-card/80 backdrop-blur-xs">
         Ảnh: {attributionText}
       </figcaption>
     </figure>

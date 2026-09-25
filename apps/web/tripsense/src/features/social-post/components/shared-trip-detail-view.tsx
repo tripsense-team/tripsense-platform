@@ -193,7 +193,7 @@ export function SharedTripDetailView({
               <AvatarFallback>{initials(post.author.name)}</AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="font-black">{post.author.name}</h2>
+              <h2 className="font-bold">{post.author.name}</h2>
               <div className="mt-1 flex items-center gap-2">
                 <Badge variant="secondary" className="rounded-full">
                   {visibilityLabel(post.visibility)}
@@ -274,11 +274,11 @@ export function SharedTripDetailView({
           </Badge>
         </div>
         <div className="absolute bottom-7 left-6 right-6 text-white">
-          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
             <MapPin className="h-4 w-4" />
             {publicSummary?.destinationName || trip.destinationName}
           </p>
-          <h1 className="mt-2 text-3xl font-black sm:text-5xl">
+          <h1 className="mt-2 text-3xl font-bold sm:text-5xl">
             {publicSummary?.name || trip.name}
           </h1>
         </div>
@@ -306,7 +306,7 @@ export function SharedTripDetailView({
           <div className="mt-7">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <h3 className="text-lg font-black">Lịch trình công khai</h3>
+                <h3 className="text-lg font-bold">Lịch trình công khai</h3>
                 <p className="text-sm text-muted-foreground">
                   Bản đã đóng băng · revision {publication.publicationRevision}
                 </p>
@@ -334,10 +334,10 @@ export function SharedTripDetailView({
                   key={day.dayNumber}
                   className="relative border-l-2 border-primary/20 pl-6"
                 >
-                  <span className="absolute -left-4 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">
+                  <span className="absolute -left-4 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                     {day.dayNumber}
                   </span>
-                  <h4 className="font-black">
+                  <h4 className="font-bold">
                     Ngày {day.dayNumber}
                     {day.date ? ` · ${day.date}` : ""}
                   </h4>
@@ -350,7 +350,7 @@ export function SharedTripDetailView({
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div>
-                              <p className="font-black">
+                              <p className="font-bold">
                                 {item.order}. {getLocalizedPublicItemTitle(item, t)}
                               </p>
                               {item.placeName && (
@@ -414,10 +414,10 @@ export function SharedTripDetailView({
         )}
         {managementPreview && (
           <div className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 p-5">
-            <p className="text-xs font-black uppercase tracking-wider text-primary">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary">
               Xác nhận bản cập nhật
             </p>
-            <h3 className="mt-1 font-black">
+            <h3 className="mt-1 font-bold">
               {managementPreview.snapshot.summary.name}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -447,7 +447,7 @@ export function SharedTripDetailView({
           <p className="mt-4 text-sm font-semibold text-destructive">{error}</p>
         )}
         <div className="mt-6">
-          <h3 className="font-black">Điểm nhấn hành trình</h3>
+          <h3 className="font-bold">Điểm nhấn hành trình</h3>
           {trip.highlights?.length ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {trip.highlights.map((item, index) => (
@@ -499,11 +499,11 @@ function Stat({
 }) {
   return (
     <div className="rounded-2xl bg-muted p-4">
-      <p className="flex items-center gap-2 text-xs font-black uppercase text-muted-foreground">
+      <p className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
         <Icon className="h-4 w-4 text-primary" />
         {label}
       </p>
-      <p className="mt-2 font-black">{value}</p>
+      <p className="mt-2 font-bold">{value}</p>
     </div>
   );
 }

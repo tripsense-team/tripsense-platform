@@ -51,6 +51,159 @@
     "welcomeSubtitle": "Đăng nhập để xem các chuyến đi đã lưu và lịch trình cá nhân hóa",
     "welcomeTitle": "Chào mừng đến với TripSense"
   },
+  "chat": {
+    "actions": {
+      "accept": "Chấp nhận",
+      "block": "Chặn",
+      "cancel": "Hủy",
+      "close": "Đóng",
+      "confirm": "Xác nhận",
+      "decline": "Từ chối",
+      "delete": "Xóa",
+      "mute": "Tắt thông báo",
+      "report": "Báo cáo",
+      "retry": "Thử lại",
+      "send": "Gửi",
+      "unmute": "Bật thông báo",
+      "viewProfile": "Xem hồ sơ",
+      "viewTrip": "Xem chuyến đi"
+    },
+    "blocks": {
+      "description": "Người bị chặn không thể bắt đầu hoặc tiếp tục trò chuyện với bạn.",
+      "empty": "Bạn chưa chặn ai.",
+      "title": "Người đã chặn",
+      "unblock": "Bỏ chặn"
+    },
+    "composer": {
+      "charCount": "{{current}}/{{max}}",
+      "charLimitExceeded": "Tin nhắn vượt quá giới hạn {{max}} ký tự",
+      "keyboardHelp": "Enter để gửi, Shift+Enter để xuống dòng",
+      "placeholder": "Nhập tin nhắn...",
+      "requestLockedPlaceholder": "Chấp nhận yêu cầu này để trả lời...",
+      "sendTooltip": "Gửi tin nhắn (Enter)"
+    },
+    "dialogs": {
+      "blockConfirm": {
+        "cancel": "Hủy",
+        "confirm": "Chặn người dùng",
+        "description": "Bạn có chắc chắn muốn chặn {{name}}? Người này sẽ không thể gửi tin nhắn cho bạn nữa.",
+        "title": "Chặn người dùng"
+      },
+      "newChat": {
+        "description": "Tìm kiếm người dùng theo tên hiển thị để bắt đầu trò chuyện trực tiếp.",
+        "empty": "Không tìm thấy người dùng khớp với \"{{query}}\"",
+        "minimumQuery": "Nhập ít nhất hai ký tự để tìm kiếm.",
+        "placeholder": "Tìm kiếm theo tên hiển thị...",
+        "recentTitle": "Gợi ý người dùng",
+        "title": "Tin nhắn mới"
+      },
+      "reportConfirm": {
+        "cancel": "Hủy",
+        "confirm": "Gửi báo cáo",
+        "description": "Báo cáo {{name}} về hành vi không phù hợp hoặc tin nhắn rác?",
+        "reasonLabel": "Lý do",
+        "reasons": {
+          "DANGEROUS_CONTENT": "Nội dung nguy hiểm",
+          "HARASSMENT": "Quấy rối",
+          "OTHER": "Khác",
+          "PRIVACY": "Xâm phạm quyền riêng tư",
+          "SPAM": "Tin nhắn rác"
+        },
+        "title": "Báo cáo cuộc trò chuyện"
+      }
+    },
+    "empty": {
+      "noActiveChatDesc": "Chọn một cuộc trò chuyện từ danh sách bên trái hoặc bắt đầu tin nhắn mới để trao đổi về hành trình.",
+      "noActiveChatTitle": "Chưa chọn cuộc trò chuyện",
+      "noConversationsDesc": "Bạn chưa có cuộc trò chuyện nào. Hãy kết nối với những người bạn đồng hành du lịch!",
+      "noConversationsTitle": "Hộp thư đến trống",
+      "noRequestsDesc": "Bạn không có yêu cầu tin nhắn chờ nào lúc này.",
+      "noRequestsTitle": "Không có tin nhắn chờ",
+      "noSearchResultsDesc": "Không tìm thấy cuộc trò chuyện khớp với \"{{query}}\". Hãy thử tìm bằng từ khóa khác.",
+      "noSearchResultsTitle": "Không có kết quả tìm kiếm",
+      "noUnreadDesc": "Tuyệt vời! Bạn đã đọc hết tất cả các tin nhắn gần đây.",
+      "noUnreadTitle": "Không có tin nhắn chưa đọc"
+    },
+    "errors": {
+      "actionFailed": "Không thể thực hiện thao tác này. Vui lòng thử lại.",
+      "failedToSend": "Gửi thất bại",
+      "loadErrorDesc": "Không thể tải danh sách cuộc trò chuyện. Vui lòng kiểm tra lại kết nối và thử lại.",
+      "loadErrorTitle": "Không thể tải tin nhắn",
+      "searchFailed": "Không thể tìm người dùng. Vui lòng thử lại."
+    },
+    "messages": "Tin nhắn",
+    "offline": {
+      "banner": "Chế độ ngoại tuyến — Đang kết nối lại...",
+      "toggleBackOnline": "Chuyển sang trực tuyến",
+      "toggleOffline": "Mô phỏng ngoại tuyến"
+    },
+    "prototype": {
+      "badge": "Bản dựng thử nghiệm UX (Prototype)",
+      "dataDisclaimer": "Đây là bản dựng thử nghiệm giao diện (Prototype). Dữ liệu tin nhắn chỉ mô phỏng trong phiên làm việc hiện tại và không được lưu trữ trên máy chủ.",
+      "offlineMode": "Mô phỏng ngoại tuyến",
+      "onlineMode": "Chuyển sang trực tuyến",
+      "resetData": "Đặt lại dữ liệu mẫu",
+      "simulateError": "Mô phỏng lỗi gửi tin",
+      "simulateSuccess": "Xóa mô phỏng lỗi",
+      "tools": "Công cụ Prototype"
+    },
+    "requestBanner": {
+      "accept": "Chấp nhận",
+      "block": "Chặn",
+      "decline": "Từ chối",
+      "description": "Người này đã gửi cho bạn một yêu cầu tin nhắn. Họ sẽ không biết bạn từ chối trừ khi bạn chấp nhận.",
+      "title": "Yêu cầu tin nhắn từ {{name}}"
+    },
+    "searchPlaceholder": "Tìm kiếm hội thoại...",
+    "sharedTrip": {
+      "choosePublic": "Chọn một bài chia sẻ chuyến đi công khai đã đăng của bạn.",
+      "duration": "{{days}} ngày {{nights}} đêm",
+      "noPublicTrips": "Bạn chưa có bài chia sẻ chuyến đi công khai.",
+      "shareAction": "Chia sẻ chuyến đi",
+      "tag": "Chuyến đi được chia sẻ",
+      "unavailable": "Chuyến đi được chia sẻ này không còn công khai.",
+      "viewTrip": "Xem chuyến đi"
+    },
+    "sidebar": {
+      "loadingAria": "Đang tải danh sách cuộc trò chuyện..."
+    },
+    "status": {
+      "activeNow": "Đang hoạt động",
+      "activeTimeAgo": "Hoạt động {{time}} trước",
+      "delivered": "Đã nhận",
+      "failed": "Gửi thất bại",
+      "muted": "Đã tắt thông báo",
+      "offline": "Không hoạt động",
+      "read": "Đã xem",
+      "sending": "Đang gửi...",
+      "sent": "Đã gửi"
+    },
+    "tabs": {
+      "all": "Tất cả",
+      "requests": "Tin nhắn chờ",
+      "unread": "Chưa đọc"
+    },
+    "thread": {
+      "backToList": "Quay lại danh sách hội thoại",
+      "blockUser": "Chặn người dùng",
+      "conversationActions": "Thao tác hội thoại",
+      "conversationAria": "Cuộc trò chuyện với {{name}}",
+      "dateSeparators": {
+        "today": "Hôm nay",
+        "yesterday": "Hôm qua"
+      },
+      "emptyThread": "Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên!",
+      "loadingAria": "Đang tải tin nhắn...",
+      "loadOlder": "Tải tin nhắn cũ hơn",
+      "moreOptions": "Tùy chọn khác",
+      "muteNotifications": "Tắt thông báo",
+      "reportUser": "Báo cáo người dùng",
+      "sharedTripPreview": "Chuyến đi được chia sẻ",
+      "unmuteNotifications": "Bật thông báo",
+      "viewProfile": "Xem hồ sơ"
+    },
+    "totalUnread": "{{count}} chưa đọc"
+  },
   "common": {
     "actions": "Thao tác",
     "active": "Đang hoạt động",
@@ -279,6 +432,7 @@
     "loadingMore": "Đang tải thêm...",
     "loadingWeather": "Đang cập nhật thời tiết...",
     "loadMore": "Xem thêm bài viết",
+    "messageUser": "Nhắn tin",
     "moderation": "Kiểm duyệt Community",
     "moderationAuditNotice": "Chỉ tài khoản ROLE_MODERATOR hoặc ROLE_ADMIN được đọc và xử lý. Mọi quyết định đều được lưu audit.",
     "moderationConfirmDeleteDesc": "Nội dung sẽ biến mất khỏi feed và trang chi tiết. Quyết định cùng người thực hiện vẫn được lưu trong audit.",

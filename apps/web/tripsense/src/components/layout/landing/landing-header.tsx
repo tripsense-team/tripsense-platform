@@ -26,7 +26,7 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
       <div className="container max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
         <Link
           href="/"
-          className="flex items-center gap-2.5 font-bold text-xl tracking-tight text-foreground hover:opacity-90 transition-opacity"
+          className="flex items-center gap-2.5 text-section-title text-foreground hover:opacity-90 transition-opacity"
         >
           <div className="p-1.5 rounded-xl bg-primary text-primary-foreground">
             <Compass className="h-5 w-5" />
@@ -34,7 +34,7 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
           <span>{siteConfig.name}</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
+        <nav className="hidden md:flex items-center gap-8 text-control text-muted-foreground">
           <Link
             href="#how-it-works"
             className="hover:text-foreground transition-colors"
@@ -85,8 +85,8 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
           <LanguageSwitcher variant="compact" />
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <Menu className="h-5 w-5" />
+              <Button variant="ghost" size="icon">
+                <Menu />
                 <span className="sr-only">Toggle navigation</span>
               </Button>
             </SheetTrigger>
@@ -100,25 +100,25 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
               <div className="flex flex-col gap-4 mt-6">
                 <Link
                   href="#how-it-works"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                  className="text-control text-muted-foreground hover:text-foreground"
                 >
                   {t("nav.howItWorks")}
                 </Link>
                 <Link
                   href="#explore"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                  className="text-control text-muted-foreground hover:text-foreground"
                 >
                   {t("nav.explore")}
                 </Link>
                 <Link
                   href="#ai-assistant"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                  className="text-control text-muted-foreground hover:text-foreground"
                 >
                   {t("nav.aiAssistant")}
                 </Link>
                 <Link
                   href="#features"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                  className="text-control text-muted-foreground hover:text-foreground"
                 >
                   {t("nav.features")}
                 </Link>

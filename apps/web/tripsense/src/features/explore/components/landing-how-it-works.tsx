@@ -42,7 +42,7 @@ export function LandingHowItWorks() {
           >
             How it works
           </Badge>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
             From inspiration to itinerary in seconds.
           </h2>
           <p className="text-base sm:text-lg text-muted-foreground">

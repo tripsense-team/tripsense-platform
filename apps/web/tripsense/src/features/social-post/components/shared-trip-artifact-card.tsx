@@ -49,7 +49,7 @@ function StatPill({
 }) {
   return (
     <div className="rounded-xl bg-muted p-3">
-      <p className="flex items-center gap-2 text-xs font-black text-muted-foreground">
+      <p className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
         <Icon className="h-4 w-4 text-primary" />
         {label}
       </p>
@@ -91,11 +91,11 @@ export function SharedTripArtifactCard({
           </Badge>
         </div>
         <div className="absolute bottom-6 left-6 max-w-[calc(100%-3rem)] text-primary-foreground">
-          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-normal">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-normal">
             <MapPin className="h-3.5 w-3.5" />
             {titleCase(trip.destinationName)}
           </p>
-          <h3 className="mt-2 text-2xl font-black tracking-normal sm:text-3xl">
+          <h3 className="mt-2 text-2xl font-bold tracking-normal sm:text-3xl">
             {trip.name}
           </h3>
         </div>
@@ -120,7 +120,7 @@ export function SharedTripArtifactCard({
       </div>
 
       <div className="px-5 pb-5">
-        <p className="text-xs font-black uppercase text-muted-foreground">
+        <p className="text-xs font-bold uppercase text-muted-foreground">
           Điểm nhấn hành trình
         </p>
         <div className="mt-2 flex flex-wrap gap-2">

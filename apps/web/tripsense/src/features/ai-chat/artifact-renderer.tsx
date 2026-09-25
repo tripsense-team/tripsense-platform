@@ -14,7 +14,7 @@ function Provenance({ artifact }: { artifact: AiArtifact }) {
   const rawSource = String(source.source || "REAL");
   const displaySource = rawSource === "UNKNOWN" ? "REAL" : rawSource;
   const displayProvider = String(source.provider || "TripSense");
-  return <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+  return <p className="mt-1 text-micro uppercase tracking-wide text-muted-foreground">
     {displaySource} / {displayProvider}
   </p>;
 }
@@ -81,8 +81,10 @@ function Places({ artifact, onFeedback, onSelectPlace, selectedPlaceId, onViewDe
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (place.id) {
@@ -100,28 +102,30 @@ function Places({ artifact, onFeedback, onSelectPlace, selectedPlaceId, onViewDe
                       });
                     }
                   }}
-                  className="absolute top-2 right-9 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur-md text-white/90 hover:text-primary hover:bg-black/60 transition-all shadow-xs"
+                  className="absolute top-2 right-11 w-8 rounded-full bg-black/40 px-0 text-white/90 backdrop-blur-md hover:bg-black/60 hover:text-primary shadow-xs [&_svg]:size-4"
                   aria-label="Xem chi tiết địa điểm (ⓘ)"
                   title="Xem thông tin chi tiết (ⓘ)"
                 >
-                  <Info className="h-3 w-3" />
-                </button>
-                <button
+                  <Info />
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="xs"
                   onClick={(e) => {
                     e.stopPropagation();
                     if (place.id && onFeedback) onFeedback(artifact.artifactId, place.id, "SAVE");
                   }}
-                  className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur-md text-white/90 hover:text-rose-500 hover:bg-black/60 transition-all shadow-xs"
+                  className="absolute top-2 right-2 w-8 rounded-full bg-black/40 px-0 text-white/90 backdrop-blur-md hover:bg-black/60 hover:text-rose-500 shadow-xs [&_svg]:size-4"
                   aria-label="Lưu địa điểm"
                 >
-                  <Heart className="h-3 w-3" />
-                </button>
+                  <Heart />
+                </Button>
                 {place.rating != null && (
-                  <span className="absolute bottom-1.5 left-2 flex items-center gap-0.5 text-[11px] font-bold text-amber-300 drop-shadow-xs">
+                  <span className="absolute bottom-1.5 left-2 flex items-center gap-0.5 text-micro font-bold text-amber-300 drop-shadow-xs">
                     <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
                     {place.rating.toFixed(1)}
-                    {place.userRatingCount != null && <span className="text-[10px] font-normal text-white/80">({place.userRatingCount})</span>}
+                    {place.userRatingCount != null && <span className="text-micro font-normal text-white/80">({place.userRatingCount})</span>}
                   </span>
                 )}
               </div>
@@ -130,16 +134,16 @@ function Places({ artifact, onFeedback, onSelectPlace, selectedPlaceId, onViewDe
                   {place.name || "Địa điểm"}
                 </p>
                 {(place.address || place.city) && (
-                  <p className="text-[10px] text-muted-foreground truncate flex items-center gap-0.5">
+                  <p className="text-micro text-muted-foreground truncate flex items-center gap-0.5">
                     <MapPin className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
                     {place.address || place.city}
                   </p>
                 )}
-                <div className="flex items-center justify-between pt-0.5 text-[10px]">
+                <div className="flex items-center justify-between pt-0.5 text-micro">
                   <span className="text-primary font-medium group-hover:underline inline-flex items-center gap-0.5">
                     Xem trên map →
                   </span>
-                  {place.categories?.[0] && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{place.categories[0]}</span>}
+                  {place.categories?.[0] && <span className="text-micro text-muted-foreground truncate max-w-[80px]">{place.categories[0]}</span>}
                 </div>
               </div>
             </div>
@@ -171,7 +175,7 @@ function TripContext({ artifact }: { artifact: AiArtifact }) {
     {data.destinationName && <p className="mt-1 flex gap-1 text-xs text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{data.destinationName}</p>}
     {(data.startDate || data.endDate) && <p className="mt-1 flex gap-1 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />{data.startDate} - {data.endDate}</p>}
     {data.days && <p className="mt-1 text-xs text-muted-foreground">{data.days.length} itinerary days</p>}
-    {data.status && <p className="mt-2 text-[11px] font-medium uppercase text-primary">{data.status}</p>}
+    {data.status && <p className="mt-2 text-micro font-medium uppercase text-primary">{data.status}</p>}
     <Provenance artifact={artifact} />
   </article>;
 }
@@ -220,34 +224,34 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
     <div className="flex flex-wrap items-center justify-between gap-2 px-1">
       <div>
         <h4 className="font-semibold text-xs">Lịch trình đề xuất</h4>
-        <p className="text-[11px] text-muted-foreground">Bản xem trước · bấm vào thẻ để định vị trên bản đồ</p>
+        <p className="text-micro text-muted-foreground">Bản xem trước · bấm vào thẻ để định vị trên bản đồ</p>
       </div>
       <div className="flex items-center gap-2">
         {(() => {
           const vState = data.validityState || (data.validForPreview ? "VALID" : "BLOCKED");
           if (vState === "VALID") {
             return (
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/10 text-emerald-700">
+              <span className="rounded-full px-2 py-0.5 text-micro font-semibold bg-emerald-500/10 text-emerald-700">
                 ✓ GỢI Ý HỢP LỆ
               </span>
             );
           }
           if (vState === "PARTIAL") {
             return (
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-500/10 text-amber-700">
+              <span className="rounded-full px-2 py-0.5 text-micro font-semibold bg-amber-500/10 text-amber-700">
                 ⚠ GỢI Ý CHƯA HOÀN CHỈNH
               </span>
             );
           }
           if (vState === "INVALID") {
             return (
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-destructive/10 text-destructive">
+              <span className="rounded-full px-2 py-0.5 text-micro font-semibold bg-destructive/10 text-destructive">
                 ✕ KHÔNG THỂ TẠO LỊCH
               </span>
             );
           }
           return (
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-500/10 text-amber-700">
+            <span className="rounded-full px-2 py-0.5 text-micro font-semibold bg-amber-500/10 text-amber-700">
               ⚠ CẦN THÊM THÔNG TIN
             </span>
           );
@@ -257,7 +261,7 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
             size="sm"
             onClick={onCreateTripFromPlan}
             disabled={data.canCommit === false || (data.validityState ? data.validityState !== "VALID" : !data.validForPreview)}
-            className="h-7 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
+            className="text-xs font-semibold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Tạo chuyến đi
@@ -272,7 +276,7 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
           <CalendarDays className="h-3.5 w-3.5 text-primary" />
           Ngày {day.dayNumber}{day.date ? ` · ${day.date}` : ""}
         </h5>
-        {day.weather && <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><CloudSun className="h-3 w-3 text-amber-500" />{day.weather.temperatureC}°C</span>}
+        {day.weather && <span className="flex items-center gap-1 text-micro text-muted-foreground"><CloudSun className="h-3 w-3 text-amber-500" />{day.weather.temperatureC}°C</span>}
       </div>
       <div className="flex gap-2.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
         {day.items?.map((rawItem, index) => {
@@ -300,12 +304,14 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
               <ApprovedPlaceImage photo={item.primaryPhoto} name={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
               {item.startTime && (
-                <span className="absolute top-2 left-2 rounded-full bg-black/60 backdrop-blur-md px-2 py-0.5 text-[10px] font-medium text-white shadow-xs">
+                <span className="absolute top-2 left-2 rounded-full bg-black/60 backdrop-blur-md px-2 py-0.5 text-micro font-medium text-white shadow-xs">
                   {item.startTime}{item.endTime ? `–${item.endTime}` : ""}
                 </span>
               )}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="xs"
                 onClick={(e) => {
                   e.stopPropagation();
                   onViewDetails?.({
@@ -319,27 +325,29 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
                     rating: item.ratingSummary?.value,
                   });
                 }}
-                className="absolute top-2 right-9 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur-md text-white/90 hover:text-primary hover:bg-black/60 transition-all shadow-xs"
+                className="absolute top-2 right-11 w-8 rounded-full bg-black/40 px-0 text-white/90 backdrop-blur-md hover:bg-black/60 hover:text-primary shadow-xs [&_svg]:size-4"
                 aria-label="Xem chi tiết địa điểm (ⓘ)"
                 title="Xem thông tin chi tiết (ⓘ)"
               >
-                <Info className="h-3 w-3" />
-              </button>
-              <button
+                <Info />
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="xs"
                 onClick={(e) => {
                   e.stopPropagation();
                 }}
-                className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 backdrop-blur-md text-white/90 hover:text-rose-500 hover:bg-black/60 transition-all shadow-xs"
+                className="absolute top-2 right-2 w-8 rounded-full bg-black/40 px-0 text-white/90 backdrop-blur-md hover:bg-black/60 hover:text-rose-500 shadow-xs [&_svg]:size-4"
                 aria-label="Lưu địa điểm"
               >
-                <Heart className="h-3 w-3" />
-              </button>
+                <Heart />
+              </Button>
               {item.ratingSummary && (
-                <span className="absolute bottom-1.5 left-2 flex items-center gap-0.5 text-[11px] font-bold text-amber-300 drop-shadow-xs">
+                <span className="absolute bottom-1.5 left-2 flex items-center gap-0.5 text-micro font-bold text-amber-300 drop-shadow-xs">
                   <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
                   {item.ratingSummary.value.toFixed(1)}
-                  {item.ratingSummary.count != null && <span className="text-[10px] font-normal text-white/80">({item.ratingSummary.count})</span>}
+                  {item.ratingSummary.count != null && <span className="text-micro font-normal text-white/80">({item.ratingSummary.count})</span>}
                 </span>
               )}
             </div>
@@ -348,22 +356,22 @@ function ItineraryPreview({ artifact, onSelectPlace, selectedPlaceId, onViewDeta
                 {item.title}
               </p>
               {item.address && (
-                <p className="text-[10px] text-muted-foreground truncate flex items-center gap-0.5">
+                <p className="text-micro text-muted-foreground truncate flex items-center gap-0.5">
                   <MapPin className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
                   {item.address}
                 </p>
               )}
-              <div className="flex items-center justify-between pt-0.5 text-[10px]">
+              <div className="flex items-center justify-between pt-0.5 text-micro">
                 <span className="text-primary font-medium group-hover:underline inline-flex items-center gap-0.5">
                   Xem trên map →
                 </span>
-                {item.cost?.kind === "VERIFIED" && <span className="text-[10px] text-muted-foreground">Giá xác minh</span>}
+                {item.cost?.kind === "VERIFIED" && <span className="text-micro text-muted-foreground">Giá xác minh</span>}
               </div>
             </div>
           </div>;
         })}
       </div>
-      {day.routes?.length ? <p className="mt-1 flex items-center gap-1 text-[10px] uppercase text-muted-foreground px-1"><Route className="h-3 w-3" />Ước tính lộ trình di chuyển</p> : null}
+      {day.routes?.length ? <p className="mt-1 flex items-center gap-1 text-micro uppercase text-muted-foreground px-1"><Route className="h-3 w-3" />Ước tính lộ trình di chuyển</p> : null}
     </section>)}
     {data.issues?.length ? <div className="space-y-1">{data.issues.map((issue, index) => <p key={`issue-${issue.code}-${index}`} className="flex gap-1 text-xs text-amber-700"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{issue.message}</p>)}</div> : null}
     {onCreateTripFromPlan && (

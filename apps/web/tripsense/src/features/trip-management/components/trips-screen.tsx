@@ -78,7 +78,7 @@ export function TripsScreen({
   return (
     <section className="min-h-screen px-6 py-10 sm:px-8 lg:px-12 xl:px-16">
       <div className="flex items-start justify-between gap-6">
-        <h1 className="text-3xl font-black leading-tight tracking-normal">
+        <h1 className="text-3xl font-bold leading-tight tracking-normal">
           Your trips
         </h1>
         <Button
@@ -104,7 +104,7 @@ export function TripsScreen({
           <DropdownMenuTrigger asChild>
             <Button
               variant="secondary"
-              className="h-9 rounded-full px-4 text-sm font-semibold"
+              className="rounded-full px-4 text-sm font-semibold"
             >
               {filter === "recent" ? "Recent activity" : "All"}
               <ChevronDown className="h-4 w-4" />
@@ -142,7 +142,7 @@ export function TripsScreen({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <h2 className="mt-12 text-xl font-black tracking-normal">
+      <h2 className="mt-12 text-xl font-bold tracking-normal">
         {filter === "recent" ? "Recent activity" : "Upcoming"}
       </h2>
       <div className="mt-6">
@@ -221,7 +221,7 @@ function TripPoster({
           <Button
             type="button"
             size="icon"
-            className="absolute right-4 top-4 z-30 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+            className="absolute right-4 top-4 z-30 rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
             aria-label="Trip actions"
           >
             <MoreHorizontal className="h-5 w-5" />
@@ -270,7 +270,7 @@ function TripPoster({
       </DropdownMenu>
 
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 p-5 text-primary-foreground">
-        <h3 className="text-base font-black tracking-normal">
+        <h3 className="text-base font-bold tracking-normal">
           {displayTripTitle(trip)}
         </h3>
         <p className="mt-1.5 text-sm font-medium">

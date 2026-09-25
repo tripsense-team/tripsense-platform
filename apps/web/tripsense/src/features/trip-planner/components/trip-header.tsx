@@ -52,7 +52,7 @@ export function TripHeader({
               <MapPin className="h-3 w-3 mr-1" />
               {destination}
             </Badge>
-            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+            <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">
               {title}
             </h1>
           </div>
@@ -65,7 +65,7 @@ export function TripHeader({
             <MapPin className="h-3.5 w-3.5" />
             <span>{destination}</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             {title}
           </h1>
           {description && (
@@ -91,13 +91,13 @@ export function TripHeader({
                   className="h-7 w-7 border-2 border-background"
                 >
                   <AvatarImage src={member.avatar} alt={member.name} />
-                  <AvatarFallback className="text-[10px]">
+                  <AvatarFallback className="text-micro">
                     {member.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               ))}
               {members.length > 4 && (
-                <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold border-2 border-background">
+                <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-micro font-bold border-2 border-background">
                   +{members.length - 4}
                 </div>
               )}
@@ -115,8 +115,8 @@ export function TripHeader({
             <Share2 className="h-3.5 w-3.5" />
             <span>Share Trip</span>
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4" />
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal />
           </Button>
         </div>
       </div>
