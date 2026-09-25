@@ -35,6 +35,8 @@ import { ApiError } from "@/services/api-client";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { socialPostRepository } from "@/features/social-post/services";
 import { AddItemDialog, EditItemDialog } from "@/features/trip-management/components/trip-dialogs";
+import { TripMembersDialog } from "@/features/trip-management/components/trip-members-dialog";
+import { PendingInvitationsBanner } from "@/features/trip-management/components/pending-invitations-banner";
 import { createItineraryItem, deleteItineraryItem, getItinerary, getTrip, listTrips, reorderItineraryItems, updateItineraryItem } from "@/features/trip-management/services/trip-management-api";
 import type { CreateItineraryItemRequest, ItineraryDayResponse, ItineraryItemResponse, ItineraryResponse, TripResponse, UpdateItineraryItemRequest } from "@/features/trip-management/types";
 import { countTripDays, coverImageForTrip, displayTripTitle, formatShortRange, titleCaseDestination, tripCoverOptions } from "@/features/trip-management/utils/format";
@@ -260,6 +262,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   const [switchingTripId, setSwitchingTripId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = React.useState(false);
   const [visibilityOpen, setVisibilityOpen] = React.useState(false);
   const [removeOpen, setRemoveOpen] = React.useState(false);
   const [visibility, setVisibility] = React.useState<ShareWorkspaceVisibility>("PUBLIC");
@@ -695,23 +698,27 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
 
   if (!trip) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-8">
-        <EmptyState
-          icon={Compass}
-          title="No trips found"
-          description="Create a trip in My Trips first, then come back to share it."
-          action={
-            <Button asChild className="rounded-full">
-              <Link href="/trips/new">Create a Trip</Link>
-            </Button>
-          }
-        />
+      <div className="min-h-screen">
+        <PendingInvitationsBanner />
+        <div className="flex min-h-[70vh] items-center justify-center p-8">
+          <EmptyState
+            icon={Compass}
+            title="No trips found"
+            description="Create a trip in My Trips first, then come back to share it."
+            action={
+              <Button asChild className="rounded-full">
+                <Link href="/trips/new">Create a Trip</Link>
+              </Button>
+            }
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <main className="min-h-screen bg-muted/30 pb-12">
+      <PendingInvitationsBanner />
       {feedbackMessage && <WorkspaceNotification message={feedbackMessage} onDismiss={() => setFeedbackMessage(null)} />}
 
       <TripHero
@@ -721,6 +728,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         visibilityLabel={visibilityLabel}
         onShare={() => setShareOpen(true)}
         onAddPlace={() => setAddItemDay(itinerary?.days[0] ?? null)}
+        onInvite={() => setMembersDialogOpen(true)}
       />
 
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -825,6 +833,12 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         onDraftChange={setEditItemDraft}
         onSubmit={handleUpdateItem}
       />
+      <TripMembersDialog
+        tripId={trip.id}
+        tripName={displayTripTitle(trip)}
+        open={membersDialogOpen}
+        onOpenChange={setMembersDialogOpen}
+      />
     </main>
   );
 }
@@ -840,11 +854,11 @@ function WorkspaceNotification({ message, onDismiss }: { message: string; onDism
         <Check className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black">Post published</p>
+        <p className="text-sm font-bold">Post published</p>
         <p className="mt-1 text-sm text-muted-foreground">{message}</p>
       </div>
-      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onDismiss} aria-label="Dismiss notification">
-        <X className="h-4 w-4" />
+      <Button variant="ghost" size="xs" className="w-8 px-0 rounded-full" onClick={onDismiss} aria-label="Dismiss notification">
+        <X />
       </Button>
     </div>
   );
@@ -873,6 +887,7 @@ function TripHero({
   visibilityLabel,
   onShare,
   onAddPlace,
+  onInvite,
 }: {
   trip: TripResponse;
   itinerary: ItineraryResponse | null;
@@ -880,6 +895,7 @@ function TripHero({
   visibilityLabel: string;
   onShare: () => void;
   onAddPlace: () => void;
+  onInvite?: () => void;
 }) {
   return (
     <section className="relative isolate overflow-hidden">
@@ -906,7 +922,7 @@ function TripHero({
         </p>
         <div className="mt-2 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-4xl font-black tracking-normal sm:text-5xl">{displayTripTitle(trip)}</h1>
+            <h1 className="text-4xl font-bold tracking-normal sm:text-5xl">{displayTripTitle(trip)}</h1>
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-semibold">
               <span className="flex items-center gap-1.5"><CalendarDays className="h-4 w-4" /> {formatShortRange(trip.startDate, trip.endDate)}</span>
               <span>{countTripDays(trip)} days</span>
@@ -923,7 +939,7 @@ function TripHero({
               <Plus className="h-4 w-4" />
               Add Place
             </Button>
-            <Button variant="secondary" className="rounded-full font-bold">
+            <Button variant="secondary" className="rounded-full font-bold" onClick={onInvite}>
               <Users className="h-4 w-4" />
               Invite
             </Button>
@@ -959,7 +975,7 @@ function TripSwitcher({
     <section className="rounded-2xl border border-border bg-card p-4 shadow-xs">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-black uppercase tracking-normal text-muted-foreground">Choose trip to share</h2>
+          <h2 className="text-sm font-bold uppercase tracking-normal text-muted-foreground">Choose trip to share</h2>
           <p className="text-sm text-muted-foreground">Loaded from My Trips API</p>
         </div>
         <Badge variant="secondary" className="rounded-full">
@@ -987,12 +1003,12 @@ function TripSwitcher({
               </div>
               <div className="min-w-0 p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <Badge variant={selected ? "default" : "secondary"} className="rounded-full text-[10px]">
+                  <Badge variant={selected ? "default" : "secondary"} className="rounded-full text-micro">
                     {selected ? "Selected" : "My Trip"}
                   </Badge>
                   {switching && <span className="text-xs font-semibold text-muted-foreground">Loading...</span>}
                 </div>
-                <p className="truncate text-sm font-black text-foreground">{displayTripTitle(item)}</p>
+                <p className="truncate text-sm font-bold text-foreground">{displayTripTitle(item)}</p>
                 <p className="mt-1 truncate text-xs font-semibold text-muted-foreground">
                   {titleCaseDestination(item.destinationName)} · {formatShortRange(item.startDate, item.endDate)}
                 </p>
@@ -1076,11 +1092,11 @@ function ItineraryList({
           <div className="absolute bottom-0 left-3 top-2 w-px bg-border" />
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="flex gap-3">
-              <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-black text-primary-foreground">
+              <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
                 D{day.dayNumber}
               </span>
               <div>
-                <h2 className="text-xl font-black tracking-normal text-foreground">Day {day.dayNumber}</h2>
+                <h2 className="text-xl font-bold tracking-normal text-foreground">Day {day.dayNumber}</h2>
                 <p className="text-sm text-muted-foreground">{day.date}</p>
               </div>
             </div>
@@ -1223,8 +1239,8 @@ function ItineraryCard({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  size="xs"
+                  className="w-8 px-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(item);
@@ -1239,8 +1255,8 @@ function ItineraryCard({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  size="xs"
+                  className="w-8 px-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(item);
@@ -1253,7 +1269,7 @@ function ItineraryCard({
               )}
             </div>
           </div>
-          <h3 className="mt-2 text-lg font-black tracking-normal text-foreground">{item.title}</h3>
+          <h3 className="mt-2 text-lg font-bold tracking-normal text-foreground">{item.title}</h3>
           <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
             {item.placeNameSnapshot || item.placeAddressSnapshot || item.notes || "No additional notes."}
           </p>
@@ -1274,7 +1290,7 @@ function RouteMapCard({ places, budget, currency }: { places: Place[]; budget: n
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-black tracking-normal">
+        <h2 className="flex items-center gap-2 text-lg font-bold tracking-normal">
           <Compass className="h-5 w-5 text-primary" />
           Interactive Route Map
         </h2>
@@ -1303,7 +1319,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-muted p-3">
       <p className="text-xs font-bold uppercase text-muted-foreground">{label}</p>
-      <p className="mt-1 text-base font-black">{value}</p>
+      <p className="mt-1 text-base font-bold">{value}</p>
     </div>
   );
 }
@@ -1328,7 +1344,7 @@ function CommunityPreviewCard({
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-black tracking-normal">
+        <h2 className="flex items-center gap-2 text-lg font-bold tracking-normal">
           <MessageSquare className="h-5 w-5 text-primary" />
           Community Share Preview
         </h2>
@@ -1341,7 +1357,7 @@ function CommunityPreviewCard({
             <TripCover trip={trip} />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-black">{displayTripTitle(trip)}</h3>
+            <h3 className="truncate text-sm font-bold">{displayTripTitle(trip)}</h3>
             <p className="line-clamp-2 text-xs text-muted-foreground">{caption || `${itineraryItemCount(itinerary)} stops in ${titleCaseDestination(trip.destinationName)}`}</p>
           </div>
           <Button onClick={onPublish} size="sm" className="rounded-full">{publishedPostId ? "Manage" : "Publish"}</Button>
@@ -1394,7 +1410,7 @@ function ShareTripDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto rounded-3xl p-0">
         <DialogHeader className="border-b border-border px-7 py-6">
-          <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-normal">
+          <DialogTitle className="flex items-center gap-3 text-2xl font-bold tracking-normal">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Share2 className="h-5 w-5" />
             </span>
@@ -1409,7 +1425,7 @@ function ShareTripDialog({
             <div className="flex items-center gap-3">
               <Avatar className="h-14 w-14"><AvatarFallback className="bg-primary text-primary-foreground">{initials(userName)}</AvatarFallback></Avatar>
               <div>
-                <h3 className="font-black">{userName || "Current user"} <span className="font-medium text-muted-foreground">{userEmail || ""}</span></h3>
+                <h3 className="font-bold">{userName || "Current user"} <span className="font-medium text-muted-foreground">{userEmail || ""}</span></h3>
                 <p className="text-sm font-semibold text-muted-foreground">Posting as author</p>
               </div>
             </div>
@@ -1420,7 +1436,7 @@ function ShareTripDialog({
           </div>
 
           <section>
-            <div className="mb-2 flex items-center justify-between text-sm font-black uppercase tracking-normal">
+            <div className="mb-2 flex items-center justify-between text-sm font-bold uppercase tracking-normal">
               <span>Caption & insights <span className="font-medium text-muted-foreground">(optional)</span></span>
               <span className={cn(caption.length > 300 ? "text-destructive" : "text-primary")}>{caption.length} / 300</span>
             </div>
@@ -1439,7 +1455,7 @@ function ShareTripDialog({
           <VisibilityPicker visibility={visibility} onVisibilityChange={onVisibilityChange} />
 
           <section className="rounded-2xl bg-primary/10 p-4">
-            <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-normal text-primary">
+            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-normal text-primary">
               <Info className="h-5 w-5" />
               Data source
             </h3>
@@ -1466,7 +1482,7 @@ function TripArtifact({ trip, itinerary }: { trip: TripResponse; itinerary: Itin
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-black uppercase tracking-normal">Attached Trip Artifact</h3>
+        <h3 className="text-sm font-bold uppercase tracking-normal">Attached Trip Artifact</h3>
         <Badge variant="secondary" className="rounded-full">
           <Lock className="mr-1 h-3.5 w-3.5" />
           Read-only snapshot
@@ -1481,7 +1497,7 @@ function TripArtifact({ trip, itinerary }: { trip: TripResponse; itinerary: Itin
             <Badge>Itinerary Snapshot</Badge>
             <Badge variant="secondary"><Eye className="mr-1 h-3.5 w-3.5" /> API data</Badge>
           </div>
-          <h3 className="mt-3 text-3xl font-black tracking-normal">{displayTripTitle(trip)}</h3>
+          <h3 className="mt-3 text-3xl font-bold tracking-normal">{displayTripTitle(trip)}</h3>
           <p className="mt-2 flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4 text-primary" /> {titleCaseDestination(trip.destinationName)}</p>
           <div className="mt-3 flex flex-wrap gap-4 text-sm font-bold">
             <span>{formatShortRange(trip.startDate, trip.endDate)}</span>
@@ -1497,7 +1513,7 @@ function TripArtifact({ trip, itinerary }: { trip: TripResponse; itinerary: Itin
 function VisibilityPicker({ visibility, onVisibilityChange }: { visibility: ShareWorkspaceVisibility; onVisibilityChange: (visibility: ShareWorkspaceVisibility) => void }) {
   return (
     <section>
-      <h3 className="text-sm font-black uppercase tracking-normal">Who can see this post?</h3>
+      <h3 className="text-sm font-bold uppercase tracking-normal">Who can see this post?</h3>
       <p className="text-sm text-muted-foreground">Control who can discover this shared copy in the community feed.</p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {visibilityOptions.map((option) => {
@@ -1518,7 +1534,7 @@ function VisibilityPicker({ visibility, onVisibilityChange }: { visibility: Shar
                   {selected && <Check className="h-4 w-4" />}
                 </span>
               </div>
-              <h4 className="mt-5 text-lg font-black">{option.title}</h4>
+              <h4 className="mt-5 text-lg font-bold">{option.title}</h4>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{option.description}</p>
             </button>
           );
@@ -1551,7 +1567,7 @@ function VisibilityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl rounded-3xl p-0">
         <DialogHeader className="border-b border-border px-7 py-6">
-          <DialogTitle className="text-2xl font-black tracking-normal">Manage Post Visibility</DialogTitle>
+          <DialogTitle className="text-2xl font-bold tracking-normal">Manage Post Visibility</DialogTitle>
           <DialogDescription>Choose who can see this shared trip in their feed and search results.</DialogDescription>
         </DialogHeader>
         <div className="px-7 py-6">
@@ -1563,7 +1579,7 @@ function VisibilityDialog({
             </div>
           )}
           <div className="mt-5 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm">
-            <p className="font-black text-primary">Data integrity guarantee</p>
+            <p className="font-bold text-primary">Data integrity guarantee</p>
             <p className="mt-1 text-muted-foreground">Changing post visibility only affects the social feed post, not your private trip data.</p>
           </div>
         </div>
@@ -1603,11 +1619,11 @@ function RemoveShareDialog({
             <Trash2 className="h-7 w-7" />
           </span>
           <Badge variant="destructive" className="mt-2">TF-61 Unpublish feed post</Badge>
-          <DialogTitle className="text-2xl font-black tracking-normal">Remove this shared trip post?</DialogTitle>
+          <DialogTitle className="text-2xl font-bold tracking-normal">Remove this shared trip post?</DialogTitle>
           <DialogDescription>This removes the Community post for {tripTitle}. It does not delete the original trip.</DialogDescription>
         </DialogHeader>
         <div className="rounded-2xl bg-primary/10 p-4 text-sm">
-          <p className="font-black text-primary">Your original itinerary is protected</p>
+          <p className="font-bold text-primary">Your original itinerary is protected</p>
           <p className="mt-1 text-muted-foreground">Only the shared social post, comments, and reactions are removed.</p>
         </div>
         {error && <ErrorState message={error} />}

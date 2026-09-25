@@ -102,7 +102,7 @@ export function AdminHeader({
           <Button
             variant="outline"
             size="sm"
-            className="hidden lg:inline-flex items-center gap-1.5 text-xs h-8"
+            className="hidden lg:inline-flex items-center gap-1.5 text-xs"
             onClick={() => window.location.reload()}
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -117,13 +117,13 @@ export function AdminHeader({
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
-            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+            className="rounded-lg text-muted-foreground hover:text-foreground"
             aria-label={t("common.theme")}
           >
             {theme === "light" ? (
-              <Moon className="h-4 w-4" />
+              <Moon />
             ) : (
-              <Sun className="h-4 w-4 text-amber-500" />
+              <Sun className="text-amber-500" />
             )}
           </Button>
 
@@ -131,10 +131,10 @@ export function AdminHeader({
           <Button
             variant="ghost"
             size="icon"
-            className="relative h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+            className="relative rounded-lg text-muted-foreground hover:text-foreground"
             aria-label="Admin Notifications"
           >
-            <Bell className="h-4 w-4" />
+            <Bell />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
           </Button>
 

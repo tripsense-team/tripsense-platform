@@ -100,14 +100,16 @@ export function CommentComposer({
             <span>{t("social.replyingTo", { name: replyToAuthorName })}</span>
           </div>
           {onCancelReply && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={onCancelReply}
-              className="rounded-full p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="w-8 rounded-full px-0 hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
               aria-label={t("common.cancel")}
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
+              <X />
+            </Button>
           )}
         </div>
       )}
@@ -145,15 +147,15 @@ export function CommentComposer({
 
           <Button
             type="submit"
-            size="icon"
+            size="sm"
             disabled={!content.trim() || submitting}
-            className="absolute right-1.5 top-1.5 h-7 w-7 rounded-lg transition-all cursor-pointer"
+            className="absolute right-1.5 top-1.5 w-9 px-0 rounded-lg transition-all cursor-pointer"
             aria-label={t("social.send")}
           >
             {submitting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : (
-              <Send className="h-3.5 w-3.5" />
+              <Send />
             )}
           </Button>
         </div>

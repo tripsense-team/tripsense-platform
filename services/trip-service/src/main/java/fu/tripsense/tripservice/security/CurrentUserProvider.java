@@ -9,12 +9,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class CurrentUserProvider {
 
-  public UUID userId() {
+  public AuthenticatedUser get() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null
         || !(authentication.getPrincipal() instanceof AuthenticatedUser user)) {
       throw new UnauthenticatedException();
     }
-    return user.id();
+    return user;
+  }
+
+  public UUID userId() {
+    return get().id();
+  }
+
+  public String userEmail() {
+    return get().email();
   }
 }

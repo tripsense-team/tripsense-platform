@@ -29,7 +29,11 @@ export function FavoriteButton({
   };
 
   const buttonSize =
-    size === "sm" ? "h-7 w-7" : size === "lg" ? "h-10 w-10" : "h-9 w-9";
+    size === "sm"
+      ? "h-9 w-9 [&_svg]:size-4"
+      : size === "lg"
+        ? "h-11 w-11 [&_svg]:size-5"
+        : "h-10 w-10 [&_svg]:size-5";
 
   return (
     <Button
@@ -48,7 +52,7 @@ export function FavoriteButton({
     >
       <Heart
         className={cn(
-          "h-4 w-4 transition-transform active:scale-125",
+          "transition-transform active:scale-125",
           favorite && "fill-current",
         )}
       />

@@ -96,7 +96,7 @@ export function PlaceDetailModal({
               {primaryCategory?.replace(/_/g, " ") || "Địa điểm khám phá"}
             </span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
             {place.name}
           </h2>
           {typeof place.rating === "number" && place.rating > 0 && (
@@ -183,7 +183,7 @@ export function PlaceDetailModal({
                         {place.address}
                       </p>
                       {place.oldAddress && (
-                        <p className="text-[11px] text-muted-foreground/80 italic mt-1">
+                        <p className="text-micro text-muted-foreground/80 italic mt-1">
                           Địa chỉ cũ: {place.oldAddress}
                         </p>
                       )}
@@ -200,7 +200,7 @@ export function PlaceDetailModal({
                           Giờ hoạt động
                         </span>
                         {place.businessStatus && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                             {place.businessStatus === "OPERATIONAL"
                               ? "Đang mở cửa"
                               : place.businessStatus}
@@ -208,7 +208,7 @@ export function PlaceDetailModal({
                         )}
                       </div>
                       {place.openingHours.includes(";") ? (
-                        <div className="grid grid-cols-1 gap-1 text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
+                        <div className="grid grid-cols-1 gap-1 text-micro text-muted-foreground pt-1.5 border-t border-border/40">
                           {place.openingHours.split(";").map((line, idx) => {
                             const trimmed = line.trim();
                             if (!trimmed) return null;
@@ -226,7 +226,7 @@ export function PlaceDetailModal({
                                   <span className="font-medium text-foreground/80">
                                     {day}
                                   </span>
-                                  <span className="text-foreground/90 font-mono text-[11px]">
+                                  <span className="text-foreground/90 font-mono text-micro">
                                     {time}
                                   </span>
                                 </div>
@@ -358,7 +358,7 @@ export function PlaceDetailModal({
                           )}
                         </div>
                         {rev.relativeTimeDescription && (
-                          <span className="text-[11px] text-muted-foreground block">
+                          <span className="text-micro text-muted-foreground block">
                             {rev.relativeTimeDescription}
                           </span>
                         )}

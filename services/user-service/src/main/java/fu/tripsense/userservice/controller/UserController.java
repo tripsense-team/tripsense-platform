@@ -38,6 +38,12 @@ public class UserController {
     return ResponseEntity.ok(ApiResponse.success(userService.getPublicProfile(userId)));
   }
 
+  @GetMapping("/public-profiles/search")
+  public ResponseEntity<ApiResponse<List<PublicProfileDto>>> searchPublicProfiles(
+      @RequestParam String query, @RequestParam(defaultValue = "10") int limit) {
+    return ResponseEntity.ok(ApiResponse.success(userService.searchPublicProfiles(query, limit)));
+  }
+
   @PostMapping("/public-profiles:batch")
   public ResponseEntity<ApiResponse<List<PublicProfileDto>>> getPublicProfiles(
       @Valid @RequestBody PublicProfileBatchRequest request) {
@@ -87,4 +93,3 @@ public class UserController {
         ApiResponse.success(travelPreferenceService.reset(currentUser.getId())));
   }
 }
-

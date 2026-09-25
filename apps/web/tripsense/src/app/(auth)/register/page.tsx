@@ -60,7 +60,7 @@ export default function RegisterPage() {
   return (
     <div className="w-full rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xl text-card-foreground">
       <div className="flex flex-col items-center text-center space-y-2 mb-6">
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Tạo tài khoản TripSense
         </h1>
         <p className="text-xs text-muted-foreground">

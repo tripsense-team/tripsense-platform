@@ -92,7 +92,7 @@ export function PostDetailModal({
                 variant="ghost"
                 size="icon"
                 onClick={handleClose}
-                className="h-9 w-9 rounded-full sm:hidden text-muted-foreground hover:text-foreground cursor-pointer"
+                className="rounded-full sm:hidden text-muted-foreground hover:text-foreground cursor-pointer"
                 aria-label={t("common.back")}
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -106,7 +106,7 @@ export function PostDetailModal({
               variant="ghost"
               size="icon"
               onClick={handleClose}
-              className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               aria-label={t("common.close")}
             >
               <X className="h-5 w-5" />

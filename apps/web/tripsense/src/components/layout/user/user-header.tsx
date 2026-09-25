@@ -51,10 +51,10 @@ export function UserHeader({
           variant="ghost"
           size="icon"
           onClick={onMobileMenuClick}
-          className="h-9 w-9 md:hidden"
+          className="md:hidden"
           aria-label={t("nav.menu")}
         >
-          <Menu className="h-5 w-5" />
+          <Menu />
         </Button>
         <Logo />
       </div>
@@ -62,13 +62,13 @@ export function UserHeader({
       {/* Middle: Search input bar */}
       <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
         <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground pointer-events-none" />
           <input
             type="text"
             placeholder={t("nav.searchPlaceholder")}
-            className="w-full rounded-full border border-border bg-muted/40 py-2 pl-9 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="h-9 w-full rounded-full border border-border bg-muted/40 py-1.5 pl-9 pr-9 text-[13px] text-foreground placeholder:text-muted-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 text-2xs font-medium text-muted-foreground">
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 text-micro font-medium text-muted-foreground">
             ⌘K
           </kbd>
         </div>
@@ -80,10 +80,10 @@ export function UserHeader({
           asChild
           variant="ghost"
           size="sm"
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-full text-xs font-medium text-foreground hover:bg-muted"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-full text-[13px] text-foreground hover:bg-muted"
         >
           <Link href="/ai-planner">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <Sparkles className="text-primary h-4 w-4" />
             <span>{t("nav.aiPlanner")}</span>
           </Link>
         </Button>
@@ -96,13 +96,13 @@ export function UserHeader({
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+          className="rounded-full text-muted-foreground hover:text-foreground"
           aria-label={t("common.theme")}
         >
           {theme === "light" ? (
-            <Moon className="h-4 w-4" />
+            <Moon />
           ) : (
-            <Sun className="h-4 w-4 text-amber-500" />
+            <Sun className="text-amber-500" />
           )}
         </Button>
 
@@ -110,10 +110,10 @@ export function UserHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
+          className="relative rounded-full text-muted-foreground hover:text-foreground"
           aria-label="Notifications"
         >
-          <Bell className="h-4 w-4" />
+          <Bell />
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
         </Button>
 
@@ -125,7 +125,7 @@ export function UserHeader({
         ) : (
           <Button
             onClick={onSignInClick}
-            className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-4 py-2 shadow-xs transition-all"
+            className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-control px-4 py-2 shadow-xs transition-all"
           >
             {t("auth.login")}
           </Button>

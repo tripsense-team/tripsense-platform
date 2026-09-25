@@ -26,7 +26,7 @@ export function ChatSuggestionChips({
           key={suggestion}
           type="button"
           onClick={() => onSelect(suggestion)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:bg-accent hover:text-accent-foreground transition-all cursor-pointer shadow-2xs"
+          className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:bg-accent hover:text-accent-foreground transition-all cursor-pointer shadow-2xs"
         >
           <Sparkles className="h-3 w-3 text-primary shrink-0" />
           <span>{suggestion}</span>

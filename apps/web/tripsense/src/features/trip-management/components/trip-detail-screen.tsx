@@ -37,6 +37,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
+import { TripMembersDialog } from "./trip-members-dialog";
 import type {
   ItineraryDayResponse,
   ItineraryItemResponse,
@@ -117,6 +118,7 @@ export function TripDetailScreen({
   const [activePanel, setActivePanel] =
     React.useState<TripDetailPanel>("overview");
   const [copiedInviteLink, setCopiedInviteLink] = React.useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = React.useState(false);
 
   const mapPlaces: Place[] = React.useMemo(() => {
     const places: Place[] = [];
@@ -205,10 +207,11 @@ export function TripDetailScreen({
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            className="h-10 rounded-full px-3 text-sm font-bold"
+            className="h-10 rounded-full px-3 text-sm font-bold shadow-xs hover:bg-accent"
+            onClick={() => setMembersDialogOpen(true)}
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              P
+              <Users className="h-4 w-4" />
             </span>
             Invite
           </Button>
@@ -229,7 +232,7 @@ export function TripDetailScreen({
               sideOffset={8}
             >
               <DropdownMenuItem
-                className="gap-3 rounded-xl px-3 py-3 text-base"
+                className="gap-3 rounded-xl px-3 py-3 text-base cursor-pointer"
                 onSelect={copyInviteLink}
               >
                 {copiedInviteLink ? (
@@ -241,8 +244,8 @@ export function TripDetailScreen({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                disabled
-                className="gap-3 rounded-xl px-3 py-3 text-base"
+                className="gap-3 rounded-xl px-3 py-3 text-base cursor-pointer"
+                onSelect={() => setMembersDialogOpen(true)}
               >
                 <Users className="h-5 w-5" />
                 Manage co-travelers
@@ -265,7 +268,7 @@ export function TripDetailScreen({
 
       <div className="mt-10 grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.85fr)]">
         <div className="min-w-0">
-          <h1 className="text-3xl font-black leading-tight tracking-normal">
+          <h1 className="text-3xl font-bold leading-tight tracking-normal">
             {title}
           </h1>
           <div className="mt-5 inline-flex flex-wrap items-center overflow-hidden rounded-full border border-border bg-background text-sm font-semibold shadow-2xs">
@@ -282,7 +285,7 @@ export function TripDetailScreen({
           <div className="mt-8 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Sparkles className="h-5 w-5 fill-primary-foreground stroke-primary-foreground" />
           </div>
-          <p className="mt-5 max-w-2xl text-xl font-black leading-snug tracking-normal">
+          <p className="mt-5 max-w-2xl text-xl font-bold leading-snug tracking-normal">
             {destination} {tripTimingPhrase(trip)} is a quick trip from home -
             want help picking a first thing to plan for these{" "}
             {countTripDays(trip)} days?
@@ -319,7 +322,7 @@ export function TripDetailScreen({
               <Button
                 variant="secondary"
                 size="icon"
-                className="h-9 w-9 rounded-full"
+                className="rounded-full"
                 aria-label="Add attachment"
               >
                 <Plus className="h-5 w-5" />
@@ -328,7 +331,7 @@ export function TripDetailScreen({
                 <Mic className="h-5 w-5 text-muted-foreground" />
                 <Button
                   size="icon"
-                  className="h-9 w-9 rounded-full"
+                  className="rounded-full"
                   onClick={onSendChat}
                   aria-label="Send"
                 >
@@ -339,7 +342,7 @@ export function TripDetailScreen({
           </div>
 
           <div className="mt-10">
-            <h2 className="text-xl font-black tracking-normal">
+            <h2 className="text-xl font-bold tracking-normal">
               Chats{" "}
               <span className="font-medium text-muted-foreground">
                 {chatMessages.length}
@@ -352,7 +355,7 @@ export function TripDetailScreen({
                   className="flex items-center justify-between rounded-2xl border border-border bg-card p-6 shadow-xs"
                 >
                   <div>
-                    <h3 className="text-base font-black tracking-normal">
+                    <h3 className="text-base font-bold tracking-normal">
                       {message}
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -401,6 +404,13 @@ export function TripDetailScreen({
           )}
         </div>
       </div>
+
+      <TripMembersDialog
+        open={membersDialogOpen}
+        onOpenChange={setMembersDialogOpen}
+        tripId={trip.id}
+        tripName={title}
+      />
     </section>
   );
 }
@@ -419,7 +429,7 @@ function ActionTile({
   onClick?: () => void;
 }) {
   const content = (
-    <div className="flex h-14 items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-sm font-black shadow-xs transition-all duration-200 hover:bg-accent">
+    <div className="flex h-14 items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-sm font-bold shadow-xs transition-all duration-200 hover:bg-accent">
       <span className="flex items-center gap-4">
         <Icon className="h-4 w-4" />
         {label}
@@ -600,7 +610,7 @@ function ItineraryPanel({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full"
+          className="rounded-full"
           onClick={onClose}
           aria-label="Close itinerary"
         >
@@ -617,12 +627,12 @@ function ItineraryPanel({
         </Button>
       </div>
 
-      <h2 className="mt-14 text-4xl font-black tracking-normal">Itinerary</h2>
+      <h2 className="mt-14 text-4xl font-bold tracking-normal">Itinerary</h2>
 
       <section className="mt-10">
         <div className="flex items-center gap-3">
           <ChevronDown className="h-5 w-5" />
-          <h3 className="text-xl font-black tracking-normal">Ideas</h3>
+          <h3 className="text-xl font-bold tracking-normal">Ideas</h3>
           <span className="text-base font-semibold text-muted-foreground">
             {ideaCount} items
           </span>
@@ -640,7 +650,7 @@ function ItineraryPanel({
 
       <section className="mt-10">
         <div className="flex items-end gap-3">
-          <h3 className="text-xl font-black tracking-normal">Itinerary</h3>
+          <h3 className="text-xl font-bold tracking-normal">Itinerary</h3>
           <span className="text-base font-semibold text-muted-foreground">
             {countTripDays(trip)} days
           </span>
@@ -655,7 +665,7 @@ function ItineraryPanel({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ChevronDown className="h-5 w-5" />
-                    <h4 className="text-base font-black">
+                    <h4 className="text-base font-bold">
                       Day {day.dayNumber}
                     </h4>
                     <span className="text-sm font-semibold text-muted-foreground">
@@ -751,7 +761,8 @@ function ItineraryPanel({
                         <div className="flex shrink-0 items-center gap-1">
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="xs"
+                            className="w-8 px-0"
                             onClick={() => onMoveItem(day, item, -1)}
                             disabled={submitting || index === 0}
                             aria-label="Move item up"
@@ -760,7 +771,8 @@ function ItineraryPanel({
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="xs"
+                            className="w-8 px-0"
                             onClick={() => onMoveItem(day, item, 1)}
                             disabled={
                               submitting || index === day.items.length - 1
@@ -771,7 +783,8 @@ function ItineraryPanel({
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="xs"
+                            className="w-8 px-0"
                             onClick={() => onEditItem(item)}
                             disabled={submitting}
                             aria-label="Edit item"
@@ -780,7 +793,8 @@ function ItineraryPanel({
                           </Button>
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="xs"
+                            className="w-8 px-0"
                             onClick={() => onDeleteItem(item)}
                             disabled={submitting}
                             aria-label="Delete item"

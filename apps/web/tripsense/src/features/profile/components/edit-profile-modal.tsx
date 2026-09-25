@@ -123,12 +123,13 @@ export function EditProfileModal({
 
     try {
       await mutateAsync(payload);
-      if (avatarUrl) {
-        useAuthStore.getState().updateUserAvatar(avatarUrl);
-      }
+      useAuthStore.getState().updateUserProfile({
+        avatar: avatarUrl || undefined,
+        name: displayName || undefined,
+      });
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch {
       // Error is handled by hook
     }
   };

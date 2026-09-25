@@ -59,7 +59,7 @@ export function LandingFeaturesGrid() {
           >
             Platform Features
           </Badge>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
             Everything you need for your next adventure.
           </h2>
           <p className="text-base sm:text-lg text-muted-foreground">

@@ -53,7 +53,7 @@ export function ItineraryItem({
           <Icon className="h-4 w-4" />
         </div>
         {time && (
-          <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap">
+          <span className="text-micro font-semibold text-muted-foreground whitespace-nowrap">
             {time}
           </span>
         )}
@@ -66,7 +66,7 @@ export function ItineraryItem({
           </h4>
           <Badge
             variant="outline"
-            className="capitalize text-[10px] px-1.5 py-0 shrink-0"
+            className="capitalize text-micro px-1.5 py-0 shrink-0"
           >
             {type}
           </Badge>

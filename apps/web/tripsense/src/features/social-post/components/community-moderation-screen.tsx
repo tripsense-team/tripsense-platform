@@ -75,10 +75,10 @@ export function CommunityModerationScreen() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <header className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-primary">
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
           <ShieldAlert className="h-4 w-4" /> {t("social.moderation")}
         </p>
-        <h1 className="mt-2 text-3xl font-black">
+        <h1 className="mt-2 text-3xl font-bold">
           {t("social.moderationQueueTitle")}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -98,7 +98,7 @@ export function CommunityModerationScreen() {
       ) : reports.length === 0 ? (
         <div className="mt-6 rounded-3xl border border-dashed border-border bg-card p-10 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
-          <h2 className="mt-3 font-black">
+          <h2 className="mt-3 font-bold">
             {t("social.moderationEmpty")}
           </h2>
         </div>

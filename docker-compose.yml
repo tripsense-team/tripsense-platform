@@ -124,6 +124,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SOCIAL_RATE_LIMIT_ENABLED: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
@@ -152,9 +153,11 @@ services:
       - path: ./env/.env
         required: false
     environment:
-      MONGODB_URI: mongodb://mongodb:27017/tripsense_places
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/tripsense_places}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-tripsense_places}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
@@ -210,6 +213,7 @@ services:
       - path: ./env/.env
         required: false
     environment:
+      USER_DATASOURCE_URL: ${USER_DATASOURCE_URL:-jdbc:postgresql://db:5432/tripsense_user}
       USER_DB_HOST: db
       USER_DB_PORT: "5432"
       USER_DB_USER: ${USER_DB_USER:-postgres}
@@ -255,6 +259,7 @@ services:
         required: false
     environment:
       CONTEXT_SERVICE_PORT: "8087"
+      CONTEXT_DATASOURCE_URL: ${CONTEXT_DATASOURCE_URL:-jdbc:postgresql://context-db:5432/tripsense_context}
       CONTEXT_DB_HOST: context-db
       CONTEXT_DB_PORT: "5432"
       CONTEXT_DB_NAME: ${CONTEXT_DB_NAME:-tripsense_context}
@@ -280,12 +285,14 @@ services:
       - path: ./env/.env
         required: false
     environment:
+      TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: "5432"
       TRIP_DB_USER: ${TRIP_DB_USER:-postgres}
       TRIP_DB_PASS: ${TRIP_DB_PASS:-123456}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       PLACE_SERVICE_URL: http://place-service:8082
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
@@ -315,11 +322,15 @@ services:
       - path: ./env/.env
         required: true
     environment:
+      SOCIAL_DATASOURCE_URL: ${SOCIAL_DATASOURCE_URL:-jdbc:postgresql://social-db:5432/tripsense_social}
       SOCIAL_DB_HOST: social-db
       SOCIAL_DB_PORT: "5432"
       SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
       SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
       SOCIAL_DB_PASS: ${SOCIAL_DB_PASS:-123456}
+      REDIS_HOST: redis
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      USER_SERVICE_URL: http://user-service:8081
       TRIP_SERVICE_URL: http://trip-service:8084
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
@@ -327,6 +338,10 @@ services:
       EUREKA_FETCH: "true"
     depends_on:
       social-db:
+        condition: service_started
+      redis:
+        condition: service_started
+      user-service:
         condition: service_started
       trip-service:
         condition: service_started
@@ -349,7 +364,7 @@ services:
       - path: ./env/.env
         required: false
     environment:
-      AI_DATABASE_URL: postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}
+      AI_DATABASE_URL: ${AI_DATABASE_URL:-postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-${OPENAI_MODEL:-gpt-4o-mini}}

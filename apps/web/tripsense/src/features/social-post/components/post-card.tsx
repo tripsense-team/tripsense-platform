@@ -164,7 +164,7 @@ export function PostCard({
               </Link>
               <Badge
                 variant="secondary"
-                className="rounded-full px-2 py-0 text-[10px] font-bold"
+                className="rounded-full px-2 py-0 text-micro font-bold"
               >
                 {post.type === "TRIP_SHARE"
                   ? t("social.postTypeTrip")
@@ -189,7 +189,7 @@ export function PostCard({
               disabled={followingPending}
               onClick={handleFollowToggle}
               aria-pressed={isFollowing}
-              className={`shrink-0 rounded-full text-xs font-semibold px-3 h-7.5 transition-all cursor-pointer ${
+              className={`shrink-0 rounded-full text-xs font-semibold px-3 transition-all cursor-pointer ${
                 isFollowing
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
                   : "border-primary/40 text-primary hover:bg-primary/10 hover:border-primary"

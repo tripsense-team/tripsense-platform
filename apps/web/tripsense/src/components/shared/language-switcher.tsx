@@ -68,10 +68,10 @@ export function LanguageSwitcher({
           <Button
             variant="ghost"
             size="icon"
-            className={`group relative h-9 w-9 rounded-full border border-border/40 hover:border-border hover:bg-muted/80 transition-all duration-200 ${className}`}
+            className={`group relative rounded-full border border-border/40 hover:border-border hover:bg-muted/80 transition-all duration-200 ${className}`}
             aria-label={t("common.selectLanguage") || "Select Language"}
           >
-            <Globe className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors group-hover:rotate-12 duration-300" />
+            <Globe className="text-muted-foreground group-hover:text-foreground transition-colors group-hover:rotate-12 duration-300" />
             <span className="absolute -bottom-0.5 -right-0.5 text-xs leading-none drop-shadow-xs">
               {currentLocale?.flag}
             </span>
@@ -145,7 +145,7 @@ function LanguageDropdownContent({
       sideOffset={8}
       className="w-56 rounded-2xl p-1.5 shadow-xl border border-border/80 bg-popover/95 backdrop-blur-xl animate-in fade-in-0 zoom-in-95"
     >
-      <DropdownMenuLabel className="px-2.5 py-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+      <DropdownMenuLabel className="px-2.5 py-1.5 text-micro font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
         <Globe className="h-3 w-3" />
         <span>{headerTitle}</span>
       </DropdownMenuLabel>
@@ -171,7 +171,7 @@ function LanguageDropdownContent({
                   {loc.name}
                 </span>
                 {loc.englishName && loc.englishName !== loc.name && (
-                  <span className="text-2xs text-muted-foreground leading-tight">
+                  <span className="text-micro text-muted-foreground leading-tight">
                     {loc.englishName}
                   </span>
                 )}
@@ -179,7 +179,7 @@ function LanguageDropdownContent({
             </div>
 
             {isSelected && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xs shadow-2xs animate-in zoom-in-50 duration-150">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-micro shadow-2xs animate-in zoom-in-50 duration-150">
                 <Check className="h-3 w-3 stroke-[2.5]" />
               </span>
             )}

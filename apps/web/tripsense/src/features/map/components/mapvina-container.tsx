@@ -350,7 +350,7 @@ function createMarkerWrapper(
     pill.appendChild(textSpan);
     if (typeof place.rating === "number" && place.rating > 0) {
       const scoreSpan = document.createElement("span");
-      scoreSpan.className = `text-[11px] font-bold shrink-0 ${
+      scoreSpan.className = `text-micro font-bold shrink-0 ${
         isSelected
           ? "text-amber-300 dark:text-amber-500"
           : "text-amber-500 dark:text-amber-400"

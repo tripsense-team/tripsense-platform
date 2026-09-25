@@ -195,7 +195,7 @@ export default function AdminDashboardPage() {
                     <span className="font-semibold text-sm text-foreground">
                       {service.name}
                     </span>
-                    <span className="text-2xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    <span className="text-micro font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                       :{service.port}
                     </span>
                   </div>
@@ -205,7 +205,7 @@ export default function AdminDashboardPage() {
                     <span>Latency: {service.latency}</span>
                   </div>
                 </div>
-                <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono text-2xs">
+                <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono text-micro">
                   {service.status}
                 </Badge>
               </div>
@@ -244,10 +244,10 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-2xs text-muted-foreground">
+                  <span className="text-micro text-muted-foreground">
                     {activity.timestamp}
                   </span>
-                  <Badge variant="outline" className="text-2xs bg-muted">
+                  <Badge variant="outline" className="text-micro bg-muted">
                     {activity.status}
                   </Badge>
                 </div>

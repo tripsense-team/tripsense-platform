@@ -23,7 +23,7 @@ export function AgentActivityPanel({ activities = [] }: { activities?: AgentActi
             <p className="font-medium text-foreground">{current.label}</p>
             {current.summary && <p className="mt-0.5 text-muted-foreground">{current.summary}</p>}
             {current.progress && (
-              <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+              <p className="mt-0.5 text-micro text-muted-foreground/80">
                 Tìm thấy {current.progress.found ?? 0} · Giữ lại {current.progress.accepted ?? 0}
               </p>
             )}
@@ -58,7 +58,7 @@ export function AgentActivityPanel({ activities = [] }: { activities?: AgentActi
                   <p className="text-foreground">{item.label}</p>
                   {item.summary && <p className="text-muted-foreground">{item.summary}</p>}
                   {item.progress && (
-                    <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                    <p className="mt-0.5 text-micro text-muted-foreground/80">
                       Tìm thấy {item.progress.found ?? 0} · Giữ lại {item.progress.accepted ?? 0}
                     </p>
                   )}

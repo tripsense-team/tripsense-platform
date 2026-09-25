@@ -329,16 +329,19 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
         >
           <CheckCircle2 className="h-4 w-4" />
           <span className="flex-1">{successMessage || feedback?.message}</span>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             onClick={() => {
               setSuccessMessage(null);
               dismissFeedback();
             }}
             aria-label="Đóng"
+            className="w-8 shrink-0 rounded-full px-0"
           >
-            <X className="h-4 w-4" />
-          </button>
+            <X />
+          </Button>
         </div>
       )}
       <div className="grid grid-cols-2 border-b border-border bg-muted/30 p-1.5">
@@ -415,7 +418,7 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => void loadTrips(true)}
-                    className="h-8 rounded-full"
+                    className="rounded-full"
                   >
                     Thử lại
                   </Button>
@@ -480,10 +483,10 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wider text-primary">
+                      <p className="text-xs font-bold uppercase tracking-wider text-primary">
                         Bản xem trước sẽ được đăng
                       </p>
-                      <h3 className="mt-1 font-black">
+                      <h3 className="mt-1 font-bold">
                         {preview.snapshot.summary.name}
                       </h3>
                       <p className="text-sm text-muted-foreground">

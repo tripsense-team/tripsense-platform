@@ -186,7 +186,7 @@ export function SearchBar({
               setIsOpen(false);
               if (onClear) onClear();
             }}
-            className="p-1 mr-1 text-muted-foreground hover:text-foreground rounded-full transition-colors cursor-pointer"
+            className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -212,7 +212,7 @@ export function SearchBar({
       {/* Autocomplete Dropdown */}
       {isOpen && suggestions.length > 0 && (
         <div className="absolute top-full left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-lg backdrop-blur-md animate-in fade-in-0 zoom-in-95">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
+          <div className="text-micro font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
             Gợi ý địa điểm
           </div>
           <ul className="space-y-0.5">
@@ -244,7 +244,7 @@ export function SearchBar({
 
       {/* Quick Suggestion Chips */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs text-muted-foreground">
-        <span className="shrink-0 font-medium mr-1 text-[11px]">Gợi ý:</span>
+        <span className="shrink-0 font-medium mr-1 text-micro">Gợi ý:</span>
         {QUICK_SUGGESTIONS.map((sug) => (
           <button
             key={sug}
@@ -253,7 +253,7 @@ export function SearchBar({
               setQuery(sug);
               onSearch(sug);
             }}
-            className="shrink-0 rounded-full border border-border bg-card/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary hover:text-foreground hover:bg-accent transition-all cursor-pointer"
+            className="min-h-8 shrink-0 rounded-full border border-border bg-card/60 px-2.5 py-1 text-micro font-medium text-muted-foreground hover:border-primary hover:text-foreground hover:bg-accent transition-all cursor-pointer"
           >
             {sug}
           </button>

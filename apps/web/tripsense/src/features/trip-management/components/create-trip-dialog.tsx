@@ -126,7 +126,7 @@ export function CreateTripDialog({
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute left-4 top-4 h-9 w-9 rounded-full"
+              className="absolute left-4 top-4 rounded-full"
               onClick={() => onOpenChange(false)}
               aria-label="Close"
             >
@@ -134,13 +134,13 @@ export function CreateTripDialog({
             </Button>
 
             <div className="pt-10">
-              <h2 className="text-3xl font-black tracking-normal">
+              <h2 className="text-3xl font-bold tracking-normal">
                 Where to, {firstName}?
               </h2>
             </div>
 
             <div className="space-y-3">
-              <span className="text-base font-black">Trip details</span>
+              <span className="text-base font-bold">Trip details</span>
               <div className="space-y-3">
                 <Input
                   value={draft.name}
@@ -213,7 +213,7 @@ export function CreateTripDialog({
             </div>
 
             <div className="space-y-3">
-              <span className="text-base font-black">Timing</span>
+              <span className="text-base font-bold">Timing</span>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Button
                   type="button"
@@ -271,7 +271,7 @@ export function CreateTripDialog({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-3">
-                <span className="text-base font-black">Travelers</span>
+                <span className="text-base font-bold">Travelers</span>
                 <Input
                   type="number"
                   min={1}
@@ -289,7 +289,7 @@ export function CreateTripDialog({
                 />
               </label>
               <label className="space-y-3">
-                <span className="text-base font-black">Budget</span>
+                <span className="text-base font-bold">Budget</span>
                 <Input
                   type="number"
                   min={0}
@@ -309,7 +309,7 @@ export function CreateTripDialog({
             </div>
 
             <label className="space-y-3">
-              <span className="text-base font-black">Trip preferences</span>
+              <span className="text-base font-bold">Trip preferences</span>
               <div className="relative">
                 <Textarea
                   value={draft.notes || ""}

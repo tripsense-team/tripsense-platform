@@ -40,7 +40,7 @@ function createInfoRow(label: string, value: string): HTMLDivElement {
   row.className = "space-y-0.5";
 
   const labelNode = document.createElement("p");
-  labelNode.className = "text-[11px] text-muted-foreground font-medium";
+  labelNode.className = "text-micro text-muted-foreground font-medium";
   labelNode.textContent = label;
 
   const valueNode = document.createElement("p");
@@ -61,7 +61,7 @@ function createExternalInfoRow(
   row.className = "space-y-0.5";
 
   const labelNode = document.createElement("p");
-  labelNode.className = "text-[11px] text-muted-foreground font-medium";
+  labelNode.className = "text-micro text-muted-foreground font-medium";
   labelNode.textContent = label;
 
   const link = document.createElement("a");

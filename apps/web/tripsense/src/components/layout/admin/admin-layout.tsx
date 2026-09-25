@@ -17,12 +17,12 @@ export function AdminLayout({ children, adminUser }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <div className="h-screen h-dvh flex flex-col bg-background text-foreground overflow-hidden">
       {/* Admin Top Header */}
       <AdminHeader adminUser={adminUser} />
 
       {/* Admin Main Body */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Admin Left Sidebar */}
         <AdminSidebar
           collapsed={sidebarCollapsed}
@@ -30,10 +30,11 @@ export function AdminLayout({ children, adminUser }: AdminLayoutProps) {
         />
 
         {/* Admin Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-muted/20">
+        <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 bg-muted/20">
           {children}
         </main>
       </div>
     </div>
   );
+
 }

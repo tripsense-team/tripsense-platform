@@ -180,14 +180,14 @@ export function AddItemDialog({
           >
             <X className="h-5 w-5" />
           </Button>
-          <DialogTitle className="text-center text-xl font-black tracking-normal">
+          <DialogTitle className="text-center text-xl font-bold tracking-normal">
             Add to trip
           </DialogTitle>
           <span aria-hidden="true" />
         </DialogHeader>
 
         <div className="max-h-[calc(86vh-5.5rem)] overflow-y-auto px-6 py-6">
-          <div className="flex gap-8 border-b border-border text-base font-black">
+          <div className="flex gap-8 border-b border-border text-base font-bold">
             {[
               ["search", "Search"],
               ["ideas", "Ideas"],
@@ -213,7 +213,7 @@ export function AddItemDialog({
 
           <div className="mt-8 flex items-center justify-between gap-4">
             <div>
-              <DialogDescription className="text-3xl font-black text-foreground">
+              <DialogDescription className="text-3xl font-bold text-foreground">
                 {titleCaseDestination(trip?.destinationName || "Destination")}{" "}
                 <ChevronDown className="inline h-5 w-5" />
               </DialogDescription>
@@ -265,7 +265,7 @@ export function AddItemDialog({
                 ))}
               </div>
 
-              <h3 className="mt-10 text-xl font-black tracking-normal">
+              <h3 className="mt-10 text-xl font-bold tracking-normal">
                 Restaurants
               </h3>
               <div className="mt-5 grid gap-5 md:grid-cols-3">
@@ -295,7 +295,7 @@ export function AddItemDialog({
                       </span>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <h4 className="min-w-0 truncate text-base font-black tracking-normal">
+                      <h4 className="min-w-0 truncate text-base font-bold tracking-normal">
                         {suggestion.title}
                       </h4>
                       <span className="flex items-center gap-1 text-sm font-bold">
@@ -458,7 +458,7 @@ export function EditTripDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl rounded-2xl border-border bg-popover p-8 text-popover-foreground shadow-md">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-black tracking-normal">
+          <DialogTitle className="text-2xl font-bold tracking-normal">
             Edit trip
           </DialogTitle>
           <DialogDescription>
@@ -646,7 +646,7 @@ export function EditItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl rounded-2xl border-border bg-popover p-8 text-popover-foreground shadow-md">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-black tracking-normal">
+          <DialogTitle className="text-2xl font-bold tracking-normal">
             Edit itinerary item
           </DialogTitle>
           <DialogDescription>Update this saved manual item.</DialogDescription>
@@ -779,7 +779,7 @@ export function DeleteTripDialog({
     <Dialog open={!!trip} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-2xl border-border bg-popover p-8 text-popover-foreground shadow-md [&>button]:hidden">
         <DialogHeader className="items-center space-y-5 text-center">
-          <DialogTitle className="text-2xl font-black tracking-normal">
+          <DialogTitle className="text-2xl font-bold tracking-normal">
             Delete &quot;{trip ? displayTripTitle(trip) : "trip"}&quot;?
           </DialogTitle>
           <DialogDescription className="text-base font-medium text-muted-foreground">
@@ -858,7 +858,7 @@ export function ChangeCoverPhotoDialog({
             <X className="h-5 w-5" />
           </Button>
           <DialogHeader className="min-w-0 text-center sm:text-center">
-            <DialogTitle className="truncate text-xl font-black tracking-normal">
+            <DialogTitle className="truncate text-xl font-bold tracking-normal">
               Change cover photo
             </DialogTitle>
           </DialogHeader>

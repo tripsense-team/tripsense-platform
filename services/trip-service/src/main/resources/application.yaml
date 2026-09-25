@@ -7,9 +7,9 @@ spring:
     name: trip-service
 
   datasource:
-    url: jdbc:postgresql://${TRIP_DB_HOST:localhost}:${TRIP_DB_PORT:5432}/${TRIP_DB_NAME:tripsense_trip}
-    username: ${TRIP_DB_USER:postgres}
-    password: ${TRIP_DB_PASS:}
+    url: ${TRIP_DATASOURCE_URL}
+    username: ${TRIP_DB_USER}
+    password: ${TRIP_DB_PASS}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -30,10 +30,8 @@ spring:
     redis:
       repositories:
         enabled: false
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      timeout: ${REDIS_TIMEOUT:2s}
+      url: ${REDIS_URL}
+      timeout: 2s
 
   cache:
     type: redis

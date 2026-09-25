@@ -5,6 +5,31 @@ import {
   clearLoggedInCookie,
 } from "../utils/cookie-indicator";
 
+const CACHED_USER_KEY = "tripsense_cached_user";
+
+function loadCachedUser(): User | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CACHED_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedUser(user: User | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) {
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(CACHED_USER_KEY);
+    }
+  } catch {
+    // Ignore storage issues
+  }
+}
+
 function parseJwtClaims(
   token: string,
 ): { sub?: string; email?: string; role?: string; exp?: number } | null {
@@ -40,27 +65,37 @@ export interface AuthState {
   setAccessToken: (accessToken: string | null) => void;
   clearAuth: () => void;
   updateUserAvatar: (avatarUrl: string | undefined) => void;
+  updateUserProfile: (data: { avatar?: string; name?: string }) => void;
   setOnboardingCompleted: (completed: boolean) => void;
 }
 
+const initialCachedUser = loadCachedUser();
+
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
-  user: null,
+  user: initialCachedUser,
   status: "checking",
   authVersion: 0,
-  isAuthenticated: false,
+  isAuthenticated: !!initialCachedUser,
   isLoading: true,
-  onboardingCompleted: false,
+  onboardingCompleted: initialCachedUser?.role === UserRole.ADMIN,
 
   setAuth: (user, accessToken) => {
     setLoggedInCookie();
+    const cached = loadCachedUser();
+    const mergedUser: User = {
+      ...user,
+      avatar: user.avatar || (cached?.id === user.id ? cached.avatar : undefined),
+      name: user.name || (cached?.id === user.id ? cached.name : undefined),
+    };
+    saveCachedUser(mergedUser);
     set({
-      user,
+      user: mergedUser,
       accessToken,
       status: "authenticated",
       isAuthenticated: true,
       isLoading: false,
-      onboardingCompleted: user.role === UserRole.ADMIN,
+      onboardingCompleted: mergedUser.role === UserRole.ADMIN,
     });
   },
 
@@ -68,6 +103,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set((state) => {
       if (!accessToken) {
         clearLoggedInCookie();
+        saveCachedUser(null);
         return {
           accessToken: null,
           user: null,
@@ -80,8 +116,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       setLoggedInCookie();
       const claims = parseJwtClaims(accessToken);
+      const cached = loadCachedUser();
       const user =
         state.user ||
+        cached ||
         (claims
           ? {
               id: claims.sub || "user-id",
@@ -91,6 +129,10 @@ export const useAuthStore = create<AuthState>((set) => ({
               status: UserStatus.ACTIVE,
             }
           : null);
+
+      if (user) {
+        saveCachedUser(user);
+      }
 
       return {
         accessToken,
@@ -105,6 +147,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearAuth: () => {
     clearLoggedInCookie();
+    saveCachedUser(null);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("tripsense_fcm_token");
+        document.title = document.title.replace(/^\(\d+\)\s*/, "");
+      } catch {
+        // Safe fallback
+      }
+    }
     set((state) => ({
       accessToken: null,
       user: null,
@@ -117,9 +168,24 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   updateUserAvatar: (avatarUrl) => {
-    set((state) => ({
-      user: state.user ? { ...state.user, avatar: avatarUrl } : null,
-    }));
+    set((state) => {
+      const updated = state.user ? { ...state.user, avatar: avatarUrl } : null;
+      saveCachedUser(updated);
+      return { user: updated };
+    });
+  },
+
+  updateUserProfile: (data) => {
+    set((state) => {
+      if (!state.user) return state;
+      const updatedUser: User = {
+        ...state.user,
+        ...(data.avatar !== undefined ? { avatar: data.avatar } : {}),
+        ...(data.name !== undefined ? { name: data.name } : {}),
+      };
+      saveCachedUser(updatedUser);
+      return { user: updatedUser };
+    });
   },
 
   setOnboardingCompleted: (completed) => {

@@ -86,7 +86,7 @@ export function DestinationWeatherWidget({
               </option>
             ))}
           </select>
-          <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+          <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-micro text-muted-foreground">
             ▼
           </div>
         </div>
@@ -110,7 +110,7 @@ export function DestinationWeatherWidget({
               />
               <div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-3xl font-black text-foreground">
+                  <span className="text-3xl font-bold text-foreground">
                     {weather.temperature}°
                   </span>
                   <span className="text-xs font-semibold text-muted-foreground">
@@ -126,10 +126,10 @@ export function DestinationWeatherWidget({
             </div>
 
             <div className="text-right">
-              <span className="inline-block rounded-full bg-background/80 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground border border-border/60">
+              <span className="inline-block rounded-full bg-background/80 px-2.5 py-0.5 text-micro font-semibold text-muted-foreground border border-border/60">
                 {weather.tempRange}
               </span>
-              <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-muted-foreground">
+              <div className="flex items-center justify-end gap-1 mt-1 text-micro text-muted-foreground">
                 <Droplets className="h-3 w-3 text-sky-500" />
                 <span>{weather.humidity}%</span>
               </div>
@@ -149,7 +149,7 @@ export function DestinationWeatherWidget({
           )}
 
           {/* Footnote */}
-          <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground px-1">
+          <div className="mt-3 flex items-center justify-between text-micro text-muted-foreground px-1">
             <span className="flex items-center gap-1">
               <MapPin className="h-3 w-3 text-muted-foreground" />
               <span>

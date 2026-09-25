@@ -119,7 +119,7 @@ export function DestinationCard({
                 <Badge
                   key={tag}
                   variant="outline"
-                  className="text-[10px] px-1.5 py-0"
+                  className="text-micro px-1.5 py-0"
                 >
                   {tag}
                 </Badge>

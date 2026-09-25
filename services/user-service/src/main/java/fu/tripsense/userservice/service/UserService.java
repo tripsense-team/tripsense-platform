@@ -20,4 +20,6 @@ public interface UserService {
   PublicProfileDto getPublicProfile(UUID userId);
 
   List<PublicProfileDto> getPublicProfiles(List<UUID> userIds);
+
+  List<PublicProfileDto> searchPublicProfiles(String query, int limit);
 }

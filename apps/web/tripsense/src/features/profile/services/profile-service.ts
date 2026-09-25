@@ -9,9 +9,17 @@ async function unwrap<T>(request: Promise<ApiResponse<T>>): Promise<T> {
 
 export const profileService = {
   getUserProfile: async (userId: string): Promise<UserProfile> => {
-    return unwrap(
-      apiClient<ApiResponse<UserProfile>>(`/api/users/profile/${userId}`),
-    );
+    try {
+      return await unwrap(
+        apiClient<ApiResponse<UserProfile>>(`/api/users/profile/${userId}`),
+      );
+    } catch {
+      return await unwrap(
+        apiClient<ApiResponse<UserProfile>>(`/api/users/public-profiles/${userId}`, {
+          skipAuth: true,
+        }),
+      );
+    }
   },
 
   updateProfile: async (

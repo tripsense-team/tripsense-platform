@@ -6,9 +6,9 @@ spring:
     name: user-service
 
   datasource:
-    url: jdbc:postgresql://${USER_DB_HOST:localhost}:${USER_DB_PORT:5432}/tripsense_user
-    username: ${USER_DB_USER:postgres}
-    password: ${USER_DB_PASS:}
+    url: ${USER_DATASOURCE_URL}
+    username: ${USER_DB_USER}
+    password: ${USER_DB_PASS}
     driver-class-name: org.postgresql.Driver
 
   jpa:

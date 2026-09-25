@@ -66,6 +66,8 @@ public class SecurityConfig implements WebMvcConfigurer, WebSecurityCustomizer {
         .authorizeHttpRequests(
             authorizeRequests ->
                 authorizeRequests
+                    .requestMatchers("/api/users/public-profiles/search")
+                    .authenticated()
                     .requestMatchers(WHITE_LIST)
                     .permitAll()
                     .anyRequest()

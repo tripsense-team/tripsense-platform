@@ -9,6 +9,7 @@ import {
   setLoggedInCookie,
   clearLoggedInCookie,
 } from "../utils/cookie-indicator";
+import { revokeFcmTokenOnLogout } from "@/features/chat/hooks/use-fcm-notifications";
 import {
   User,
   UserRole,
@@ -59,6 +60,7 @@ function parseJwtClaims(
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user, status, setAuth, clearAuth } = useAuthStore();
+  const hasBootstrappedRef = React.useRef(false);
 
   // Bootstrap Auth ONLY when status === "checking" || status === "initializing" (e.g. F5 page reload)
   React.useEffect(() => {
@@ -68,6 +70,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (status !== "checking" && status !== "initializing") {
       return;
     }
+
+    // Guard: Prevent double-execution from React StrictMode during dev
+    if (hasBootstrappedRef.current) {
+      return;
+    }
+    hasBootstrappedRef.current = true;
 
     // Guard: If browser has NO logged_in cookie indicator (guest / logged out user),
     // immediately transition status = "unauthenticated" WITHOUT SENDING ANY REFRESH REQUEST!
@@ -102,8 +110,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             profileService
               .getUserProfile(recoveredUser.id)
               .then((profile) => {
-                if (profile?.avatarUrl) {
-                  useAuthStore.getState().updateUserAvatar(profile.avatarUrl);
+                if (profile) {
+                  useAuthStore.getState().updateUserProfile({
+                    avatar: profile.avatarUrl || undefined,
+                    name: profile.displayName || undefined,
+                  });
                 }
               })
               .catch(() => {
@@ -172,6 +183,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     clearLoggedInCookie();
     try {
+      await revokeFcmTokenOnLogout();
+    } catch {
+      // Non-blocking cleanup
+    }
+    try {
       await authApi.logout();
     } finally {
       clearAuth();
@@ -180,6 +196,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logoutAll = async (): Promise<void> => {
     clearLoggedInCookie();
+    try {
+      await revokeFcmTokenOnLogout();
+    } catch {
+      // Non-blocking cleanup
+    }
     try {
       await authApi.logoutAll();
     } finally {
