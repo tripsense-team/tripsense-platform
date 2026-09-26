@@ -1046,3 +1046,67 @@ class ItineraryPlanner:
             evidence["primaryPhoto"] = photo
         evidence["freshness"] = place.get("freshness") or "UNKNOWN"
         return evidence
+
+
+def format_preview_markdown(preview: dict[str, Any], is_vi: bool = True) -> str:
+    """Renders a deterministic itinerary preview dictionary into a structured Markdown response."""
+    lines: list[str] = []
+    constraints = preview.get("constraints") or {}
+    dest = constraints.get("destination") or ("Đà Nẵng" if is_vi else "your destination")
+    days = preview.get("days") or []
+    day_count = len(days)
+
+    if is_vi:
+        lines.append(f"Dưới đây là lịch trình khám phá {dest} ({day_count} ngày) được tạo tự động dựa trên dữ liệu địa điểm thực tế từ hệ thống:\n")
+    else:
+        lines.append(f"Here is your {day_count}-day itinerary for {dest} based on verified local places:\n")
+
+    for day in days:
+        day_num = day.get("dayNumber", 1)
+        d_val = day.get("date")
+        date_str = f" ({d_val})" if d_val else ""
+        weather = day.get("weather") or {}
+        weather_temp = weather.get("temperatureC")
+        weather_str = f" - 🌡️ {weather_temp}°C" if weather_temp else ""
+
+        lines.append(f"### Ngày {day_num}{date_str}{weather_str}" if is_vi else f"### Day {day_num}{date_str}{weather_str}")
+
+        items = day.get("items") or []
+        if not items:
+            lines.append("- Chưa có hoạt động cho ngày này.\n" if is_vi else "- No activities scheduled for this day.\n")
+            continue
+
+        for it in items:
+            title = it.get("title") or ("Địa điểm" if is_vi else "Place")
+            start = it.get("startTime") or ""
+            end = it.get("endTime") or ""
+            time_range = f"**{start}–{end}**: " if start and end else ""
+            address = it.get("address")
+            rating_summary = it.get("ratingSummary") or {}
+            rating_val = rating_summary.get("value")
+            rating_count = rating_summary.get("count")
+
+            detail_parts: list[str] = []
+            if address:
+                detail_parts.append(f"Địa chỉ: {address}" if is_vi else f"Address: {address}")
+            if rating_val is not None:
+                star = f"⭐ {rating_val}/5"
+                if rating_count:
+                    star += f" ({rating_count} đánh giá)" if is_vi else f" ({rating_count} reviews)"
+                detail_parts.append(star)
+
+            details_str = f" ({', '.join(detail_parts)})" if detail_parts else ""
+            lines.append(f"- {time_range}**{title}**{details_str}")
+        lines.append("")
+
+    issues = preview.get("issues") or []
+    if issues:
+        lines.append("#### Lưu ý:" if is_vi else "#### Notes:")
+        for iss in issues:
+            msg = iss.get("message") or iss.get("code")
+            if msg:
+                lines.append(f"- {msg}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+

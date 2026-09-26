@@ -327,3 +327,49 @@ def test_regression_i_hue_scenario():
     assert preview["canCommit"] is False
     assert any("RESTAURANTS" in i["code"] or "SPECIALTY" in i["code"] or "FOOD" in i["code"] for i in preview["issues"])
 
+
+def test_format_preview_markdown_renders_places_and_notes():
+    from app.planning import format_preview_markdown
+
+    mock_preview = {
+        "constraints": {"destination": "Đà Nẵng"},
+        "days": [
+            {
+                "dayNumber": 1,
+                "date": "2026-09-26",
+                "weather": {"temperatureC": 28},
+                "items": [
+                    {
+                        "title": "Mì Quảng Bếp Trang",
+                        "startTime": "08:00",
+                        "endTime": "09:15",
+                        "address": "441 Ông Ích Khiêm, Đà Nẵng",
+                        "ratingSummary": {"value": 4.3, "count": 450}
+                    },
+                    {
+                        "title": "Cầu Rồng",
+                        "startTime": "09:45",
+                        "endTime": "11:30",
+                        "address": "Nguyễn Văn Linh, Đà Nẵng",
+                        "ratingSummary": {"value": 4.7, "count": 3500}
+                    }
+                ]
+            }
+        ],
+        "issues": [{"code": "INFO", "message": "Giờ mở cửa cần xác minh tại chỗ."}]
+    }
+
+    md_vi = format_preview_markdown(mock_preview, is_vi=True)
+    assert "Đà Nẵng" in md_vi
+    assert "Mì Quảng Bếp Trang" in md_vi
+    assert "08:00–09:15" in md_vi
+    assert "⭐ 4.3/5" in md_vi
+    assert "Cầu Rồng" in md_vi
+    assert "Giờ mở cửa cần xác minh tại chỗ" in md_vi
+
+    md_en = format_preview_markdown(mock_preview, is_vi=False)
+    assert "Day 1" in md_en
+    assert "Mì Quảng Bếp Trang" in md_en
+    assert "reviews" in md_en
+
+

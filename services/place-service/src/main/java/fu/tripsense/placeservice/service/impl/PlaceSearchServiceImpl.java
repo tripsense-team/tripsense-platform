@@ -155,7 +155,18 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             rankedLocal);
         return enrichPhotosForPlaces(rankedLocal);
       }
-      throw exception;
+      List<Place> fallbackLocal = findLocalPlaces(properties.getDefaultCity(), effectiveLimit);
+      if (!fallbackLocal.isEmpty()) {
+        List<PlaceDto> fallbackRanked = ranking.rank(
+            fallbackLocal.stream().map(persistence::toDto).toList(),
+            properties.getDefaultCity(),
+            effectiveLat,
+            effectiveLng);
+        log.warn("Provider unavailable for query '{}'; returning {} fallback city places", query, fallbackRanked.size());
+        return enrichPhotosForPlaces(fallbackRanked);
+      }
+      log.warn("Provider unavailable for query '{}' and no local results found; returning empty list", query);
+      return Collections.emptyList();
     }
 
     List<PlaceDto> persisted =
@@ -246,6 +257,16 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             query,
             lat,
             lng);
+    if (local.isEmpty()) {
+      List<Place> fallbackCityPlaces = findLocalPlaces(properties.getDefaultCity(), Math.max(target * 2, target));
+      if (!fallbackCityPlaces.isEmpty()) {
+        local = ranking.rank(
+            fallbackCityPlaces.stream().map(persistence::toDto).toList(),
+            properties.getDefaultCity(),
+            lat,
+            lng);
+      }
+    }
     local.forEach(
         place ->
             decorate(
@@ -297,16 +318,26 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       return new PlaceRecommendationResult(
           enrichPhotosForPlaces(merged.stream().limit(target).toList()), evidence);
     } catch (PlaceProviderException exception) {
+      if (local.isEmpty()) {
+        List<Place> fallbackCityPlaces = findLocalPlaces(properties.getDefaultCity(), Math.max(target * 2, target));
+        if (!fallbackCityPlaces.isEmpty()) {
+          local = ranking.rank(
+              fallbackCityPlaces.stream().map(persistence::toDto).toList(),
+              properties.getDefaultCity(),
+              lat,
+              lng);
+        }
+      }
       RetrievalEvidenceDto evidence =
           assess(local, request, Set.of("LOCAL"), "UNAVAILABLE", true, retrievedAt);
       List<String> reasons = new ArrayList<>(evidence.reasonCodes());
       reasons.add("PROVIDER_UNAVAILABLE");
       evidence =
           new RetrievalEvidenceDto(
-              "INSUFFICIENT",
-              evidence.queryResolved(),
-              evidence.candidateCount(),
-              evidence.eligibleCount(),
+              local.isEmpty() ? "INSUFFICIENT" : "SUFFICIENT",
+              !local.isEmpty(),
+              local.size(),
+              local.size(),
               evidence.requiredFieldCoverage(),
               evidence.geographicCoverage(),
               evidence.freshness(),

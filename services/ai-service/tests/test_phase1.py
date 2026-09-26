@@ -117,3 +117,31 @@ def test_tool_allowlist_and_trip_id_validation():
     with pytest.raises(ToolExecutionError) as malformed:
         executor._object_payload({"data": ["not-an-object"]})
     assert malformed.value.code == "TOOL_RESPONSE_INVALID"
+
+
+class FailingStreamAdapter(FakeModelAdapter):
+    async def stream(self, _, max_output_tokens=None):
+        if False:
+            yield ""
+        raise RuntimeError("Service temporarily unavailable (503)")
+
+
+def test_stream_failure_uses_preview_or_fallback_gracefully(monkeypatch):
+    monkeypatch.setattr("app.main.ModelAdapter", FailingStreamAdapter)
+    headers = {"Authorization": f"Bearer {token()}"}
+    with TestClient(app) as client:
+        conversation = client.post("/api/ai/v1/conversations", headers=headers, json={}).json()
+        message_headers = {**headers, "Idempotency-Key": "failing-stream-req"}
+        accepted = client.post(
+            f"/api/ai/v1/conversations/{conversation['id']}/messages",
+            headers=message_headers,
+            json={"content": "Lên lịch trình đi Đà Nẵng", "clientMessageId": "client-stream-fail", "intent": "NORMAL"}
+        )
+        assert accepted.status_code == 202
+        run = client.get(f"/api/ai/v1/runs/{accepted.json()['runId']}", headers=headers)
+        assert run.json()["status"] == "COMPLETED"
+        messages = client.get(f"/api/ai/v1/conversations/{conversation['id']}/messages", headers=headers).json()["items"]
+        assistant = messages[-1]
+        assert len(assistant["content"]) > 0
+        assert "The AI model did not complete. Please retry." not in assistant["content"]
+

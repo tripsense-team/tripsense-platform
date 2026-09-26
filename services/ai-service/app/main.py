@@ -33,7 +33,7 @@ from .context.post_preview import (KIND as POST_PREVIEW_KIND, extract_answers as
 from .execution import budget_for_action
 from .models import (ActionType, Conversation, ConversationLease, ConversationStatus, Message, MessageRole, PendingClarification,
                      ModelCall, Proposal, RecommendationFeedback, RecommendationImpression, Run, RunEvent, RunStatus, ToolCall, now)
-from .planning import ItineraryPlanner
+from .planning import ItineraryPlanner, format_preview_markdown
 from .route_provider import RouteUnavailable, route_day
 from .proposals import build_proposal, content_hash, proposal_json
 from .recommendation.goal_normalizer import (
@@ -259,8 +259,15 @@ def classify_action(content: str) -> ActionType:
         return ActionType.REFINE_PLAN
     if any(word in text for word in ("modify itinerary", "change itinerary", "update itinerary", "sửa lịch trình", "đổi lịch trình")):
         return ActionType.MODIFY_ITINERARY
-    if any(word in text for word in ("itinerary", "day-by-day", "plan a trip", "lịch trình", "lên kế hoạch chuyến đi")) \
-            or re.search(r"\b\d{1,2}\s*(?:ngày\s*\d{1,2}\s*đêm|n\s*\d{1,2}\s*đ)\b", text):
+    plan_keywords = (
+        "itinerary", "day-by-day", "plan a trip", "plan trip", "lịch trình",
+        "lên kế hoạch", "lập kế hoạch", "kế hoạch chuyến đi", "kế hoạch du lịch",
+        "tạo chuyến đi", "lên chuyến đi", "lập chuyến đi", "thiết kế chuyến đi",
+        "lên lịch", "lập lịch", "tạo lịch", "tạo tour", "lên tour", "lập tour"
+    )
+    is_trip_duration = bool(re.search(r"\b(?:chuyến\s+đi\s+)?\d{1,2}\s*(?:ngày|ngày\s*\d{1,2}\s*đêm|n\s*\d{1,2}\s*đ|days?)\b", text)
+                           and any(w in text for w in ("chuyến đi", "kế hoạch", "lịch trình", "du lịch", "tour", "trip", "thăm quan", "tham quan")))
+    if any(word in text for word in plan_keywords) or is_trip_duration or re.search(r"\b\d{1,2}\s*(?:ngày\s*\d{1,2}\s*đêm|n\s*\d{1,2}\s*đ)\b", text):
         return ActionType.PLAN_ITINERARY
     if any(word in text for word in ("my trip", "this trip", "trip details", "chuyến đi của tôi", "chi tiết chuyến đi")):
         return ActionType.TRIP_QA
@@ -283,8 +290,9 @@ def is_plan_addition(content: str) -> bool:
 def is_explicit_new_plan(content: str) -> bool:
     text = content.casefold().strip()
     has_plan_phrase = bool(
-        re.search(r"\b(?:lên|lập|tạo|thiết kế|build|plan|make|create)\s+(?:kế hoạch|lịch trình|itinerary|tour|lịch)\b", text)
-        or re.search(r"\b(?:lịch trình|itinerary)\s+\d+\s*(?:ngày|day|n\s*\d+\s*đ)\b", text)
+        re.search(r"\b(?:lên|lập|tạo|thiết kế|build|plan|make|create)\s+(?:kế hoạch|lịch trình|itinerary|tour|lịch|chuyến đi|trip)\b", text)
+        or re.search(r"\b(?:lịch trình|itinerary|chuyến đi)\s+\d+\s*(?:ngày|day|n\s*\d+\s*đ)\b", text)
+        or (bool(re.search(r"\b\d+\s*(?:ngày|day)\b", text)) and any(w in text for w in ("chuyến đi", "du lịch", "lịch trình", "kế hoạch")))
     )
     has_explicit_modify_ref = bool(
         re.search(r"\b(?:sửa|đổi|chỉnh|giữ|cập nhật)\s+(?:lịch cũ|lịch vừa rồi|lịch này|itinerary cũ|plan cũ)\b", text)
@@ -537,8 +545,9 @@ def extract_clean_search_query(user_text: str, fallback_query: str = "") -> str:
         r"kiếm\s+thêm|tìm\s+thêm|kiếm\s+đi|kiếm|các|những|khác\s+nữa|khác|nữa\s+đi|nữa|đi|"
         r"đưa\s+địa\s+chỉ\s+cụ\s+thể|địa\s+chỉ\s+cụ\s+thể|kèm\s+địa\s+chỉ|đưa\s+địa\s+chỉ|địa\s+chỉ|cụ\s+thể|"
         r"view\s+đẹp\s+ở|view\s+đẹp|đẹp\s+ở|đẹp\s+nhất|ngon\s+nhất|ngon\s+ở|nổi\s+tiếng\s+nhất|nổi\s+tiếng\s+ở|ở\s+đâu|"
+        r"thăm\s+quan|tham\s+quan|địa\s+điểm\s+du\s+lịch|du\s+lịch|ăn\s+uống|đi\s+chơi\s+và\s+ăn\s+uống|đi\s+chơi|khám\s+phá|trải\s+nghiệm|quán\s+xá|các\s+điểm|địa\s+điểm|"
         r"\d+\s*ngày|\d+\s*ngay|\d+\s*[nN]\s*\d+\s*[đĐdD]|\d+\s*days?|"
-        r"hãy|giúp|tạo|xây\s+dựng|thiết\s+kế"
+        r"hãy|giúp|tạo|xây\s+dựng|thiết\s+kế|có|và"
         r")\b",
         " ",
         user_text,
@@ -1570,29 +1579,64 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                 else:
                     response_stream = adapter.stream(prompts, budget.output_tokens)
 
-                async for delta in response_stream:
-                    with SessionLocal() as db:
-                        current = db.get(Run, run_id)
-                        if current and current.status in (RunStatus.CANCEL_REQUESTED, RunStatus.SUPERSEDED):
-                            was_superseded = current.status == RunStatus.SUPERSEDED
-                            current.status = RunStatus.SUPERSEDED if was_superseded else RunStatus.CANCELLED
-                            current.finished_at = now()
-                            db.commit()
-                            await complete_activity(run_id, conversation_id,
-                                                    "Run superseded" if was_superseded else "Run cancelled",
-                                                    "The operation was stopped.", AgentActivityStatus.SKIPPED)
-                            activity_trackers.pop(run_id, None)
-                            event_type = "run.superseded" if was_superseded else "run.cancelled"
-                            await publish(run_id, conversation_id, event_type, {"reason": "replacement" if was_superseded else "user_requested"})
-                            release_conversation_lease(conversation_id, lease_token)
-                            return
-                    content += delta
-                    delta_buffer += delta
-                    if len(delta_buffer) >= 128:
+                try:
+                    async for delta in response_stream:
+                        with SessionLocal() as db:
+                            current = db.get(Run, run_id)
+                            if current and current.status in (RunStatus.CANCEL_REQUESTED, RunStatus.SUPERSEDED):
+                                was_superseded = current.status == RunStatus.SUPERSEDED
+                                current.status = RunStatus.SUPERSEDED if was_superseded else RunStatus.CANCELLED
+                                current.finished_at = now()
+                                db.commit()
+                                await complete_activity(run_id, conversation_id,
+                                                        "Run superseded" if was_superseded else "Run cancelled",
+                                                        "The operation was stopped.", AgentActivityStatus.SKIPPED)
+                                activity_trackers.pop(run_id, None)
+                                event_type = "run.superseded" if was_superseded else "run.cancelled"
+                                await publish(run_id, conversation_id, event_type, {"reason": "replacement" if was_superseded else "user_requested"})
+                                release_conversation_lease(conversation_id, lease_token)
+                                return
+                        content += delta
+                        delta_buffer += delta
+                        if len(delta_buffer) >= 128:
+                            await publish(run_id, conversation_id, "assistant.delta", {"textDelta": delta_buffer})
+                            delta_buffer = ""
+                    if delta_buffer:
                         await publish(run_id, conversation_id, "assistant.delta", {"textDelta": delta_buffer})
                         delta_buffer = ""
-                if delta_buffer:
-                    await publish(run_id, conversation_id, "assistant.delta", {"textDelta": delta_buffer})
+                except Exception as stream_err:
+                    logger.warning("response_stream_fallback run_id=%s error=%s", run_id, stream_err)
+                    is_vi = any(mark in (trigger.content or "").lower() for mark in "ăâđêôơưáàảãạéèẻẽẹíìỉĩịóòỏõọúùủũụýỳỷỹỵ") or (
+                        str((trigger.content_json or {}).get("locale") or "").lower().startswith("vi")
+                    )
+                    if preview and preview.get("days"):
+                        fallback_text = format_preview_markdown(preview, is_vi=is_vi)
+                    elif open_now_question:
+                        fallback_text = (
+                            "Mình chưa thể xác minh quán nào trong lịch trình đang mở ngay lúc này vì dữ liệu giờ mở cửa "
+                            "chưa có múi giờ và thời điểm cập nhật đủ tin cậy. Lịch trình hiện tại vẫn được giữ nguyên."
+                        )
+                    elif retrieval_outcome != "SUFFICIENT" and not has_place_evidence:
+                        fallback_text = (
+                            "Mình chưa có đủ dữ liệu địa điểm và vị trí đáng tin cậy để gợi ý chính xác. "
+                            "Hãy chọn vị trí cụ thể hoặc thử lại khi dữ liệu được cập nhật."
+                            if is_vi else
+                            "I don't have enough verified place and location evidence to recommend accurately. "
+                            "Please select a specific location or try again when the data is updated."
+                        )
+                    else:
+                        fallback_text = (
+                            "Hệ thống mô hình AI hiện đang bận hoặc tạm thời gián đoạn kết nối tới nhà cung cấp mô hình. "
+                            "Bạn vui lòng thử lại sau giây lát."
+                            if is_vi else
+                            "The AI model provider is temporarily unavailable. Please try again in a moment."
+                        )
+                    if not content:
+                        content = fallback_text
+                        await publish(run_id, conversation_id, "assistant.delta", {"textDelta": fallback_text})
+                    elif len(content.strip()) < 100 and preview and preview.get("days"):
+                        content += "\n\n" + fallback_text
+                        await publish(run_id, conversation_id, "assistant.delta", {"textDelta": "\n\n" + fallback_text})
             await complete_activity(run_id, conversation_id)
             with SessionLocal() as db:
                 current = db.get(Run, run_id)
