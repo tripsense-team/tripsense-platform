@@ -351,23 +351,26 @@ def should_publish_place_artifact(tool_name: str, artifact_type: str | None,
 
 def grounding_data_after_authoritative_recommendation(tool_name: str, artifact_type: str | None,
                                                        recommendation_artifact_seen: bool,
-                                                       data: Any) -> Any:
-    """Do not let raw retrieval prose bypass authoritative recommendation membership."""
+                                                       data: Any,
+                                                       has_sufficient_recommendations: bool = True) -> Any:
+    """Do not let raw retrieval prose bypass authoritative recommendation membership unless recommendations are insufficient."""
     if artifact_type == "PLACE_LIST" and recommendation_artifact_seen \
-            and tool_name != "recommend_places":
+            and tool_name != "recommend_places" and has_sufficient_recommendations:
         return []
     return data
 
 
 def remove_prior_raw_place_grounding(results: list[dict], action_type: ActionType,
-                                      authoritative_recommendation: bool) -> list[dict]:
-    """Recommendation membership supersedes earlier raw discovery for place answer runs."""
-    if not authoritative_recommendation or action_type not in {
+                                      authoritative_recommendation: bool,
+                                      has_sufficient_recommendations: bool = True) -> list[dict]:
+    """Recommendation membership supersedes earlier raw discovery for place answer runs, unless recommendation count is below requested limit."""
+    if not authoritative_recommendation or not has_sufficient_recommendations or action_type not in {
         ActionType.PLACE_SEARCH,
         ActionType.PLACE_RECOMMENDATION,
     }:
         return results
     return [item for item in results if item.get("tool") not in {"search_places", "nearby_places"}]
+
 
 
 def latest_place_run(db: Session, owner: str, conversation_id: str, before_run_id: str | None = None) -> Run | None:
@@ -1030,8 +1033,14 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 )
                                 if is_authoritative_recommendation:
                                     recommendation_artifact_seen = True
+                                    rec_places = accepted_places if accepted_candidate_ids is not None else (
+                                        (result.artifact.get("data") or {}).get("places", []) if result.artifact else []
+                                    )
+                                    req_limit = (goal.limit if goal and goal.limit else 5)
+                                    has_sufficient_recommendations = len(rec_places) >= req_limit
                                     grounding_results = remove_prior_raw_place_grounding(
-                                        grounding_results, run.action_type, True
+                                        grounding_results, run.action_type, True,
+                                        has_sufficient_recommendations=has_sufficient_recommendations,
                                     )
                                 is_planning_action = run.action_type in {
                                     ActionType.PLAN_ITINERARY,
@@ -1123,6 +1132,7 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 result.artifact.get("type") if result.artifact else None,
                                 recommendation_artifact_seen,
                                 result.data,
+                                has_sufficient_recommendations=has_sufficient_recommendations,
                             )
                             grounding_results.append({"tool": call["name"], "data": grounding_data,
                                                       "provenance": result.provenance})
@@ -1514,7 +1524,8 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                             "Never expose internal trust labels such as Tier A. Never turn null into a guess. "
                             "For 2 or more ranked results, render one compact Markdown table with columns: Ưu tiên, Quán, Địa chỉ, Đánh giá, Khoảng cách ước tính. "
                             "If rankingBasis is empty, label the first column STT, never Ưu tiên. "
-                            "If returnedCount is zero, do not name or attach rejected retrieval candidates and do not claim there is a suggested place. "
+                            "If returnedCount is zero and no grounded places exist, do not name or attach rejected retrieval candidates and do not claim there is a suggested place. "
+                            "If returnedCount is less than the requested count, state clearly how many verified places strictly match the requested district/area, and then complement the response using available grounded places from search_places, stating their actual district/address clearly so the user receives a helpful, complete answer instead of stopping prematurely with a refusal. "
                             "State the ranking basis and unavailable requested criteria explicitly. Label distance as straight-line, not route distance. "
                             "Do not ask the user to provide Google Maps results; offer widening radius or waiting for more verified data instead."
                         )})
