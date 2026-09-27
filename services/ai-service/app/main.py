@@ -349,6 +349,27 @@ def should_publish_place_artifact(tool_name: str, artifact_type: str | None,
     )
 
 
+def grounding_data_after_authoritative_recommendation(tool_name: str, artifact_type: str | None,
+                                                       recommendation_artifact_seen: bool,
+                                                       data: Any) -> Any:
+    """Do not let raw retrieval prose bypass authoritative recommendation membership."""
+    if artifact_type == "PLACE_LIST" and recommendation_artifact_seen \
+            and tool_name != "recommend_places":
+        return []
+    return data
+
+
+def remove_prior_raw_place_grounding(results: list[dict], action_type: ActionType,
+                                      authoritative_recommendation: bool) -> list[dict]:
+    """Recommendation membership supersedes earlier raw discovery for place answer runs."""
+    if not authoritative_recommendation or action_type not in {
+        ActionType.PLACE_SEARCH,
+        ActionType.PLACE_RECOMMENDATION,
+    }:
+        return results
+    return [item for item in results if item.get("tool") not in {"search_places", "nearby_places"}]
+
+
 def latest_place_run(db: Session, owner: str, conversation_id: str, before_run_id: str | None = None) -> Run | None:
     query = select(Run).where(
         Run.owner_user_id == owner,
@@ -1009,6 +1030,9 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                 )
                                 if is_authoritative_recommendation:
                                     recommendation_artifact_seen = True
+                                    grounding_results = remove_prior_raw_place_grounding(
+                                        grounding_results, run.action_type, True
+                                    )
                                 is_planning_action = run.action_type in {
                                     ActionType.PLAN_ITINERARY,
                                     ActionType.MODIFY_ITINERARY,
@@ -1094,7 +1118,13 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                         expires_at=now() + timedelta(days=90),
                                     ))
                                     db.commit()
-                            grounding_results.append({"tool": call["name"], "data": result.data,
+                            grounding_data = grounding_data_after_authoritative_recommendation(
+                                call["name"],
+                                result.artifact.get("type") if result.artifact else None,
+                                recommendation_artifact_seen,
+                                result.data,
+                            )
+                            grounding_results.append({"tool": call["name"], "data": grounding_data,
                                                       "provenance": result.provenance})
                             with SessionLocal() as db:
                                 db.add(ToolCall(run_id=run_id, owner_user_id=owner, tool_name=call["name"], status="COMPLETED",

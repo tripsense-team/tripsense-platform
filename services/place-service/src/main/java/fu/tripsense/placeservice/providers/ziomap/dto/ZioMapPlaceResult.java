@@ -18,6 +18,9 @@ public class ZioMapPlaceResult {
   @JsonProperty("formatted_address")
   private String formattedAddress;
 
+  @JsonProperty("address_components")
+  private List<AddressComponent> addressComponents = new ArrayList<>();
+
   private Geometry geometry;
 
   private Double rating;
@@ -59,6 +62,18 @@ public class ZioMapPlaceResult {
   public static class LatLng {
     private Double lat;
     private Double lng;
+  }
+
+  @Data
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class AddressComponent {
+    @JsonProperty("long_name")
+    private String longName;
+
+    @JsonProperty("short_name")
+    private String shortName;
+
+    private List<String> types = new ArrayList<>();
   }
 
   @Data

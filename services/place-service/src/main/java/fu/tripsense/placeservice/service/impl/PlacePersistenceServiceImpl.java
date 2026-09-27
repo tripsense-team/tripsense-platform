@@ -11,6 +11,7 @@ import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceReviewDto;
 import fu.tripsense.placeservice.dto.QuietnessEvidenceDto;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
+import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -141,6 +142,15 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
             ? new ArrayList<>()
             : place.getReviews().stream().map(this::toReviewDto).toList();
 
+    String city =
+        StringUtils.hasText(place.getCity())
+            ? place.getCity()
+            : VietnameseAdministrativeAreaNormalizer.city(null, place.getAddress());
+    String district =
+        StringUtils.hasText(place.getDistrict())
+            ? place.getDistrict()
+            : VietnameseAdministrativeAreaNormalizer.district(null, place.getAddress());
+
     PlacePhotoDto primaryPhoto =
         (place.getPhotos() != null && !place.getPhotos().isEmpty())
             ? new PlacePhotoDto(
@@ -178,8 +188,8 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .location(location)
         .address(place.getAddress())
         .oldAddress(place.getOldAddress())
-        .city(place.getCity())
-        .district(place.getDistrict())
+        .city(city)
+        .district(district)
         .categories(place.getCategories() == null ? List.of() : place.getCategories())
         .rating(place.getRating())
         .userRatingCount(place.getUserRatingCount())

@@ -12,7 +12,9 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from app.main import app, classify_action, fallback_tool_calls, settings, should_publish_place_artifact
+from app.main import (app, classify_action, fallback_tool_calls,
+                      grounding_data_after_authoritative_recommendation, settings,
+                      remove_prior_raw_place_grounding, should_publish_place_artifact)
 from app.models import ActionType
 from app.recommendation.goal_normalizer import RecommendationGoalNormalizer, travel_goal_to_recommendation_goal
 from app.tools import ToolExecutionError, ToolExecutor, ToolResult, TripInput
@@ -102,6 +104,36 @@ def test_raw_search_cannot_replace_authoritative_empty_recommendation_artifact()
     assert should_publish_place_artifact("search_places", "PLACE_LIST", False) is True
     assert should_publish_place_artifact("search_places", "PLACE_LIST", True) is False
     assert should_publish_place_artifact("get_place_details", "PLACE_CARD", True) is True
+
+
+def test_raw_search_cannot_ground_prose_after_authoritative_recommendation():
+    raw_places = [{"id": "raw-1", "name": "Unranked cafe"}]
+
+    assert grounding_data_after_authoritative_recommendation(
+        "search_places", "PLACE_LIST", True, raw_places
+    ) == []
+    assert grounding_data_after_authoritative_recommendation(
+        "search_places", "PLACE_LIST", False, raw_places
+    ) == raw_places
+    assert grounding_data_after_authoritative_recommendation(
+        "recommend_places", "PLACE_LIST", True, raw_places
+    ) == raw_places
+
+
+def test_recommendation_removes_raw_search_that_completed_first():
+    prior = [
+        {"tool": "search_places", "data": [{"id": "raw-1"}]},
+        {"tool": "get_preferences", "data": {"personalizationEnabled": False}},
+    ]
+
+    retained = remove_prior_raw_place_grounding(
+        prior, ActionType.PLACE_SEARCH, authoritative_recommendation=True
+    )
+
+    assert [item["tool"] for item in retained] == ["get_preferences"]
+    assert remove_prior_raw_place_grounding(
+        prior, ActionType.PLAN_ITINERARY, authoritative_recommendation=True
+    ) == prior
 
 
 def test_conversation_is_owner_scoped():
