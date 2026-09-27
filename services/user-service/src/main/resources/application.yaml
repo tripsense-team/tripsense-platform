@@ -2,6 +2,10 @@ server:
   port: ${USER_SERVICE_PORT:${SERVER_PORT:8081}}
 
 spring:
+  config:
+    import: 
+      - optional:file:env/.env[.properties]
+      - optional:file:../../env/.env[.properties]
   application:
     name: user-service
 

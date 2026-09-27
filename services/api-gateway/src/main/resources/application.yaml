@@ -1,4 +1,8 @@
 spring:
+  config:
+    import: 
+      - optional:file:env/.env[.properties]
+      - optional:file:../../env/.env[.properties]
   application:
     name: api-gateway
   data:

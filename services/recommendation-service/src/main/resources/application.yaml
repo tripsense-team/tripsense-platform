@@ -3,12 +3,16 @@ server:
   shutdown: graceful
 
 spring:
+  config:
+    import: 
+      - optional:file:env/.env[.properties]
+      - optional:file:../../env/.env[.properties]
   application:
     name: recommendation-service
   datasource:
     url: ${RECOMMENDATION_DATASOURCE_URL:jdbc:postgresql://${RECOMMENDATION_DB_HOST:localhost}:${RECOMMENDATION_DB_PORT:5437}/${RECOMMENDATION_DB_NAME:tripsense_recommendation}}
     username: ${RECOMMENDATION_DB_USER:postgres}
-    password: ${RECOMMENDATION_DB_PASS:}
+    password: ${RECOMMENDATION_DB_PASS:123456}
   flyway:
     enabled: true
   data:

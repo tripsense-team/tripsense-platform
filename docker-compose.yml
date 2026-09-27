@@ -152,8 +152,7 @@ services:
       dockerfile: services/api-gateway/Dockerfile
     container_name: api-gateway
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -185,8 +184,7 @@ services:
       dockerfile: services/place-service/Dockerfile
     container_name: place-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/tripsense_places}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-tripsense_places}
@@ -221,8 +219,7 @@ services:
       dockerfile: services/recommendation-service/Dockerfile
     container_name: recommendation-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       RECOMMENDATION_DB_HOST: recommendation-db
       RECOMMENDATION_DB_PORT: "5432"
@@ -277,8 +274,7 @@ services:
       dockerfile: services/mail-service/Dockerfile
     container_name: mail-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
@@ -301,8 +297,7 @@ services:
       dockerfile: services/user-service/Dockerfile
     container_name: user-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       USER_DATASOURCE_URL: ${USER_DATASOURCE_URL:-jdbc:postgresql://db:5432/tripsense_user}
       USER_DB_HOST: db
@@ -346,8 +341,7 @@ services:
       dockerfile: services/context-service/Dockerfile
     container_name: context-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       CONTEXT_SERVICE_PORT: "8087"
       CONTEXT_DATASOURCE_URL: ${CONTEXT_DATASOURCE_URL:-jdbc:postgresql://context-db:5432/tripsense_context}
@@ -373,8 +367,7 @@ services:
       dockerfile: services/trip-service/Dockerfile
     container_name: trip-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
       TRIP_DB_HOST: trip-db
@@ -410,8 +403,7 @@ services:
       dockerfile: services/social-service/Dockerfile
     container_name: social-service
     env_file:
-      - path: ./env/.env
-        required: true
+      - ./env/.env
     environment:
       SOCIAL_DATASOURCE_URL: ${SOCIAL_DATASOURCE_URL:-jdbc:postgresql://social-db:5432/tripsense_social}
       SOCIAL_DB_HOST: social-db
@@ -452,8 +444,7 @@ services:
       dockerfile: Dockerfile
     container_name: ai-service
     env_file:
-      - path: ./env/.env
-        required: false
+      - ./env/.env
     environment:
       AI_DATABASE_URL: ${AI_DATABASE_URL:-postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}

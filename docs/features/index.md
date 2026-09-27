@@ -30,7 +30,6 @@ Track every feature that enters the multi-agent workflow.
 | `auth-token-cleanup-cronjob` | DONE | `services/user-service` | [Docs](./auth-token-cleanup-cronjob.md) |
 | `community-destination-weather` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./community-destination-weather.md) |
 | `chat-notifications-and-unread-badge` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./chat-notifications-and-unread-badge.md) |
-
 ## Statuses
 
 - `DRAFT`: feature request captured but not reviewed.

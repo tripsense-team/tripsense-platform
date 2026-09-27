@@ -45,6 +45,7 @@ import { getPlaceDetails, searchPlaces } from "@/features/places/services/places
 import type { Place } from "@/features/places/types";
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
 import { cn } from "@/lib/utils";
+import { GroupVotingPanel } from "@/features/trip-management/components/group-voting-panel";
 
 const MapVinaContainer = dynamic(
   () => import("@/features/map/components/mapvina-container").then((mod) => mod.MapVinaContainer),
@@ -742,6 +743,9 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
             ))}
             <Badge variant="secondary" className="ml-auto rounded-full">{itineraryItemCount(itinerary)} selected</Badge>
           </div>
+          
+          <GroupVotingPanel tripId={trip.id} />
+
           <ItineraryList
             trip={trip}
             itinerary={itinerary}
