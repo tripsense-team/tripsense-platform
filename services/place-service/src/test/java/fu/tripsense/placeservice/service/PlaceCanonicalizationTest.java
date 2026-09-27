@@ -18,6 +18,25 @@ import static org.mockito.Mockito.*;
 
 class PlaceCanonicalizationTest {
     @Test
+    void derivesMissingAdministrativeAreasFromExactProviderAddressSegments() {
+        PlaceRepository repository = mock(PlaceRepository.class);
+        PlacePersistenceServiceImpl service =
+                new PlacePersistenceServiceImpl(repository, new TripSensePlaceProperties());
+        Place stored = Place.builder()
+                .id("cafe-1")
+                .provider("ziomap")
+                .providerPlaceId("cafe-1")
+                .name("Gé Cafe")
+                .address("66 Đỗ Quang, Thanh Khê, Đà Nẵng 550000")
+                .build();
+
+        PlaceDto result = service.toDto(stored);
+
+        assertThat(result.getDistrict()).isEqualTo("Thanh Khê");
+        assertThat(result.getCity()).isEqualTo("Đà Nẵng");
+    }
+
+    @Test
     void sharesCanonicalIdOnlyForUnambiguousNearbyNameAndAddress() {
         PlaceRepository repository = mock(PlaceRepository.class);
         TripSensePlaceProperties properties = new TripSensePlaceProperties();

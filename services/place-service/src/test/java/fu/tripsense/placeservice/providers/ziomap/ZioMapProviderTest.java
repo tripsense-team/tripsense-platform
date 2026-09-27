@@ -54,6 +54,55 @@ class ZioMapProviderTest {
   }
 
   @Test
+  void textSearchMapsStructuredVietnameseAdministrativeAreas() {
+    ZioMapProperties props = new ZioMapProperties();
+    props.setBaseUrl("https://ziomap-api.socibi.com");
+    props.setApiKey("test-key");
+    RestClient.Builder builder = RestClient.builder().baseUrl(props.getBaseUrl());
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    provider = new ZioMapProvider(props, builder.build());
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/text-search")))
+        .andRespond(
+            withSuccess(
+                "{\"places\":[{\"id\":\"cafe-1\",\"displayName\":{\"text\":\"Gé Cafe\"},"
+                    + "\"formattedAddress\":\"66 Đỗ Quang, Thanh Khê, Đà Nẵng 550000\","
+                    + "\"addressComponents\":["
+                    + "{\"longText\":\"Quận Thanh Khê\",\"types\":[\"administrative_area_level_2\"]},"
+                    + "{\"longText\":\"Thành phố Đà Nẵng\",\"types\":[\"administrative_area_level_1\"]}]}]}",
+                MediaType.APPLICATION_JSON));
+
+    PlaceDto place = provider.textSearch("cafe Thanh Khê", 16.05, 108.20, 5000, 5).get(0);
+
+    assertEquals("Thanh Khê", place.getDistrict());
+    assertEquals("Đà Nẵng", place.getCity());
+    server.verify();
+  }
+
+  @Test
+  void textSearchUsesExactAddressSegmentsWhenStructuredAreasAreUnavailable() {
+    ZioMapProperties props = new ZioMapProperties();
+    props.setBaseUrl("https://ziomap-api.socibi.com");
+    props.setApiKey("test-key");
+    RestClient.Builder builder = RestClient.builder().baseUrl(props.getBaseUrl());
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    provider = new ZioMapProvider(props, builder.build());
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/text-search")))
+        .andRespond(
+            withSuccess(
+                "{\"places\":[{\"id\":\"cafe-2\",\"displayName\":{\"text\":\"Cafe 35\"},"
+                    + "\"formattedAddress\":\"35 Hoàng Hoa Thám, Thanh Khê, Đà Nẵng 550000\"}]}",
+                MediaType.APPLICATION_JSON));
+
+    PlaceDto place = provider.textSearch("cafe Thanh Khê", 16.05, 108.20, 5000, 5).get(0);
+
+    assertEquals("Thanh Khê", place.getDistrict());
+    assertEquals("Đà Nẵng", place.getCity());
+    server.verify();
+  }
+
+  @Test
   void resolvesOneAttributedPhotoWhenExplicitlyEnabled() {
     ZioMapProperties props = new ZioMapProperties();
     props.setBaseUrl("https://ziomap-api.socibi.com");

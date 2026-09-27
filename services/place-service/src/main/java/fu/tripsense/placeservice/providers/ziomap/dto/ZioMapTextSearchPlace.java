@@ -12,6 +12,7 @@ public class ZioMapTextSearchPlace {
   private String id;
   private DisplayName displayName;
   private String formattedAddress;
+  private List<AddressComponent> addressComponents = new ArrayList<>();
   private Location location;
   private String businessStatus;
   private String nationalPhoneNumber;
@@ -36,6 +37,14 @@ public class ZioMapTextSearchPlace {
   public static class Location {
     private Double latitude;
     private Double longitude;
+  }
+
+  @Data
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class AddressComponent {
+    private String longText;
+    private String shortText;
+    private List<String> types = new ArrayList<>();
   }
 
   @Data

@@ -14,6 +14,7 @@ import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPhotoResponse;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPlaceResult;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchPlace;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchResponse;
+import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,7 +36,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
   public static final String PROVIDER_NAME = "ziomap";
-
   private final ZioMapProperties properties;
   private final RestClient restClient;
 
@@ -69,7 +69,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
               .queryParam("rankPreference", "RELEVANCE")
               .queryParam(
                   "fieldMask",
-                  "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos,places.regularOpeningHours,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.businessStatus,places.types,places.primaryType");
+                  "places.id,places.displayName,places.formattedAddress,places.addressComponents,places.location,places.rating,places.userRatingCount,places.photos,places.regularOpeningHours,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.businessStatus,places.types,places.primaryType");
 
       if (lat != null && lng != null) {
         uriBuilder.queryParam("location", lat + "," + lng);
@@ -421,6 +421,17 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       categories = inferCategoriesFromName(name);
     }
 
+    String district =
+        VietnameseAdministrativeAreaNormalizer.district(
+            textSearchComponent(item, "administrative_area_level_2"),
+            item.getFormattedAddress());
+    String city =
+        VietnameseAdministrativeAreaNormalizer.city(
+            firstNonBlank(
+                textSearchComponent(item, "locality"),
+                textSearchComponent(item, "administrative_area_level_1")),
+            item.getFormattedAddress());
+
     return PlaceDto.builder()
         .id(item.getId())
         .provider(PROVIDER_NAME)
@@ -428,6 +439,8 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         .name(name)
         .location(location)
         .address(item.getFormattedAddress())
+        .city(city)
+        .district(district)
         .categories(categories)
         .rating(item.getRating())
         .userRatingCount(item.getUserRatingCount())
@@ -581,6 +594,16 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       }
     }
 
+    String district =
+        VietnameseAdministrativeAreaNormalizer.district(
+            detailsComponent(item, "administrative_area_level_2"), item.getFormattedAddress());
+    String city =
+        VietnameseAdministrativeAreaNormalizer.city(
+            firstNonBlank(
+                detailsComponent(item, "locality"),
+                detailsComponent(item, "administrative_area_level_1")),
+            item.getFormattedAddress());
+
     return PlaceDto.builder()
         .id(item.getPlaceId())
         .provider(PROVIDER_NAME)
@@ -588,6 +611,8 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         .name(item.getName())
         .location(location)
         .address(item.getFormattedAddress())
+        .city(city)
+        .district(district)
         .categories(categories)
         .rating(rating)
         .userRatingCount(userRatingCount)
@@ -601,6 +626,32 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         .businessStatus(item.getBusinessStatus())
         .reviews(reviewDtos)
         .build();
+  }
+
+  private String textSearchComponent(ZioMapTextSearchPlace item, String type) {
+    if (item.getAddressComponents() == null) return null;
+    return item.getAddressComponents().stream()
+        .filter(component -> component != null && component.getTypes() != null)
+        .filter(component -> component.getTypes().contains(type))
+        .map(component -> firstNonBlank(component.getLongText(), component.getShortText()))
+        .filter(StringUtils::hasText)
+        .findFirst()
+        .orElse(null);
+  }
+
+  private String detailsComponent(ZioMapPlaceResult item, String type) {
+    if (item.getAddressComponents() == null) return null;
+    return item.getAddressComponents().stream()
+        .filter(component -> component != null && component.getTypes() != null)
+        .filter(component -> component.getTypes().contains(type))
+        .map(component -> firstNonBlank(component.getLongName(), component.getShortName()))
+        .filter(StringUtils::hasText)
+        .findFirst()
+        .orElse(null);
+  }
+
+  private String firstNonBlank(String first, String second) {
+    return StringUtils.hasText(first) ? first : second;
   }
 
   @Override
