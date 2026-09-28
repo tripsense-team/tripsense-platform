@@ -27,9 +27,7 @@ public class ExploreRecommendationCache {
   private final String algorithmFingerprint;
 
   public ExploreRecommendationCache(
-      StringRedisTemplate redis,
-      ObjectMapper objectMapper,
-      RecommendationProperties properties) {
+      StringRedisTemplate redis, ObjectMapper objectMapper, RecommendationProperties properties) {
     this.redis = redis;
     this.objectMapper = objectMapper;
     this.secret = properties.getExplore().getCacheKeySecret();
@@ -57,9 +55,7 @@ public class ExploreRecommendationCache {
       ExploreRecommendationResult response) {
     if (!enabled() || response.recommendation().items().isEmpty()) return;
     write(
-        key("fresh", userId, destinationId, query, profileFingerprint, limit),
-        response,
-        cacheTtl);
+        key("fresh", userId, destinationId, query, profileFingerprint, limit), response, cacheTtl);
     write(
         key("lkg", userId, destinationId, query, profileFingerprint, limit),
         response,
@@ -96,7 +92,9 @@ public class ExploreRecommendationCache {
           ? Optional.empty()
           : Optional.of(objectMapper.readValue(value, ExploreRecommendationResult.class));
     } catch (RuntimeException | java.io.IOException exception) {
-      log.warn("explore_recommendation_cache_read_failed errorType={}", exception.getClass().getSimpleName());
+      log.warn(
+          "explore_recommendation_cache_read_failed errorType={}",
+          exception.getClass().getSimpleName());
       return Optional.empty();
     }
   }
@@ -105,7 +103,9 @@ public class ExploreRecommendationCache {
     try {
       redis.opsForValue().set(key, objectMapper.writeValueAsString(response), ttl);
     } catch (RuntimeException | com.fasterxml.jackson.core.JsonProcessingException exception) {
-      log.warn("explore_recommendation_cache_write_failed errorType={}", exception.getClass().getSimpleName());
+      log.warn(
+          "explore_recommendation_cache_write_failed errorType={}",
+          exception.getClass().getSimpleName());
     }
   }
 
@@ -151,8 +151,7 @@ public class ExploreRecommendationCache {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256")
-                  .digest(value.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
     } catch (Exception exception) {
       throw new IllegalStateException("Could not fingerprint recommendation profile", exception);
     }

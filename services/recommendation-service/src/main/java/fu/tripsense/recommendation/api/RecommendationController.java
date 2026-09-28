@@ -1,15 +1,15 @@
 package fu.tripsense.recommendation.api;
 
 import fu.tripsense.recommendation.api.dto.ApiResponse;
-import fu.tripsense.recommendation.api.dto.FeedbackRequest;
 import fu.tripsense.recommendation.api.dto.ExploreRecommendationRequest;
 import fu.tripsense.recommendation.api.dto.ExploreRecommendationResponse;
+import fu.tripsense.recommendation.api.dto.FeedbackRequest;
 import fu.tripsense.recommendation.api.dto.RecommendationRequest;
 import fu.tripsense.recommendation.api.dto.RecommendationResponse;
-import fu.tripsense.recommendation.application.FeedbackCommand;
-import fu.tripsense.recommendation.application.FeedbackService;
 import fu.tripsense.recommendation.application.ExploreRecommendationCommand;
 import fu.tripsense.recommendation.application.ExploreRecommendationService;
+import fu.tripsense.recommendation.application.FeedbackCommand;
+import fu.tripsense.recommendation.application.FeedbackService;
 import fu.tripsense.recommendation.application.PersonalizationDataService;
 import fu.tripsense.recommendation.application.RecommendationApplicationService;
 import fu.tripsense.recommendation.application.RecommendationCommand;

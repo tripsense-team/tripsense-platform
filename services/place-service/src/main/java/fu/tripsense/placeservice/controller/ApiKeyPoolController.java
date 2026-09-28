@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/places/internal/keys")
+@RequestMapping("/api/places/admin/keys")
 @RequiredArgsConstructor
 public class ApiKeyPoolController {
 
@@ -32,9 +32,7 @@ public class ApiKeyPoolController {
   public ResponseEntity<ApiResponse<List<ApiKeyPoolItemDto>>> listKeys(
       @RequestParam(name = "provider", defaultValue = "ZIOMAP") ApiKeyProvider provider) {
     List<ApiKeyPoolItemDto> dtos =
-        apiKeyPoolService.listKeys(provider).stream()
-            .map(ApiKeyPoolItemDto::from)
-            .toList();
+        apiKeyPoolService.listKeys(provider).stream().map(ApiKeyPoolItemDto::from).toList();
     return ResponseEntity.ok(ApiResponse.ok(dtos));
   }
 

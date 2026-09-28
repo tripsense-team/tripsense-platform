@@ -503,26 +503,33 @@
     },
     "personalization": {
       "addCustom": "+ Add other choice",
+      "addCustomPrompt": "+ Add \"{{name}}\"",
       "addDestination": "Add destination",
       "addWishlist": "Add wishlist",
       "customOptionPlaceholder": "Enter your custom choice (e.g. Oceanview Villa)...",
+      "destinationSearchPlaceholder": "Type destination name (e.g. Da Nang, Tokyo)...",
       "discard": "Discard changes",
+      "enterOtherChoice": "Enter other choice...",
       "experiencesSubtitle": "Places you have visited and bucket list destinations you dream of exploring",
       "experiencesTitle": "Experiences & Destinations",
       "homeCityPlaceholder": "Enter your home city...",
       "homeCitySubtitle": "Your home base helps TripSense provide nearby escape recommendations",
       "homeCityTitle": "Home City",
       "loadError": "Unable to load personalization profile. Please try again.",
+      "loadingPreferences": "Loading your personalization preferences...",
       "multiChoice": "Multi-select",
       "notesPlaceholder": "e.g. Love specialty coffee, sunset photography, vegetarian friendly spots, quiet stays...",
       "notesSubtitle": "Add any dietary restrictions, hobbies, or unique preferences for the AI planner",
       "notesTitle": "Personal Travel Notes & Special Requests",
       "noVisited": "No visited destinations added yet.",
       "noWishlist": "No bucket list destinations added yet.",
+      "otherChoice": "+ Other",
+      "popularSuggestions": "Popular Suggestions",
       "preferencesSubtitle": "Customize who you travel with, your spending priority, stays, and favorite activities",
       "preferencesTitle": "Travel Preferences & Style",
       "quickSelect": "Quick select:",
       "quickTags": "Quick tags:",
+      "removeDestination": "Remove destination",
       "save": "Save changes",
       "saved": "Saved!",
       "saveError": "Failed to save preferences. Please try again.",
@@ -594,6 +601,43 @@
       "testAndActivate": "Test & Activate",
       "title": "Token Pool & Auto-Rotation Manager",
       "totalKeys": "Total Keys"
+    },
+    "userSettings": {
+      "account": {
+        "role": "Role",
+        "securitySubtitle": "Security and account details.",
+        "title": "Your account"
+      },
+      "generic": {
+        "footer": "TripSense Platform · Mindtrip Design System",
+        "inDevelopment": "This setting section is in active development and will be available soon.",
+        "subtitle": "Preferences and preferences management."
+      },
+      "profile": {
+        "bio": "Bio",
+        "bioPlaceholder": "Tell the community about yourself...",
+        "displayName": "Display Name",
+        "location": "Location",
+        "locationPlaceholder": "e.g. Da Nang, Vietnam",
+        "manageSubtitle": "Manage how your identity appears across TripSense.",
+        "save": "Save changes",
+        "saved": "Saved!",
+        "saving": "Saving...",
+        "title": "Profile",
+        "website": "Website"
+      },
+      "tabs": {
+        "account": "Your account",
+        "alerts": "Price alerts",
+        "connected": "Connected accounts",
+        "cookies": "Cookie preferences",
+        "earlyAccess": "Early access",
+        "language": "Language & region",
+        "notifications": "Notifications",
+        "personalization": "Personalization",
+        "profile": "Edit profile"
+      },
+      "title": "Settings"
     }
   },
   "social": {

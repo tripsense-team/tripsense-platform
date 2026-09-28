@@ -7,8 +7,8 @@ import fu.tripsense.recommendation.application.FeedbackValidationException;
 import fu.tripsense.recommendation.application.InvalidDestinationException;
 import fu.tripsense.recommendation.application.TripContextNotAccessibleException;
 import fu.tripsense.recommendation.application.TripContextUnavailableException;
-import fu.tripsense.recommendation.security.UnauthenticatedException;
 import fu.tripsense.recommendation.security.InternalAuthenticationException;
+import fu.tripsense.recommendation.security.UnauthenticatedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +29,8 @@ public class RecommendationExceptionHandler {
   @ExceptionHandler(InvalidDestinationException.class)
   ResponseEntity<ApiResponse<Void>> invalidDestination(InvalidDestinationException exception) {
     return ResponseEntity.badRequest()
-        .body(ApiResponse.error("INVALID_DESTINATION", "The selected destination is not supported"));
+        .body(
+            ApiResponse.error("INVALID_DESTINATION", "The selected destination is not supported"));
   }
 
   @ExceptionHandler({
@@ -87,7 +88,8 @@ public class RecommendationExceptionHandler {
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiResponse<Void>> unexpected(Exception exception) {
     String message = exception.getMessage();
-    if (message != null && (message.contains("Broken pipe") || message.contains("Connection reset by peer"))) {
+    if (message != null
+        && (message.contains("Broken pipe") || message.contains("Connection reset by peer"))) {
       log.warn(
           "Client disconnected before recommendation response could be written: errorType={}, message={}",
           exception.getClass().getSimpleName(),

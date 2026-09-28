@@ -13,7 +13,8 @@ class FreeTextCryptoServiceTest {
   @DisplayName("Should encrypt and decrypt successfully with configured secret")
   void shouldEncryptAndDecryptWithConfiguredSecret() {
     FreeTextCryptoService cryptoService =
-        new FreeTextCryptoService("16d928e853a627b81918f5fb09577533e3e17c05271116baa81c96453edc5748");
+        new FreeTextCryptoService(
+            "16d928e853a627b81918f5fb09577533e3e17c05271116baa81c96453edc5748");
 
     String plaintext = "I love quiet cafes and film photography.";
     byte[] encrypted = cryptoService.encrypt(plaintext);
@@ -24,7 +25,8 @@ class FreeTextCryptoServiceTest {
   }
 
   @Test
-  @DisplayName("Should decrypt payload encrypted with legacy default key when running with configured secret")
+  @DisplayName(
+      "Should decrypt payload encrypted with legacy default key when running with configured secret")
   void shouldDecryptLegacyDefaultKeyPayload() {
     FreeTextCryptoService legacyService =
         new FreeTextCryptoService("tripsense-context-onboarding-secure-key-32b");
@@ -33,7 +35,8 @@ class FreeTextCryptoServiceTest {
 
     // New service instance with different configured secret
     FreeTextCryptoService configuredService =
-        new FreeTextCryptoService("16d928e853a627b81918f5fb09577533e3e17c05271116baa81c96453edc5748");
+        new FreeTextCryptoService(
+            "16d928e853a627b81918f5fb09577533e3e17c05271116baa81c96453edc5748");
 
     String decrypted = configuredService.decrypt(legacyEncrypted);
     assertEquals(plaintext, decrypted);
@@ -43,7 +46,8 @@ class FreeTextCryptoServiceTest {
   @DisplayName("Should return null on null or empty input")
   void shouldHandleNullAndEmpty() {
     FreeTextCryptoService service =
-        new FreeTextCryptoService("16d928e853a627b81918f5fb09577533e3e17c05271116baa81c96453edc5748");
+        new FreeTextCryptoService(
+            "16d928e853a627b81918f5fb09577533e3e17c05271116baa81c96453edc5748");
 
     assertNull(service.encrypt(null));
     assertNull(service.encrypt("   "));

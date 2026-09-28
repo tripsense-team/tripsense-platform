@@ -78,7 +78,8 @@ public class RecommendationApplicationService {
     RetrievalOutcome retrieval = retrievalPipeline.retrieve(context);
     long retrievalDone = System.nanoTime();
     List<FusedCandidate> fused = fusion.fuse(retrieval.sources());
-    CandidateFilterPipeline.FilterOutcome filterOutcome = filters.filterWithEvidence(context, fused);
+    CandidateFilterPipeline.FilterOutcome filterOutcome =
+        filters.filterWithEvidence(context, fused);
     List<FusedCandidate> eligible = filterOutcome.eligible();
     long filterDone = System.nanoTime();
     List<FusedCandidate> enriched = enrichment.enrich(context, eligible);

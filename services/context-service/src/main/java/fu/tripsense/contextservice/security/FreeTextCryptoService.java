@@ -13,9 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-/**
- * Encrypts and decrypts sensitive free-text interview responses at rest using AES-GCM-256.
- */
+/** Encrypts and decrypts sensitive free-text interview responses at rest using AES-GCM-256. */
 @Service
 public class FreeTextCryptoService {
   private static final Logger log = LoggerFactory.getLogger(FreeTextCryptoService.class);
@@ -91,7 +89,9 @@ public class FreeTextCryptoService {
           // Both failed, proceed to warning
         }
       }
-      log.warn("Failed to decrypt free-text payload (possibly invalid key or corrupted data): {}", e.getMessage());
+      log.warn(
+          "Failed to decrypt free-text payload (possibly invalid key or corrupted data): {}",
+          e.getMessage());
       return null;
     }
   }

@@ -59,8 +59,7 @@ class RecommendationResponseSerializationTest {
             0.95,
             new ScoreBreakdown(1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.95, 0.8),
             List.of(
-                new RecommendationReason(
-                    RecommendationReasonCode.STRONG_RETRIEVAL_MATCH, 0.8, "2"),
+                new RecommendationReason(RecommendationReasonCode.STRONG_RETRIEVAL_MATCH, 0.8, "2"),
                 new RecommendationReason(
                     RecommendationReasonCode.STRONG_SEMANTIC_MATCH, 0.7, "0.8500")));
 

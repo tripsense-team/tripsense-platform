@@ -45,13 +45,16 @@ public class OpenAiCompatibleEmbeddingClient implements EmbeddingClient {
     }
     String raw =
         request
-            .body(Map.of("model", properties.getEmbeddingModel(), "input", content, "dimensions", 1536))
+            .body(
+                Map.of(
+                    "model", properties.getEmbeddingModel(), "input", content, "dimensions", 1536))
             .retrieve()
             .body(String.class);
 
     try {
       JsonNode response = raw != null ? objectMapper.readTree(raw) : null;
-      JsonNode embedding = response == null ? null : response.path("data").path(0).path("embedding");
+      JsonNode embedding =
+          response == null ? null : response.path("data").path(0).path("embedding");
       if (embedding == null || !embedding.isArray()) {
         throw new IllegalStateException("Embedding provider returned no vector: " + raw);
       }

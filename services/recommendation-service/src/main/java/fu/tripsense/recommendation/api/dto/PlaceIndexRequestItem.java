@@ -2,12 +2,12 @@ package fu.tripsense.recommendation.api.dto;
 
 import fu.tripsense.recommendation.domain.GeoPoint;
 import fu.tripsense.recommendation.domain.PlaceSnapshot;
-import java.time.Instant;
-import java.util.List;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
+import java.util.List;
 
 public record PlaceIndexRequestItem(
     @NotBlank @Size(max = 200) String id,

@@ -66,8 +66,12 @@ public class RecommendationProperties {
     @NotBlank private String name;
     private double lat;
     private double lng;
-    @Min(100) private int defaultRadiusMeters;
-    @Min(100) private int maximumRadiusMeters;
+
+    @Min(100)
+    private int defaultRadiusMeters;
+
+    @Min(100)
+    private int maximumRadiusMeters;
 
     public Destination() {}
 

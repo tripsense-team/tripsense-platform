@@ -59,13 +59,13 @@ function CategoryIcon({ category = "" }: { category?: string }) {
 }
 
 function formatRating(rating?: number, locale: string = "en"): string {
-  if (typeof rating !== "number" || rating <= 0) return "5.0";
+  if (typeof rating !== "number" || rating <= 0) return "";
   const val = rating.toFixed(1);
   return locale === "vi" ? val.replace(".", ",") : val;
 }
 
 function formatReviewCount(count?: number, locale: string = "en"): string {
-  if (!count || count <= 0) return "100";
+  if (!count || count <= 0) return "0";
   if (count >= 1000) {
     const formatted = (count / 1000).toFixed(count % 1000 === 0 ? 0 : 1);
     if (locale === "vi") {
@@ -118,11 +118,13 @@ export function PlaceDetailOverlay({
   }, [place.photoGallery, place.primaryPhoto, place.photos]);
 
   const descriptionText = React.useMemo(() => {
-    if (place.description) return place.description;
+    if (place.description?.trim()) return place.description;
     const addressStr = place.address || locationDisplay;
     const catStr = primaryCategory.replace(/_/g, " ");
-    return `${place.name} is a renowned ${catStr} destination located at ${addressStr}. It specializes in authentic culinary traditions, offering a welcoming atmosphere with both indoor and outdoor seating options for travelers and locals alike.`;
-  }, [place.description, place.name, place.address, locationDisplay, primaryCategory]);
+    return locale === "vi"
+      ? `${place.name} là điểm đến thuộc danh mục ${catStr} tại ${addressStr}.`
+      : `${place.name} is a ${catStr} destination located at ${addressStr}.`;
+  }, [place.description, place.name, place.address, locationDisplay, primaryCategory, locale]);
 
   const handleShare = () => {
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -607,22 +609,32 @@ export function PlaceDetailOverlay({
             {/* Reviews Header & Overall Score */}
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
-                <h3 className="text-lg font-bold text-foreground">Reviews</h3>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-foreground">
-                    {formatRating(place.rating, locale)}
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {Number(place.rating || 0) >= 4.5
-                      ? (locale === "vi" ? "Xuất sắc" : "Excellent")
-                      : Number(place.rating || 0) >= 4.0
-                      ? (locale === "vi" ? "Rất tốt" : "Very Good")
-                      : (locale === "vi" ? "Tốt" : "Good")}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    · ★ {formatReviewCount(place.userRatingCount, locale)} {locale === "vi" ? "đánh giá" : "reviews"}
-                  </span>
-                </div>
+                <h3 className="text-lg font-bold text-foreground">
+                  {locale === "vi" ? "Đánh giá" : "Reviews"}
+                </h3>
+                {typeof place.rating === "number" && place.rating > 0 ? (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-foreground">
+                      {formatRating(place.rating, locale)}
+                    </span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {Number(place.rating || 0) >= 4.5
+                        ? (locale === "vi" ? "Xuất sắc" : "Excellent")
+                        : Number(place.rating || 0) >= 4.0
+                        ? (locale === "vi" ? "Rất tốt" : "Very Good")
+                        : (locale === "vi" ? "Tốt" : "Good")}
+                    </span>
+                    {typeof place.userRatingCount === "number" && place.userRatingCount > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        · ★ {formatReviewCount(place.userRatingCount, locale)} {locale === "vi" ? "đánh giá" : "reviews"}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {locale === "vi" ? "Chưa có đánh giá nào" : "No reviews yet"}
+                  </p>
+                )}
               </div>
 
               <button
@@ -633,21 +645,26 @@ export function PlaceDetailOverlay({
               </button>
             </div>
 
-            {/* Google Badge Card */}
-            <div className="rounded-xl border border-border/70 p-3.5 w-fit space-y-1 bg-card shadow-2xs">
-              <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-                <span className="text-blue-500 font-bold">G</span>
-                <span className="text-red-500 font-bold">o</span>
-                <span className="text-amber-500 font-bold">o</span>
-                <span className="text-blue-500 font-bold">g</span>
-                <span className="text-green-500 font-bold">l</span>
-                <span className="text-red-500 font-bold">e</span>
-                <ExternalLink className="h-3 w-3 text-muted-foreground ml-1" />
+            {/* Google Badge Card - Only render when rating data exists */}
+            {typeof place.rating === "number" && place.rating > 0 && (
+              <div className="rounded-xl border border-border/70 p-3.5 w-fit space-y-1 bg-card shadow-2xs">
+                <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                  <span className="text-blue-500 font-bold">G</span>
+                  <span className="text-red-500 font-bold">o</span>
+                  <span className="text-amber-500 font-bold">o</span>
+                  <span className="text-blue-500 font-bold">g</span>
+                  <span className="text-green-500 font-bold">l</span>
+                  <span className="text-red-500 font-bold">e</span>
+                  <ExternalLink className="h-3 w-3 text-muted-foreground ml-1" />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatRating(place.rating, locale)}/5
+                  {typeof place.userRatingCount === "number" && place.userRatingCount > 0 && (
+                    <> · {formatReviewCount(place.userRatingCount, locale)} {locale === "vi" ? "đánh giá" : "reviews"}</>
+                  )}
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {formatRating(place.rating, locale)}/5 · {formatReviewCount(place.userRatingCount, locale)} {locale === "vi" ? "đánh giá" : "reviews"}
-              </div>
-            </div>
+            )}
 
             {/* Real Reviews Cards List */}
             {place.reviews && place.reviews.length > 0 ? (

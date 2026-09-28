@@ -29,29 +29,27 @@ import { PersonalizationEditor } from "./personalization-editor";
 
 interface SettingsTabItem {
   id: string;
-  labelEn: string;
-  labelVi: string;
+  labelKey: string;
   icon: React.ElementType;
 }
 
 const SETTINGS_TABS: readonly SettingsTabItem[] = [
-  { id: "personalization", labelEn: "Personalization", labelVi: "Cá nhân hóa", icon: Sparkles },
-  { id: "profile", labelEn: "Edit profile", labelVi: "Hồ sơ cá nhân", icon: User },
-  { id: "account", labelEn: "Your account", labelVi: "Tài khoản của bạn", icon: Shield },
-  { id: "alerts", labelEn: "Price alerts", labelVi: "Cảnh báo giá vé", icon: Bell },
-  { id: "language", labelEn: "Language & region", labelVi: "Ngôn ngữ & khu vực", icon: Globe },
-  { id: "notifications", labelEn: "Notifications", labelVi: "Thông báo", icon: BellRing },
-  { id: "early_access", labelEn: "Early access", labelVi: "Tính năng thử nghiệm", icon: Zap },
-  { id: "connected", labelEn: "Connected accounts", labelVi: "Tài khoản liên kết", icon: Link2 },
-  { id: "cookies", labelEn: "Cookie preferences", labelVi: "Tùy chọn Cookie", icon: Cookie },
+  { id: "personalization", labelKey: "settings.userSettings.tabs.personalization", icon: Sparkles },
+  { id: "profile", labelKey: "settings.userSettings.tabs.profile", icon: User },
+  { id: "account", labelKey: "settings.userSettings.tabs.account", icon: Shield },
+  { id: "alerts", labelKey: "settings.userSettings.tabs.alerts", icon: Bell },
+  { id: "language", labelKey: "settings.userSettings.tabs.language", icon: Globe },
+  { id: "notifications", labelKey: "settings.userSettings.tabs.notifications", icon: BellRing },
+  { id: "early_access", labelKey: "settings.userSettings.tabs.earlyAccess", icon: Zap },
+  { id: "connected", labelKey: "settings.userSettings.tabs.connected", icon: Link2 },
+  { id: "cookies", labelKey: "settings.userSettings.tabs.cookies", icon: Cookie },
 ] as const;
 
 export function UserSettingsView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { t, locale } = useTranslation();
-  const isEn = locale === "en";
+  const { t } = useTranslation();
 
   const initialTab = searchParams.get("tab") || "personalization";
   const [activeTab, setActiveTab] = React.useState<string>(initialTab);
@@ -75,7 +73,7 @@ export function UserSettingsView() {
         <aside className="w-full md:w-64 shrink-0 space-y-1">
           <div className="px-3 pb-3 hidden md:block">
             <h2 className="text-base font-bold text-foreground">
-              {isEn ? "Settings" : "Cài đặt"}
+              {t("settings.userSettings.title")}
             </h2>
           </div>
 
@@ -102,7 +100,7 @@ export function UserSettingsView() {
                       isActive ? "text-primary" : "text-muted-foreground"
                     )}
                   />
-                  <span>{isEn ? tab.labelEn : tab.labelVi}</span>
+                  <span>{t(tab.labelKey)}</span>
                 </button>
               );
             })}
@@ -130,8 +128,7 @@ function ProfileSettingsPanel() {
   const { user } = useAuth();
   const { data: profile, isLoading } = useUserProfile(user?.id || "");
   const { mutateAsync: updateProfile, isLoading: isSaving } = useUpdateProfile();
-  const { locale } = useTranslation();
-  const isEn = locale === "en";
+  const { t } = useTranslation();
 
   const [displayName, setDisplayName] = React.useState("");
   const [location, setLocation] = React.useState("");
@@ -175,10 +172,10 @@ function ProfileSettingsPanel() {
     <div className="space-y-6 max-w-2xl">
       <div className="border-b border-border/50 pb-5">
         <h1 className="text-xl font-bold tracking-tight text-foreground">
-          {isEn ? "Profile" : "Hồ sơ"}
+          {t("settings.userSettings.profile.title")}
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {isEn ? "Manage how your identity appears across TripSense." : "Quản lý thông tin hiển thị của bạn trên TripSense."}
+          {t("settings.userSettings.profile.manageSubtitle")}
         </p>
       </div>
 
@@ -203,7 +200,7 @@ function ProfileSettingsPanel() {
 
         <div className="space-y-2">
           <label className="text-xs font-semibold text-foreground">
-            {isEn ? "Display Name" : "Tên hiển thị"}
+            {t("settings.userSettings.profile.displayName")}
           </label>
           <Input
             value={displayName}
@@ -214,19 +211,19 @@ function ProfileSettingsPanel() {
 
         <div className="space-y-2">
           <label className="text-xs font-semibold text-foreground">
-            {isEn ? "Location" : "Khu vực"}
+            {t("settings.userSettings.profile.location")}
           </label>
           <Input
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder={isEn ? "e.g. Da Nang, Vietnam" : "Ví dụ: Đà Nẵng, Việt Nam"}
+            placeholder={t("settings.userSettings.profile.locationPlaceholder")}
             className="text-xs bg-background h-9 rounded-xl border-border"
           />
         </div>
 
         <div className="space-y-2">
           <label className="text-xs font-semibold text-foreground">
-            {isEn ? "Website" : "Trang web"}
+            {t("settings.userSettings.profile.website")}
           </label>
           <Input
             value={website}
@@ -238,12 +235,12 @@ function ProfileSettingsPanel() {
 
         <div className="space-y-2">
           <label className="text-xs font-semibold text-foreground">
-            {isEn ? "Bio" : "Giới thiệu bản thân"}
+            {t("settings.userSettings.profile.bio")}
           </label>
           <Textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            placeholder={isEn ? "Tell the community about yourself..." : "Chia sẻ đôi điều về bạn..."}
+            placeholder={t("settings.userSettings.profile.bioPlaceholder")}
             className="text-xs min-h-[90px] rounded-xl border-border resize-y"
           />
         </div>
@@ -252,7 +249,7 @@ function ProfileSettingsPanel() {
           {savedSuccess && (
             <span className="text-micro font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
               <Check className="h-3.5 w-3.5" />
-              <span>{isEn ? "Saved!" : "Đã lưu!"}</span>
+              <span>{t("settings.userSettings.profile.saved")}</span>
             </span>
           )}
           <Button
@@ -261,7 +258,7 @@ function ProfileSettingsPanel() {
             className="rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 px-5 shadow-xs cursor-pointer"
           >
             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            <span>{isSaving ? (isEn ? "Saving..." : "Đang lưu...") : (isEn ? "Save changes" : "Lưu thay đổi")}</span>
+            <span>{isSaving ? t("settings.userSettings.profile.saving") : t("settings.userSettings.profile.save")}</span>
           </Button>
         </div>
       </form>
@@ -272,17 +269,16 @@ function ProfileSettingsPanel() {
 // Account Details Panel
 function AccountSettingsPanel() {
   const { user } = useAuth();
-  const { locale } = useTranslation();
-  const isEn = locale === "en";
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="border-b border-border/50 pb-5">
         <h1 className="text-xl font-bold tracking-tight text-foreground">
-          {isEn ? "Your account" : "Tài khoản của bạn"}
+          {t("settings.userSettings.account.title")}
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {isEn ? "Security and account details." : "Chi tiết tài khoản và bảo mật."}
+          {t("settings.userSettings.account.securitySubtitle")}
         </p>
       </div>
 
@@ -297,7 +293,7 @@ function AccountSettingsPanel() {
         </div>
         <div className="space-y-1 pt-3 border-t border-border/40">
           <span className="text-micro text-muted-foreground font-semibold uppercase">
-            {isEn ? "Role" : "Vai trò"}
+            {t("settings.userSettings.account.role")}
           </span>
           <p className="text-xs font-bold text-foreground">{user?.role || "USER"}</p>
         </div>
@@ -308,8 +304,7 @@ function AccountSettingsPanel() {
 
 // Generic Placeholder for secondary tabs
 function GenericSettingsPanel({ tab }: { tab: SettingsTabItem }) {
-  const { locale } = useTranslation();
-  const isEn = locale === "en";
+  const { t } = useTranslation();
   const Icon = tab.icon;
 
   return (
@@ -321,10 +316,10 @@ function GenericSettingsPanel({ tab }: { tab: SettingsTabItem }) {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">
-              {isEn ? tab.labelEn : tab.labelVi}
+              {t(tab.labelKey)}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {isEn ? "Preferences and preferences management." : "Quản lý và thiết lập hệ thống."}
+              {t("settings.userSettings.generic.subtitle")}
             </p>
           </div>
         </div>
@@ -332,12 +327,10 @@ function GenericSettingsPanel({ tab }: { tab: SettingsTabItem }) {
 
       <div className="rounded-2xl border border-border/50 bg-card p-8 text-center space-y-2 shadow-xs">
         <p className="text-xs font-medium text-foreground">
-          {isEn
-            ? "This setting section is in active development and will be available soon."
-            : "Mục cài đặt này đang được hoàn thiện và sẽ sớm khả dụng."}
+          {t("settings.userSettings.generic.inDevelopment")}
         </p>
         <p className="text-micro text-muted-foreground">
-          {isEn ? "TripSense Platform · Mindtrip Design System" : "Nền tảng TripSense · Chuẩn giao diện Mindtrip"}
+          {t("settings.userSettings.generic.footer")}
         </p>
       </div>
     </div>

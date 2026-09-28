@@ -17,6 +17,9 @@ server:
   port: ${PLACE_SERVICE_PORT:${SERVER_PORT:8083}}
   shutdown: graceful
 
+jwt:
+  access-secret: ${JWT_ACCESS_SECRET:}
+
 ziomap:
   base-url: ${ZIOMAP_BASE_URL:https://ziomap-api.socibi.com}
   api-key: ${ZIOMAP_API_KEY:}
@@ -40,6 +43,7 @@ tripsense:
       min-local-results: ${MIN_LOCAL_RESULTS:5}
     recommendation-service-url: ${RECOMMENDATION_SERVICE_URL:http://localhost:8088}
     recommendation-internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:}
+    encryption-secret: ${API_KEY_ENCRYPTION_SECRET:tripsense-default-api-key-encryption-secret-32b}
 
 eureka:
   client:

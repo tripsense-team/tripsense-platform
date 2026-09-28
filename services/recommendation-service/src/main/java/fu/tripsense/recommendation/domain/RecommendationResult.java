@@ -1,8 +1,8 @@
 package fu.tripsense.recommendation.domain;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.Map;
+import java.util.UUID;
 
 public record RecommendationResult(
     UUID recommendationId,
@@ -21,9 +21,21 @@ public record RecommendationResult(
     rejectedByReason = rejectedByReason == null ? Map.of() : Map.copyOf(rejectedByReason);
   }
 
-  public RecommendationResult(UUID recommendationId, UUID requestId, List<RankedCandidate> items,
-      AlgorithmVersions versions, List<String> degradations) {
-    this(recommendationId, requestId, items, versions, degradations, items == null ? 0 : items.size(),
-        List.of(), items == null ? 0 : items.size(), Map.of());
+  public RecommendationResult(
+      UUID recommendationId,
+      UUID requestId,
+      List<RankedCandidate> items,
+      AlgorithmVersions versions,
+      List<String> degradations) {
+    this(
+        recommendationId,
+        requestId,
+        items,
+        versions,
+        degradations,
+        items == null ? 0 : items.size(),
+        List.of(),
+        items == null ? 0 : items.size(),
+        Map.of());
   }
 }

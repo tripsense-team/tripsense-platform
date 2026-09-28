@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 public class PlaceBatchEnrichmentService {
 
   private static final int MAX_LOGS = 40;
+  private static final int BATCH_CHUNK_SIZE = 50;
   private static final DateTimeFormatter TIME_FMT =
       DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
 
@@ -177,100 +178,115 @@ public class PlaceBatchEnrichmentService {
   }
 
   private void runPipeline(List<Place> places, ExecutorService executor) {
-    List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-    for (Place place : places) {
-      if (cancelled.get() || zioMapProvider.isLastCallQuotaExceeded()) {
-        if (zioMapProvider.isLastCallQuotaExceeded()) {
-          handleQuotaExceeded();
-        }
-        break;
-      }
-
-      CompletableFuture<Void> future =
-          CompletableFuture.runAsync(
-              () -> {
-                if (cancelled.get() || zioMapProvider.isLastCallQuotaExceeded()) {
-                  if (zioMapProvider.isLastCallQuotaExceeded()) {
-                    handleQuotaExceeded();
-                  }
-                  return;
-                }
-                currentPlaceName = place.getName();
-                try {
-                  // Throttle slightly between requests to protect ZioMap quota
-                  Thread.sleep(100);
-
-                  Double lat =
-                      place.getLocation() != null ? place.getLocation().getY() : null;
-                  Double lng =
-                      place.getLocation() != null ? place.getLocation().getX() : null;
-
-                  Optional<PlaceDto> enriched =
-                      placeDetailsService.getDetails(
-                          place.getId(), place.getName(), lat, lng, true);
-
-                  if (zioMapProvider.isLastCallQuotaExceeded()) {
-                    handleQuotaExceeded();
-                    return;
-                  }
-
-                  if (enriched.isPresent()) {
-                    PlaceDto dto = enriched.get();
-                    int photoCount = dto.getPhotos() != null ? dto.getPhotos().size() : 0;
-                    int reviewCount = dto.getReviews() != null ? dto.getReviews().size() : 0;
-                    Double rating = dto.getRating();
-
-                    boolean hasNewEnrichment = photoCount > 0 || reviewCount > 0 || rating != null;
-                    if (hasNewEnrichment) {
-                      success.incrementAndGet();
-                      addLog(
-                          String.format(
-                              "[%d/%d] Enriched '%s' (rating: %s, %d reviews, %d photos) -> Qdrant synced",
-                              processed.get() + 1,
-                              total.get(),
-                              place.getName(),
-                              rating != null ? String.valueOf(rating) : "N/A",
-                              reviewCount,
-                              photoCount));
-                    } else {
-                      failed.incrementAndGet();
-                      addLog(
-                          String.format(
-                              "[WARN] Không tìm thấy thông tin bổ sung cho '%s' trên ZioMap",
-                              place.getName()));
-                    }
-                  } else {
-                    failed.incrementAndGet();
-                    addLog(
-                        String.format(
-                            "[WARN] Không tìm thấy thông tin bổ sung cho '%s' trên ZioMap",
-                            place.getName()));
-                  }
-                } catch (InterruptedException ie) {
-                  Thread.currentThread().interrupt();
-                } catch (Exception ex) {
-                  failed.incrementAndGet();
-                  addLog(
-                      String.format(
-                          "[ERROR] '%s': %s",
-                          place.getName(),
-                          ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName()));
-                  if (isQuotaOrAuthException(ex)) {
-                    handleQuotaExceeded();
-                  }
-                } finally {
-                  processed.incrementAndGet();
-                }
-              },
-              executor);
-
-      futures.add(future);
-    }
-
     try {
-      CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-    } catch (Exception ignored) {
+      for (int i = 0; i < places.size(); i += BATCH_CHUNK_SIZE) {
+        if (cancelled.get() || zioMapProvider.isLastCallQuotaExceeded()) {
+          if (zioMapProvider.isLastCallQuotaExceeded()) {
+            handleQuotaExceeded();
+          }
+          break;
+        }
+
+        int end = Math.min(i + BATCH_CHUNK_SIZE, places.size());
+        List<Place> chunk = places.subList(i, end);
+        List<CompletableFuture<Void>> chunkFutures = new ArrayList<>();
+
+        for (Place place : chunk) {
+          if (cancelled.get() || zioMapProvider.isLastCallQuotaExceeded()) {
+            if (zioMapProvider.isLastCallQuotaExceeded()) {
+              handleQuotaExceeded();
+            }
+            break;
+          }
+
+          CompletableFuture<Void> future =
+              CompletableFuture.runAsync(
+                  () -> {
+                    if (cancelled.get() || zioMapProvider.isLastCallQuotaExceeded()) {
+                      if (zioMapProvider.isLastCallQuotaExceeded()) {
+                        handleQuotaExceeded();
+                      }
+                      return;
+                    }
+                    currentPlaceName = place.getName();
+                    try {
+                      // Throttle slightly between requests to protect ZioMap quota
+                      Thread.sleep(100);
+
+                      Double lat = place.getLocation() != null ? place.getLocation().getY() : null;
+                      Double lng = place.getLocation() != null ? place.getLocation().getX() : null;
+
+                      Optional<PlaceDto> enriched =
+                          placeDetailsService.getDetails(
+                              place.getId(), place.getName(), lat, lng, true);
+
+                      if (zioMapProvider.isLastCallQuotaExceeded()) {
+                        handleQuotaExceeded();
+                        return;
+                      }
+
+                      if (enriched.isPresent()) {
+                        PlaceDto dto = enriched.get();
+                        int photoCount = dto.getPhotos() != null ? dto.getPhotos().size() : 0;
+                        int reviewCount = dto.getReviews() != null ? dto.getReviews().size() : 0;
+                        Double rating = dto.getRating();
+
+                        boolean hasNewEnrichment =
+                            photoCount > 0 || reviewCount > 0 || rating != null;
+                        if (hasNewEnrichment) {
+                          success.incrementAndGet();
+                          addLog(
+                              String.format(
+                                  "[%d/%d] Enriched '%s' (rating: %s, %d reviews, %d photos) -> Qdrant synced",
+                                  processed.get() + 1,
+                                  total.get(),
+                                  place.getName(),
+                                  rating != null ? String.valueOf(rating) : "N/A",
+                                  reviewCount,
+                                  photoCount));
+                        } else {
+                          failed.incrementAndGet();
+                          addLog(
+                              String.format(
+                                  "[WARN] Không tìm thấy thông tin bổ sung cho '%s' trên ZioMap",
+                                  place.getName()));
+                        }
+                      } else {
+                        failed.incrementAndGet();
+                        addLog(
+                            String.format(
+                                "[WARN] Không tìm thấy thông tin bổ sung cho '%s' trên ZioMap",
+                                place.getName()));
+                      }
+                    } catch (InterruptedException ie) {
+                      Thread.currentThread().interrupt();
+                    } catch (Exception ex) {
+                      failed.incrementAndGet();
+                      log.error(
+                          "Batch enrichment failed for place '{}' (id={}): {}",
+                          place.getName(),
+                          place.getId(),
+                          ex.getMessage(),
+                          ex);
+                      String sanitizedReason = sanitizeErrorMessage(ex);
+                      addLog(String.format("[ERROR] '%s': %s", place.getName(), sanitizedReason));
+                      if (isQuotaOrAuthException(ex)) {
+                        handleQuotaExceeded();
+                      }
+                    } finally {
+                      processed.incrementAndGet();
+                    }
+                  },
+                  executor);
+
+          chunkFutures.add(future);
+        }
+
+        try {
+          CompletableFuture.allOf(chunkFutures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception ignored) {
+        }
+      }
     } finally {
       executor.shutdown();
       try {
@@ -306,7 +322,8 @@ public class PlaceBatchEnrichmentService {
       }
       String err = zioMapProvider.getLastQuotaErrorMessage();
       if (err == null || err.isBlank()) {
-        err = "ZioMap API Key đã hết lượt gọi hoặc token không hợp lệ (Quota Exceeded / 401 / 402 / 429).";
+        err =
+            "ZioMap API Key đã hết lượt gọi hoặc token không hợp lệ (Quota Exceeded / 401 / 402 / 429).";
       }
       addLog(String.format("[FATAL] %s", err));
       addLog(
@@ -342,6 +359,22 @@ public class PlaceBatchEnrichmentService {
       current = current.getCause();
     }
     return false;
+  }
+
+  private String sanitizeErrorMessage(Throwable ex) {
+    if (isQuotaOrAuthException(ex)) {
+      return "Dịch vụ bản đồ từ chối xác thực hoặc đã vượt hạn mức truy vấn (Quota/Auth error)";
+    }
+    Throwable current = ex;
+    while (current != null) {
+      if (current instanceof java.net.SocketTimeoutException
+          || current instanceof java.net.ConnectException
+          || current instanceof org.springframework.web.client.ResourceAccessException) {
+        return "Lỗi kết nối hoặc quá thời gian phản hồi từ dịch vụ bản đồ (Network timeout)";
+      }
+      current = current.getCause();
+    }
+    return "Lỗi xử lý dữ liệu địa điểm (Enrichment processing error)";
   }
 
   private void addLog(String message) {

@@ -2,8 +2,8 @@ package fu.tripsense.placeservice.controller;
 
 import fu.tripsense.placeservice.dto.ApiResponse;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
-import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
+import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
 import fu.tripsense.placeservice.service.PlaceDetailsService;
@@ -181,9 +181,7 @@ public class PlaceController {
     }
 
     return includePhoto
-        ? ResponseEntity.ok()
-            .cacheControl(CacheControl.noStore())
-            .body(ApiResponse.ok(place.get()))
+        ? ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.ok(place.get()))
         : ResponseEntity.ok(ApiResponse.ok(place.get()));
   }
 

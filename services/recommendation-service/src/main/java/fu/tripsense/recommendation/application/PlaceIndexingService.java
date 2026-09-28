@@ -27,19 +27,20 @@ public class PlaceIndexingService {
     }
     AtomicInteger indexed = new AtomicInteger();
     AtomicInteger skipped = new AtomicInteger();
-    places.parallelStream().forEach(place -> {
-      try {
-        if (indexer.get().indexIfChanged(place)) {
-          indexed.incrementAndGet();
-        } else {
-          skipped.incrementAndGet();
-        }
-      } catch (Exception e) {
-        log.error(
-            "Place indexing failed: errorType={}", e.getClass().getSimpleName());
-        skipped.incrementAndGet();
-      }
-    });
+    places.parallelStream()
+        .forEach(
+            place -> {
+              try {
+                if (indexer.get().indexIfChanged(place)) {
+                  indexed.incrementAndGet();
+                } else {
+                  skipped.incrementAndGet();
+                }
+              } catch (Exception e) {
+                log.error("Place indexing failed: errorType={}", e.getClass().getSimpleName());
+                skipped.incrementAndGet();
+              }
+            });
     log.info(
         "Place indexing completed: submitted={}, indexed={}, skipped={}",
         places.size(),

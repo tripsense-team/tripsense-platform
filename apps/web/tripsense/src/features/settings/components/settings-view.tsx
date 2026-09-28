@@ -21,7 +21,9 @@ export function SettingsView() {
       const data = await fetchPlaceStats();
       setStats(data);
     } catch (err) {
-      console.error("Failed to load place stats:", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to load place stats:", err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setLoadingStats(false);
     }

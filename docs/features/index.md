@@ -10,7 +10,7 @@ Track every feature that enters the multi-agent workflow.
 | `explore-for-you-personalized-recommendations` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/recommendation-service`, `services/context-service`, `services/place-service` | [Docs](./explore-for-you-personalized-recommendations.md) |
 | `mindtrip-explore-experience-redesign` | DONE | `apps/web/tripsense` | [Docs](./mindtrip-explore-experience-redesign.md) |
 | `explore-search-autocomplete-dropdown` | DONE | `apps/web/tripsense` | [Docs](./explore-search-autocomplete-dropdown.md) |
-| `place-detail-map-overlay` | IMPLEMENTING | `apps/web/tripsense` | [Docs](./place-detail-map-overlay.md) |
+| `place-detail-map-overlay` | DONE | `apps/web/tripsense` | [Docs](./place-detail-map-overlay.md) |
 | `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |
 | `web-typography-system` | DONE | `apps/web/tripsense` | [Docs](./web-typography-system.md) |
 | `place-search-embedding-sync` | DONE | `services/place-service`, `services/recommendation-service` | [Docs](./place-search-embedding-sync.md) |

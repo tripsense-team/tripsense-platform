@@ -1,6 +1,6 @@
 # Place Detail Map Overlay — Specification & Implementation Plan
 
-`STATUS: IMPLEMENTING`
+`STATUS: DONE`
 
 - **Owner Service**: `apps/web/tripsense`
 - **Affected Components**: `apps/web/tripsense/src/features/places/components/place-detail-overlay.tsx`, `apps/web/tripsense/src/features/places/components/place-discovery-view.tsx`, `apps/web/tripsense/src/features/places/components/place-detail-modal.tsx`

@@ -8,7 +8,6 @@ import fu.tripsense.placeservice.dto.PlaceDto;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.client.RestClient;
 
 class RecommendationIndexerClientTest {
 
@@ -23,7 +22,8 @@ class RecommendationIndexerClientTest {
   }
 
   @Test
-  @DisplayName("Should swallow exception gracefully when downstream recommendation-service is unreachable")
+  @DisplayName(
+      "Should swallow exception gracefully when downstream recommendation-service is unreachable")
   void shouldSwallowExceptionGracefully() {
     TripSensePlaceProperties properties = new TripSensePlaceProperties();
     properties.setRecommendationServiceUrl("http://localhost:9999"); // unreachable port

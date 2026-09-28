@@ -1,7 +1,7 @@
 package fu.tripsense.recommendation.api.dto;
 
-import fu.tripsense.recommendation.domain.AlgorithmVersions;
 import fu.tripsense.recommendation.application.ExploreRecommendationResult;
+import fu.tripsense.recommendation.domain.AlgorithmVersions;
 import java.util.List;
 import java.util.UUID;
 

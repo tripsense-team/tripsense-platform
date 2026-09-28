@@ -38,11 +38,18 @@ public class QualityFeatureExtractor implements FeatureExtractor {
     int safeCount = popularityAvailable ? count : 0;
     boolean ratingAvailable = rating != null && rating >= 0 && rating <= 5 && safeCount > 0;
     if (!ratingAvailable && !popularityAvailable) return current;
-    double weighted = ratingAvailable ? bayesian.weightedRating(rating, safeCount, priorRating, confidenceThreshold) : 0;
+    double weighted =
+        ratingAvailable
+            ? bayesian.weightedRating(rating, safeCount, priorRating, confidenceThreshold)
+            : 0;
     double popular = popularity.unitScale(popularity.logPopularity(safeCount));
     return current.withQuality(
-        new CandidateFeatures.Quality(ratingAvailable, popularityAvailable,
-            ratingAvailable ? rating : null, popularityAvailable ? safeCount : null,
-            ratingAvailable ? weighted / 5.0 : 0, popularityAvailable ? popular : 0));
+        new CandidateFeatures.Quality(
+            ratingAvailable,
+            popularityAvailable,
+            ratingAvailable ? rating : null,
+            popularityAvailable ? safeCount : null,
+            ratingAvailable ? weighted / 5.0 : 0,
+            popularityAvailable ? popular : 0));
   }
 }

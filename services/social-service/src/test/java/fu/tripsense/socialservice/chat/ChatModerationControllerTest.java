@@ -57,9 +57,10 @@ class ChatModerationControllerTest {
     when(chatService.report(eq(conversationId), eq(request))).thenReturn(receipt);
 
     mockMvc
-        .perform(post("/api/social/chat/conversations/" + conversationId + "/reports")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+        .perform(
+            post("/api/social/chat/conversations/" + conversationId + "/reports")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.id").value(reportId.toString()))
@@ -71,23 +72,25 @@ class ChatModerationControllerTest {
   @Test
   @DisplayName("GET /api/social/moderation/chat-reports returns 200 and paginated report cases")
   void reports_Success() throws Exception {
-    ReportCase reportCase = new ReportCase(
-        reportId,
-        conversationId,
-        reporterId,
-        reportedUserId,
-        "HARASSMENT",
-        "Offensive language",
-        "PENDING",
-        Instant.now(),
-        List.of());
+    ReportCase reportCase =
+        new ReportCase(
+            reportId,
+            conversationId,
+            reporterId,
+            reportedUserId,
+            "HARASSMENT",
+            "Offensive language",
+            "PENDING",
+            Instant.now(),
+            List.of());
     when(chatService.reports("PENDING", null, 20))
         .thenReturn(new Page<>(List.of(reportCase), null));
 
     mockMvc
-        .perform(get("/api/social/moderation/chat-reports")
-            .param("status", "PENDING")
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(
+            get("/api/social/moderation/chat-reports")
+                .param("status", "PENDING")
+                .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.items[0].id").value(reportId.toString()))
@@ -104,9 +107,10 @@ class ChatModerationControllerTest {
     when(chatService.decide(eq(reportId), eq(request))).thenReturn(receipt);
 
     mockMvc
-        .perform(post("/api/social/moderation/chat-reports/" + reportId + "/decision")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+        .perform(
+            post("/api/social/moderation/chat-reports/" + reportId + "/decision")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.status").value("ACTIONED"));

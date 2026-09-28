@@ -10,11 +10,7 @@ public interface PlaceDetailsService {
       String id, String fallbackName, Double fallbackLat, Double fallbackLng);
 
   Optional<PlaceDto> getDetails(
-      String id,
-      String fallbackName,
-      Double fallbackLat,
-      Double fallbackLng,
-      boolean includePhoto);
+      String id, String fallbackName, Double fallbackLat, Double fallbackLng, boolean includePhoto);
 
   List<PlaceDto> getSnapshots(List<String> ids);
 }

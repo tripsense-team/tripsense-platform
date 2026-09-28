@@ -1,8 +1,8 @@
 package fu.tripsense.placeservice.service;
 
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
-import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
+import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
 import java.util.List;

@@ -27,16 +27,12 @@ public class ExplorePreferenceMapper {
           Map.entry("HOSTEL", List.of(new Affinity("hostel", 1.0), new Affinity("lodging", 0.8))),
           Map.entry("RESORT", List.of(new Affinity("resort", 1.0), new Affinity("lodging", 0.8))),
           Map.entry(
-              "NATURE",
-              List.of(new Affinity("nature", 1.0), new Affinity("attraction", 0.7))),
+              "NATURE", List.of(new Affinity("nature", 1.0), new Affinity("attraction", 0.7))),
           Map.entry(
-              "HIKING",
-              List.of(new Affinity("hiking", 1.0), new Affinity("attraction", 0.7))),
+              "HIKING", List.of(new Affinity("hiking", 1.0), new Affinity("attraction", 0.7))),
           Map.entry(
-              "CULTURE",
-              List.of(new Affinity("culture", 1.0), new Affinity("attraction", 0.7))),
-          Map.entry(
-              "BEACH", List.of(new Affinity("beach", 1.0), new Affinity("attraction", 0.7))),
+              "CULTURE", List.of(new Affinity("culture", 1.0), new Affinity("attraction", 0.7))),
+          Map.entry("BEACH", List.of(new Affinity("beach", 1.0), new Affinity("attraction", 0.7))),
           Map.entry(
               "NIGHTLIFE",
               List.of(new Affinity("nightlife", 1.0), new Affinity("attraction", 0.5))));
@@ -56,8 +52,12 @@ public class ExplorePreferenceMapper {
 
   private boolean supportedDimension(String value) {
     return switch (value.trim().toUpperCase(Locale.ROOT)) {
-      case "FOOD_STYLE", "ACTIVITY_INTEREST", "STAY_STYLE", "SPLURGE_CATEGORY",
-          "EXPLORE_AFFINITY" -> true;
+      case "FOOD_STYLE",
+          "ACTIVITY_INTEREST",
+          "STAY_STYLE",
+          "SPLURGE_CATEGORY",
+          "EXPLORE_AFFINITY" ->
+          true;
       default -> false;
     };
   }

@@ -95,8 +95,11 @@ export function I18nProvider({ children, initialLocale }: I18nProviderProps) {
         text = resolvePath(fallbackTranslations, key);
       }
 
-      // If still missing, return the raw key
+      // If still missing, return defaultValue if provided, or raw key
       if (text === undefined) {
+        if (params && "defaultValue" in params && params.defaultValue !== undefined) {
+          return String(params.defaultValue);
+        }
         return key;
       }
 

@@ -503,26 +503,33 @@
     },
     "personalization": {
       "addCustom": "+ Thêm lựa chọn khác",
+      "addCustomPrompt": "+ Thêm \"{{name}}\"",
       "addDestination": "Thêm địa điểm",
       "addWishlist": "Thêm điểm mơ ước",
       "customOptionPlaceholder": "Nhập lựa chọn của bạn (ví dụ: Biệt thự hướng biển)...",
+      "destinationSearchPlaceholder": "Nhập tên điểm đến (ví dụ: Đà Nẵng, Tokyo)...",
       "discard": "Hủy thay đổi",
+      "enterOtherChoice": "Nhập lựa chọn khác...",
       "experiencesSubtitle": "Các địa điểm bạn đã từng ghé thăm và danh sách điểm đến mong muốn",
       "experiencesTitle": "Kinh nghiệm & Điểm đến",
       "homeCityPlaceholder": "Nhập thành phố bạn đang ở...",
       "homeCitySubtitle": "Thành phố sinh sống giúp TripSense đề xuất các lộ trình và điểm đến phù hợp",
       "homeCityTitle": "Thành phố cư trú",
       "loadError": "Không thể tải hồ sơ cá nhân hóa. Vui lòng thử lại.",
+      "loadingPreferences": "Đang tải hồ sơ cá nhân hóa của bạn...",
       "multiChoice": "Chọn nhiều",
       "notesPlaceholder": "Ví dụ: Thích quán cà phê chill, săn ảnh hoàng hôn, ăn thanh đạm, ưu tiên nơi yên tĩnh...",
       "notesSubtitle": "Thêm khẩu vị ăn uống, sở thích đặc biệt hoặc ghi chú riêng cho AI khi gợi ý",
       "notesTitle": "Ghi chú du lịch & Yêu cầu riêng",
       "noVisited": "Chưa có địa điểm nào được chọn.",
       "noWishlist": "Chưa có điểm đến mong muốn nào.",
+      "otherChoice": "+ Khác",
+      "popularSuggestions": "Gợi ý phổ biến",
       "preferencesSubtitle": "Tùy chỉnh nhóm đồng hành, mức ngân sách, nơi lưu trú và các hoạt động ưa thích",
       "preferencesTitle": "Phong cách & Sở thích chuyến đi",
       "quickSelect": "Chọn nhanh:",
       "quickTags": "Gợi ý nhanh:",
+      "removeDestination": "Xóa địa điểm",
       "save": "Lưu thay đổi",
       "saved": "Đã lưu!",
       "saveError": "Lưu tùy chỉnh thất bại. Vui lòng thử lại.",
@@ -594,6 +601,43 @@
       "testAndActivate": "Kiểm tra & Kích hoạt",
       "title": "Quản lý Token Pool & Tự động xoay vòng",
       "totalKeys": "Tổng số key"
+    },
+    "userSettings": {
+      "account": {
+        "role": "Vai trò",
+        "securitySubtitle": "Chi tiết tài khoản và bảo mật.",
+        "title": "Tài khoản của bạn"
+      },
+      "generic": {
+        "footer": "Nền tảng TripSense · Chuẩn giao diện Mindtrip",
+        "inDevelopment": "Mục cài đặt này đang được hoàn thiện và sẽ sớm khả dụng.",
+        "subtitle": "Quản lý và thiết lập hệ thống."
+      },
+      "profile": {
+        "bio": "Giới thiệu bản thân",
+        "bioPlaceholder": "Chia sẻ đôi điều về bạn...",
+        "displayName": "Tên hiển thị",
+        "location": "Khu vực",
+        "locationPlaceholder": "Ví dụ: Đà Nẵng, Việt Nam",
+        "manageSubtitle": "Quản lý thông tin hiển thị của bạn trên TripSense.",
+        "save": "Lưu thay đổi",
+        "saved": "Đã lưu!",
+        "saving": "Đang lưu...",
+        "title": "Hồ sơ",
+        "website": "Trang web"
+      },
+      "tabs": {
+        "account": "Tài khoản của bạn",
+        "alerts": "Cảnh báo giá vé",
+        "connected": "Tài khoản liên kết",
+        "cookies": "Tùy chọn Cookie",
+        "earlyAccess": "Tính năng thử nghiệm",
+        "language": "Ngôn ngữ & khu vực",
+        "notifications": "Thông báo",
+        "personalization": "Cá nhân hóa",
+        "profile": "Hồ sơ cá nhân"
+      },
+      "title": "Cài đặt"
     }
   },
   "social": {

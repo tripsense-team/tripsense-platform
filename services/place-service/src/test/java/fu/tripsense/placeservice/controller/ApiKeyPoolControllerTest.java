@@ -38,17 +38,18 @@ class ApiKeyPoolControllerTest {
 
   @Test
   void shouldListKeysForProvider() throws Exception {
-    ApiKeyPoolItem item = ApiKeyPoolItem.builder()
-        .id("key-1")
-        .provider(ApiKeyProvider.ZIOMAP)
-        .maskedKey("eyJ1c...hub")
-        .status(ApiKeyStatus.ACTIVE)
-        .build();
+    ApiKeyPoolItem item =
+        ApiKeyPoolItem.builder()
+            .id("key-1")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .maskedKey("eyJ1c...hub")
+            .status(ApiKeyStatus.ACTIVE)
+            .build();
 
     when(apiKeyPoolService.listKeys(ApiKeyProvider.ZIOMAP)).thenReturn(List.of(item));
 
     mockMvc
-        .perform(get("/api/places/internal/keys?provider=ZIOMAP"))
+        .perform(get("/api/places/admin/keys?provider=ZIOMAP"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data[0].id").value("key-1"))
@@ -58,19 +59,22 @@ class ApiKeyPoolControllerTest {
 
   @Test
   void shouldAddKeys() throws Exception {
-    AddApiKeysRequest request = new AddApiKeysRequest(ApiKeyProvider.ZIOMAP, List.of("key-abc-123"));
-    ApiKeyPoolItem savedItem = ApiKeyPoolItem.builder()
-        .id("key-2")
-        .provider(ApiKeyProvider.ZIOMAP)
-        .maskedKey("key-ab...-123")
-        .status(ApiKeyStatus.ACTIVE)
-        .build();
+    AddApiKeysRequest request =
+        new AddApiKeysRequest(ApiKeyProvider.ZIOMAP, List.of("key-abc-123"));
+    ApiKeyPoolItem savedItem =
+        ApiKeyPoolItem.builder()
+            .id("key-2")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .maskedKey("key-ab...-123")
+            .status(ApiKeyStatus.ACTIVE)
+            .build();
 
-    when(apiKeyPoolService.addKeys(eq(ApiKeyProvider.ZIOMAP), any())).thenReturn(List.of(savedItem));
+    when(apiKeyPoolService.addKeys(eq(ApiKeyProvider.ZIOMAP), any()))
+        .thenReturn(List.of(savedItem));
 
     mockMvc
         .perform(
-            post("/api/places/internal/keys")
+            post("/api/places/admin/keys")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -83,7 +87,7 @@ class ApiKeyPoolControllerTest {
     when(apiKeyPoolService.resetQuotaAll(ApiKeyProvider.ZIOMAP)).thenReturn(3);
 
     mockMvc
-        .perform(post("/api/places/internal/keys/reset-quota?provider=ZIOMAP"))
+        .perform(post("/api/places/admin/keys/reset-quota?provider=ZIOMAP"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.resetCount").value(3));

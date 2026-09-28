@@ -36,15 +36,16 @@ public class ExploreQueryRelevancePolicy {
             result.requestedCriteria(),
             result.retrievedCount(),
             result.rejectedByReason());
-    return new RecommendationApplicationService.PreparedRecommendation(prepared.context(), filtered);
+    return new RecommendationApplicationService.PreparedRecommendation(
+        prepared.context(), filtered);
   }
 
   boolean isEligible(RankedCandidate candidate) {
     var features = candidate.features();
     Double lexical = features.retrieval().lexicalRelevance();
     if (lexical != null && lexical >= minimumScore) return true;
-    if (features.semantic().available()
-        && features.semantic().querySimilarity() >= minimumScore) return true;
+    if (features.semantic().available() && features.semantic().querySimilarity() >= minimumScore)
+      return true;
     return features.sourceEvidence().stream()
         .anyMatch(
             evidence ->

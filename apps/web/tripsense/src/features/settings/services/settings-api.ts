@@ -1,4 +1,6 @@
+import { apiClient } from "@/services/api-client";
 import type {
+  ApiKeyPoolItem,
   BatchEnrichmentProgress,
   BatchEnrichmentRequest,
   PlaceStats,
@@ -25,132 +27,136 @@ interface ApiResponseEnvelope<T> {
   };
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
-  const json = (await res.json().catch(() => null)) as ApiResponseEnvelope<T> | null;
-  if (!res.ok || json?.success === false) {
+async function request<T>(
+  endpoint: string,
+  options: Parameters<typeof apiClient>[1] = {},
+): Promise<T> {
+  try {
+    const envelope = await apiClient<ApiResponseEnvelope<T>>(endpoint, options);
+    if (!envelope || envelope.success === false) {
+      throw new SettingsApiError(
+        envelope?.error?.message || "Request failed",
+        400,
+        envelope?.error?.code,
+      );
+    }
+    return envelope.data as T;
+  } catch (error: any) {
+    if (error instanceof SettingsApiError) {
+      throw error;
+    }
     throw new SettingsApiError(
-      json?.error?.message || `Request failed with status ${res.status}`,
-      res.status,
-      json?.error?.code,
+      error?.message || "Request failed",
+      error?.status || 500,
+      error?.code,
     );
   }
-  return json?.data as T;
 }
 
 export async function fetchPlaceStats(signal?: AbortSignal): Promise<PlaceStats> {
-  const res = await fetch("/api/places/internal/stats", {
+  return request<PlaceStats>("/api/places/admin/stats", {
     signal,
     cache: "no-store",
   });
-  return handleResponse<PlaceStats>(res);
 }
 
 export async function updateZioMapKey(
   apiKey: string,
   signal?: AbortSignal,
 ): Promise<ZioMapKeyUpdateResponse> {
-  const res = await fetch("/api/places/internal/config/ziomap", {
+  return request<ZioMapKeyUpdateResponse>("/api/places/admin/config/ziomap", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ apiKey }),
     signal,
   });
-  return handleResponse<ZioMapKeyUpdateResponse>(res);
 }
 
 export async function startBatchEnrichment(
   req?: BatchEnrichmentRequest,
   signal?: AbortSignal,
 ): Promise<BatchEnrichmentProgress> {
-  const res = await fetch("/api/places/internal/batch-enrich", {
+  return request<BatchEnrichmentProgress>("/api/places/admin/batch-enrich", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(req || {}),
     signal,
   });
-  return handleResponse<BatchEnrichmentProgress>(res);
 }
 
 export async function fetchBatchProgress(
   signal?: AbortSignal,
 ): Promise<BatchEnrichmentProgress> {
-  const res = await fetch("/api/places/internal/batch-enrich/progress", {
-    signal,
-    cache: "no-store",
-  });
-  return handleResponse<BatchEnrichmentProgress>(res);
+  return request<BatchEnrichmentProgress>(
+    "/api/places/admin/batch-enrich/progress",
+    {
+      signal,
+      cache: "no-store",
+    },
+  );
 }
 
 export async function cancelBatchEnrichment(
   signal?: AbortSignal,
 ): Promise<boolean> {
-  const res = await fetch("/api/places/internal/batch-enrich/cancel", {
+  return request<boolean>("/api/places/admin/batch-enrich/cancel", {
     method: "POST",
     signal,
   });
-  return handleResponse<boolean>(res);
 }
 
 export async function fetchApiKeys(
   provider: "ZIOMAP" | "GEMINI",
   signal?: AbortSignal,
-): Promise<import("../types").ApiKeyPoolItem[]> {
-  const res = await fetch(`/api/places/internal/keys?provider=${provider}`, {
-    signal,
-    cache: "no-store",
-  });
-  return handleResponse<import("../types").ApiKeyPoolItem[]>(res);
+): Promise<ApiKeyPoolItem[]> {
+  return request<ApiKeyPoolItem[]>(
+    `/api/places/admin/keys?provider=${provider}`,
+    {
+      signal,
+      cache: "no-store",
+    },
+  );
 }
 
 export async function addApiKeys(
   provider: "ZIOMAP" | "GEMINI",
   keys: string[],
   signal?: AbortSignal,
-): Promise<import("../types").ApiKeyPoolItem[]> {
-  const res = await fetch("/api/places/internal/keys", {
+): Promise<ApiKeyPoolItem[]> {
+  return request<ApiKeyPoolItem[]>("/api/places/admin/keys", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ provider, keys }),
     signal,
   });
-  return handleResponse<import("../types").ApiKeyPoolItem[]>(res);
 }
 
 export async function deleteApiKey(
   id: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`/api/places/internal/keys/${id}`, {
+  return request<void>(`/api/places/admin/keys/${id}`, {
     method: "DELETE",
     signal,
   });
-  return handleResponse<void>(res);
 }
 
 export async function activateApiKey(
   id: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`/api/places/internal/keys/${id}/activate`, {
+  return request<void>(`/api/places/admin/keys/${id}/activate`, {
     method: "POST",
     signal,
   });
-  return handleResponse<void>(res);
 }
 
 export async function resetQuotaKeys(
   provider: "ZIOMAP" | "GEMINI",
   signal?: AbortSignal,
 ): Promise<{ resetCount: number }> {
-  const res = await fetch(`/api/places/internal/keys/reset-quota?provider=${provider}`, {
-    method: "POST",
-    signal,
-  });
-  return handleResponse<{ resetCount: number }>(res);
+  return request<{ resetCount: number }>(
+    `/api/places/admin/keys/reset-quota?provider=${provider}`,
+    {
+      method: "POST",
+      signal,
+    },
+  );
 }

@@ -26,4 +26,3 @@ public interface PlaceProvider {
     return limit > 0 ? getPrimaryPhoto(providerPlaceId).stream().toList() : List.of();
   }
 }
-

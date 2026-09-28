@@ -20,8 +20,10 @@ public class MongoConfig {
     return builder ->
         builder
             .applyToClusterSettings(
-                settings -> settings.serverSelectionTimeout(serverSelectionTimeoutMs, TimeUnit.MILLISECONDS))
-            .applyToSocketSettings(settings -> settings.connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS));
+                settings ->
+                    settings.serverSelectionTimeout(
+                        serverSelectionTimeoutMs, TimeUnit.MILLISECONDS))
+            .applyToSocketSettings(
+                settings -> settings.connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS));
   }
 }
-

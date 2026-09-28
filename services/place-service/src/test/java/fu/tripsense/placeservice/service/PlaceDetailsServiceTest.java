@@ -1,7 +1,6 @@
 package fu.tripsense.placeservice.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceReview;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
@@ -27,7 +27,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,7 +45,12 @@ class PlaceDetailsServiceTest {
   void setUp() {
     service =
         new PlaceDetailsServiceImpl(
-            repository, provider, enrichmentProvider, cache, persistence, recommendationIndexerClient);
+            repository,
+            provider,
+            enrichmentProvider,
+            cache,
+            persistence,
+            recommendationIndexerClient);
   }
 
   @Test

@@ -86,7 +86,8 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
                 PlaceDto place = new PlaceDto();
                 BeanUtils.copyProperties(base, place);
 
-                // If photos already exist in database, use them immediately to save credits and load fast
+                // If photos already exist in database, use them immediately to save credits and
+                // load fast
                 if (base.getPhotos() != null && !base.getPhotos().isEmpty()) {
                   List<PlacePhotoDto> existingGallery =
                       base.getPhotos().stream()

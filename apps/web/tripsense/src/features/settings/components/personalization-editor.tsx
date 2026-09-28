@@ -30,8 +30,7 @@ import {
 } from "@/features/onboarding";
 
 export function PersonalizationEditor() {
-  const { t, locale } = useTranslation();
-  const isEn = locale === "en";
+  const { t } = useTranslation();
 
   // Data loading & saving state
   const [loading, setLoading] = React.useState(true);
@@ -92,17 +91,11 @@ export function PersonalizationEditor() {
         }
       }
     } catch {
-      setErrorMessage(
-        t("settings.personalization.loadError", {
-          defaultValue: isEn
-            ? "Unable to load personalization profile. Please try again."
-            : "Không thể tải hồ sơ cá nhân hóa. Vui lòng thử lại.",
-        })
-      );
+      setErrorMessage(t("settings.personalization.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [isEn, t]);
+  }, [t]);
 
   React.useEffect(() => {
     loadProfile();
@@ -246,12 +239,7 @@ export function PersonalizationEditor() {
           ? String((err as { message: unknown }).message)
           : "";
       setErrorMessage(
-        msg ||
-          t("settings.personalization.saveError", {
-            defaultValue: isEn
-              ? "Failed to save preferences. Please check your network or try again."
-              : "Lưu tùy chỉnh thất bại. Vui lòng kiểm tra kết nối mạng hoặc thử lại.",
-          })
+        msg || t("settings.personalization.saveError")
       );
     } finally {
       setSaving(false);
@@ -263,9 +251,7 @@ export function PersonalizationEditor() {
       <div className="flex flex-col items-center justify-center min-h-[400px] p-8 space-y-3">
         <Loader2 className="h-7 w-7 text-primary animate-spin" />
         <p className="text-xs text-muted-foreground animate-pulse">
-          {isEn
-            ? "Loading your personalization preferences..."
-            : "Đang tải hồ sơ cá nhân hóa của bạn..."}
+          {t("settings.personalization.loadingPreferences")}
         </p>
       </div>
     );
@@ -286,14 +272,10 @@ export function PersonalizationEditor() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">
-              {t("settings.personalization.title", { defaultValue: isEn ? "Personalization" : "Cá nhân hóa" })}
+              {t("settings.personalization.title")}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {t("settings.personalization.subtitle", {
-                defaultValue: isEn
-                  ? "Fine-tune the travel profile and preferences you configured during onboarding."
-                  : "Chỉnh sửa chính xác các sở thích du lịch và dữ liệu bạn đã thiết lập ở bước Onboarding.",
-              })}
+              {t("settings.personalization.subtitle")}
             </p>
           </div>
         </div>
@@ -312,13 +294,7 @@ export function PersonalizationEditor() {
       {saveSuccess && (
         <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
           <Check className="h-4 w-4" />
-          <span>
-            {t("settings.personalization.successMessage", {
-              defaultValue: isEn
-                ? "Personalization preferences updated successfully!"
-                : "Đã cập nhật tùy chọn cá nhân hóa thành công!",
-            })}
-          </span>
+          <span>{t("settings.personalization.successMessage")}</span>
         </div>
       )}
 
@@ -326,16 +302,10 @@ export function PersonalizationEditor() {
       <section className="space-y-5 rounded-2xl border border-border/50 bg-card p-5 sm:p-6 shadow-xs">
         <div>
           <h2 className="text-sm font-bold text-foreground">
-            {t("settings.personalization.experiencesTitle", {
-              defaultValue: isEn ? "Experiences & Destinations" : "Kinh nghiệm & Điểm đến",
-            })}
+            {t("settings.personalization.experiencesTitle")}
           </h2>
           <p className="text-micro text-muted-foreground mt-0.5">
-            {t("settings.personalization.experiencesSubtitle", {
-              defaultValue: isEn
-                ? "Places you have visited and bucket list destinations you dream of exploring"
-                : "Các địa điểm bạn đã từng ghé thăm và danh sách điểm đến mong muốn",
-            })}
+            {t("settings.personalization.experiencesSubtitle")}
           </p>
         </div>
 
@@ -344,11 +314,7 @@ export function PersonalizationEditor() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <span className="text-amber-500">✨</span>
-              <span>
-                {t("settings.personalization.visitedTitle", {
-                  defaultValue: isEn ? "Places Visited:" : "Địa điểm đã đến:",
-                })}
-              </span>
+              <span>{t("settings.personalization.visitedTitle")}</span>
               <span className="text-micro text-muted-foreground font-normal">
                 ({visitedPlaces.length})
               </span>
@@ -364,20 +330,14 @@ export function PersonalizationEditor() {
               className="h-7 text-micro rounded-lg border-border/60 hover:border-primary hover:text-primary gap-1 cursor-pointer"
             >
               <Plus className="h-3 w-3" />
-              <span>
-                {t("settings.personalization.addDestination", {
-                  defaultValue: isEn ? "Add destination" : "Thêm địa điểm",
-                })}
-              </span>
+              <span>{t("settings.personalization.addDestination")}</span>
             </Button>
           </div>
 
           <div className="flex flex-wrap gap-1.5 p-3 rounded-xl bg-muted/30 border border-border/40 min-h-[46px] items-center">
             {visitedPlaces.length === 0 ? (
               <span className="text-micro text-muted-foreground italic">
-                {t("settings.personalization.noVisited", {
-                  defaultValue: isEn ? "No visited destinations added yet." : "Chưa có địa điểm nào được chọn.",
-                })}
+                {t("settings.personalization.noVisited")}
               </span>
             ) : (
               visitedPlaces.map((id) => (
@@ -390,7 +350,7 @@ export function PersonalizationEditor() {
                     type="button"
                     onClick={() => removeVisited(id)}
                     className="text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                    title={isEn ? "Remove destination" : "Xóa địa điểm"}
+                    title={t("settings.personalization.removeDestination")}
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -405,11 +365,7 @@ export function PersonalizationEditor() {
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <span className="text-amber-500">✨</span>
-              <span>
-                {t("settings.personalization.wishlistTitle", {
-                  defaultValue: isEn ? "Wishlist Destinations:" : "Điểm đến mơ ước:",
-                })}
-              </span>
+              <span>{t("settings.personalization.wishlistTitle")}</span>
               <span className="text-micro text-muted-foreground font-normal">
                 ({wishlistPlaces.length})
               </span>
@@ -425,20 +381,14 @@ export function PersonalizationEditor() {
               className="h-7 text-micro rounded-lg border-border/60 hover:border-primary hover:text-primary gap-1 cursor-pointer"
             >
               <Plus className="h-3 w-3" />
-              <span>
-                {t("settings.personalization.addWishlist", {
-                  defaultValue: isEn ? "Add wishlist" : "Thêm điểm mơ ước",
-                })}
-              </span>
+              <span>{t("settings.personalization.addWishlist")}</span>
             </Button>
           </div>
 
           <div className="flex flex-wrap gap-1.5 p-3 rounded-xl bg-muted/30 border border-border/40 min-h-[46px] items-center">
             {wishlistPlaces.length === 0 ? (
               <span className="text-micro text-muted-foreground italic">
-                {t("settings.personalization.noWishlist", {
-                  defaultValue: isEn ? "No bucket list destinations added yet." : "Chưa có điểm đến mong muốn nào.",
-                })}
+                {t("settings.personalization.noWishlist")}
               </span>
             ) : (
               wishlistPlaces.map((id) => (
@@ -451,7 +401,7 @@ export function PersonalizationEditor() {
                     type="button"
                     onClick={() => removeWishlist(id)}
                     className="text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                    title={isEn ? "Remove destination" : "Xóa địa điểm"}
+                    title={t("settings.personalization.removeDestination")}
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -467,12 +417,8 @@ export function PersonalizationEditor() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-foreground">
                 {addingTarget === "VISITED"
-                  ? isEn
-                    ? "Add Visited Destination"
-                    : "Thêm địa điểm đã đi"
-                  : isEn
-                  ? "Add Wishlist Destination"
-                  : "Thêm điểm đến mơ ước"}
+                  ? t("settings.personalization.addDestination")
+                  : t("settings.personalization.addWishlist")}
               </span>
               <button
                 type="button"
@@ -494,7 +440,7 @@ export function PersonalizationEditor() {
                     handleAddDestination(placeSearch);
                   }
                 }}
-                placeholder={isEn ? "Type destination name (e.g. Da Nang, Tokyo)..." : "Nhập tên điểm đến (ví dụ: Đà Nẵng, Tokyo)..."}
+                placeholder={t("settings.personalization.destinationSearchPlaceholder")}
                 className="pl-8 text-xs bg-background h-9 rounded-lg border-border"
                 autoFocus
               />
@@ -502,7 +448,7 @@ export function PersonalizationEditor() {
 
             <div className="space-y-1.5">
               <span className="text-micro font-semibold text-muted-foreground uppercase tracking-wider block">
-                {isEn ? "Popular Suggestions" : "Gợi ý phổ biến"}
+                {t("settings.personalization.popularSuggestions")}
               </span>
               <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
                 {filteredDestinations.map((d) => (
@@ -521,7 +467,7 @@ export function PersonalizationEditor() {
                     onClick={() => handleAddDestination(placeSearch)}
                     className="px-2.5 py-1 rounded-md text-micro font-bold bg-primary text-primary-foreground transition-colors cursor-pointer"
                   >
-                    + {isEn ? "Add" : "Thêm"} "{placeSearch.trim()}"
+                    {t("settings.personalization.addCustomPrompt", { name: placeSearch.trim() })}
                   </button>
                 )}
               </div>
@@ -534,16 +480,10 @@ export function PersonalizationEditor() {
       <section className="space-y-4 rounded-2xl border border-border/50 bg-card p-5 sm:p-6 shadow-xs">
         <div>
           <h2 className="text-sm font-bold text-foreground">
-            {t("settings.personalization.homeCityTitle", {
-              defaultValue: isEn ? "Home City" : "Thành phố cư trú",
-            })}
+            {t("settings.personalization.homeCityTitle")}
           </h2>
           <p className="text-micro text-muted-foreground mt-0.5">
-            {t("settings.personalization.homeCitySubtitle", {
-              defaultValue: isEn
-                ? "Your home base helps TripSense provide nearby escape recommendations"
-                : "Thành phố sinh sống giúp TripSense đề xuất các lộ trình và điểm đến phù hợp",
-            })}
+            {t("settings.personalization.homeCitySubtitle")}
           </p>
         </div>
 
@@ -553,18 +493,14 @@ export function PersonalizationEditor() {
             <Input
               value={homeCity}
               onChange={(e) => setHomeCity(e.target.value)}
-              placeholder={t("settings.personalization.homeCityPlaceholder", {
-                defaultValue: isEn ? "Enter your home city..." : "Nhập thành phố bạn đang ở...",
-              })}
+              placeholder={t("settings.personalization.homeCityPlaceholder")}
               className="pl-9 text-xs bg-background h-9 rounded-xl border-border"
             />
           </div>
 
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-micro text-muted-foreground mr-1">
-              {t("settings.personalization.quickSelect", {
-                defaultValue: isEn ? "Quick select:" : "Chọn nhanh:",
-              })}
+              {t("settings.personalization.quickSelect")}
             </span>
             {POPULAR_HOME_CITIES.map((c) => {
               const isSelected =
@@ -594,16 +530,10 @@ export function PersonalizationEditor() {
       <section className="space-y-6 rounded-2xl border border-border/50 bg-card p-5 sm:p-6 shadow-xs">
         <div>
           <h2 className="text-sm font-bold text-foreground">
-            {t("settings.personalization.preferencesTitle", {
-              defaultValue: isEn ? "Travel Preferences & Style" : "Phong cách & Sở thích chuyến đi",
-            })}
+            {t("settings.personalization.preferencesTitle")}
           </h2>
           <p className="text-micro text-muted-foreground mt-0.5">
-            {t("settings.personalization.preferencesSubtitle", {
-              defaultValue: isEn
-                ? "Customize who you travel with, your spending priority, stays, and favorite activities"
-                : "Tùy chỉnh nhóm đồng hành, mức ngân sách, nơi lưu trú và các hoạt động ưa thích",
-            })}
+            {t("settings.personalization.preferencesSubtitle")}
           </p>
         </div>
 
@@ -625,8 +555,8 @@ export function PersonalizationEditor() {
                 </label>
                 <span className="text-micro text-muted-foreground">
                   {step.single
-                    ? t("settings.personalization.singleChoice", { defaultValue: isEn ? "Single choice" : "Chọn 1" })
-                    : t("settings.personalization.multiChoice", { defaultValue: isEn ? "Multi-select" : "Chọn nhiều" })}
+                    ? t("settings.personalization.singleChoice")
+                    : t("settings.personalization.multiChoice")}
                 </span>
               </div>
 
@@ -694,9 +624,7 @@ export function PersonalizationEditor() {
                           setCustomInputText("");
                         }
                       }}
-                      placeholder={t("settings.personalization.customOptionPlaceholder", {
-                        defaultValue: isEn ? "Enter other choice..." : "Nhập lựa chọn khác...",
-                      })}
+                      placeholder={t("settings.personalization.customOptionPlaceholder")}
                       className="h-7 text-xs border-none focus-visible:ring-0 px-2 w-44 sm:w-56"
                       autoFocus
                     />
@@ -731,11 +659,7 @@ export function PersonalizationEditor() {
                     className="px-3 py-2 rounded-xl text-xs font-medium border border-dashed border-border/80 text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-all cursor-pointer flex items-center gap-1"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>
-                      {t("settings.personalization.addCustom", {
-                        defaultValue: isEn ? "+ Other" : "+ Khác",
-                      })}
-                    </span>
+                    <span>{t("settings.personalization.addCustom")}</span>
                   </button>
                 )}
               </div>
@@ -748,18 +672,10 @@ export function PersonalizationEditor() {
       <section className="space-y-4 rounded-2xl border border-border/50 bg-card p-5 sm:p-6 shadow-xs">
         <div>
           <h2 className="text-sm font-bold text-foreground">
-            {t("settings.personalization.notesTitle", {
-              defaultValue: isEn
-                ? "Personal Travel Notes & Special Requests"
-                : "Ghi chú du lịch & Yêu cầu riêng",
-            })}
+            {t("settings.personalization.notesTitle")}
           </h2>
           <p className="text-micro text-muted-foreground mt-0.5">
-            {t("settings.personalization.notesSubtitle", {
-              defaultValue: isEn
-                ? "Add any dietary restrictions, hobbies, or unique preferences for the AI planner"
-                : "Thêm khẩu vị ăn uống, sở thích đặc biệt hoặc ghi chú riêng cho AI khi gợi ý",
-            })}
+            {t("settings.personalization.notesSubtitle")}
           </p>
         </div>
 
@@ -767,20 +683,14 @@ export function PersonalizationEditor() {
           <Textarea
             value={freeText}
             onChange={(e) => setFreeText(e.target.value)}
-            placeholder={t("settings.personalization.notesPlaceholder", {
-              defaultValue: isEn
-                ? "e.g. Love specialty coffee, sunset photography, vegetarian friendly spots, quiet stays..."
-                : "Ví dụ: Thích quán cà phê chill, săn ảnh hoàng hôn, ăn thanh đạm, ưu tiên nơi yên tĩnh...",
-            })}
+            placeholder={t("settings.personalization.notesPlaceholder")}
             className="text-xs min-h-[90px] rounded-xl border-border resize-y"
             maxLength={2000}
           />
 
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-micro text-muted-foreground mr-1">
-              {t("settings.personalization.quickTags", {
-                defaultValue: isEn ? "Quick tags:" : "Gợi ý nhanh:",
-              })}
+              {t("settings.personalization.quickTags")}
             </span>
             {QUICK_FREE_TEXT_TAGS.map((tag) => {
               const tagLabel = t(`onboarding.freeTextNote.${tag.key}`, { defaultValue: tag.key });
@@ -817,16 +727,14 @@ export function PersonalizationEditor() {
           className="rounded-xl text-xs gap-1.5 cursor-pointer hover:bg-muted"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          <span>
-            {t("settings.personalization.discard", { defaultValue: isEn ? "Discard changes" : "Hủy thay đổi" })}
-          </span>
+          <span>{t("settings.personalization.discard")}</span>
         </Button>
 
         <div className="flex items-center gap-2">
           {saveSuccess && (
             <span className="text-micro font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-in fade-in-50">
               <Check className="h-3.5 w-3.5" />
-              <span>{t("settings.personalization.saved", { defaultValue: isEn ? "Saved!" : "Đã lưu!" })}</span>
+              <span>{t("settings.personalization.saved")}</span>
             </span>
           )}
           <Button
@@ -842,8 +750,8 @@ export function PersonalizationEditor() {
             )}
             <span>
               {saving
-                ? t("settings.personalization.saving", { defaultValue: isEn ? "Saving..." : "Đang lưu..." })
-                : t("settings.personalization.save", { defaultValue: isEn ? "Save changes" : "Lưu thay đổi" })}
+                ? t("settings.personalization.saving")
+                : t("settings.personalization.save")}
             </span>
           </Button>
         </div>

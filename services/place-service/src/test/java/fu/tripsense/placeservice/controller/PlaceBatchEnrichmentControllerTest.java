@@ -1,7 +1,6 @@
 package fu.tripsense.placeservice.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -56,7 +55,7 @@ class PlaceBatchEnrichmentControllerTest {
     when(enrichmentService.getStats()).thenReturn(stats);
 
     mockMvc
-        .perform(get("/api/places/internal/stats"))
+        .perform(get("/api/places/admin/stats"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.totalPlaces").value(833))
@@ -74,7 +73,7 @@ class PlaceBatchEnrichmentControllerTest {
 
     mockMvc
         .perform(
-            post("/api/places/internal/config/ziomap")
+            post("/api/places/admin/config/ziomap")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
         .andExpect(status().isOk())
@@ -91,7 +90,7 @@ class PlaceBatchEnrichmentControllerTest {
 
     mockMvc
         .perform(
-            post("/api/places/internal/config/ziomap")
+            post("/api/places/admin/config/ziomap")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
         .andExpect(status().isBadRequest())
@@ -117,7 +116,7 @@ class PlaceBatchEnrichmentControllerTest {
 
     mockMvc
         .perform(
-            post("/api/places/internal/batch-enrich")
+            post("/api/places/admin/batch-enrich")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
         .andExpect(status().isOk())
@@ -144,7 +143,7 @@ class PlaceBatchEnrichmentControllerTest {
     when(enrichmentService.getProgress()).thenReturn(progress);
 
     mockMvc
-        .perform(get("/api/places/internal/batch-enrich/progress"))
+        .perform(get("/api/places/admin/batch-enrich/progress"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.processed").value(100))
@@ -156,7 +155,7 @@ class PlaceBatchEnrichmentControllerTest {
     when(enrichmentService.cancel()).thenReturn(true);
 
     mockMvc
-        .perform(post("/api/places/internal/batch-enrich/cancel"))
+        .perform(post("/api/places/admin/batch-enrich/cancel"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data").value(true));

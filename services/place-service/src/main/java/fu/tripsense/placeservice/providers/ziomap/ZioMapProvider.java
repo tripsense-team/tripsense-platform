@@ -1,6 +1,8 @@
 package fu.tripsense.placeservice.providers.ziomap;
 
 import fu.tripsense.placeservice.config.ZioMapProperties;
+import fu.tripsense.placeservice.domain.model.ApiKeyPoolItem;
+import fu.tripsense.placeservice.domain.model.ApiKeyProvider;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
@@ -14,7 +16,9 @@ import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPhotoResponse;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPlaceResult;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchPlace;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchResponse;
+import fu.tripsense.placeservice.service.ApiKeyPoolService;
 import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
+import jakarta.annotation.PreDestroy;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,17 +29,17 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import fu.tripsense.placeservice.domain.model.ApiKeyPoolItem;
-import fu.tripsense.placeservice.domain.model.ApiKeyProvider;
-import fu.tripsense.placeservice.service.ApiKeyPoolService;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 @Component("zioMapProvider")
@@ -48,6 +52,8 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
   private volatile boolean lastCallQuotaExceeded = false;
   private volatile String lastQuotaErrorMessage = "";
+  private final ExecutorService photoExecutor =
+      Executors.newFixedThreadPool(8, new CustomizableThreadFactory("ziomap-photo-"));
 
   @Autowired
   public ZioMapProvider(
@@ -59,9 +65,21 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     this.apiKeyPoolService = apiKeyPoolService;
   }
 
-  public ZioMapProvider(
-      ZioMapProperties properties, RestClient restClient) {
+  public ZioMapProvider(ZioMapProperties properties, RestClient restClient) {
     this(properties, restClient, null);
+  }
+
+  @PreDestroy
+  public void destroy() {
+    photoExecutor.shutdown();
+    try {
+      if (!photoExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+        photoExecutor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      photoExecutor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
   }
 
   public String getEffectiveApiKey() {
@@ -76,12 +94,15 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     if (isQuotaOrAuthError(ex)) {
       if (apiKeyPoolService != null) {
         String failedKey = getEffectiveApiKey();
-        java.util.Optional<ApiKeyPoolItem> nextKey = apiKeyPoolService.markExhaustedAndRotate(
-            ApiKeyProvider.ZIOMAP, failedKey, ex.getMessage());
+        java.util.Optional<ApiKeyPoolItem> nextKey =
+            apiKeyPoolService.markExhaustedAndRotate(
+                ApiKeyProvider.ZIOMAP, failedKey, ex.getMessage());
         if (nextKey.isPresent()) {
           properties.setApiKey(nextKey.get().getRawKey());
           lastCallQuotaExceeded = false;
-          log.info("[ZioMapProvider] Key exhausted. Auto-rotated to next key: {}", nextKey.get().getMaskedKey());
+          log.info(
+              "[ZioMapProvider] Key exhausted. Auto-rotated to next key: {}",
+              nextKey.get().getMaskedKey());
           return true;
         }
       }
@@ -293,7 +314,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       return Optional.ofNullable(mapPlaceResultToDto(response));
     } catch (Exception ex) {
       if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
-        log.info("[ZioMapProvider] Retrying place details for '{}' with newly rotated key", providerPlaceId);
+        log.info(
+            "[ZioMapProvider] Retrying place details for '{}' with newly rotated key",
+            providerPlaceId);
         return fetchPlaceDetailsWithRetry(providerPlaceId, retryCount + 1);
       }
       log.error(
@@ -357,7 +380,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
       List<CompletableFuture<Optional<PlacePhotoDto>>> futures =
           candidatePhotos.stream()
-              .map(photo -> CompletableFuture.supplyAsync(() -> fetchSinglePhoto(photo)))
+              .map(
+                  photo ->
+                      CompletableFuture.supplyAsync(() -> fetchSinglePhoto(photo), photoExecutor))
               .toList();
 
       CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
@@ -418,8 +443,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
                               safeAttributionUrl(item.uri()) ? item.uri() : null))
                   .toList();
       return Optional.of(
-          new PlacePhotoDto(
-              response.photoUri(), PROVIDER_NAME, attribution, Instant.now(), true));
+          new PlacePhotoDto(response.photoUri(), PROVIDER_NAME, attribution, Instant.now(), true));
     } catch (Exception ex) {
       log.debug("One ZioMap gallery image unavailable; type={}", ex.getClass().getSimpleName());
       return Optional.empty();
@@ -520,8 +544,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
     String district =
         VietnameseAdministrativeAreaNormalizer.district(
-            textSearchComponent(item, "administrative_area_level_2"),
-            item.getFormattedAddress());
+            textSearchComponent(item, "administrative_area_level_2"), item.getFormattedAddress());
     String city =
         VietnameseAdministrativeAreaNormalizer.city(
             firstNonBlank(

@@ -5,7 +5,4 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 
 @Builder
-public record UpdateMemberRoleRequest(
-    @NotNull(message = "Role is required")
-    TripMemberRole role
-) {}
+public record UpdateMemberRoleRequest(@NotNull(message = "Role is required") TripMemberRole role) {}

@@ -12,9 +12,7 @@ public record OnboardingCommand(
     String freeText) {
 
   public OnboardingCommand(
-      long version,
-      Map<String, Set<String>> selections,
-      Map<PlaceIntent, Set<String>> places) {
+      long version, Map<String, Set<String>> selections, Map<PlaceIntent, Set<String>> places) {
     this(version, selections, places, Map.of(), null);
   }
 }

@@ -108,7 +108,8 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
       PreferenceSignal[] response =
           restClient
               .get()
-              .uri(endpoints.getContextUrl() + "/api/context/preferences?purpose={purpose}", purpose)
+              .uri(
+                  endpoints.getContextUrl() + "/api/context/preferences?purpose={purpose}", purpose)
               .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
               .retrieve()
               .body(PreferenceSignal[].class);
@@ -124,8 +125,7 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
                     affinities.merge(
                         category,
                         confidence,
-                        (current, incoming) ->
-                            1 - ((1 - Math.max(0, current)) * (1 - incoming)));
+                        (current, incoming) -> 1 - ((1 - Math.max(0, current)) * (1 - incoming)));
                   });
         }
       }

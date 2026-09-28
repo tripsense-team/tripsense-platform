@@ -63,7 +63,8 @@ class ExploreRecommendationServiceTest {
             new ExploreRecommendationCommand("danang", " cafe ", "explore.test", 20));
 
     assertThat(result).isSameAs(cached);
-    ArgumentCaptor<RecommendationCommand> command = ArgumentCaptor.forClass(RecommendationCommand.class);
+    ArgumentCaptor<RecommendationCommand> command =
+        ArgumentCaptor.forClass(RecommendationCommand.class);
     verify(recommendations).resolveContext(command.capture());
     assertThat(command.getValue().preferencePurpose()).isEqualTo("EXPLORE_RECOMMENDATION");
     assertThat(command.getValue().query()).isEqualTo("cafe");
@@ -83,8 +84,7 @@ class ExploreRecommendationServiceTest {
             List.of());
     when(recommendations.resolveContext(any())).thenReturn(context);
     when(cache.profileFingerprint(context.profile())).thenReturn("profile-v1");
-    when(cache.getFresh(userId, "danang", "", "profile-v1", 20))
-        .thenReturn(Optional.empty());
+    when(cache.getFresh(userId, "danang", "", "profile-v1", 20)).thenReturn(Optional.empty());
     when(cache.getLastKnownGood(userId, "danang", "", "profile-v1", 20))
         .thenReturn(Optional.empty());
     when(recommendations.prepare(any(RecommendationContext.class)))

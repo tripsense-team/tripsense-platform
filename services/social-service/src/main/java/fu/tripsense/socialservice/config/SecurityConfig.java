@@ -1,8 +1,8 @@
 package fu.tripsense.socialservice.config;
 
 import fu.tripsense.socialservice.security.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 import jakarta.servlet.DispatcherType;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.*;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;

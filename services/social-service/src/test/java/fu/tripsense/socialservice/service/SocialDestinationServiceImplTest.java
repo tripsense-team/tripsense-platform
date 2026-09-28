@@ -41,10 +41,8 @@ class SocialDestinationServiceImplTest {
 
   @Test
   void getTrendingDestinations_fallbackCatalog_returnsSortedDefaultDestinations() {
-    when(trendingRepo.findByIsActiveTrueOrderBySortOrderAsc())
-        .thenReturn(Collections.emptyList());
-    when(tripShareRepo.countPublicTripSharesByDestination())
-        .thenReturn(Collections.emptyList());
+    when(trendingRepo.findByIsActiveTrueOrderBySortOrderAsc()).thenReturn(Collections.emptyList());
+    when(tripShareRepo.countPublicTripSharesByDestination()).thenReturn(Collections.emptyList());
 
     List<TrendingDestinationResponse> result = destinationService.getTrendingDestinations(4);
 
@@ -90,10 +88,10 @@ class SocialDestinationServiceImplTest {
             .isActive(true)
             .build();
 
-    when(trendingRepo.findByIsActiveTrueOrderBySortOrderAsc())
-        .thenReturn(List.of(dalat, sapa));
+    when(trendingRepo.findByIsActiveTrueOrderBySortOrderAsc()).thenReturn(List.of(dalat, sapa));
 
-    // Live counts: Sa Pa gets 1200 live shares (total: 1700), Da Lat gets 100 live shares (total: 1100)
+    // Live counts: Sa Pa gets 1200 live shares (total: 1700), Da Lat gets 100 live shares (total:
+    // 1100)
     // Testing unaccented & case-insensitive matching
     List<Object[]> liveShares =
         List.of(

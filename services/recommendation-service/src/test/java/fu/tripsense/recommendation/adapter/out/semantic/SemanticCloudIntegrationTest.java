@@ -25,11 +25,13 @@ class SemanticCloudIntegrationTest {
     qdrantApiKey = System.getenv("SEMANTIC_QDRANT_API_KEY");
     qdrantUrl = System.getenv("SEMANTIC_QDRANT_URL");
     assumeTrue(
-        embeddingApiKey != null && !embeddingApiKey.isBlank() &&
-        qdrantApiKey != null && !qdrantApiKey.isBlank() &&
-        qdrantUrl != null && !qdrantUrl.isBlank(),
-        "Cloud integration tests require SEMANTIC_EMBEDDING_API_KEY, SEMANTIC_QDRANT_API_KEY, SEMANTIC_QDRANT_URL"
-    );
+        embeddingApiKey != null
+            && !embeddingApiKey.isBlank()
+            && qdrantApiKey != null
+            && !qdrantApiKey.isBlank()
+            && qdrantUrl != null
+            && !qdrantUrl.isBlank(),
+        "Cloud integration tests require SEMANTIC_EMBEDDING_API_KEY, SEMANTIC_QDRANT_API_KEY, SEMANTIC_QDRANT_URL");
   }
 
   @Test
@@ -37,9 +39,13 @@ class SemanticCloudIntegrationTest {
   void testGeminiEmbeddingAndQdrantUpsert() {
     RecommendationProperties properties = new RecommendationProperties();
     properties.getSemantic().setEnabled(true);
-    properties.getSemantic().setEmbeddingBaseUrl(
-        System.getenv().getOrDefault("SEMANTIC_EMBEDDING_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
-    );
+    properties
+        .getSemantic()
+        .setEmbeddingBaseUrl(
+            System.getenv()
+                .getOrDefault(
+                    "SEMANTIC_EMBEDDING_BASE_URL",
+                    "https://generativelanguage.googleapis.com/v1beta/openai"));
     properties.getSemantic().setEmbeddingApiKey(embeddingApiKey);
     properties.getSemantic().setEmbeddingModel("gemini-embedding-001");
     properties.getSemantic().setQdrantUrl(qdrantUrl);
@@ -51,9 +57,12 @@ class SemanticCloudIntegrationTest {
     requestFactory.setReadTimeout(Duration.ofSeconds(15));
     RestClient restClient = RestClient.builder().requestFactory(requestFactory).build();
 
-    com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-    OpenAiCompatibleEmbeddingClient embeddingClient = new OpenAiCompatibleEmbeddingClient(restClient, properties, objectMapper);
-    QdrantVectorSearchClient qdrantClient = new QdrantVectorSearchClient(restClient, properties, objectMapper);
+    com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+        new com.fasterxml.jackson.databind.ObjectMapper();
+    OpenAiCompatibleEmbeddingClient embeddingClient =
+        new OpenAiCompatibleEmbeddingClient(restClient, properties, objectMapper);
+    QdrantVectorSearchClient qdrantClient =
+        new QdrantVectorSearchClient(restClient, properties, objectMapper);
 
     // 1. Test embedding
     List<Double> vector = embeddingClient.embed("Quán Cà Phê Trứng Hà Nội - Đặc sản phố cổ");

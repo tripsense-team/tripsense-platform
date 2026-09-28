@@ -4,8 +4,8 @@ import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
-import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
+import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
@@ -83,7 +83,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
     String retrievalQuery = category == null ? query.trim() : category.providerQuery();
     String normalizedQuery = retrievalQuery.toLowerCase(Locale.ROOT);
-    String cacheQuery = category == null ? normalizedQuery : category.name() + "|" + normalizedQuery;
+    String cacheQuery =
+        category == null ? normalizedQuery : category.name() + "|" + normalizedQuery;
     double effectiveLat = lat != null ? lat : properties.getDefaultLat();
     double effectiveLng = lng != null ? lng : properties.getDefaultLng();
     int effectiveRadius = radius != null ? radius : 15_000;
@@ -146,12 +147,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
     if (localIsFreshAndSufficient) {
       cache.putSearchResults(
-          cacheQuery,
-          effectiveLat,
-          effectiveLng,
-          effectiveRadius,
-          effectiveLimit,
-          rankedLocal);
+          cacheQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit, rankedLocal);
       return enrichPhotosForPlaces(rankedLocal);
     }
 
@@ -168,12 +164,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             query,
             rankedLocal.size());
         cache.putSearchResults(
-            cacheQuery,
-            effectiveLat,
-            effectiveLng,
-            effectiveRadius,
-            effectiveLimit,
-            rankedLocal);
+            cacheQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit, rankedLocal);
         return enrichPhotosForPlaces(rankedLocal);
       }
       throw exception;
@@ -193,12 +184,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             effectiveRadius,
             effectiveLimit);
     cache.putSearchResults(
-        cacheQuery,
-        effectiveLat,
-        effectiveLng,
-        effectiveRadius,
-        effectiveLimit,
-        rankedResults);
+        cacheQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit, rankedResults);
     return enrichPhotosForPlaces(rankedResults);
   }
 
@@ -243,11 +229,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               .toList();
       local.forEach(
           place ->
-              decorate(
-                  place,
-                  "LOCAL",
-                  place.getFetchedAt(),
-                  request.effectiveMaximumAgeSeconds()));
+              decorate(place, "LOCAL", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
       RetrievalEvidenceDto assessed =
           assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, Instant.now());
       List<String> reasons = new ArrayList<>(assessed.reasonCodes());
@@ -282,11 +264,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
           withinRadius(ranking.rank(cached.get(), query, lat, lng), lat, lng, radius);
       values.forEach(
           place ->
-              decorate(
-                  place,
-                  "CACHE",
-                  place.getFetchedAt(),
-                  request.effectiveMaximumAgeSeconds()));
+              decorate(place, "CACHE", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
       RetrievalEvidenceDto evidence =
           assess(values, request, Set.of("CACHE"), "NOT_CALLED", false, retrievedAt);
       if ("SUFFICIENT".equals(evidence.status())) {
@@ -298,25 +276,21 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     List<PlaceDto> local =
         withinRadius(
             ranking.rank(
-            // Text relevance alone can crowd nearby category matches out of a small page.
-            // Retrieve a wider bounded pool, then let deterministic geo/category ranking
-            // select the candidates returned to the recommendation service.
-            findLocalPlaces(normalizedQuery, retrievalWindow(target)).stream()
-                .map(persistence::toDto)
-                .toList(),
-            query,
-            lat,
-            lng),
+                // Text relevance alone can crowd nearby category matches out of a small page.
+                // Retrieve a wider bounded pool, then let deterministic geo/category ranking
+                // select the candidates returned to the recommendation service.
+                findLocalPlaces(normalizedQuery, retrievalWindow(target)).stream()
+                    .map(persistence::toDto)
+                    .toList(),
+                query,
+                lat,
+                lng),
             lat,
             lng,
             radius);
     local.forEach(
         place ->
-            decorate(
-                place,
-                "LOCAL",
-                place.getFetchedAt(),
-                request.effectiveMaximumAgeSeconds()));
+            decorate(place, "LOCAL", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
     RetrievalEvidenceDto localEvidence =
         assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, retrievedAt);
     if ("SUFFICIENT".equals(localEvidence.status())) {
@@ -332,28 +306,17 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     try {
       List<PlaceDto> external =
           provider.textSearch(
-              enrichQueryForProvider(query, lat, lng),
-              lat,
-              lng,
-              radius,
-              retrievalWindow(target));
+              enrichQueryForProvider(query, lat, lng), lat, lng, radius, retrievalWindow(target));
       List<PlaceDto> persisted =
           external.stream()
               .map(item -> persistence.upsertProviderPlace(item, provider.getProviderName()))
               .peek(
                   item ->
-                      decorate(
-                          item,
-                          "PROVIDER",
-                          retrievedAt,
-                          request.effectiveMaximumAgeSeconds()))
+                      decorate(item, "PROVIDER", retrievedAt, request.effectiveMaximumAgeSeconds()))
               .toList();
       List<PlaceDto> merged =
           withinRadius(
-              ranking.rank(mergeResults(persisted, local), query, lat, lng),
-              lat,
-              lng,
-              radius);
+              ranking.rank(mergeResults(persisted, local), query, lat, lng), lat, lng, radius);
       RetrievalEvidenceDto evidence =
           assess(
               merged,
@@ -463,16 +426,15 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       // The current source stores an unparsed string; it cannot prove time-specific opening claims.
       case "normalizedOpeningHours" -> false;
       case "businessStatus" -> StringUtils.hasText(place.getBusinessStatus());
-      case "category", "categories" -> place.getCategories() != null
-          && !place.getCategories().isEmpty();
+      case "category", "categories" ->
+          place.getCategories() != null && !place.getCategories().isEmpty();
       case "rating" -> place.getRating() != null;
       case "price", "priceAmount" -> false;
       default -> false;
     };
   }
 
-  private void decorate(
-      PlaceDto place, String source, Instant fetchedAt, long maximumAgeSeconds) {
+  private void decorate(PlaceDto place, String source, Instant fetchedAt, long maximumAgeSeconds) {
     place.setSource(source);
     if (place.getFetchedAt() == null) place.setFetchedAt(fetchedAt);
     Instant observed = place.getFetchedAt();
@@ -605,7 +567,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       return repository.searchByText(normalizedQuery, PageRequest.of(0, limit));
     } catch (Exception exception) {
       lastLocalSearchFailureTime = System.currentTimeMillis();
-      log.warn("Local MongoDB text search failed, falling back to regex: {}", exception.getMessage());
+      log.warn(
+          "Local MongoDB text search failed, falling back to regex: {}", exception.getMessage());
       try {
         return repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit));
       } catch (Exception ex) {

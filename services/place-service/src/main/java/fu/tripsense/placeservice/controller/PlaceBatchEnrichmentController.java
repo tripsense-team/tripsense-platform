@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/places/internal")
+@RequestMapping("/api/places/admin")
 public class PlaceBatchEnrichmentController {
 
   private final PlaceBatchEnrichmentService enrichmentService;
@@ -62,8 +62,7 @@ public class PlaceBatchEnrichmentController {
       @RequestBody(required = false) BatchEnrichmentRequest request) {
     BatchEnrichmentRequest effectiveRequest =
         request != null ? request : BatchEnrichmentRequest.builder().build();
-    BatchEnrichmentProgressDto progress =
-        enrichmentService.startBatchEnrichment(effectiveRequest);
+    BatchEnrichmentProgressDto progress = enrichmentService.startBatchEnrichment(effectiveRequest);
     return ResponseEntity.ok(ApiResponse.ok(progress));
   }
 

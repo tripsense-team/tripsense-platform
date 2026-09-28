@@ -25,12 +25,12 @@ class TokenCleanupServiceTest {
 
   @BeforeEach
   void setUp() {
-    tokenCleanupService =
-        new TokenCleanupServiceImpl(refreshTokenRepository, sessionRepository);
+    tokenCleanupService = new TokenCleanupServiceImpl(refreshTokenRepository, sessionRepository);
   }
 
   @Test
-  @DisplayName("cleanupExpiredTokensAndSessions purges expired tokens and sessions and returns correct counts")
+  @DisplayName(
+      "cleanupExpiredTokensAndSessions purges expired tokens and sessions and returns correct counts")
   void testCleanupExpiredTokensAndSessions_Success() {
     LocalDateTime cutoff = LocalDateTime.of(2026, 9, 24, 3, 0, 0);
 

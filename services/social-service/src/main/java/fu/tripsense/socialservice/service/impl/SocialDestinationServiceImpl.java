@@ -144,8 +144,7 @@ public class SocialDestinationServiceImpl implements SocialDestinationService {
       long liveCount = 0;
       for (Map.Entry<String, Long> entry : normalizedShares.entrySet()) {
         String sharedKey = entry.getKey();
-        if (sharedKey.contains(normName)
-            || sharedKey.replace(" ", "").contains(slugCompact)) {
+        if (sharedKey.contains(normName) || sharedKey.replace(" ", "").contains(slugCompact)) {
           liveCount += entry.getValue();
         }
       }

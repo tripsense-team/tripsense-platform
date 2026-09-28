@@ -51,7 +51,9 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
       const data = await fetchApiKeys(selectedProvider);
       setKeys(data);
     } catch (err: unknown) {
-      console.error("Failed to load token pool:", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to load token pool:", err instanceof Error ? err.message : String(err));
+      }
       const msg = err instanceof Error ? err.message : "Failed to load keys";
       setFeedback({ type: "error", message: msg });
     } finally {

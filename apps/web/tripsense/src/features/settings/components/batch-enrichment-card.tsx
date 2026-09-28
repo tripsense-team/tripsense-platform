@@ -89,7 +89,9 @@ export function BatchEnrichmentCard({ onJobFinished }: BatchEnrichmentCardProps)
       setProgress(res);
       pollTimerRef.current = setInterval(poll, 1200);
     } catch (err) {
-      console.error("Failed to start batch enrichment:", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to start batch enrichment:", err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setStarting(false);
     }
@@ -101,7 +103,9 @@ export function BatchEnrichmentCard({ onJobFinished }: BatchEnrichmentCardProps)
       await cancelBatchEnrichment();
       await poll();
     } catch (err) {
-      console.error("Failed to cancel batch enrichment:", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to cancel batch enrichment:", err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setCancelling(false);
     }

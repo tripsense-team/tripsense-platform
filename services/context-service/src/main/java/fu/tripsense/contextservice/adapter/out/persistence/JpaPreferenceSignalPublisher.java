@@ -39,16 +39,17 @@ public class JpaPreferenceSignalPublisher
                           profile.version(),
                           now);
                     }));
-    deriveExploreAffinities(profile.freeText()).forEach(
-        (value, confidence) ->
-            save(
-                profile.userId(),
-                "EXPLORE_AFFINITY",
-                value,
-                confidence,
-                DERIVED_SOURCE,
-                profile.version(),
-                now));
+    deriveExploreAffinities(profile.freeText())
+        .forEach(
+            (value, confidence) ->
+                save(
+                    profile.userId(),
+                    "EXPLORE_AFFINITY",
+                    value,
+                    confidence,
+                    DERIVED_SOURCE,
+                    profile.version(),
+                    now));
   }
 
   @Override
@@ -111,10 +112,7 @@ public class JpaPreferenceSignalPublisher
   }
 
   private static void putIfContains(
-      java.util.Map<String, Double> target,
-      String text,
-      String value,
-      String... keywords) {
+      java.util.Map<String, Double> target, String text, String value, String... keywords) {
     if (java.util.Arrays.stream(keywords).anyMatch(text::contains)) target.put(value, 0.70);
   }
 }

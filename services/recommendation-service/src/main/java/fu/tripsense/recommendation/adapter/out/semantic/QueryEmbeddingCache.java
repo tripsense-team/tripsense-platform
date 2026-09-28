@@ -19,9 +19,7 @@ public class QueryEmbeddingCache {
   private final Duration ttl;
 
   public QueryEmbeddingCache(
-      StringRedisTemplate redis,
-      ObjectMapper objectMapper,
-      RecommendationProperties properties) {
+      StringRedisTemplate redis, ObjectMapper objectMapper, RecommendationProperties properties) {
     this.redis = redis;
     this.objectMapper = objectMapper;
     this.ttl = properties.getSemantic().getCacheTtl();

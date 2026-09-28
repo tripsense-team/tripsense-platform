@@ -18,5 +18,4 @@ public record TripInvitationResponse(
     String invitationToken,
     String message,
     Instant expiresAt,
-    Instant createdAt
-) {}
+    Instant createdAt) {}

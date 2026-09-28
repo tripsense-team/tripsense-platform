@@ -79,8 +79,7 @@ class SocialCreatorServiceImplTest {
     // creator2: 100 followers, followed by viewer
     List<Object[]> summaries =
         List.of(
-            new Object[] {creator1, "Author One", 3L},
-            new Object[] {creator2, "Author Two", 10L});
+            new Object[] {creator1, "Author One", 3L}, new Object[] {creator2, "Author Two", 10L});
 
     when(postRepository.findActiveCreatorSummaries(eq(viewerId), any(PageRequest.class)))
         .thenReturn(summaries);
@@ -89,7 +88,8 @@ class SocialCreatorServiceImplTest {
         .thenReturn(
             Map.of(
                 creator1,
-                new PublicProfileClientResponse(creator1, "Alice Explorer", "https://img.com/alice.jpg")));
+                new PublicProfileClientResponse(
+                    creator1, "Alice Explorer", "https://img.com/alice.jpg")));
 
     // Viewer follows creator2
     SocialUserFollow follow =
@@ -135,9 +135,7 @@ class SocialCreatorServiceImplTest {
     UUID creator2 = UUID.randomUUID();
 
     List<Object[]> summaries =
-        List.of(
-            new Object[] {creator1, "Creator 1", 2L},
-            new Object[] {creator2, "Creator 2", 8L});
+        List.of(new Object[] {creator1, "Creator 1", 2L}, new Object[] {creator2, "Creator 2", 8L});
 
     when(postRepository.findActiveCreatorSummaries(isNull(), any(PageRequest.class)))
         .thenReturn(summaries);
@@ -151,7 +149,8 @@ class SocialCreatorServiceImplTest {
     List<SuggestedCreatorResponse> result = creatorService.getSuggestedCreators(null, 4);
 
     assertThat(result).hasSize(2);
-    // Since both have isFollowing = false, creator2 (50 followers) comes before creator1 (10 followers)
+    // Since both have isFollowing = false, creator2 (50 followers) comes before creator1 (10
+    // followers)
     assertThat(result.get(0).id()).isEqualTo(creator2);
     assertThat(result.get(0).followerCount()).isEqualTo(50L);
     assertThat(result.get(0).isFollowing()).isFalse();
@@ -160,7 +159,6 @@ class SocialCreatorServiceImplTest {
     assertThat(result.get(1).followerCount()).isEqualTo(10L);
     assertThat(result.get(1).isFollowing()).isFalse();
 
-    verify(followRepository, never())
-        .findByIdFollowerUserIdAndIdFollowedUserIdIn(any(), any());
+    verify(followRepository, never()).findByIdFollowerUserIdAndIdFollowedUserIdIn(any(), any());
   }
 }

@@ -80,8 +80,7 @@ public class SemanticCandidateGenerator implements CandidateGenerator {
       }
       if (place != null) {
         candidates.add(
-            new Candidate(
-                semantic.placeId(), source(), rank, semantic.similarity(), place, null));
+            new Candidate(semantic.placeId(), source(), rank, semantic.similarity(), place, null));
       } else {
         degradations.add("SEMANTIC_PLACE_UNRESOLVED");
       }

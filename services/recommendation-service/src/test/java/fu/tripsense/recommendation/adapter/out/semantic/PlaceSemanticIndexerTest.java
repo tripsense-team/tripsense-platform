@@ -44,7 +44,8 @@ class PlaceSemanticIndexerTest {
 
     assertThat(indexed).isTrue();
     verify(embeddingClient).embed(any());
-    verify(vectorSearchClient).upsert(eq("p1"), eq(List.of(0.1, 0.2, 0.3)), eq("gemini-embedding-001"), any());
+    verify(vectorSearchClient)
+        .upsert(eq("p1"), eq(List.of(0.1, 0.2, 0.3)), eq("gemini-embedding-001"), any());
   }
 
   @Test
@@ -75,7 +76,8 @@ class PlaceSemanticIndexerTest {
 
     assertThat(indexed).isTrue();
     verify(embeddingClient).embed(any());
-    verify(vectorSearchClient).upsert(eq("p1"), eq(List.of(0.4, 0.5)), eq("gemini-embedding-001"), any());
+    verify(vectorSearchClient)
+        .upsert(eq("p1"), eq(List.of(0.4, 0.5)), eq("gemini-embedding-001"), any());
   }
 
   private PlaceSnapshot samplePlace(String id, String name) {

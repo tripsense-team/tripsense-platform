@@ -1,5 +1,6 @@
 package fu.tripsense.recommendation.application;
 
+import com.google.common.util.concurrent.Striped;
 import fu.tripsense.recommendation.application.ExploreRecommendationResult.FallbackLevel;
 import fu.tripsense.recommendation.application.ExploreRecommendationResult.Personalization;
 import fu.tripsense.recommendation.application.ExploreRecommendationResult.ResultMode;
@@ -12,8 +13,7 @@ import fu.tripsense.recommendation.security.AuthenticatedUser;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.Lock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +24,7 @@ public class ExploreRecommendationService {
   private final ExploreRecommendationCache cache;
   private final ExploreQueryRelevancePolicy queryRelevance;
   private final RecommendationProperties.Explore properties;
-  private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+  private final Striped<Lock> locks = Striped.lock(128);
 
   public ExploreRecommendationService(
       RecommendationApplicationService recommendations,
@@ -46,8 +46,9 @@ public class ExploreRecommendationService {
     RecommendationCommand command = command(user.id(), accessToken, request, destination, query);
     RecommendationContext context = recommendations.resolveContext(command);
     String profileFingerprint = cache.profileFingerprint(context.profile());
-    String lockKey = user.id() + "|" + request.destinationId() + "|" + query + "|" + profileFingerprint;
-    ReentrantLock lock = locks.computeIfAbsent(lockKey, ignored -> new ReentrantLock());
+    String lockKey =
+        user.id() + "|" + request.destinationId() + "|" + query + "|" + profileFingerprint;
+    Lock lock = locks.get(lockKey);
     lock.lock();
     try {
       var cached =
@@ -142,13 +143,11 @@ public class ExploreRecommendationService {
       return response;
     } finally {
       lock.unlock();
-      if (!lock.hasQueuedThreads()) locks.remove(lockKey, lock);
     }
   }
 
   private RecommendationApplicationService.PreparedRecommendation applyQueryRelevance(
-      String submittedQuery,
-      RecommendationApplicationService.PreparedRecommendation prepared) {
+      String submittedQuery, RecommendationApplicationService.PreparedRecommendation prepared) {
     return submittedQuery.isBlank() ? prepared : queryRelevance.apply(prepared);
   }
 

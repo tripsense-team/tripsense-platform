@@ -58,7 +58,8 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
           .map(
               point ->
                   new SemanticCandidate(
-                      point.path("payload").path("placeId").asText(), point.path("score").asDouble()))
+                      point.path("payload").path("placeId").asText(),
+                      point.path("score").asDouble()))
           .filter(value -> value.placeId() != null && !value.placeId().isBlank())
           .toList();
     } catch (Exception e) {

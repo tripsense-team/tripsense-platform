@@ -52,6 +52,7 @@ public class GlobalExceptionHandler {
         .contentType(MediaType.APPLICATION_JSON)
         .body(ErrorResponse.of("RESOURCE_NOT_FOUND", "Resource not found: " + e.getResourcePath()));
   }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> unexpected(Exception e) {
     log.error("Unexpected social-service error", e);
@@ -60,5 +61,3 @@ public class GlobalExceptionHandler {
         .body(ErrorResponse.of("INTERNAL_ERROR", "An unexpected error occurred"));
   }
 }
-
-

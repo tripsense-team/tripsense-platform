@@ -6,6 +6,9 @@ spring:
   cloud:
     discovery:
       enabled: false
+  data:
+    redis:
+      url: redis://localhost:6379
 
 tripsense:
   gateway:

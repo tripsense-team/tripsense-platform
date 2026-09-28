@@ -14,9 +14,9 @@ import static org.mockito.Mockito.when;
 import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
-import fu.tripsense.placeservice.dto.PlaceDto;
-import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
 import fu.tripsense.placeservice.dto.LocationDto;
+import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
+import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
@@ -141,21 +141,17 @@ class PlaceSearchServiceTest {
             48,
             PlaceBrowseCategory.STAY);
 
-    assertEquals(List.of("hotel-provider"), result.stream().map(PlaceDto::getProviderPlaceId).toList());
+    assertEquals(
+        List.of("hotel-provider"), result.stream().map(PlaceDto::getProviderPlaceId).toList());
     verify(cache)
-        .putSearchResults(
-            eq("STAY|khách sạn"), anyDouble(), anyDouble(), anyInt(), eq(48), any());
+        .putSearchResults(eq("STAY|khách sạn"), anyDouble(), anyDouble(), anyInt(), eq(48), any());
   }
 
   @Test
   void foodCategoryAcceptsRestaurantWithoutMarketingAdjective() {
     PlaceDto restaurant =
-        PlaceDto.builder()
-            .name("Bếp Nhà")
-            .categories(List.of("vietnamese_restaurant"))
-            .build();
-    PlaceDto cafe =
-        PlaceDto.builder().name("Morning Coffee").categories(List.of("cafe")).build();
+        PlaceDto.builder().name("Bếp Nhà").categories(List.of("vietnamese_restaurant")).build();
+    PlaceDto cafe = PlaceDto.builder().name("Morning Coffee").categories(List.of("cafe")).build();
 
     assertEquals(true, PlaceBrowseCategory.FOOD.matches(restaurant));
     assertEquals(false, PlaceBrowseCategory.FOOD.matches(cafe));

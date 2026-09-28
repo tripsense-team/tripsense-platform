@@ -92,8 +92,7 @@ class TripCollaborationServiceTest {
               return inv;
             });
 
-    TripInvitationResponse response =
-        collaborationService.inviteMember(ownerId, tripId, request);
+    TripInvitationResponse response = collaborationService.inviteMember(ownerId, tripId, request);
 
     assertThat(response).isNotNull();
     assertThat(response.tripId()).isEqualTo(tripId);
@@ -272,8 +271,7 @@ class TripCollaborationServiceTest {
             .build();
 
     when(tripMemberRepository.existsByTripIdAndUserId(tripId, ownerId)).thenReturn(true);
-    when(tripMemberRepository.findByTripId(tripId))
-        .thenReturn(List.of(ownerMember, editorMember));
+    when(tripMemberRepository.findByTripId(tripId)).thenReturn(List.of(ownerMember, editorMember));
 
     List<TripMemberResponse> members = collaborationService.getTripMembers(ownerId, tripId);
     assertThat(members).hasSize(2);

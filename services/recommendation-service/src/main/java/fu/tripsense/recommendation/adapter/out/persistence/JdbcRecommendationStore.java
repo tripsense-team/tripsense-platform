@@ -2,6 +2,9 @@ package fu.tripsense.recommendation.adapter.out.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.tripsense.recommendation.algorithm.profile.InteractionWeightCalculator;
+import fu.tripsense.recommendation.algorithm.profile.MultiTimescaleProfileComposer;
+import fu.tripsense.recommendation.algorithm.profile.ProfileSegment;
 import fu.tripsense.recommendation.application.FeedbackCommand;
 import fu.tripsense.recommendation.application.FeedbackConflictException;
 import fu.tripsense.recommendation.application.FeedbackValidationException;
@@ -10,9 +13,6 @@ import fu.tripsense.recommendation.application.port.ImpressionRecorder;
 import fu.tripsense.recommendation.application.port.ObservedHistoryReader;
 import fu.tripsense.recommendation.application.port.PersonalizationDataEraser;
 import fu.tripsense.recommendation.config.RecommendationProperties;
-import fu.tripsense.recommendation.algorithm.profile.InteractionWeightCalculator;
-import fu.tripsense.recommendation.algorithm.profile.MultiTimescaleProfileComposer;
-import fu.tripsense.recommendation.algorithm.profile.ProfileSegment;
 import fu.tripsense.recommendation.domain.FeedbackEventType;
 import fu.tripsense.recommendation.domain.RankedCandidate;
 import fu.tripsense.recommendation.domain.RecommendationContext;
@@ -332,8 +332,7 @@ public class JdbcRecommendationStore
     }
   }
 
-  private double interactionWeight(
-      FeedbackEventType eventType, Instant occurredAt, Instant now) {
+  private double interactionWeight(FeedbackEventType eventType, Instant occurredAt, Instant now) {
     RecommendationProperties.Interaction interaction =
         switch (eventType) {
           case IMPRESSION -> RecommendationProperties.Interaction.VIEW;
