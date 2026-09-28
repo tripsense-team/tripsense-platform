@@ -38,11 +38,13 @@ public class ExploreRecommendationCache {
 
   public Optional<ExploreRecommendationResult> getFresh(
       UUID userId, String destinationId, String query, String profileFingerprint, int limit) {
+    if (!enabled()) return Optional.empty();
     return read(key("fresh", userId, destinationId, query, profileFingerprint, limit));
   }
 
   public Optional<ExploreRecommendationResult> getLastKnownGood(
       UUID userId, String destinationId, String query, String profileFingerprint, int limit) {
+    if (!enabled()) return Optional.empty();
     return read(key("lkg", userId, destinationId, query, profileFingerprint, limit));
   }
 
@@ -138,6 +140,9 @@ public class ExploreRecommendationCache {
   }
 
   private String hmac(String value) {
+    if (!enabled()) {
+      return digest(value);
+    }
     try {
       Mac mac = Mac.getInstance("HmacSHA256");
       mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));

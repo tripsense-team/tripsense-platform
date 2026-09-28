@@ -66,9 +66,9 @@ tripsense:
       maximum-provider-query-rank: ${EXPLORE_MAXIMUM_PROVIDER_QUERY_RANK:40}
       cache-ttl: ${EXPLORE_RECOMMENDATION_CACHE_TTL:10m}
       last-known-good-ttl: ${EXPLORE_RECOMMENDATION_LKG_TTL:24h}
-      cache-key-secret: ${RECOMMENDATION_CACHE_KEY_SECRET:}
+      cache-key-secret: ${RECOMMENDATION_CACHE_KEY_SECRET:tripsense-default-cache-key-secret-32b}
     security:
-      internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:}
+      internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:tripsense-internal-recommendation-key-sec-2026}
     feedback:
       max-clock-skew: ${RECOMMENDATION_FEEDBACK_MAX_CLOCK_SKEW:10m}
       max-history-events: ${RECOMMENDATION_MAX_HISTORY_EVENTS:5000}
@@ -76,8 +76,28 @@ tripsense:
       category-aliases:
         cafe: [cafe, coffee, ca phe, quan ca phe]
         restaurant: [restaurant, quan an, nha hang]
-        vegetarian_restaurant: [vegetarian restaurant, vegan restaurant, nha hang chay, quan chay, com chay, chay]
-        hotel: [hotel, lodging, accommodation, resort, motel, homestay, guest house, khach san, khu nghi duong, luu tru]
+        vegetarian_restaurant:
+          [
+            vegetarian restaurant,
+            vegan restaurant,
+            nha hang chay,
+            quan chay,
+            com chay,
+            chay,
+          ]
+        hotel:
+          [
+            hotel,
+            lodging,
+            accommodation,
+            resort,
+            motel,
+            homestay,
+            guest house,
+            khach san,
+            khu nghi duong,
+            luu tru,
+          ]
         attraction: [attraction, tourist, temple, pagoda, chua, diem tham quan]
 
 management:
