@@ -11,14 +11,26 @@ import {
   Sparkles,
   Plus,
   Settings,
+  Database,
   HelpCircle,
   LucideIcon,
   MessageSquareQuote,
   MessageSquare,
+  MoreHorizontal,
+  User,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collapse-button";
 import {
@@ -28,10 +40,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { UserRole, LogoutModal } from "@/features/auth";
 import { useChatUnreadCount } from "@/features/chat";
 import { useTranslation } from "@/i18n";
-
-
 
 export interface NavItemDef {
   key: string;
@@ -39,6 +50,7 @@ export interface NavItemDef {
   href: string;
   icon: LucideIcon;
   badge?: string;
+  adminOnly?: boolean;
 }
 
 const mainNavDefs: NavItemDef[] = [
@@ -95,13 +107,14 @@ const mainNavDefs: NavItemDef[] = [
 
 const secondaryNavDefs: NavItemDef[] = [
   {
-    key: "nav.settings",
-    fallbackTitle: "Settings",
-    href: "/settings",
-    icon: Settings,
+    key: "nav.dataEnrichment",
+    fallbackTitle: "Data Enrichment",
+    href: "/admin/settings",
+    icon: Database,
+    adminOnly: true,
   },
   {
-    key: "common.settings",
+    key: "nav.support",
     fallbackTitle: "Help & Support",
     href: "/support",
     icon: HelpCircle,
@@ -111,11 +124,15 @@ const secondaryNavDefs: NavItemDef[] = [
 export interface UserSidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  disableTransition?: boolean;
+  className?: string;
 }
 
 export function UserSidebar({
   collapsed: externalCollapsed,
   onToggleCollapse: externalToggleCollapse,
+  disableTransition = false,
+  className,
 }: UserSidebarProps) {
   const [internalCollapsed, setInternalCollapsed] = React.useState(false);
   const collapsed =
@@ -129,6 +146,7 @@ export function UserSidebar({
   const user = useAuthStore((state) => state.user);
   const [tripCount, setTripCount] = React.useState<number | null>(null);
   const { unreadConversationsCount } = useChatUnreadCount();
+  const [logoutModalOpen, setLogoutModalOpen] = React.useState(false);
 
   React.useEffect(() => {
     function handleTripCountChanged(event: Event) {
@@ -155,8 +173,12 @@ export function UserSidebar({
     <TooltipProvider delayDuration={150}>
       <aside
         className={cn(
-          "relative flex flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out shrink-0 hidden md:flex h-full overflow-hidden",
+          "relative flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shrink-0 hidden md:flex h-full overflow-hidden",
+          disableTransition
+            ? "transition-none"
+            : "transition-[width] duration-300 ease-in-out will-change-[width]",
           collapsed ? "w-16" : "w-64",
+          className,
         )}
       >
         {/* Sidebar Header / Quick Action */}
@@ -345,7 +367,11 @@ export function UserSidebar({
               </h4>
             )}
             <nav className={cn("space-y-0.5 w-full", collapsed && "flex flex-col items-center")}>
-              {secondaryNavDefs.map((item) => {
+              {secondaryNavDefs
+                .filter(
+                  (item) => !item.adminOnly || user?.role === UserRole.ADMIN,
+                )
+                .map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
                 const title = t(item.key) || item.fallbackTitle;
@@ -399,11 +425,12 @@ export function UserSidebar({
           >
             {isAuthenticated && user ? (
               collapsed ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href="/profile"
-                      className="w-9 h-9 flex items-center justify-center hover:opacity-80 transition-opacity mx-auto shrink-0"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-9 h-9 flex items-center justify-center hover:opacity-80 transition-opacity mx-auto shrink-0 outline-none rounded-full cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                      title={user.name || user.email || "User menu"}
                     >
                       <Avatar className="h-8 w-8 shrink-0 ring-1 ring-border">
                         <AvatarImage
@@ -416,45 +443,136 @@ export function UserSidebar({
                             .toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={12}>
-                    <div>
-                      <p className="font-bold text-[13px]">
-                        {user.name || user.email?.split("@")[0]}
-                      </p>
-                      <p className="text-micro opacity-80">
-                        @{user.email ? user.email.split("@")[0] : "user"}
-                      </p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="end" sideOffset={12} className="w-56">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none text-foreground truncate">
+                          {user.name || user.email?.split("@")[0]}
+                        </p>
+                        <p className="text-micro leading-none text-muted-foreground truncate">
+                          @{user.email ? user.email.split("@")[0] : "user"}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/settings?tab=personalization"
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span>{t("nav.personalization", { defaultValue: "Cá nhân hóa" })}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/settings"
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span>{t("nav.settings", { defaultValue: "Cài đặt" })}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <User className="h-4 w-4" />
+                        <span>{t("nav.profile", { defaultValue: "Hồ sơ" })}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setLogoutModalOpen(true)}
+                      className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>{t("common.logOut", { defaultValue: "Đăng xuất" })}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80 transition-opacity"
-                  title={user.name || user.email || "Profile"}
-                >
-                  <Avatar className="h-8 w-8 shrink-0 ring-1 ring-border">
-                    <AvatarImage
-                      src={user.avatar}
-                      alt={user.name || user.email || "User"}
-                    />
-                    <AvatarFallback className="text-micro font-bold bg-primary/10 text-primary border border-primary/20">
-                      {(user.name || user.email || "U")
-                        .charAt(0)
-                        .toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-bold text-foreground truncate leading-tight">
-                      {user.name || user.email?.split("@")[0]}
-                    </p>
-                    <p className="text-micro text-muted-foreground truncate leading-tight mt-0.5">
-                      @{user.email ? user.email.split("@")[0] : "user"}
-                    </p>
-                  </div>
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2.5 min-w-0 flex-1 hover:bg-muted/70 p-1.5 -ml-1 rounded-xl transition-all text-left outline-none group cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                      title={user.name || user.email || "Profile"}
+                    >
+                      <Avatar className="h-8 w-8 shrink-0 ring-1 ring-border">
+                        <AvatarImage
+                          src={user.avatar}
+                          alt={user.name || user.email || "User"}
+                        />
+                        <AvatarFallback className="text-micro font-bold bg-primary/10 text-primary border border-primary/20">
+                          {(user.name || user.email || "U")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-bold text-foreground truncate leading-tight">
+                          {user.name || user.email?.split("@")[0]}
+                        </p>
+                        <p className="text-micro text-muted-foreground truncate leading-tight mt-0.5">
+                          @{user.email ? user.email.split("@")[0] : "user"}
+                        </p>
+                      </div>
+                      <MoreHorizontal className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground shrink-0 transition-colors" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-60">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none text-foreground truncate">
+                          {user.name || user.email?.split("@")[0]}
+                        </p>
+                        <p className="text-micro leading-none text-muted-foreground truncate">
+                          @{user.email ? user.email.split("@")[0] : "user"}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/settings?tab=personalization"
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span>{t("nav.personalization", { defaultValue: "Cá nhân hóa" })}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/settings"
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span>{t("nav.settings", { defaultValue: "Cài đặt" })}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <User className="h-4 w-4" />
+                        <span>{t("nav.profile", { defaultValue: "Hồ sơ" })}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setLogoutModalOpen(true)}
+                      className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>{t("common.logOut", { defaultValue: "Đăng xuất" })}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )
             ) : (
               !collapsed && (
@@ -469,11 +587,11 @@ export function UserSidebar({
             <SidebarCollapseButton
               collapsed={collapsed}
               onToggleCollapse={onToggleCollapse}
+              collapseTitle={t("nav.collapseSidebar", { defaultValue: "Collapse sidebar" })}
+              expandTitle={t("nav.expandSidebar", { defaultValue: "Expand sidebar" })}
               className={collapsed ? "mx-auto" : ""}
             />
           </div>
-
-
 
           {!collapsed && (
             <div className="px-3.5 pb-3 text-[11px] text-muted-foreground/75 space-y-1 select-none">
@@ -495,6 +613,8 @@ export function UserSidebar({
           )}
         </div>
       </aside>
+
+      <LogoutModal open={logoutModalOpen} onOpenChange={setLogoutModalOpen} />
     </TooltipProvider>
   );
 

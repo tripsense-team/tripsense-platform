@@ -4,7 +4,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import { Compass, Info, MapPin, Sparkles, Star, X } from "lucide-react";
 import type { Place } from "@/features/places/types";
-import { approvedPhoto, getFallbackPlacePhoto } from "@/features/places/utils/approved-photo";
+import { approvedPhoto } from "@/features/places/utils/approved-photo";
 import { ApprovedPlaceImage } from "./approved-place-image";
 import { PlaceDetailModal } from "@/features/places/components/place-detail-modal";
 import { Button } from "@/components/ui/button";
@@ -131,14 +131,14 @@ export function RichItineraryWorkspace({
           location: stop.location,
           categories: [],
           photos: [],
-          primaryPhoto: approvedPhoto(stop.primaryPhoto) || getFallbackPlacePhoto(stop.title),
+          primaryPhoto: approvedPhoto(stop.primaryPhoto) || undefined,
           rating: stop.ratingSummary?.value,
         }));
     }
     return (places || []).filter((p) => p.location &&
       Number.isFinite(p.location.lat) && Number.isFinite(p.location.lng)).map((p) => ({
         ...p,
-        primaryPhoto: approvedPhoto(p.primaryPhoto) || getFallbackPlacePhoto(p.name),
+        primaryPhoto: approvedPhoto(p.primaryPhoto) || undefined,
       }));
   }, [stops, places]);
   const center: [number, number] | undefined = mapPlaces[0]?.location

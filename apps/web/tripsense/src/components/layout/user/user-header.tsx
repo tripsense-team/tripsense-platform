@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Search, Bell, Menu, Sparkles, Moon, Sun } from "lucide-react";
+import { Bell, Menu, Sparkles, Moon, Sun } from "lucide-react";
 import { Logo } from "@/components/shared";
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { UserMenu } from "./user-menu";
@@ -57,21 +57,6 @@ export function UserHeader({
           <Menu />
         </Button>
         <Logo />
-      </div>
-
-      {/* Middle: Search input bar */}
-      <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            placeholder={t("nav.searchPlaceholder")}
-            className="h-9 w-full rounded-full border border-border bg-muted/40 py-1.5 pl-9 pr-9 text-[13px] text-foreground placeholder:text-muted-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 text-micro font-medium text-muted-foreground">
-            ⌘K
-          </kbd>
-        </div>
       </div>
 
       {/* Right: Actions & User Menu */}

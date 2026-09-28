@@ -12,5 +12,4 @@ public record DestinationWeatherResponse(
     String updatedAt,
     String iconType,
     String travelTip,
-    String travelTipKey
-) {}
+    String travelTipKey) {}

@@ -32,6 +32,8 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers("/actuator/health/**", "/actuator/info")
                     .permitAll()
+                    .requestMatchers("/api/recommendations/internal/**")
+                    .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
                     .anyRequest()

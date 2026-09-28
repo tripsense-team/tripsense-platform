@@ -52,8 +52,11 @@ export interface AutocompleteSuggestion {
   category?: string;
 }
 
+export type PlaceBrowseCategory = "FOOD" | "CAFE" | "STAY" | "ATTRACTION";
+
 export interface PlaceSearchParams {
   q: string;
+  category?: PlaceBrowseCategory;
   lat?: number;
   lng?: number;
   radius?: number;
@@ -69,6 +72,8 @@ export interface PlacesResponse {
     total?: number;
     source?: string;
     city?: string;
+    category?: PlaceBrowseCategory;
+    returned?: number;
   };
 }
 

@@ -46,6 +46,9 @@ public class OnboardingService {
         command.freeText(),
         command.version());
     profile = profiles.save(profile);
+    if (profile.status() == OnboardingStatus.COMPLETED) {
+      signals.replaceFor(profile);
+    }
     outbox.recordProfileChanged(profile);
     return profile;
   }
@@ -56,8 +59,8 @@ public class OnboardingService {
     boolean alreadyCompleted = profile.status() == OnboardingStatus.COMPLETED;
     profile.complete(version);
     profile = profiles.save(profile);
+    signals.replaceFor(profile);
     if (!alreadyCompleted) {
-      signals.replaceFor(profile);
       outbox.recordProfileChanged(profile);
     }
     return profile;
@@ -107,14 +110,18 @@ public class OnboardingService {
       throw new IllegalArgumentException("Free text note must not exceed 2000 characters");
     }
     if (command.attributes() != null) {
-      command.attributes().forEach((code, valueJson) -> {
-        if (code == null || !code.matches("[A-Za-z0-9_]{1,80}")) {
-          throw new IllegalArgumentException("Invalid attribute code: " + code);
-        }
-        if (valueJson != null && valueJson.length() > 4000) {
-          throw new IllegalArgumentException("Attribute value payload is too large for " + code);
-        }
-      });
+      command
+          .attributes()
+          .forEach(
+              (code, valueJson) -> {
+                if (code == null || !code.matches("[A-Za-z0-9_]{1,80}")) {
+                  throw new IllegalArgumentException("Invalid attribute code: " + code);
+                }
+                if (valueJson != null && valueJson.length() > 4000) {
+                  throw new IllegalArgumentException(
+                      "Attribute value payload is too large for " + code);
+                }
+              });
     }
   }
 }

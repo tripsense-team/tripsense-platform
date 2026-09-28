@@ -59,8 +59,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
     if (existingInvite.isPresent()) {
       if (existingInvite.get().getExpiresAt().isAfter(Instant.now())) {
         throw new ConflictException(
-            "INVITATION_ALREADY_PENDING",
-            "An active invitation has already been sent to " + email);
+            "INVITATION_ALREADY_PENDING", "An active invitation has already been sent to " + email);
       } else {
         // Expire previous invite
         existingInvite.get().setStatus(TripInvitationStatus.EXPIRED);
@@ -81,11 +80,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
             .build();
 
     TripInvitation saved = tripInvitationRepository.save(invitation);
-    log.info(
-        "Created trip invitation {} for email {} to trip {}",
-        saved.getId(),
-        email,
-        tripId);
+    log.info("Created trip invitation {} for email {} to trip {}", saved.getId(), email, tripId);
 
     return toInvitationResponse(saved, trip);
   }
@@ -186,9 +181,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
 
     ensureOwnerMembership(trip);
 
-    return tripMemberRepository.findByTripId(tripId).stream()
-        .map(this::toMemberResponse)
-        .toList();
+    return tripMemberRepository.findByTripId(tripId).stream().map(this::toMemberResponse).toList();
   }
 
   @Override
@@ -224,8 +217,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
   public TripMemberResponse updateMemberRole(
       UUID userId, UUID tripId, UUID memberId, UpdateMemberRoleRequest request) {
     if (request.role() == TripMemberRole.OWNER) {
-      throw new ValidationException(
-          "INVALID_ROLE", "Cannot assign member with OWNER role");
+      throw new ValidationException("INVALID_ROLE", "Cannot assign member with OWNER role");
     }
 
     Trip trip = getActiveTrip(tripId);
@@ -295,8 +287,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
             .findByTripIdAndUserId(tripId, userId)
             .orElseThrow(
                 () ->
-                    new NotFoundException(
-                        "MEMBER_NOT_FOUND", "You are not a member of this trip"));
+                    new NotFoundException("MEMBER_NOT_FOUND", "You are not a member of this trip"));
 
     tripMemberRepository.delete(member);
     log.info("User {} left trip {}", userId, tripId);
@@ -411,8 +402,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
         invitation.getInviteeUserId() != null && invitation.getInviteeUserId().equals(userId);
 
     if (!matchesEmail && !matchesUserId) {
-      throw new ForbiddenException(
-          "FORBIDDEN", "This invitation was not sent to your account");
+      throw new ForbiddenException("FORBIDDEN", "This invitation was not sent to your account");
     }
   }
 
@@ -438,7 +428,8 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
             || memberOpt.get().getRole() == TripMemberRole.EDITOR)) {
       return;
     }
-    throw new ForbiddenException("PERMISSION_DENIED", "You do not have permission to invite members");
+    throw new ForbiddenException(
+        "PERMISSION_DENIED", "You do not have permission to invite members");
   }
 
   private void ensureOwner(UUID userId, Trip trip) {
@@ -450,8 +441,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
     if (memberOpt.isPresent() && memberOpt.get().getRole() == TripMemberRole.OWNER) {
       return;
     }
-    throw new ForbiddenException(
-        "PERMISSION_DENIED", "Only trip owner can perform this operation");
+    throw new ForbiddenException("PERMISSION_DENIED", "Only trip owner can perform this operation");
   }
 
   private void ensureHasReadAccess(UUID userId, Trip trip) {
@@ -501,7 +491,8 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
     return TripInvitationResponse.builder()
         .id(inv.getId())
         .tripId(trip != null ? trip.getId() : inv.getTrip().getId())
-        .tripName(trip != null ? trip.getName() : (inv.getTrip() != null ? inv.getTrip().getName() : ""))
+        .tripName(
+            trip != null ? trip.getName() : (inv.getTrip() != null ? inv.getTrip().getName() : ""))
         .inviterUserId(inv.getInviterUserId())
         .inviteeEmail(inv.getInviteeEmail())
         .role(inv.getRole())

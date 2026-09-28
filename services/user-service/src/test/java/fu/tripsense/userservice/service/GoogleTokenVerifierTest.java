@@ -26,7 +26,8 @@ class GoogleTokenVerifierTest {
   @DisplayName("Should reject verification when idToken is null or blank")
   void shouldRejectWhenIdTokenIsBlank() {
     GoogleTokenVerifier verifier = new GoogleTokenVerifier();
-    ReflectionTestUtils.setField(verifier, "googleClientId", "sample-client-id.apps.googleusercontent.com");
+    ReflectionTestUtils.setField(
+        verifier, "googleClientId", "sample-client-id.apps.googleusercontent.com");
     verifier.init();
 
     assertThatThrownBy(() -> verifier.verify(""))
@@ -42,7 +43,8 @@ class GoogleTokenVerifierTest {
   @DisplayName("Should initialize verifier successfully when GOOGLE_CLIENT_ID is set")
   void shouldInitializeVerifierWhenClientIdIsConfigured() {
     GoogleTokenVerifier verifier = new GoogleTokenVerifier();
-    ReflectionTestUtils.setField(verifier, "googleClientId", "valid-client-id.apps.googleusercontent.com");
+    ReflectionTestUtils.setField(
+        verifier, "googleClientId", "valid-client-id.apps.googleusercontent.com");
 
     assertDoesNotThrow(verifier::init);
   }

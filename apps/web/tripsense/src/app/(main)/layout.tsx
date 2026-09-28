@@ -32,6 +32,18 @@ export default function MainLayout({
     }
   }, [isChecking, isAuthenticated, pathname, router]);
 
+  // Safety watchdog: Prevent infinite hang on "checking" / "initializing" status
+  React.useEffect(() => {
+    if (!isChecking) return;
+    const timer = setTimeout(() => {
+      const currentStatus = useAuthStore.getState().status;
+      if (currentStatus === "checking" || currentStatus === "initializing") {
+        useAuthStore.getState().clearAuth();
+      }
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [isChecking]);
+
   // 2. Authoritative Onboarding Gate Check (Runs ONCE per session until completed)
   React.useEffect(() => {
     if (

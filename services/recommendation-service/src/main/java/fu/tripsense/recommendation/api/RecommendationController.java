@@ -1,9 +1,13 @@
 package fu.tripsense.recommendation.api;
 
 import fu.tripsense.recommendation.api.dto.ApiResponse;
+import fu.tripsense.recommendation.api.dto.ExploreRecommendationRequest;
+import fu.tripsense.recommendation.api.dto.ExploreRecommendationResponse;
 import fu.tripsense.recommendation.api.dto.FeedbackRequest;
 import fu.tripsense.recommendation.api.dto.RecommendationRequest;
 import fu.tripsense.recommendation.api.dto.RecommendationResponse;
+import fu.tripsense.recommendation.application.ExploreRecommendationCommand;
+import fu.tripsense.recommendation.application.ExploreRecommendationService;
 import fu.tripsense.recommendation.application.FeedbackCommand;
 import fu.tripsense.recommendation.application.FeedbackService;
 import fu.tripsense.recommendation.application.PersonalizationDataService;
@@ -34,17 +38,35 @@ public class RecommendationController {
   private final RecommendationApplicationService recommendations;
   private final FeedbackService feedback;
   private final PersonalizationDataService personalizationData;
+  private final ExploreRecommendationService exploreRecommendations;
   private final CurrentUserProvider currentUser;
 
   public RecommendationController(
       RecommendationApplicationService recommendations,
       FeedbackService feedback,
       PersonalizationDataService personalizationData,
+      ExploreRecommendationService exploreRecommendations,
       CurrentUserProvider currentUser) {
     this.recommendations = recommendations;
     this.feedback = feedback;
     this.personalizationData = personalizationData;
+    this.exploreRecommendations = exploreRecommendations;
     this.currentUser = currentUser;
+  }
+
+  @PostMapping("/explore-for-you")
+  public ApiResponse<ExploreRecommendationResponse> exploreForYou(
+      @Valid @RequestBody ExploreRecommendationRequest request) {
+    return ApiResponse.success(
+        ExploreRecommendationResponse.from(
+            exploreRecommendations.recommend(
+                currentUser.user(),
+                currentUser.accessToken(),
+                new ExploreRecommendationCommand(
+                    request.destinationId(),
+                    request.query(),
+                    request.sessionId(),
+                    request.limit()))));
   }
 
   @DeleteMapping("/personalization-data")
@@ -85,7 +107,8 @@ public class RecommendationController {
                                 RankingCriterion.Direction.valueOf(value.direction().name()),
                                 RankingCriterion.Importance.valueOf(value.importance().name())))
                     .toList(),
-            request.effectiveLimit());
+            request.effectiveLimit(),
+            "TRIP_PLANNING");
     return ApiResponse.success(RecommendationResponse.from(recommendations.recommend(command)));
   }
 

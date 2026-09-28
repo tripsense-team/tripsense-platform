@@ -64,6 +64,7 @@ export async function searchPlaces(
 
   const url = new URL("/api/places/search", window.location.origin);
   url.searchParams.set("q", query);
+  if (params.category) url.searchParams.set("category", params.category);
   if (params.lat !== undefined)
     url.searchParams.set("lat", params.lat.toString());
   if (params.lng !== undefined)

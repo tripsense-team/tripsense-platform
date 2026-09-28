@@ -17,7 +17,9 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { getPlaceDetails } from "../services/places-api";
 import type { Place } from "../types";
+import { useTranslation } from "@/i18n";
 import { PlacePhotoGallery } from "./place-photo-gallery";
+import { OpeningHoursDisplay } from "./opening-hours-display";
 
 export interface PlaceDetailModalProps {
   place: Place | null;
@@ -32,6 +34,7 @@ export function PlaceDetailModal({
   isLoadingDetails = false,
   onClose,
 }: PlaceDetailModalProps) {
+  const { t } = useTranslation();
   const [refreshedPlace, setRefreshedPlace] = React.useState<Place | null>(
     null,
   );
@@ -85,6 +88,11 @@ export function PlaceDetailModal({
     place.categories && place.categories.length > 0
       ? place.categories[0]
       : null;
+  const showBlockingDetailsLoader =
+    isLoadingDetails &&
+    !place.address &&
+    !place.openingHours &&
+    !(place.reviews && place.reviews.length > 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -93,7 +101,7 @@ export function PlaceDetailModal({
           <div className="flex items-center gap-2 text-muted-foreground font-medium text-xs mb-1">
             <Sparkles className="h-4 w-4" />
             <span className="capitalize">
-              {primaryCategory?.replace(/_/g, " ") || "Địa điểm khám phá"}
+              {primaryCategory?.replace(/_/g, " ") || t("places.defaultCategory", { defaultValue: "Place" })}
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
@@ -105,17 +113,21 @@ export function PlaceDetailModal({
               <span>{place.rating.toFixed(1)}</span>
               {typeof place.userRatingCount === "number" && (
                 <span className="text-muted-foreground font-normal">
-                  ({place.userRatingCount.toLocaleString()} đánh giá)
+                  {t("places.reviewsCount", { count: place.userRatingCount })}
                 </span>
               )}
             </div>
           )}
         </div>
 
-        <PlacePhotoGallery key={place.id} place={place} loading={isLoadingDetails} />
+        <PlacePhotoGallery
+          key={place.providerPlaceId || place.id}
+          place={place}
+          loading={isLoadingDetails}
+        />
 
         <div className="p-6 space-y-6">
-          {isLoadingDetails ? (
+          {showBlockingDetailsLoader ? (
             /* Full-card skeleton loading — hide MapVina data until ZioMap enrichment completes */
             <div className="space-y-5 animate-pulse">
               {/* Address skeleton */}
@@ -159,7 +171,7 @@ export function PlaceDetailModal({
                 <div className="p-6 rounded-2xl bg-muted/40 border border-border/60 flex flex-col items-center justify-center gap-3">
                   <div className="w-7 h-7 border-3 border-primary border-t-transparent rounded-full animate-spin" />
                   <span className="text-xs font-semibold text-muted-foreground">
-                    Đang tải thông tin chi tiết từ Google...
+                    {t("places.loadingDetailsGoogle", { defaultValue: "Loading details from Google..." })}
                   </span>
                 </div>
               </div>
@@ -184,69 +196,23 @@ export function PlaceDetailModal({
                       </p>
                       {place.oldAddress && (
                         <p className="text-micro text-muted-foreground/80 italic mt-1">
-                          Địa chỉ cũ: {place.oldAddress}
+                          {t("places.oldAddress", { defaultValue: "Old address" })}: {place.oldAddress}
                         </p>
                       )}
                     </div>
                   </div>
                 )}
-
                 {place.openingHours && (
                   <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-muted/50 border border-border/40">
                     <Clock className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-semibold text-foreground text-xs">
-                          Giờ hoạt động
-                        </span>
-                        {place.businessStatus && (
-                          <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            {place.businessStatus === "OPERATIONAL"
-                              ? "Đang mở cửa"
-                              : place.businessStatus}
-                          </span>
-                        )}
-                      </div>
-                      {place.openingHours.includes(";") ? (
-                        <div className="grid grid-cols-1 gap-1 text-micro text-muted-foreground pt-1.5 border-t border-border/40">
-                          {place.openingHours.split(";").map((line, idx) => {
-                            const trimmed = line.trim();
-                            if (!trimmed) return null;
-                            const colonIdx = trimmed.indexOf(":");
-                            if (colonIdx > -1) {
-                              const day = trimmed.substring(0, colonIdx).trim();
-                              const time = trimmed
-                                .substring(colonIdx + 1)
-                                .trim();
-                              return (
-                                <div
-                                  key={idx}
-                                  className="flex items-center justify-between py-0.5"
-                                >
-                                  <span className="font-medium text-foreground/80">
-                                    {day}
-                                  </span>
-                                  <span className="text-foreground/90 font-mono text-micro">
-                                    {time}
-                                  </span>
-                                </div>
-                              );
-                            }
-                            return (
-                              <div
-                                key={idx}
-                                className="py-0.5 text-foreground/80"
-                              >
-                                {trimmed}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-foreground leading-relaxed">
-                          {place.openingHours}
-                        </span>
-                      )}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <span className="font-semibold text-foreground text-xs block">
+                        {t("places.openingHours", { defaultValue: "Opening Hours" })}
+                      </span>
+                      <OpeningHoursDisplay
+                        openingHours={place.openingHours}
+                        businessStatus={place.businessStatus}
+                      />
                     </div>
                   </div>
                 )}
@@ -260,7 +226,7 @@ export function PlaceDetailModal({
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs transition-colors cursor-pointer"
                     >
                       <Navigation className="h-3.5 w-3.5" />
-                      <span>Dẫn đường</span>
+                      <span>{t("places.directions", { defaultValue: "Directions" })}</span>
                     </a>
                   )}
 
@@ -282,7 +248,7 @@ export function PlaceDetailModal({
                       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/50 hover:bg-muted border border-border/40 text-foreground transition-colors cursor-pointer"
                     >
                       <Globe className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span className="truncate max-w-[200px]">Trang web</span>
+                      <span className="truncate max-w-[200px]">{t("places.website", { defaultValue: "Website" })}</span>
                       <ExternalLink className="h-3 w-3 text-muted-foreground" />
                     </a>
                   )}
@@ -305,7 +271,7 @@ export function PlaceDetailModal({
               {place.description && (
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold text-foreground">
-                    Giới thiệu
+                    {t("places.description", { defaultValue: "About" })}
                   </span>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {place.description}
@@ -319,7 +285,7 @@ export function PlaceDetailModal({
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-primary" />
                     <span className="text-sm font-bold text-foreground">
-                      Đánh giá từ khách hàng{" "}
+                      {t("places.customerReviews", { defaultValue: "Customer reviews" })}{" "}
                       {place.reviews && place.reviews.length > 0
                         ? `(${place.reviews.length})`
                         : ""}
@@ -374,7 +340,7 @@ export function PlaceDetailModal({
                   <div className="p-6 rounded-2xl bg-muted/40 border border-border/60 flex flex-col items-center justify-center gap-2.5">
                     <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     <span className="text-xs text-muted-foreground font-medium">
-                      Đang tải đánh giá từ Google...
+                      {t("places.loadingReviewsGoogle", { defaultValue: "Loading reviews from Google..." })}
                     </span>
                   </div>
                 ) : (
@@ -399,11 +365,10 @@ export function PlaceDetailModal({
                           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                         />
                       </svg>
-                      <span>Đánh giá từ nhà cung cấp</span>
+                      <span>{t("places.reviewsFromProvider", { defaultValue: "Reviews from provider" })}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Xem nhận xét và cảm nhận thực tế từ du khách đã trải
-                      nghiệm địa điểm này.
+                      {t("places.reviewsProviderHint", { defaultValue: "See authentic feedback and reviews from travelers who visited this place." })}
                     </p>
                     <Button
                       variant="secondary"
@@ -413,7 +378,7 @@ export function PlaceDetailModal({
                       className="rounded-xl px-4 text-xs font-semibold gap-1.5 shadow-xs cursor-pointer hover:bg-secondary/80"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      <span>Cập nhật đánh giá</span>
+                      <span>{t("places.refreshReviews", { defaultValue: "Update reviews" })}</span>
                     </Button>
                   </div>
                 )}
@@ -426,7 +391,7 @@ export function PlaceDetailModal({
                   onClick={onClose}
                   className="rounded-xl px-5 text-xs font-semibold"
                 >
-                  Đóng
+                  {t("places.close", { defaultValue: "Close" })}
                 </Button>
                 {place.location && (
                   <Button
@@ -439,7 +404,7 @@ export function PlaceDetailModal({
                       rel="noopener noreferrer"
                     >
                       <Navigation className="h-3.5 w-3.5" />
-                      <span>Mở bản đồ ngoài</span>
+                      <span>{t("places.openExternalMap", { defaultValue: "Open in Maps" })}</span>
                     </a>
                   </Button>
                 )}

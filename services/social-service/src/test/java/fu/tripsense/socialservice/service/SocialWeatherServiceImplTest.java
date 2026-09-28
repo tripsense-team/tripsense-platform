@@ -33,10 +33,8 @@ class SocialWeatherServiceImplTest {
     OpenMeteoResponse.CurrentWeather current =
         new OpenMeteoResponse.CurrentWeather("2026-09-24T16:00", 28.4, 72, 0);
     OpenMeteoResponse.DailyWeather daily =
-        new OpenMeteoResponse.DailyWeather(
-            List.of("2026-09-24"), List.of(31.2), List.of(24.5));
-    OpenMeteoResponse mockResponse =
-        new OpenMeteoResponse(16.0544, 108.2022, current, daily);
+        new OpenMeteoResponse.DailyWeather(List.of("2026-09-24"), List.of(31.2), List.of(24.5));
+    OpenMeteoResponse mockResponse = new OpenMeteoResponse(16.0544, 108.2022, current, daily);
 
     when(openMeteoClient.fetchForecast(anyDouble(), anyDouble()))
         .thenReturn(Optional.of(mockResponse));
@@ -62,8 +60,7 @@ class SocialWeatherServiceImplTest {
 
   @Test
   void getDestinationWeather_openMeteoReturnsEmpty_fallsBackToPreset() {
-    when(openMeteoClient.fetchForecast(anyDouble(), anyDouble()))
-        .thenReturn(Optional.empty());
+    when(openMeteoClient.fetchForecast(anyDouble(), anyDouble())).thenReturn(Optional.empty());
 
     DestinationWeatherResponse res = weatherService.getDestinationWeather("dalat");
 
@@ -92,8 +89,7 @@ class SocialWeatherServiceImplTest {
 
   @Test
   void getDestinationWeather_unknownCityId_fallsBackToDalat() {
-    when(openMeteoClient.fetchForecast(anyDouble(), anyDouble()))
-        .thenReturn(Optional.empty());
+    when(openMeteoClient.fetchForecast(anyDouble(), anyDouble())).thenReturn(Optional.empty());
 
     DestinationWeatherResponse res = weatherService.getDestinationWeather("nonexistent-city");
 
@@ -107,10 +103,8 @@ class SocialWeatherServiceImplTest {
     OpenMeteoResponse.CurrentWeather current =
         new OpenMeteoResponse.CurrentWeather("2026-09-24T16:00", 14.2, 85, 2);
     OpenMeteoResponse.DailyWeather daily =
-        new OpenMeteoResponse.DailyWeather(
-            List.of("2026-09-24"), List.of(17.0), List.of(11.0));
-    OpenMeteoResponse mockResponse =
-        new OpenMeteoResponse(22.3364, 103.8438, current, daily);
+        new OpenMeteoResponse.DailyWeather(List.of("2026-09-24"), List.of(17.0), List.of(11.0));
+    OpenMeteoResponse mockResponse = new OpenMeteoResponse(22.3364, 103.8438, current, daily);
 
     when(openMeteoClient.fetchForecast(anyDouble(), anyDouble()))
         .thenReturn(Optional.of(mockResponse));
@@ -127,10 +121,8 @@ class SocialWeatherServiceImplTest {
     OpenMeteoResponse.CurrentWeather current =
         new OpenMeteoResponse.CurrentWeather("2026-09-24T16:00", 25.0, 95, 63);
     OpenMeteoResponse.DailyWeather daily =
-        new OpenMeteoResponse.DailyWeather(
-            List.of("2026-09-24"), List.of(27.0), List.of(23.0));
-    OpenMeteoResponse mockResponse =
-        new OpenMeteoResponse(21.0285, 105.8542, current, daily);
+        new OpenMeteoResponse.DailyWeather(List.of("2026-09-24"), List.of(27.0), List.of(23.0));
+    OpenMeteoResponse mockResponse = new OpenMeteoResponse(21.0285, 105.8542, current, daily);
 
     when(openMeteoClient.fetchForecast(anyDouble(), anyDouble()))
         .thenReturn(Optional.of(mockResponse));

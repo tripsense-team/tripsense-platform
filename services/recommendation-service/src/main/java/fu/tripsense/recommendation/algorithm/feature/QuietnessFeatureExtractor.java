@@ -9,10 +9,18 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class QuietnessFeatureExtractor implements FeatureExtractor {
-  @Override public int order() { return 55; }
-  @Override public CandidateFeatures extract(RecommendationContext context, FusedCandidate candidate, CandidateFeatures current) {
+  @Override
+  public int order() {
+    return 55;
+  }
+
+  @Override
+  public CandidateFeatures extract(
+      RecommendationContext context, FusedCandidate candidate, CandidateFeatures current) {
     QuietnessEvidence evidence = candidate.place().quietnessEvidence();
     if (evidence == null || !evidence.valid()) return current;
-    return current.withQuietness(new CandidateFeatures.Quietness(true, evidence.score(), evidence.evidenceCount(), evidence.source()));
+    return current.withQuietness(
+        new CandidateFeatures.Quietness(
+            true, evidence.score(), evidence.evidenceCount(), evidence.source()));
   }
 }

@@ -6,6 +6,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/react-query";
 import { AuthProvider } from "@/features/auth";
 import { I18nProvider } from "@/i18n";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface AppProviderProps {
   children: React.ReactNode;
@@ -19,7 +20,11 @@ export function AppProvider({ children }: AppProviderProps) {
     <QueryClientProvider client={queryClient}>
       <GoogleOAuthProvider clientId={googleClientId}>
         <I18nProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <TooltipProvider delayDuration={150}>
+              {children}
+            </TooltipProvider>
+          </AuthProvider>
         </I18nProvider>
       </GoogleOAuthProvider>
     </QueryClientProvider>

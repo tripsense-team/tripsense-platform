@@ -37,46 +37,70 @@ public class UserPublicProfileClient {
 
   public PublicProfileClientResponse requireEnabled(UUID userId, String bearerToken) {
     try {
-      ApiResponseEnvelope<PublicProfileClientResponse> response = restClientBuilder.build()
-          .get().uri(userServiceUrl + "/api/users/public-profiles/" + userId)
-          .headers(headers -> headers.setBearerAuth(bearerToken))
-          .retrieve().body(new ParameterizedTypeReference<ApiResponseEnvelope<PublicProfileClientResponse>>() {});
+      ApiResponseEnvelope<PublicProfileClientResponse> response =
+          restClientBuilder
+              .build()
+              .get()
+              .uri(userServiceUrl + "/api/users/public-profiles/" + userId)
+              .headers(headers -> headers.setBearerAuth(bearerToken))
+              .retrieve()
+              .body(
+                  new ParameterizedTypeReference<
+                      ApiResponseEnvelope<PublicProfileClientResponse>>() {});
       if (response == null || response.data() == null) {
-        throw new SocialException(HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile lookup unavailable");
+        throw new SocialException(
+            HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile lookup unavailable");
       }
       return response.data();
     } catch (RestClientResponseException e) {
       if (e.getStatusCode().value() == 404) {
         throw new SocialException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found");
       }
-      throw new SocialException(HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile lookup unavailable");
+      throw new SocialException(
+          HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile lookup unavailable");
     } catch (SocialException e) {
       throw e;
     } catch (Exception e) {
-      throw new SocialException(HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile lookup unavailable");
+      throw new SocialException(
+          HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile lookup unavailable");
     }
   }
 
   public List<PublicProfileClientResponse> search(String query, int limit, String bearerToken) {
     try {
-      String uri = UriComponentsBuilder.fromUriString(userServiceUrl + "/api/users/public-profiles/search")
-          .queryParam("query", query).queryParam("limit", limit).build().encode().toUriString();
-      ApiResponseEnvelope<List<PublicProfileClientResponse>> response = restClientBuilder.build()
-          .get().uri(uri).headers(headers -> headers.setBearerAuth(bearerToken))
-          .retrieve().body(new ParameterizedTypeReference<ApiResponseEnvelope<List<PublicProfileClientResponse>>>() {});
+      String uri =
+          UriComponentsBuilder.fromUriString(userServiceUrl + "/api/users/public-profiles/search")
+              .queryParam("query", query)
+              .queryParam("limit", limit)
+              .build()
+              .encode()
+              .toUriString();
+      ApiResponseEnvelope<List<PublicProfileClientResponse>> response =
+          restClientBuilder
+              .build()
+              .get()
+              .uri(uri)
+              .headers(headers -> headers.setBearerAuth(bearerToken))
+              .retrieve()
+              .body(
+                  new ParameterizedTypeReference<
+                      ApiResponseEnvelope<List<PublicProfileClientResponse>>>() {});
       if (response == null || response.data() == null) {
-        throw new SocialException(HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile search unavailable");
+        throw new SocialException(
+            HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile search unavailable");
       }
       return response.data();
     } catch (RestClientResponseException e) {
       if (e.getStatusCode().value() == 400) {
         throw new SocialException(HttpStatus.BAD_REQUEST, "INVALID_QUERY", "Invalid search query");
       }
-      throw new SocialException(HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile search unavailable");
+      throw new SocialException(
+          HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile search unavailable");
     } catch (SocialException e) {
       throw e;
     } catch (Exception e) {
-      throw new SocialException(HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile search unavailable");
+      throw new SocialException(
+          HttpStatus.SERVICE_UNAVAILABLE, "PROFILE_UNAVAILABLE", "Profile search unavailable");
     }
   }
 

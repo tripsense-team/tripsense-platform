@@ -26,7 +26,7 @@ eureka:
     prefer-ip-address: true
 
 jwt:
-  access-secret: ${JWT_ACCESS_SECRET}
+  access-secret: ${JWT_ACCESS_SECRET:}
 
 tripsense:
   recommendation:
@@ -47,19 +47,28 @@ tripsense:
       enabled: ${RECOMMENDATION_MMR_ENABLED:true}
       lambda: ${RECOMMENDATION_MMR_LAMBDA:0.75}
     downstream:
-      place-url: ${PLACE_SERVICE_URL:http://place-service:8082}
-      context-url: ${CONTEXT_SERVICE_URL:http://context-service:8087}
-      trip-url: ${TRIP_SERVICE_URL:http://trip-service:8084}
-      user-url: ${USER_SERVICE_URL:http://user-service:8081}
-      timeout: ${RECOMMENDATION_DOWNSTREAM_TIMEOUT:12s}
+      place-url: ${PLACE_SERVICE_URL:http://localhost:8083}
+      context-url: ${CONTEXT_SERVICE_URL:http://localhost:8087}
+      trip-url: ${TRIP_SERVICE_URL:http://localhost:8084}
+      user-url: ${USER_SERVICE_URL:http://localhost:8081}
+      timeout: ${RECOMMENDATION_DOWNSTREAM_TIMEOUT:3s}
     semantic:
-      enabled: ${RECOMMENDATION_SEMANTIC_ENABLED:false}
-      embedding-base-url: ${EMBEDDING_BASE_URL:}
+      enabled: ${RECOMMENDATION_SEMANTIC_ENABLED:true}
+      embedding-base-url: ${EMBEDDING_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
       embedding-api-key: ${EMBEDDING_API_KEY:}
-      embedding-model: ${EMBEDDING_MODEL:text-embedding-3-small}
-      qdrant-url: ${QDRANT_URL:http://qdrant:6333}
+      embedding-model: ${EMBEDDING_MODEL:gemini-embedding-001}
+      qdrant-url: ${QDRANT_URL:http://localhost:6333}
       qdrant-api-key: ${QDRANT_API_KEY:}
       collection: ${QDRANT_PLACE_COLLECTION:tripsense_places}
+    explore:
+      minimum-useful-results: ${EXPLORE_RECOMMENDATION_MINIMUM_RESULTS:6}
+      minimum-query-relevance: ${EXPLORE_MINIMUM_QUERY_RELEVANCE:0.15}
+      maximum-provider-query-rank: ${EXPLORE_MAXIMUM_PROVIDER_QUERY_RANK:40}
+      cache-ttl: ${EXPLORE_RECOMMENDATION_CACHE_TTL:10m}
+      last-known-good-ttl: ${EXPLORE_RECOMMENDATION_LKG_TTL:24h}
+      cache-key-secret: ${RECOMMENDATION_CACHE_KEY_SECRET:}
+    security:
+      internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:}
     feedback:
       max-clock-skew: ${RECOMMENDATION_FEEDBACK_MAX_CLOCK_SKEW:10m}
       max-history-events: ${RECOMMENDATION_MAX_HISTORY_EVENTS:5000}

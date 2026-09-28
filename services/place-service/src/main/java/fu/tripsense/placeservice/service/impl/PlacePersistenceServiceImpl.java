@@ -272,7 +272,8 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
 
   private String freshness(Instant fetchedAt) {
     if (fetchedAt == null) return "UNKNOWN";
-    return Instant.now().isAfter(fetchedAt.plusSeconds(properties.getCache().getProviderTtlSeconds()))
+    return Instant.now()
+            .isAfter(fetchedAt.plusSeconds(properties.getCache().getProviderTtlSeconds()))
         ? "STALE"
         : "FRESH";
   }

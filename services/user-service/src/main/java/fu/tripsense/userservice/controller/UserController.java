@@ -74,8 +74,7 @@ public class UserController {
   @GetMapping("/me/travel-preferences")
   public ResponseEntity<ApiResponse<TravelPreferenceDto>> getTravelPreferences(
       @AuthenticationPrincipal User currentUser) {
-    return ResponseEntity.ok(
-        ApiResponse.success(travelPreferenceService.get(currentUser.getId())));
+    return ResponseEntity.ok(ApiResponse.success(travelPreferenceService.get(currentUser.getId())));
   }
 
   @PutMapping("/me/travel-preferences")

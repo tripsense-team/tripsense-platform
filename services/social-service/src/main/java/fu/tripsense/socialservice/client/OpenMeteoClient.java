@@ -17,18 +17,15 @@ public class OpenMeteoClient {
 
   public OpenMeteoClient(
       RestClient.Builder restClientBuilder,
-      @Value("${weather.open-meteo.base-url:https://api.open-meteo.com/v1/forecast}") String baseUrl,
+      @Value("${weather.open-meteo.base-url:https://api.open-meteo.com/v1/forecast}")
+          String baseUrl,
       @Value("${weather.open-meteo.connect-timeout-ms:2000}") int connectTimeoutMs,
       @Value("${weather.open-meteo.read-timeout-ms:4000}") int readTimeoutMs) {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
     requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
 
-    this.restClient =
-        restClientBuilder
-            .requestFactory(requestFactory)
-            .baseUrl(baseUrl)
-            .build();
+    this.restClient = restClientBuilder.requestFactory(requestFactory).baseUrl(baseUrl).build();
   }
 
   public Optional<OpenMeteoResponse> fetchForecast(double latitude, double longitude) {

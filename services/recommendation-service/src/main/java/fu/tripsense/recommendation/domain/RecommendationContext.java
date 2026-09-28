@@ -1,8 +1,8 @@
 package fu.tripsense.recommendation.domain;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 

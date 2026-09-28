@@ -43,10 +43,11 @@ class UserControllerTest {
     when(userService.searchPublicProfiles("Linh", 10)).thenReturn(List.of(dto));
 
     mockMvc
-        .perform(get("/api/users/public-profiles/search")
-            .param("query", "Linh")
-            .param("limit", "10")
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(
+            get("/api/users/public-profiles/search")
+                .param("query", "Linh")
+                .param("limit", "10")
+                .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data[0].userId").value(id.toString()))
@@ -64,8 +65,7 @@ class UserControllerTest {
     when(userService.getPublicProfile(id)).thenReturn(dto);
 
     mockMvc
-        .perform(get("/api/users/public-profiles/" + id)
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(get("/api/users/public-profiles/" + id).accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.userId").value(id.toString()))

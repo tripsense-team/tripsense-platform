@@ -47,8 +47,10 @@ class UserServiceImplTest {
     User u1 = User.builder().id(id1).status(UserStatus.ACTIVE).build();
     User u2 = User.builder().id(id2).status(UserStatus.ACTIVE).build();
 
-    UserProfile p1 = UserProfile.builder().userId(id1).displayName("Alice").avatarUrl("alice.png").build();
-    UserProfile p2 = UserProfile.builder().userId(id2).displayName("Bob").avatarUrl("bob.png").build();
+    UserProfile p1 =
+        UserProfile.builder().userId(id1).displayName("Alice").avatarUrl("alice.png").build();
+    UserProfile p2 =
+        UserProfile.builder().userId(id2).displayName("Bob").avatarUrl("bob.png").build();
 
     when(userRepository.findAllById(List.of(id1, id2))).thenReturn(List.of(u1, u2));
     when(userProfileRepository.findAllById(anySet())).thenReturn(List.of(p1, p2));
@@ -79,7 +81,11 @@ class UserServiceImplTest {
     User disabledUser = User.builder().id(disabledId).status(UserStatus.INACTIVE).build();
 
     UserProfile validProfile =
-        UserProfile.builder().userId(validId).displayName("Valid User").avatarUrl("valid.png").build();
+        UserProfile.builder()
+            .userId(validId)
+            .displayName("Valid User")
+            .avatarUrl("valid.png")
+            .build();
 
     when(userRepository.findAllById(List.of(validId, disabledId, missingId)))
         .thenReturn(List.of(validUser, disabledUser)); // missingId is not returned by DB
@@ -105,7 +111,8 @@ class UserServiceImplTest {
   }
 
   @Test
-  @DisplayName("searchPublicProfiles returns mapped public profiles and escapes wildcard characters")
+  @DisplayName(
+      "searchPublicProfiles returns mapped public profiles and escapes wildcard characters")
   void searchPublicProfiles_ValidQuerySuccess() {
     UUID id = UUID.randomUUID();
     Object[] row = new Object[] {id, "Khánh Linh", "avatar.jpg"};

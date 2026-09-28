@@ -1,4 +1,4 @@
-import { apiClient } from "@/services/api-client";
+import { apiClient, requestRefreshToken } from "@/services/api-client";
 import { useAuthStore } from "../store/use-auth-store";
 import { profileService } from "@/features/profile";
 import type {
@@ -11,9 +11,6 @@ import type {
   User,
   RefreshResponse,
 } from "../types";
-
-// In-flight Single-Flight promise to deduplicate parallel refreshToken calls
-let inFlightRefreshPromise: Promise<ApiResponse<RefreshResponse>> | null = null;
 
 export const authApi = {
   async register(payload: RegisterRequest): Promise<ApiResponse<User>> {
@@ -109,31 +106,7 @@ export const authApi = {
   },
 
   async refreshToken(): Promise<ApiResponse<RefreshResponse>> {
-    if (inFlightRefreshPromise) {
-      return inFlightRefreshPromise;
-    }
-
-    inFlightRefreshPromise = (async () => {
-      try {
-        const response = await apiClient<ApiResponse<RefreshResponse>>(
-          "/api/auth/refresh",
-          {
-            method: "POST",
-            skipAuth: true,
-          },
-        );
-
-        if (response.success && response.data?.accessToken) {
-          useAuthStore.getState().setAccessToken(response.data.accessToken);
-        }
-
-        return response;
-      } finally {
-        inFlightRefreshPromise = null;
-      }
-    })();
-
-    return inFlightRefreshPromise;
+    return requestRefreshToken();
   },
 
   async logout(): Promise<ApiResponse<void>> {

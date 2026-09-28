@@ -4,8 +4,16 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |
+| `explore-category-discovery-and-pagination` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./explore-category-discovery-and-pagination.md) |
+| `place-batch-enrichment-and-ziomap-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./place-batch-enrichment-and-ziomap-settings.md) |
+| `explore-for-you-personalized-recommendations` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/recommendation-service`, `services/context-service`, `services/place-service` | [Docs](./explore-for-you-personalized-recommendations.md) |
+| `mindtrip-explore-experience-redesign` | DONE | `apps/web/tripsense` | [Docs](./mindtrip-explore-experience-redesign.md) |
+| `explore-search-autocomplete-dropdown` | DONE | `apps/web/tripsense` | [Docs](./explore-search-autocomplete-dropdown.md) |
+| `place-detail-map-overlay` | DONE | `apps/web/tripsense` | [Docs](./place-detail-map-overlay.md) |
 | `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |
 | `web-typography-system` | DONE | `apps/web/tripsense` | [Docs](./web-typography-system.md) |
+| `place-search-embedding-sync` | DONE | `services/place-service`, `services/recommendation-service` | [Docs](./place-search-embedding-sync.md) |
 | `recommendation-decision-intelligence` | IMPLEMENTING | `services/recommendation-service`, `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./recommendation-decision-intelligence.md) |
 | `evidence-aware-recommendation-ranking` | DONE | `services/place-service`, `services/recommendation-service`, `services/ai-service`, `apps/web/tripsense` | [Docs](./evidence-aware-recommendation-ranking.md) |
 | `recommendation-engine-v2` | DONE | `services/recommendation-service`, `services/place-service`, `services/context-service`, `services/trip-service`, `services/user-service`, `services/api-gateway`, `services/ai-service` | [Docs](./recommendation-engine-v2.md) |

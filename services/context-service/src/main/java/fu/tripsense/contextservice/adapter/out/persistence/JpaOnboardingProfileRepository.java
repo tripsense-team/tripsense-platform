@@ -14,8 +14,7 @@ public class JpaOnboardingProfileRepository implements OnboardingProfileReposito
   private final FreeTextCryptoService crypto;
 
   public JpaOnboardingProfileRepository(
-      SpringOnboardingProfileJpaRepository repository,
-      FreeTextCryptoService crypto) {
+      SpringOnboardingProfileJpaRepository repository, FreeTextCryptoService crypto) {
     this.repository = repository;
     this.crypto = crypto;
   }
@@ -53,7 +52,8 @@ public class JpaOnboardingProfileRepository implements OnboardingProfileReposito
 
     String freeText = null;
     if (entity.freeTextEntity != null && entity.freeTextEntity.ciphertext != null) {
-      if (entity.freeTextEntity.expiresAt == null || entity.freeTextEntity.expiresAt.isAfter(Instant.now())) {
+      if (entity.freeTextEntity.expiresAt == null
+          || entity.freeTextEntity.expiresAt.isAfter(Instant.now())) {
         freeText = crypto.decrypt(entity.freeTextEntity.ciphertext);
       }
     }
@@ -117,18 +117,21 @@ public class JpaOnboardingProfileRepository implements OnboardingProfileReposito
 
     entity.attributes.clear();
     if (profile.attributes() != null) {
-      profile.attributes().forEach((code, json) -> {
-        if (code != null && json != null) {
-          OnboardingAttributeEntity attr = new OnboardingAttributeEntity();
-          attr.id = new OnboardingAttributeId(entity.id, code);
-          attr.profile = entity;
-          attr.valueJson = json;
-          attr.valueSchemaVersion = 1;
-          attr.sensitivityClass = "STANDARD";
-          attr.updatedAt = Instant.now();
-          entity.attributes.add(attr);
-        }
-      });
+      profile
+          .attributes()
+          .forEach(
+              (code, json) -> {
+                if (code != null && json != null) {
+                  OnboardingAttributeEntity attr = new OnboardingAttributeEntity();
+                  attr.id = new OnboardingAttributeId(entity.id, code);
+                  attr.profile = entity;
+                  attr.valueJson = json;
+                  attr.valueSchemaVersion = 1;
+                  attr.sensitivityClass = "STANDARD";
+                  attr.updatedAt = Instant.now();
+                  entity.attributes.add(attr);
+                }
+              });
     }
 
     String plainFreeText = profile.freeText();

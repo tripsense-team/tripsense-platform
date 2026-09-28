@@ -52,6 +52,7 @@ public class PlaceDto implements Serializable {
 
   /** Additive evidence fields used by grounded recommendation consumers. */
   private String source;
+
   private Instant fetchedAt;
   private String freshness;
 

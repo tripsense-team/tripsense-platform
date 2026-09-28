@@ -1,14 +1,14 @@
 package fu.tripsense.recommendation.api.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -51,9 +51,16 @@ public record RecommendationRequest(
     SEMANTIC
   }
 
-  public enum CriterionDirection { MINIMIZE, MAXIMIZE }
+  public enum CriterionDirection {
+    MINIMIZE,
+    MAXIMIZE
+  }
 
-  public enum CriterionImportance { LOW, MEDIUM, HIGH }
+  public enum CriterionImportance {
+    LOW,
+    MEDIUM,
+    HIGH
+  }
 
   @AssertTrue(message = "Latitude and longitude must be provided together")
   public boolean isCoordinatePairValid() {

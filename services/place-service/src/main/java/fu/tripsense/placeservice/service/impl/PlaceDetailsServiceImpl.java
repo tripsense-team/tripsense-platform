@@ -1,5 +1,6 @@
 package fu.tripsense.placeservice.service.impl;
 
+import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.PlaceDto;
@@ -15,8 +16,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -31,6 +35,7 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
   private final PlaceEnrichmentProvider enrichmentProvider;
   private final PlaceCacheService cache;
   private final PlacePersistenceService persistence;
+  private final RecommendationIndexerClient recommendationIndexerClient;
 
   public PlaceDetailsServiceImpl(
       PlaceRepository repository,
@@ -38,11 +43,23 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
       PlaceEnrichmentProvider enrichmentProvider,
       PlaceCacheService cache,
       PlacePersistenceService persistence) {
+    this(repository, provider, enrichmentProvider, cache, persistence, null);
+  }
+
+  @Autowired
+  public PlaceDetailsServiceImpl(
+      PlaceRepository repository,
+      PlaceProvider provider,
+      PlaceEnrichmentProvider enrichmentProvider,
+      PlaceCacheService cache,
+      PlacePersistenceService persistence,
+      @Autowired(required = false) RecommendationIndexerClient recommendationIndexerClient) {
     this.repository = repository;
     this.provider = provider;
     this.enrichmentProvider = enrichmentProvider;
     this.cache = cache;
     this.persistence = persistence;
+    this.recommendationIndexerClient = recommendationIndexerClient;
   }
 
   @Override
@@ -59,60 +76,73 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
       Double fallbackLng,
       boolean includePhoto) {
     Optional<PlaceDto> result = getDetailsWithoutPhoto(id, fallbackName, fallbackLat, fallbackLng);
+    Optional<PlaceDto> finalResult;
     if (!includePhoto) {
-      return result;
+      finalResult = result;
+    } else {
+      finalResult =
+          result.map(
+              base -> {
+                PlaceDto place = new PlaceDto();
+                BeanUtils.copyProperties(base, place);
+
+                // If photos already exist in database, use them immediately to save credits and
+                // load fast
+                if (base.getPhotos() != null && !base.getPhotos().isEmpty()) {
+                  List<PlacePhotoDto> existingGallery =
+                      base.getPhotos().stream()
+                          .filter(StringUtils::hasText)
+                          .map(
+                              url ->
+                                  new PlacePhotoDto(
+                                      url,
+                                      StringUtils.hasText(place.getProvider())
+                                          ? place.getProvider()
+                                          : provider.getProviderName(),
+                                      List.of(),
+                                      Instant.now(),
+                                      true))
+                          .toList();
+                  if (!existingGallery.isEmpty()) {
+                    place.setPhotoGallery(existingGallery);
+                    place.setPrimaryPhoto(existingGallery.get(0));
+                    return place;
+                  }
+                }
+
+                place.setPrimaryPhoto(null);
+                place.setPhotoGallery(null);
+                if (StringUtils.hasText(place.getProvider())
+                    && place.getProvider().equalsIgnoreCase(provider.getProviderName())
+                    && StringUtils.hasText(place.getProviderPlaceId())) {
+                  var gallery = provider.getPhotoGallery(place.getProviderPlaceId(), 5);
+                  if (!gallery.isEmpty()) {
+                    place.setPhotoGallery(gallery);
+                    place.setPrimaryPhoto(gallery.get(0));
+
+                    List<String> photoUrls =
+                        gallery.stream()
+                            .map(PlacePhotoDto::url)
+                            .filter(StringUtils::hasText)
+                            .toList();
+                    if (!photoUrls.isEmpty()) {
+                      place.setPhotos(new ArrayList<>(photoUrls));
+                      persistPhotoUrls(place, photoUrls);
+                    }
+                  }
+                }
+                return place;
+              });
     }
-    return result.map(
-        base -> {
-          PlaceDto place = new PlaceDto();
-          BeanUtils.copyProperties(base, place);
 
-          // If photos already exist in database, use them immediately to save credits and load fast
-          if (base.getPhotos() != null && !base.getPhotos().isEmpty()) {
-            List<PlacePhotoDto> existingGallery =
-                base.getPhotos().stream()
-                    .filter(StringUtils::hasText)
-                    .map(
-                        url ->
-                            new PlacePhotoDto(
-                                url,
-                                StringUtils.hasText(place.getProvider())
-                                    ? place.getProvider()
-                                    : provider.getProviderName(),
-                                List.of(),
-                                Instant.now(),
-                                true))
-                    .toList();
-            if (!existingGallery.isEmpty()) {
-              place.setPhotoGallery(existingGallery);
-              place.setPrimaryPhoto(existingGallery.get(0));
-              return place;
-            }
-          }
+    finalResult.ifPresent(this::triggerRecommendationIndexing);
+    return finalResult;
+  }
 
-          place.setPrimaryPhoto(null);
-          place.setPhotoGallery(null);
-          if (StringUtils.hasText(place.getProvider())
-              && place.getProvider().equalsIgnoreCase(provider.getProviderName())
-              && StringUtils.hasText(place.getProviderPlaceId())) {
-            var gallery = provider.getPhotoGallery(place.getProviderPlaceId(), 5);
-            if (!gallery.isEmpty()) {
-              place.setPhotoGallery(gallery);
-              place.setPrimaryPhoto(gallery.get(0));
-
-              List<String> photoUrls =
-                  gallery.stream()
-                      .map(PlacePhotoDto::url)
-                      .filter(StringUtils::hasText)
-                      .toList();
-              if (!photoUrls.isEmpty()) {
-                place.setPhotos(new ArrayList<>(photoUrls));
-                persistPhotoUrls(place, photoUrls);
-              }
-            }
-          }
-          return place;
-        });
+  private void triggerRecommendationIndexing(PlaceDto place) {
+    if (recommendationIndexerClient != null && place != null) {
+      recommendationIndexerClient.triggerIndexingAsync(List.of(place));
+    }
   }
 
   private void persistPhotoUrls(PlaceDto place, List<String> photoUrls) {
@@ -218,9 +248,28 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
     return Optional.ofNullable(result);
   }
 
+  @Override
+  public List<PlaceDto> getSnapshots(List<String> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return List.of();
+    }
+    List<String> sanitized =
+        ids.stream().filter(StringUtils::hasText).distinct().limit(100).toList();
+    if (sanitized.isEmpty()) {
+      return List.of();
+    }
+    List<Place> stored = new ArrayList<>(repository.findAllById(sanitized));
+    Set<String> foundIds = stored.stream().map(Place::getId).collect(Collectors.toSet());
+    List<String> missing = sanitized.stream().filter(id -> !foundIds.contains(id)).toList();
+    if (!missing.isEmpty()) {
+      stored.addAll(repository.findByProviderPlaceIdIn(missing));
+    }
+    return stored.stream().map(persistence::toDto).toList();
+  }
+
   private PlaceDto refreshIfNeeded(Place place, Double fallbackLat, Double fallbackLng) {
     PlaceDto current = persistence.toDto(place);
-    if (hasCompleteDetails(current) && !isStale(place)) {
+    if (!isStale(place)) {
       cacheDetails(place.getId(), current);
       return current;
     }

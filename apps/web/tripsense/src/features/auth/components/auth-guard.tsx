@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/auth-context";
+import { useAuthStore } from "../store/use-auth-store";
 import { UserRole } from "../types";
 import { AuthLoadingScreen } from "@/components/shared";
 
@@ -32,6 +33,17 @@ export function AuthGuard({
     }
     return true;
   }, [isChecking, requireAuth, isAuthenticated, allowedRoles, user]);
+
+  React.useEffect(() => {
+    if (!isChecking) return;
+    const timer = setTimeout(() => {
+      const currentStatus = useAuthStore.getState().status;
+      if (currentStatus === "checking" || currentStatus === "initializing") {
+        useAuthStore.getState().clearAuth();
+      }
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [isChecking]);
 
   React.useEffect(() => {
     if (isChecking) return;

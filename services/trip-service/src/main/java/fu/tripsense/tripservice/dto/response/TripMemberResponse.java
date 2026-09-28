@@ -7,9 +7,4 @@ import lombok.Builder;
 
 @Builder
 public record TripMemberResponse(
-    UUID id,
-    UUID tripId,
-    UUID userId,
-    TripMemberRole role,
-    Instant joinedAt
-) {}
+    UUID id, UUID tripId, UUID userId, TripMemberRole role, Instant joinedAt) {}

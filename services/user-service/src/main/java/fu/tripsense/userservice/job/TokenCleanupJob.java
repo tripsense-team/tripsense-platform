@@ -23,22 +23,19 @@ public class TokenCleanupJob {
   @Value("${auth.cleanup.on-startup:true}")
   private boolean cleanupOnStartup;
 
-  /**
-   * Executes automatically on application startup to purge stale tokens and dead sessions.
-   */
+  /** Executes automatically on application startup to purge stale tokens and dead sessions. */
   @EventListener(ApplicationReadyEvent.class)
   public void onApplicationStartup() {
     if (!cleanupEnabled || !cleanupOnStartup) {
       log.info("Token cleanup on application startup is disabled by configuration");
       return;
     }
-    log.info("ApplicationReadyEvent received: Triggering initial auth token and session cleanup...");
+    log.info(
+        "ApplicationReadyEvent received: Triggering initial auth token and session cleanup...");
     executeCleanup();
   }
 
-  /**
-   * Scheduled cron job running daily at 3:00 AM (default: 0 0 3 * * ?).
-   */
+  /** Scheduled cron job running daily at 3:00 AM (default: 0 0 3 * * ?). */
   @Scheduled(cron = "${auth.cleanup.cron:0 0 3 * * ?}")
   public void runScheduledCleanup() {
     if (!cleanupEnabled) {

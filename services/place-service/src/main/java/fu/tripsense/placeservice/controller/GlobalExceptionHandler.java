@@ -28,6 +28,28 @@ public class GlobalExceptionHandler {
     return ResponseEntity.badRequest().body(ApiResponse.error("INVALID_ARGUMENT", ex.getMessage()));
   }
 
+  @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+  public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(
+      org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ApiResponse.error("RESOURCE_NOT_FOUND", ex.getMessage()));
+  }
+
+  @ExceptionHandler(org.apache.catalina.connector.ClientAbortException.class)
+  public void handleClientAbort(org.apache.catalina.connector.ClientAbortException ex) {
+    log.debug("Client closed connection prematurely: {}", ex.getMessage());
+  }
+
+  @ExceptionHandler(java.io.IOException.class)
+  public void handleIoException(java.io.IOException ex) {
+    String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
+    if (msg.contains("broken pipe") || msg.contains("connection reset")) {
+      log.debug("Client socket closed before response finished: {}", ex.getMessage());
+      return;
+    }
+    log.warn("I/O error occurred: {}", ex.getMessage());
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
     log.error("Unhandled exception occurred: ", ex);

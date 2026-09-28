@@ -118,6 +118,5 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
       GROUP BY p.authorId
       ORDER BY COUNT(p.id) DESC
       """)
-  List<Object[]> findActiveCreatorSummaries(
-      @Param("viewerId") UUID viewerId, Pageable pageable);
+  List<Object[]> findActiveCreatorSummaries(@Param("viewerId") UUID viewerId, Pageable pageable);
 }

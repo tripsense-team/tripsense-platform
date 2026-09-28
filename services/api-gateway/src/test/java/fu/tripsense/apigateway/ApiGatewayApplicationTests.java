@@ -21,6 +21,19 @@ class ApiGatewayApplicationTests {
   void contextLoads() {}
 
   @Test
+  void blockInternalEndpointsRouteExists() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .anySatisfy(
+            route -> {
+              assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.BLOCK_INTERNAL_ROUTE_ID);
+              assertThat(route.getFilters()).isNotEmpty();
+            });
+  }
+
+  @Test
   void placeServiceRouteUsesDiscoveryLoadBalancer() {
     List<Route> routes = routeLocator.getRoutes().collectList().block();
 

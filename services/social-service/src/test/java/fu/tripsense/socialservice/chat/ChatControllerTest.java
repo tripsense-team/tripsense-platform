@@ -62,14 +62,16 @@ class ChatControllerTest {
   @Test
   @DisplayName("users endpoint delegates search to chatService")
   void users_Success() throws Exception {
-    PublicProfileClientResponse profile = new PublicProfileClientResponse(recipientId, "Linh", "avatar.jpg");
+    PublicProfileClientResponse profile =
+        new PublicProfileClientResponse(recipientId, "Linh", "avatar.jpg");
     when(chatService.searchUsers("linh", 10)).thenReturn(List.of(profile));
 
     mockMvc
-        .perform(get("/api/social/chat/users")
-            .param("query", "linh")
-            .param("limit", "10")
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(
+            get("/api/social/chat/users")
+                .param("query", "linh")
+                .param("limit", "10")
+                .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data[0].userId").value(recipientId.toString()))
@@ -81,23 +83,25 @@ class ChatControllerTest {
   @Test
   @DisplayName("conversations list endpoint returns paginated conversations")
   void conversations_Success() throws Exception {
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "ACTIVE",
-        "NONE",
-        null,
-        0,
-        false,
-        Instant.now(),
-        true);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "ACTIVE",
+            "NONE",
+            null,
+            0,
+            false,
+            Instant.now(),
+            true);
     when(chatService.conversations("all", null, 20))
         .thenReturn(new Page<>(List.of(conversation), null));
 
     mockMvc
-        .perform(get("/api/social/chat/conversations")
-            .param("filter", "all")
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(
+            get("/api/social/chat/conversations")
+                .param("filter", "all")
+                .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.items[0].id").value(conversationId.toString()))
@@ -109,22 +113,24 @@ class ChatControllerTest {
   @Test
   @DisplayName("create returns 201 Created when a new draft conversation is created")
   void create_NewDraft_Returns201() throws Exception {
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "DRAFT",
-        "NONE",
-        null,
-        0,
-        false,
-        Instant.now(),
-        false);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "DRAFT",
+            "NONE",
+            null,
+            0,
+            false,
+            Instant.now(),
+            false);
     when(chatService.create(recipientId)).thenReturn(new CreateOutcome(conversation, true));
 
     mockMvc
-        .perform(post("/api/social/chat/conversations")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(new CreateConversation(recipientId))))
+        .perform(
+            post("/api/social/chat/conversations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new CreateConversation(recipientId))))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.id").value(conversationId.toString()))
@@ -136,22 +142,24 @@ class ChatControllerTest {
   @Test
   @DisplayName("create returns 200 OK when conversation already exists")
   void create_ExistingConversation_Returns200() throws Exception {
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "ACTIVE",
-        "NONE",
-        null,
-        0,
-        false,
-        Instant.now(),
-        true);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "ACTIVE",
+            "NONE",
+            null,
+            0,
+            false,
+            Instant.now(),
+            true);
     when(chatService.create(recipientId)).thenReturn(new CreateOutcome(conversation, false));
 
     mockMvc
-        .perform(post("/api/social/chat/conversations")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(new CreateConversation(recipientId))))
+        .perform(
+            post("/api/social/chat/conversations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new CreateConversation(recipientId))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.id").value(conversationId.toString()));
@@ -163,23 +171,25 @@ class ChatControllerTest {
   @DisplayName("messages list endpoint returns paginated messages")
   void messages_Success() throws Exception {
     UUID messageId = UUID.randomUUID();
-    Message message = new Message(
-        messageId,
-        UUID.randomUUID(),
-        conversationId,
-        "1",
-        actorId,
-        "TEXT",
-        "Hello",
-        null,
-        Instant.now(),
-        "sent");
+    Message message =
+        new Message(
+            messageId,
+            UUID.randomUUID(),
+            conversationId,
+            "1",
+            actorId,
+            "TEXT",
+            "Hello",
+            null,
+            Instant.now(),
+            "sent");
     when(chatService.messages(conversationId, null, 30))
         .thenReturn(new Page<>(List.of(message), null));
 
     mockMvc
-        .perform(get("/api/social/chat/conversations/" + conversationId + "/messages")
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(
+            get("/api/social/chat/conversations/" + conversationId + "/messages")
+                .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.items[0].id").value(messageId.toString()))
@@ -193,23 +203,25 @@ class ChatControllerTest {
   void send_NewMessage_Returns201() throws Exception {
     UUID clientMsgId = UUID.randomUUID();
     SendMessage request = new SendMessage(clientMsgId, "TEXT", "Hello!", null);
-    Message message = new Message(
-        UUID.randomUUID(),
-        clientMsgId,
-        conversationId,
-        "10",
-        actorId,
-        "TEXT",
-        "Hello!",
-        null,
-        Instant.now(),
-        "sent");
+    Message message =
+        new Message(
+            UUID.randomUUID(),
+            clientMsgId,
+            conversationId,
+            "10",
+            actorId,
+            "TEXT",
+            "Hello!",
+            null,
+            Instant.now(),
+            "sent");
     when(chatService.send(conversationId, request)).thenReturn(new SendOutcome(message, true));
 
     mockMvc
-        .perform(post("/api/social/chat/conversations/" + conversationId + "/messages")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+        .perform(
+            post("/api/social/chat/conversations/" + conversationId + "/messages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.clientMessageId").value(clientMsgId.toString()))
@@ -223,23 +235,25 @@ class ChatControllerTest {
   void send_DuplicateKeyRetry_Returns200() throws Exception {
     UUID clientMsgId = UUID.randomUUID();
     SendMessage request = new SendMessage(clientMsgId, "TEXT", "Hello!", null);
-    Message message = new Message(
-        UUID.randomUUID(),
-        clientMsgId,
-        conversationId,
-        "10",
-        actorId,
-        "TEXT",
-        "Hello!",
-        null,
-        Instant.now(),
-        "sent");
+    Message message =
+        new Message(
+            UUID.randomUUID(),
+            clientMsgId,
+            conversationId,
+            "10",
+            actorId,
+            "TEXT",
+            "Hello!",
+            null,
+            Instant.now(),
+            "sent");
     when(chatService.send(conversationId, request)).thenReturn(new SendOutcome(message, false));
 
     mockMvc
-        .perform(post("/api/social/chat/conversations/" + conversationId + "/messages")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+        .perform(
+            post("/api/social/chat/conversations/" + conversationId + "/messages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true));
 
@@ -250,22 +264,24 @@ class ChatControllerTest {
   @DisplayName("delivered receipt endpoint updates delivery sequence")
   void delivered_Success() throws Exception {
     Receipt receipt = new Receipt("15");
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "ACTIVE",
-        "NONE",
-        null,
-        0,
-        false,
-        Instant.now(),
-        true);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "ACTIVE",
+            "NONE",
+            null,
+            0,
+            false,
+            Instant.now(),
+            true);
     when(chatService.receipt(conversationId, receipt, false)).thenReturn(conversation);
 
     mockMvc
-        .perform(put("/api/social/chat/conversations/" + conversationId + "/delivered")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(receipt)))
+        .perform(
+            put("/api/social/chat/conversations/" + conversationId + "/delivered")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(receipt)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true));
 
@@ -276,22 +292,24 @@ class ChatControllerTest {
   @DisplayName("read receipt endpoint advances read cursor")
   void read_Success() throws Exception {
     Receipt receipt = new Receipt("15");
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "ACTIVE",
-        "NONE",
-        null,
-        0,
-        false,
-        Instant.now(),
-        true);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "ACTIVE",
+            "NONE",
+            null,
+            0,
+            false,
+            Instant.now(),
+            true);
     when(chatService.receipt(conversationId, receipt, true)).thenReturn(conversation);
 
     mockMvc
-        .perform(put("/api/social/chat/conversations/" + conversationId + "/read")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(receipt)))
+        .perform(
+            put("/api/social/chat/conversations/" + conversationId + "/read")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(receipt)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true));
 
@@ -301,16 +319,17 @@ class ChatControllerTest {
   @Test
   @DisplayName("accept request endpoint activates conversation")
   void accept_Success() throws Exception {
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "ACTIVE",
-        "NONE",
-        null,
-        0,
-        false,
-        Instant.now(),
-        true);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "ACTIVE",
+            "NONE",
+            null,
+            0,
+            false,
+            Instant.now(),
+            true);
     when(chatService.requestDecision(conversationId, true)).thenReturn(conversation);
 
     mockMvc
@@ -325,16 +344,17 @@ class ChatControllerTest {
   @Test
   @DisplayName("decline request endpoint marks conversation declined")
   void decline_Success() throws Exception {
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "DECLINED",
-        "NONE",
-        null,
-        0,
-        false,
-        Instant.now(),
-        false);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "DECLINED",
+            "NONE",
+            null,
+            0,
+            false,
+            Instant.now(),
+            false);
     when(chatService.requestDecision(conversationId, false)).thenReturn(conversation);
 
     mockMvc
@@ -349,22 +369,24 @@ class ChatControllerTest {
   @Test
   @DisplayName("mute endpoint updates muted state")
   void mute_Success() throws Exception {
-    Conversation conversation = new Conversation(
-        conversationId,
-        new PublicProfileClientResponse(recipientId, "Linh", null),
-        "ACTIVE",
-        "NONE",
-        null,
-        0,
-        true,
-        Instant.now(),
-        true);
+    Conversation conversation =
+        new Conversation(
+            conversationId,
+            new PublicProfileClientResponse(recipientId, "Linh", null),
+            "ACTIVE",
+            "NONE",
+            null,
+            0,
+            true,
+            Instant.now(),
+            true);
     when(chatService.mute(conversationId, true)).thenReturn(conversation);
 
     mockMvc
-        .perform(put("/api/social/chat/conversations/" + conversationId + "/mute")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(new Mute(true))))
+        .perform(
+            put("/api/social/chat/conversations/" + conversationId + "/mute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new Mute(true))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.muted").value(true));
@@ -376,9 +398,10 @@ class ChatControllerTest {
   @DisplayName("block and unblock endpoints call chatService")
   void blockAndUnblock_Success() throws Exception {
     mockMvc
-        .perform(post("/api/social/chat/blocks")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(new Block(recipientId))))
+        .perform(
+            post("/api/social/chat/blocks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new Block(recipientId))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true));
 
@@ -395,12 +418,12 @@ class ChatControllerTest {
   @Test
   @DisplayName("blocks list endpoint returns paginated blocked users")
   void blocks_Success() throws Exception {
-    PublicProfileClientResponse blockedUser = new PublicProfileClientResponse(recipientId, "Blocked Person", null);
+    PublicProfileClientResponse blockedUser =
+        new PublicProfileClientResponse(recipientId, "Blocked Person", null);
     when(chatService.blocks(null, 20)).thenReturn(new Page<>(List.of(blockedUser), null));
 
     mockMvc
-        .perform(get("/api/social/chat/blocks")
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(get("/api/social/chat/blocks").accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.items[0].userId").value(recipientId.toString()));
@@ -414,8 +437,7 @@ class ChatControllerTest {
     when(chatService.unreadSummary()).thenReturn(new UnreadSummary(2L, 5L));
 
     mockMvc
-        .perform(get("/api/social/chat/unread-summary")
-            .accept(MediaType.APPLICATION_JSON))
+        .perform(get("/api/social/chat/unread-summary").accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.unreadConversationsCount").value(2))
@@ -430,9 +452,10 @@ class ChatControllerTest {
     RegisterFcmToken request = new RegisterFcmToken("token-xyz", "WEB", "Safari");
 
     mockMvc
-        .perform(post("/api/social/chat/devices/fcm-token")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+        .perform(
+            post("/api/social/chat/devices/fcm-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true));
 
@@ -445,9 +468,10 @@ class ChatControllerTest {
     UnregisterFcmToken request = new UnregisterFcmToken("token-xyz");
 
     mockMvc
-        .perform(delete("/api/social/chat/devices/fcm-token")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+        .perform(
+            delete("/api/social/chat/devices/fcm-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true));
 

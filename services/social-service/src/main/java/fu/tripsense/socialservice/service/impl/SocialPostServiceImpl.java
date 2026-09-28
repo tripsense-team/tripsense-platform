@@ -639,7 +639,9 @@ public class SocialPostServiceImpl implements SocialPostService {
               PublicProfileClientResponse profile = profilesByUserId.get(c.getAuthorId());
               String authorAvatar = profile != null ? profile.avatarUrl() : null;
               String authorName =
-                  (profile != null && profile.displayName() != null && !profile.displayName().isBlank())
+                  (profile != null
+                          && profile.displayName() != null
+                          && !profile.displayName().isBlank())
                       ? profile.displayName()
                       : c.getAuthorDisplayName();
               return new PostCommentResponse(
@@ -857,7 +859,9 @@ public class SocialPostServiceImpl implements SocialPostService {
               PublicProfileClientResponse profile = profilesByUserId.get(p.getAuthorId());
               String authorAvatar = profile != null ? profile.avatarUrl() : null;
               String authorName =
-                  (profile != null && profile.displayName() != null && !profile.displayName().isBlank())
+                  (profile != null
+                          && profile.displayName() != null
+                          && !profile.displayName().isBlank())
                       ? profile.displayName()
                       : p.getAuthorDisplayName();
               return new SocialPostResponse(
@@ -996,7 +1000,8 @@ public class SocialPostServiceImpl implements SocialPostService {
     return author(id, name, null, isFollowing);
   }
 
-  private SocialPostAuthorResponse author(UUID id, String name, String avatar, boolean isFollowing) {
+  private SocialPostAuthorResponse author(
+      UUID id, String name, String avatar, boolean isFollowing) {
     return new SocialPostAuthorResponse(id, name, avatar, isFollowing);
   }
 
