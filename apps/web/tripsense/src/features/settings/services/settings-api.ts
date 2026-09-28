@@ -160,3 +160,25 @@ export async function resetQuotaKeys(
     },
   );
 }
+
+export async function testApiKey(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{
+  id: string;
+  valid: boolean;
+  status: string;
+  maskedKey: string;
+  failureReason?: string;
+}> {
+  return request<{
+    id: string;
+    valid: boolean;
+    status: string;
+    maskedKey: string;
+    failureReason?: string;
+  }>(`/api/places/admin/keys/${id}/test`, {
+    method: "POST",
+    signal,
+  });
+}

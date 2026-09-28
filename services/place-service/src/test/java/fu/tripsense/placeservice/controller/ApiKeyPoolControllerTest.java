@@ -92,4 +92,17 @@ class ApiKeyPoolControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.resetCount").value(3));
   }
+
+  @Test
+  void shouldTestKey() throws Exception {
+    when(apiKeyPoolService.testKeyById("key-1"))
+        .thenReturn(java.util.Map.of("id", "key-1", "valid", true, "status", "ACTIVE"));
+
+    mockMvc
+        .perform(post("/api/places/admin/keys/key-1/test"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.id").value("key-1"))
+        .andExpect(jsonPath("$.data.valid").value(true));
+  }
 }

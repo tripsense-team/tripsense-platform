@@ -9,7 +9,9 @@ import fu.tripsense.placeservice.security.ApiKeyCryptoService;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,7 +75,39 @@ public class ApiKeyPoolService {
     return null;
   }
 
+  public synchronized void normalizeActiveKeys(ApiKeyProvider provider) {
+    List<ApiKeyPoolItem> activeKeys =
+        repository.findByProviderAndStatus(provider, ApiKeyStatus.ACTIVE);
+    if (activeKeys.size() > 1) {
+      activeKeys.sort(
+          Comparator.comparingLong(ApiKeyPoolItem::getSuccessCount)
+              .reversed()
+              .thenComparing(
+                  item -> item.getLastUsedAt() != null ? item.getLastUsedAt() : Instant.EPOCH,
+                  Comparator.reverseOrder())
+              .thenComparing(
+                  item -> item.getCreatedAt() != null ? item.getCreatedAt() : Instant.EPOCH));
+
+      ApiKeyPoolItem primary = activeKeys.get(0);
+      String primaryRaw = resolveRawKey(primary);
+      if (provider == ApiKeyProvider.ZIOMAP && primaryRaw != null) {
+        zioMapProperties.setApiKey(primaryRaw);
+      }
+
+      for (int i = 1; i < activeKeys.size(); i++) {
+        ApiKeyPoolItem redundant = activeKeys.get(i);
+        redundant.setStatus(ApiKeyStatus.AVAILABLE);
+        repository.save(redundant);
+        log.info(
+            "[ApiKeyPool] Normalized pool: demoted redundant ACTIVE key to AVAILABLE: provider={}, key={}",
+            provider,
+            redundant.getMaskedKey());
+      }
+    }
+  }
+
   public List<ApiKeyPoolItem> listKeys(ApiKeyProvider provider) {
+    normalizeActiveKeys(provider);
     return repository.findByProviderOrderByCreatedAtAsc(provider);
   }
 
@@ -120,6 +154,7 @@ public class ApiKeyPoolService {
   }
 
   public synchronized Optional<ApiKeyPoolItem> getActiveKeyItem(ApiKeyProvider provider) {
+    normalizeActiveKeys(provider);
     Optional<ApiKeyPoolItem> active =
         repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(provider, ApiKeyStatus.ACTIVE);
     if (active.isPresent()) {
@@ -233,16 +268,15 @@ public class ApiKeyPoolService {
       throw new IllegalArgumentException("API Key này không hợp lệ, không thể kích hoạt.");
     }
 
-    // Demote current ACTIVE key to AVAILABLE (only if it was ACTIVE)
-    repository
-        .findFirstByProviderAndStatusOrderByCreatedAtAsc(provider, ApiKeyStatus.ACTIVE)
-        .ifPresent(
-            currentActive -> {
-              if (!currentActive.getId().equals(id)) {
-                currentActive.setStatus(ApiKeyStatus.AVAILABLE);
-                repository.save(currentActive);
-              }
-            });
+    // Demote ALL other ACTIVE keys for this provider to AVAILABLE
+    List<ApiKeyPoolItem> currentActives =
+        repository.findByProviderAndStatus(provider, ApiKeyStatus.ACTIVE);
+    for (ApiKeyPoolItem activeItem : currentActives) {
+      if (!activeItem.getId().equals(id)) {
+        activeItem.setStatus(ApiKeyStatus.AVAILABLE);
+        repository.save(activeItem);
+      }
+    }
 
     target.setStatus(ApiKeyStatus.ACTIVE);
     ApiKeyPoolItem saved = repository.save(target);
@@ -299,6 +333,44 @@ public class ApiKeyPoolService {
       }
     }
     return false;
+  }
+
+  public synchronized Map<String, Object> testKeyById(String id) {
+    ApiKeyPoolItem target =
+        repository
+            .findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("API Key not found with id: " + id));
+
+    ApiKeyProvider provider = target.getProvider();
+    String rawKey = resolveRawKey(target);
+    boolean valid = testKey(provider, rawKey);
+
+    if (valid) {
+      if (target.getStatus() == ApiKeyStatus.EXHAUSTED) {
+        target.setStatus(ApiKeyStatus.AVAILABLE);
+        target.setFailureReason(null);
+        target.setExhaustedAt(null);
+        repository.save(target);
+      }
+    } else {
+      boolean wasActive = target.getStatus() == ApiKeyStatus.ACTIVE;
+      target.setStatus(ApiKeyStatus.EXHAUSTED);
+      target.setFailureReason(
+          "Thử nghiệm kết nối thất bại (403 Forbidden / 429 Hết hạn mức / Key không hợp lệ)");
+      target.setExhaustedAt(Instant.now());
+      repository.save(target);
+      if (wasActive) {
+        // Rotate to next available
+        getActiveKeyItem(provider);
+      }
+    }
+
+    return Map.of(
+        "id", id,
+        "valid", valid,
+        "status", target.getStatus().name(),
+        "maskedKey", target.getMaskedKey() != null ? target.getMaskedKey() : "",
+        "failureReason", target.getFailureReason() != null ? target.getFailureReason() : "");
   }
 
   public synchronized void deleteKey(String id) {

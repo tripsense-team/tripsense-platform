@@ -122,4 +122,76 @@ class ApiKeyPoolServiceTest {
     assertThat(key1.getStatus()).isEqualTo(ApiKeyStatus.ACTIVE);
     assertThat(key1.getFailureReason()).isNull();
   }
+
+  @Test
+  void normalizeActiveKeys_demotesRedundantActiveKeysToAvailable() {
+    ApiKeyPoolItem key1 =
+        ApiKeyPoolItem.builder()
+            .id("id-1")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .rawKey("key-1")
+            .status(ApiKeyStatus.ACTIVE)
+            .successCount(100)
+            .build();
+
+    ApiKeyPoolItem key2 =
+        ApiKeyPoolItem.builder()
+            .id("id-2")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .rawKey("key-2")
+            .status(ApiKeyStatus.ACTIVE)
+            .successCount(0)
+            .build();
+
+    when(repository.findByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.ACTIVE))
+        .thenReturn(new ArrayList<>(List.of(key1, key2)));
+    when(repository.save(any(ApiKeyPoolItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    service.normalizeActiveKeys(ApiKeyProvider.ZIOMAP);
+
+    assertThat(key1.getStatus()).isEqualTo(ApiKeyStatus.ACTIVE);
+    assertThat(key2.getStatus()).isEqualTo(ApiKeyStatus.AVAILABLE);
+    verify(repository).save(key2);
+  }
+
+  @Test
+  void setActiveKey_demotesAllOtherActiveKeys() {
+    ApiKeyPoolItem key1 =
+        ApiKeyPoolItem.builder()
+            .id("id-1")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .rawKey("key-1")
+            .status(ApiKeyStatus.ACTIVE)
+            .build();
+
+    ApiKeyPoolItem key2 =
+        ApiKeyPoolItem.builder()
+            .id("id-2")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .rawKey("key-2")
+            .status(ApiKeyStatus.ACTIVE)
+            .build();
+
+    ApiKeyPoolItem key3 =
+        ApiKeyPoolItem.builder()
+            .id("id-3")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .rawKey("key-3")
+            .status(ApiKeyStatus.AVAILABLE)
+            .build();
+
+    when(repository.findById("id-3")).thenReturn(Optional.of(key3));
+    when(repository.findByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.ACTIVE))
+        .thenReturn(List.of(key1, key2));
+    when(repository.save(any(ApiKeyPoolItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    ApiKeyPoolItem activated = service.setActiveKey("id-3");
+
+    assertThat(activated.getStatus()).isEqualTo(ApiKeyStatus.ACTIVE);
+    assertThat(key1.getStatus()).isEqualTo(ApiKeyStatus.AVAILABLE);
+    assertThat(key2.getStatus()).isEqualTo(ApiKeyStatus.AVAILABLE);
+    verify(repository).save(key1);
+    verify(repository).save(key2);
+    verify(repository).save(key3);
+  }
 }

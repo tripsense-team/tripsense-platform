@@ -23,6 +23,7 @@ import {
   deleteApiKey,
   activateApiKey,
   resetQuotaKeys,
+  testApiKey,
 } from "../services/settings-api";
 import type { ApiKeyPoolItem, ApiKeyProvider } from "../types";
 
@@ -129,6 +130,33 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Failed to activate API key";
+      setFeedback({ type: "error", message: msg });
+      await loadKeys(provider);
+    } finally {
+      setActionKeyId(null);
+    }
+  };
+
+  const handleTest = async (id: string) => {
+    setActionKeyId(id);
+    setFeedback(null);
+    try {
+      const res = await testApiKey(id);
+      await loadKeys(provider);
+      if (res.valid) {
+        setFeedback({
+          type: "success",
+          message: t("settings.tokenPool.testSuccess"),
+        });
+      } else {
+        setFeedback({
+          type: "error",
+          message: res.failureReason || t("settings.tokenPool.testFailed"),
+        });
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to test API key";
       setFeedback({ type: "error", message: msg });
       await loadKeys(provider);
     } finally {
@@ -465,7 +493,7 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                             className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium shadow-xs transition disabled:opacity-50 ${
                               k.status === "EXHAUSTED"
                                 ? "border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
-                                : "border-border/70 bg-background/80 text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
                             }`}
                           >
                             {actionKeyId === k.id ? (
@@ -476,6 +504,20 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                                 ? t("settings.tokenPool.testAndActivate")
                                 : t("settings.tokenPool.activate")}
                             </span>
+                          </button>
+                        )}
+                        {k.status !== "INVALID" && (
+                          <button
+                            type="button"
+                            onClick={() => handleTest(k.id)}
+                            disabled={actionKeyId === k.id}
+                            title={t("settings.tokenPool.testKey")}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-background/80 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-xs transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                          >
+                            {actionKeyId === k.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : null}
+                            <span>{t("settings.tokenPool.testKey")}</span>
                           </button>
                         )}
                         <button

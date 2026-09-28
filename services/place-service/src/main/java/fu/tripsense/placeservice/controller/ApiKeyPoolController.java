@@ -58,6 +58,12 @@ public class ApiKeyPoolController {
     return ResponseEntity.ok(ApiResponse.ok(ApiKeyPoolItemDto.from(item)));
   }
 
+  @PostMapping("/{id}/test")
+  public ResponseEntity<ApiResponse<Map<String, Object>>> testKey(@PathVariable String id) {
+    var result = apiKeyPoolService.testKeyById(id);
+    return ResponseEntity.ok(ApiResponse.ok(result));
+  }
+
   @PostMapping("/reset-quota")
   public ResponseEntity<ApiResponse<Map<String, Object>>> resetQuota(
       @RequestParam(name = "provider", defaultValue = "ZIOMAP") ApiKeyProvider provider) {
