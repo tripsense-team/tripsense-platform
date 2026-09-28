@@ -1,5 +1,6 @@
 package fu.tripsense.placeservice.providers.ziomap;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -138,7 +139,8 @@ class ZioMapProviderTest {
     props.setApiKey("test-key");
     props.setPhotoDisplayApproved(true);
     RestClient.Builder builder = RestClient.builder().baseUrl(props.getBaseUrl());
-    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    MockRestServiceServer server =
+        MockRestServiceServer.bindTo(builder).ignoreExpectOrder(true).build();
     provider = new ZioMapProvider(props, builder.build());
     StringBuilder photos = new StringBuilder();
     for (int index = 1; index <= 7; index++) {
@@ -150,7 +152,7 @@ class ZioMapProviderTest {
         .andRespond(withSuccess("{\"photos\":[" + photos + "]}", MediaType.APPLICATION_JSON));
     for (int index = 1; index <= 5; index++) {
       server
-          .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/photos")))
+          .expect(requestTo(containsString("photo-" + index)))
           .andRespond(
               withSuccess(
                   "{\"photoUri\":\"https://lh3.googleusercontent.com/photo-" + index + "\"}",
