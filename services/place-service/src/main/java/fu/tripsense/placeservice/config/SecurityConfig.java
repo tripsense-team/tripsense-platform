@@ -37,18 +37,25 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
-                    .requestMatchers(
-                        HttpMethod.GET,
-                        "/api/places/search",
-                        "/api/places/details",
-                        "/api/places/autocomplete",
-                        "/api/places/browse",
-                        "/api/places/browse/**")
-                    .permitAll()
                     .requestMatchers("/api/places/admin/**")
                     .hasRole("ADMIN")
                     .requestMatchers("/api/places/internal/**")
                     .hasRole("ADMIN")
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/places/search",
+                        "/api/places/autocomplete",
+                        "/api/places/browse",
+                        "/api/places/browse/**",
+                        "/api/places/nearby",
+                        "/api/places/{id}",
+                        "/api/places/*")
+                    .permitAll()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/places/recommendations",
+                        "/api/places/batch-snapshots")
+                    .permitAll()
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
