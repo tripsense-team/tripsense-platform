@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getPlacePhotoUrl } from "../utils/place-photo";
+import { getTodayOpeningHours } from "../utils/opening-hours";
 import type { Place } from "../types";
 
 export interface PlaceCardProps {
@@ -119,7 +120,9 @@ export function PlaceCard({
             {place.openingHours && (
               <div className="flex items-center gap-1.5 text-micro text-muted-foreground">
                 <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
-                <span className="line-clamp-1">{place.openingHours}</span>
+                <span className="line-clamp-1">
+                  {getTodayOpeningHours(place.openingHours) || place.openingHours}
+                </span>
               </div>
             )}
           </div>
@@ -224,7 +227,9 @@ export function PlaceCard({
           {place.openingHours && (
             <div className="flex items-center gap-1.5 text-micro text-muted-foreground">
               <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
-              <span className="truncate">{place.openingHours}</span>
+              <span className="truncate">
+                {getTodayOpeningHours(place.openingHours) || place.openingHours}
+              </span>
             </div>
           )}
         </div>

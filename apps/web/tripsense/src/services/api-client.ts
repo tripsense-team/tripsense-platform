@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import type { ApiResponse, RefreshResponse } from "@/features/auth/types";
 
 const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || "";
 
@@ -18,52 +19,71 @@ function isAuthEndpoint(endpoint: string): boolean {
   return AUTH_ENDPOINTS.some((path) => endpoint.includes(path));
 }
 
-// Single-Flight Refresh Promise to prevent multiple parallel /refresh requests
-let refreshPromise: Promise<string> | null = null;
+// Single-Flight Refresh Promise to prevent multiple parallel /refresh requests across the entire application
+let refreshPromise: Promise<ApiResponse<RefreshResponse>> | null = null;
 
-async function performSilentRefresh(): Promise<string> {
+export async function requestRefreshToken(): Promise<ApiResponse<RefreshResponse>> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
   const currentStore = useAuthStore.getState();
   const startingVersion = currentStore.authVersion;
 
-  try {
-    const refreshResponse = await fetch(`${API_GATEWAY_URL}/api/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    });
+  refreshPromise = (async () => {
+    try {
+      const refreshResponse = await fetch(`${API_GATEWAY_URL}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
 
-    if (!refreshResponse.ok) {
-      throw new Error(
-        `Refresh token expired with status ${refreshResponse.status}`,
-      );
+      if (!refreshResponse.ok) {
+        useAuthStore.getState().clearAuth();
+        const errorData = await refreshResponse.json().catch(() => ({}));
+        throw createSanitizedApiError(
+          errorData.message || `Refresh token expired with status ${refreshResponse.status}`,
+          refreshResponse.status,
+          errorData,
+          "/api/auth/refresh",
+        );
+      }
+
+      const refreshData = (await refreshResponse.json()) as ApiResponse<RefreshResponse>;
+      const newToken = refreshData?.data?.accessToken;
+
+      if (!newToken) {
+        useAuthStore.getState().clearAuth();
+        throw new Error("No access token returned from refresh endpoint");
+      }
+
+      // Race Condition Check: If user logged out while refresh was in-flight, DISCARD token!
+      const latestStore = useAuthStore.getState();
+      if (
+        latestStore.authVersion !== startingVersion ||
+        latestStore.status === "unauthenticated"
+      ) {
+        throw new Error("User logged out while refresh was in-flight");
+      }
+
+      // Update in-memory RAM token in Zustand store
+      useAuthStore.getState().setAccessToken(newToken);
+      return refreshData;
+    } catch (error) {
+      // If refresh fails, mark status as unauthenticated to halt further refreshes
+      useAuthStore.getState().clearAuth();
+      throw error;
+    } finally {
+      refreshPromise = null;
     }
+  })();
 
-    const refreshData = await refreshResponse.json();
-    const newToken = refreshData?.data?.accessToken;
+  return refreshPromise;
+}
 
-    if (!newToken) {
-      throw new Error("No access token returned from refresh endpoint");
-    }
-
-    // Race Condition Check: If user logged out while refresh was in-flight, DISCARD token!
-    const latestStore = useAuthStore.getState();
-    if (
-      latestStore.authVersion !== startingVersion ||
-      latestStore.status === "unauthenticated"
-    ) {
-      throw new Error("User logged out while refresh was in-flight");
-    }
-
-    // Update in-memory RAM token in Zustand store
-    useAuthStore.getState().setAccessToken(newToken);
-    return newToken;
-  } catch (error) {
-    // If refresh fails, mark status as unauthenticated to halt further refreshes
-    useAuthStore.getState().clearAuth();
-    throw error;
-  } finally {
-    refreshPromise = null;
-  }
+export async function performSilentRefresh(): Promise<string> {
+  const result = await requestRefreshToken();
+  return result.data.accessToken;
 }
 
 import {
@@ -148,8 +168,7 @@ export async function authenticatedFetch(
   if (response.status !== 401 || retried || isAuthEndpoint(endpoint)) {
     return response;
   }
-  if (!refreshPromise) refreshPromise = performSilentRefresh();
-  await refreshPromise;
+  await requestRefreshToken();
   return authenticatedFetch(endpoint, options, true);
 }
 
@@ -193,7 +212,7 @@ export async function apiClient<T>(
     if (response.status === 401) {
       // 1. If this is an auth endpoint, or skipAuth, or already retried once -> DO NOT REFRESH
       if (skipAuth || _retry || isAuthEndpoint(endpoint)) {
-        if (_retry) {
+        if (_retry || endpoint.includes("/api/auth/refresh")) {
           useAuthStore.getState().clearAuth();
         }
         const errorData = await response.json().catch(() => ({}));
@@ -218,12 +237,9 @@ export async function apiClient<T>(
       }
 
       // 3. Initiate or await Single-Flight Refresh
-      if (!refreshPromise) {
-        refreshPromise = performSilentRefresh();
-      }
-
       try {
-        const newToken = await refreshPromise;
+        const refreshResult = await requestRefreshToken();
+        const newToken = refreshResult.data.accessToken;
 
         // 4. Retry original request ONCE with _retry = true flag
         return await apiClient<T>(endpoint, {

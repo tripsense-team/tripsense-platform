@@ -40,4 +40,16 @@ class RestExceptionHandler {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(new ApiError("NOT_FOUND", ex.getMessage()));
   }
+
+  @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+  ResponseEntity<ApiError> malformed(Exception ex) {
+    return ResponseEntity.badRequest()
+        .body(new ApiError("MALFORMED_REQUEST", "The request payload is invalid or malformed"));
+  }
+
+  @ExceptionHandler(Exception.class)
+  ResponseEntity<ApiError> fallback(Exception ex) {
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(new ApiError("INTERNAL_ERROR", "An unexpected error occurred"));
+  }
 }

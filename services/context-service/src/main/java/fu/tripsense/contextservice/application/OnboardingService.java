@@ -46,6 +46,9 @@ public class OnboardingService {
         command.freeText(),
         command.version());
     profile = profiles.save(profile);
+    if (profile.status() == OnboardingStatus.COMPLETED) {
+      signals.replaceFor(profile);
+    }
     outbox.recordProfileChanged(profile);
     return profile;
   }
@@ -56,8 +59,8 @@ public class OnboardingService {
     boolean alreadyCompleted = profile.status() == OnboardingStatus.COMPLETED;
     profile.complete(version);
     profile = profiles.save(profile);
+    signals.replaceFor(profile);
     if (!alreadyCompleted) {
-      signals.replaceFor(profile);
       outbox.recordProfileChanged(profile);
     }
     return profile;

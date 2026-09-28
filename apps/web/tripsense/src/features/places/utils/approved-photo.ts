@@ -6,7 +6,6 @@ const approvedMediaHosts = new Set([
   "lh5.googleusercontent.com",
   "lh6.googleusercontent.com",
   "ziomap-api.socibi.com",
-  "images.unsplash.com",
   "res.cloudinary.com",
   "maps.mapvina.com",
 ]);
@@ -19,74 +18,6 @@ export function isApprovedMediaHost(hostname: string): boolean {
 }
 const PHOTO_CACHE_MS = 5 * 60_000;
 const EMPTY_PHOTO_CACHE_MS = 60_000;
-
-export const FALLBACK_PLACE_PHOTOS: PlacePhotoEvidence[] = [
-  {
-    url: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=640&q=80",
-    source: "TripSense Curated",
-    attribution: [{ displayName: "Cầu Rồng & Thành phố Đà Nẵng", uri: "https://unsplash.com" }],
-    fetchedAt: "2026-09-20T00:00:00Z",
-    displayApproved: true,
-  },
-  {
-    url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=640&q=80",
-    source: "TripSense Curated",
-    attribution: [{ displayName: "Bãi biển Mỹ Khê & Bờ biển", uri: "https://unsplash.com" }],
-    fetchedAt: "2026-09-20T00:00:00Z",
-    displayApproved: true,
-  },
-  {
-    url: "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=640&q=80",
-    source: "TripSense Curated",
-    attribution: [{ displayName: "Di sản & Chùa Linh Ứng", uri: "https://unsplash.com" }],
-    fetchedAt: "2026-09-20T00:00:00Z",
-    displayApproved: true,
-  },
-  {
-    url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=640&q=80",
-    source: "TripSense Curated",
-    attribution: [{ displayName: "Ngũ Hành Sơn & Thiên nhiên", uri: "https://unsplash.com" }],
-    fetchedAt: "2026-09-20T00:00:00Z",
-    displayApproved: true,
-  },
-  {
-    url: "https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=640&q=80",
-    source: "TripSense Curated",
-    attribution: [{ displayName: "Ẩm thực & Quán ăn địa phương", uri: "https://unsplash.com" }],
-    fetchedAt: "2026-09-20T00:00:00Z",
-    displayApproved: true,
-  },
-  {
-    url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=640&q=80",
-    source: "TripSense Curated",
-    attribution: [{ displayName: "Chợ Hàn & Phố đêm khám phá", uri: "https://unsplash.com" }],
-    fetchedAt: "2026-09-20T00:00:00Z",
-    displayApproved: true,
-  },
-  {
-    url: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=640&q=80",
-    source: "TripSense Curated",
-    attribution: [{ displayName: "Điểm đến du lịch Việt Nam", uri: "https://unsplash.com" }],
-    fetchedAt: "2026-09-20T00:00:00Z",
-    displayApproved: true,
-  },
-];
-
-export function getFallbackPlacePhoto(name = "", category = ""): PlacePhotoEvidence {
-  const text = `${name} ${category}`.toLowerCase();
-  if (/biển|bãi|beach|sea|đảo|ocean|mỹ khê/i.test(text)) return FALLBACK_PLACE_PHOTOS[1];
-  if (/chùa|temple|pagoda|linh ứng|tháp|nhà thờ|di tích|lăng|heritage/i.test(text)) return FALLBACK_PLACE_PHOTOS[2];
-  if (/núi|hills|bà nà|sơn trà|đèo|hải vân|ngũ hành sơn|rừng|nature/i.test(text)) return FALLBACK_PLACE_PHOTOS[3];
-  if (/ăn|quán|cà phê|cafe|coffee|bún|phở|mì|mỳ|cao lầu|cơm|bánh|lẩu|restaurant|food|ẩm thực/i.test(text)) return FALLBACK_PLACE_PHOTOS[4];
-  if (/chợ|market|phố|đêm|mua sắm|shop/i.test(text)) return FALLBACK_PLACE_PHOTOS[5];
-  if (/cầu\b|bridge|rồng|sông hàn|sông\b/i.test(text)) return FALLBACK_PLACE_PHOTOS[0];
-
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  }
-  return FALLBACK_PLACE_PHOTOS[hash % FALLBACK_PLACE_PHOTOS.length];
-}
 
 export function approvedPhoto(value: PlacePhotoEvidence | undefined): PlacePhotoEvidence | null {
   if (!value || value.displayApproved !== true || !value.source) return null;

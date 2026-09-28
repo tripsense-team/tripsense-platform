@@ -59,8 +59,21 @@ public class RecommendationApplicationService {
   }
 
   public RecommendationResult recommend(RecommendationCommand command) {
+    PreparedRecommendation prepared = prepare(command);
+    record(prepared);
+    return prepared.result();
+  }
+
+  public PreparedRecommendation prepare(RecommendationCommand command) {
+    return prepare(contextProvider.resolve(command));
+  }
+
+  public RecommendationContext resolveContext(RecommendationCommand command) {
+    return contextProvider.resolve(command);
+  }
+
+  public PreparedRecommendation prepare(RecommendationContext context) {
     long started = System.nanoTime();
-    RecommendationContext context = contextProvider.resolve(command);
     long contextDone = System.nanoTime();
     RetrievalOutcome retrieval = retrievalPipeline.retrieve(context);
     long retrievalDone = System.nanoTime();
@@ -92,7 +105,6 @@ public class RecommendationApplicationService {
             context.rankingCriteria().stream().map(value -> value.feature()).toList(),
             fused.size(),
             filterOutcome.rejectedByReason());
-    impressionRecorder.record(context, result);
     long completed = System.nanoTime();
     observability.record(fused.size(), completed - started, result.degradations());
     log.info(
@@ -114,10 +126,17 @@ public class RecommendationApplicationService {
         millis(diversityDone, completed),
         millis(started, completed),
         result.versions());
-    return result;
+    return new PreparedRecommendation(context, result);
+  }
+
+  public void record(PreparedRecommendation prepared) {
+    impressionRecorder.record(prepared.context(), prepared.result());
   }
 
   private long millis(long from, long to) {
     return (to - from) / 1_000_000;
   }
+
+  public record PreparedRecommendation(
+      RecommendationContext context, RecommendationResult result) {}
 }

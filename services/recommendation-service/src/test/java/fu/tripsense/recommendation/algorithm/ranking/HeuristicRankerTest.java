@@ -3,6 +3,7 @@ package fu.tripsense.recommendation.algorithm.ranking;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import fu.tripsense.recommendation.algorithm.feature.PreferenceFeatureExtractor;
+import fu.tripsense.recommendation.algorithm.filter.PlaceCategoryTaxonomy;
 import fu.tripsense.recommendation.config.RecommendationProperties;
 import fu.tripsense.recommendation.domain.CandidateFeatures;
 import fu.tripsense.recommendation.domain.FusedCandidate;
@@ -17,7 +18,8 @@ import org.junit.jupiter.api.Test;
 class HeuristicRankerTest {
   private final RecommendationProperties properties = new RecommendationProperties();
   private final HeuristicRanker ranker = new HeuristicRanker(properties);
-  private final PreferenceFeatureExtractor preferences = new PreferenceFeatureExtractor();
+  private final PreferenceFeatureExtractor preferences =
+      new PreferenceFeatureExtractor(new PlaceCategoryTaxonomy(properties));
 
   @Test
   void sameCandidateSetRanksDifferentlyForDifferentContexts() {

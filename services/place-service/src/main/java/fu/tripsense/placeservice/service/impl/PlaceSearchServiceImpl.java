@@ -5,6 +5,7 @@ import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
 import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
@@ -67,9 +68,22 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
   @Override
   public List<PlaceDto> searchPlaces(
       String query, Double lat, Double lng, Integer radius, Integer limit) {
+    return searchPlaces(query, lat, lng, radius, limit, null);
+  }
+
+  @Override
+  public List<PlaceDto> searchPlaces(
+      String query,
+      Double lat,
+      Double lng,
+      Integer radius,
+      Integer limit,
+      PlaceBrowseCategory category) {
     if (!StringUtils.hasText(query)) return Collections.emptyList();
 
-    String normalizedQuery = query.trim().toLowerCase(Locale.ROOT);
+    String retrievalQuery = category == null ? query.trim() : category.providerQuery();
+    String normalizedQuery = retrievalQuery.toLowerCase(Locale.ROOT);
+    String cacheQuery = category == null ? normalizedQuery : category.name() + "|" + normalizedQuery;
     double effectiveLat = lat != null ? lat : properties.getDefaultLat();
     double effectiveLng = lng != null ? lng : properties.getDefaultLng();
     int effectiveRadius = radius != null ? radius : 15_000;
@@ -77,9 +91,17 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
     Optional<List<PlaceDto>> cached =
         cache.getSearchResults(
-            normalizedQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit);
+            cacheQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit);
     if (cached.isPresent() && !cached.get().isEmpty()) {
-      List<PlaceDto> rankedCached = ranking.rank(cached.get(), query, effectiveLat, effectiveLng);
+      List<PlaceDto> rankedCached =
+          rankBrowseResults(
+              cached.get(),
+              query,
+              category,
+              effectiveLat,
+              effectiveLng,
+              effectiveRadius,
+              effectiveLimit);
       if (!rankedCached.isEmpty()) {
         return enrichPhotosForPlaces(rankedCached);
       }
@@ -87,14 +109,18 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
     List<Place> localEntities = findLocalPlaces(normalizedQuery, effectiveLimit);
     List<PlaceDto> rankedLocal =
-        ranking.rank(
+        rankBrowseResults(
             localEntities.stream().map(persistence::toDto).toList(),
             query,
+            category,
             effectiveLat,
-            effectiveLng);
+            effectiveLng,
+            effectiveRadius,
+            effectiveLimit);
 
     boolean isSpecificQuery =
-        !isBroadCategory(normalizedQuery)
+        category == null
+            && !isBroadCategory(normalizedQuery)
             && !normalizedQuery.equals("đà nẵng")
             && !normalizedQuery.equals("da nang")
             && !normalizedQuery.equals("tất cả")
@@ -120,7 +146,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
     if (localIsFreshAndSufficient) {
       cache.putSearchResults(
-          normalizedQuery,
+          cacheQuery,
           effectiveLat,
           effectiveLng,
           effectiveRadius,
@@ -131,7 +157,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
     List<PlaceDto> providerResults;
     try {
-      String providerQuery = enrichQueryForProvider(query, effectiveLat, effectiveLng);
+      String providerQuery = enrichQueryForProvider(retrievalQuery, effectiveLat, effectiveLng);
       providerResults =
           provider.textSearch(
               providerQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit);
@@ -142,7 +168,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             query,
             rankedLocal.size());
         cache.putSearchResults(
-            normalizedQuery,
+            cacheQuery,
             effectiveLat,
             effectiveLng,
             effectiveRadius,
@@ -158,15 +184,50 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             .map(result -> persistence.upsertProviderPlace(result, provider.getProviderName()))
             .toList();
     List<PlaceDto> rankedResults =
-        ranking.rank(mergeResults(persisted, rankedLocal), query, effectiveLat, effectiveLng);
+        rankBrowseResults(
+            mergeResults(persisted, rankedLocal),
+            query,
+            category,
+            effectiveLat,
+            effectiveLng,
+            effectiveRadius,
+            effectiveLimit);
     cache.putSearchResults(
-        normalizedQuery,
+        cacheQuery,
         effectiveLat,
         effectiveLng,
         effectiveRadius,
         effectiveLimit,
         rankedResults);
     return enrichPhotosForPlaces(rankedResults);
+  }
+
+  private List<PlaceDto> rankBrowseResults(
+      List<PlaceDto> candidates,
+      String query,
+      PlaceBrowseCategory category,
+      double lat,
+      double lng,
+      int radius,
+      int limit) {
+    List<PlaceDto> eligible =
+        category == null ? candidates : candidates.stream().filter(category::matches).toList();
+    if (category != null) {
+      eligible =
+          eligible.stream()
+              .filter(
+                  place ->
+                      place.getLocation() == null
+                          || haversineMeters(
+                                  lat,
+                                  lng,
+                                  place.getLocation().getLat(),
+                                  place.getLocation().getLng())
+                              <= radius)
+              .toList();
+    }
+    String rankingQuery = category == null ? query : "";
+    return ranking.rank(eligible, rankingQuery, lat, lng).stream().limit(limit).toList();
   }
 
   @Override
@@ -534,14 +595,22 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
   private List<Place> findLocalPlaces(String normalizedQuery, int limit) {
     if (System.currentTimeMillis() - lastLocalSearchFailureTime < 30_000) {
-      return Collections.emptyList();
+      try {
+        return repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit));
+      } catch (Exception ex) {
+        return Collections.emptyList();
+      }
     }
     try {
       return repository.searchByText(normalizedQuery, PageRequest.of(0, limit));
     } catch (Exception exception) {
       lastLocalSearchFailureTime = System.currentTimeMillis();
-      log.warn("Local MongoDB text search failed: {}", exception.getMessage());
-      return Collections.emptyList();
+      log.warn("Local MongoDB text search failed, falling back to regex: {}", exception.getMessage());
+      try {
+        return repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit));
+      } catch (Exception ex) {
+        return Collections.emptyList();
+      }
     }
   }
 
@@ -560,7 +629,36 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
   private List<PlaceDto> mergeResults(List<PlaceDto> primary, List<PlaceDto> secondary) {
     Map<String, PlaceDto> merged = new LinkedHashMap<>();
-    primary.forEach(place -> merged.put(identity(place), place));
+    Map<String, PlaceDto> localMap = new HashMap<>();
+    secondary.forEach(place -> localMap.put(identity(place), place));
+
+    primary.forEach(
+        place -> {
+          String key = identity(place);
+          PlaceDto local = localMap.get(key);
+          if (local != null) {
+            if ((place.getPhotos() == null || place.getPhotos().isEmpty())
+                && local.getPhotos() != null
+                && !local.getPhotos().isEmpty()) {
+              place.setPhotos(local.getPhotos());
+            }
+            if (place.getPrimaryPhoto() == null && local.getPrimaryPhoto() != null) {
+              place.setPrimaryPhoto(local.getPrimaryPhoto());
+            }
+            if ((place.getPhotoGallery() == null || place.getPhotoGallery().isEmpty())
+                && local.getPhotoGallery() != null
+                && !local.getPhotoGallery().isEmpty()) {
+              place.setPhotoGallery(local.getPhotoGallery());
+            }
+            if ((place.getReviews() == null || place.getReviews().isEmpty())
+                && local.getReviews() != null
+                && !local.getReviews().isEmpty()) {
+              place.setReviews(local.getReviews());
+            }
+          }
+          merged.put(key, place);
+        });
+
     secondary.forEach(place -> merged.putIfAbsent(identity(place), place));
     return new ArrayList<>(merged.values());
   }
@@ -668,5 +766,4 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     }
     return places;
   }
-
 }

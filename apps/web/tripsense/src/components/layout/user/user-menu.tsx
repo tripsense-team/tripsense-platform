@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, Settings, LogOut, Bookmark } from "lucide-react";
+import { User, Settings, LogOut, Bookmark, Database, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth, LogoutModal } from "@/features/auth";
+import { useAuth, LogoutModal, UserRole } from "@/features/auth";
 import { useUserProfile } from "@/features/profile";
 import { useTranslation } from "@/i18n";
 
@@ -30,6 +30,7 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
   const { t } = useTranslation();
   const [logoutModalOpen, setLogoutModalOpen] = React.useState(false);
   const activeUser = customUser || authUser;
+  const isAdmin = authUser?.role === UserRole.ADMIN;
 
   const { data: userProfile } = useUserProfile(authUser?.id || "");
   const displayAvatar = userProfile?.avatarUrl || activeUser?.avatar;
@@ -90,13 +91,33 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link
+                href="/settings?tab=personalization"
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span>{t("nav.personalization", { defaultValue: "Personalization" })}</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
                 href="/settings"
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Settings className="h-4 w-4" />
-                <span>{t("nav.settings")}</span>
+                <span>{t("nav.settings", { defaultValue: "Settings" })}</span>
               </Link>
             </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/admin/settings"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Database className="h-4 w-4" />
+                  <span>{t("nav.dataEnrichment", { defaultValue: "Data Enrichment" })}</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem

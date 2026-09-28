@@ -22,6 +22,8 @@ import { useAuth, useAuthStore } from "@/features/auth";
 import { cn } from "@/lib/utils";
 import { onboardingApi } from "../services/onboarding-api";
 import type { OnboardingProfile, PlaceIntent } from "../types";
+import { toPlaceRef, toOptionCode } from "../constants";
+export { toPlaceRef, toOptionCode } from "../constants";
 
 type PreferenceStepDefinition = {
   dimension: string;
@@ -109,18 +111,6 @@ const QUICK_FREE_TEXT_TAGS = [
   { key: "quickTagVegetarian", icon: "🥗" },
 ];
 
-export function toPlaceRef(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/đ/g, "d")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9_-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80);
-}
-
 // Step indices:
 // 0: Name (displayName)
 // 1: Home City (HOME_CITY)
@@ -153,6 +143,7 @@ export function OnboardingWizard() {
   const [customLabels, setCustomLabels] = React.useState<
     Record<string, string>
   >({});
+  const [customOptionInput, setCustomOptionInput] = React.useState("");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [homeCitySearchQuery, setHomeCitySearchQuery] = React.useState("");
   const [error, setError] = React.useState("");
@@ -189,6 +180,16 @@ export function OnboardingWizard() {
         }
         if (loadedProfile.freeText) {
           setFreeText(loadedProfile.freeText);
+        }
+        if (loadedProfile.attributes?.CUSTOM_PREFERENCE_LABELS) {
+          try {
+            const parsed = JSON.parse(loadedProfile.attributes.CUSTOM_PREFERENCE_LABELS);
+            if (parsed && typeof parsed === "object") {
+              setCustomLabels((prev) => ({ ...prev, ...parsed }));
+            }
+          } catch {
+            // ignore
+          }
         }
       })
       .catch((err) => {
@@ -355,6 +356,9 @@ export function OnboardingWizard() {
           placeRef: toPlaceRef(homeCity.trim()),
           country: "Vietnam",
         });
+      }
+      if (Object.keys(customLabels).length > 0) {
+        cleanAttributes["CUSTOM_PREFERENCE_LABELS"] = JSON.stringify(customLabels);
       }
 
       const cleanFreeText = freeText.trim()
@@ -717,50 +721,123 @@ export function OnboardingWizard() {
           )}
 
           {/* Steps 4..8: Preference Options */}
-          {step >= 4 && step <= 8 && currentPreferenceDef && (
-            <div className="space-y-3">
-              {currentPreferenceDef.options.map((optionValue) => {
-                const isSelected = (
-                  selection[currentPreferenceDef.dimension] ?? []
-                ).includes(optionValue);
-                return (
-                  <button
-                    key={optionValue}
-                    type="button"
-                    onClick={() =>
-                      toggleOption(
-                        currentPreferenceDef.dimension,
-                        optionValue,
-                        currentPreferenceDef.single,
-                      )
-                    }
-                    className={cn(
-                      "group flex w-full h-14 items-center justify-between rounded-full border px-6 text-left font-medium transition-all duration-200 cursor-pointer select-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-                      isSelected
-                        ? "border-foreground bg-foreground text-background shadow-xs"
-                        : "border-border/80 bg-background hover:border-foreground/40 hover:bg-accent text-foreground",
-                    )}
-                  >
-                    <span className="text-sm sm:text-base">
-                      {t(`onboarding.option.${optionValue}`)}
-                    </span>
-                    <div
+          {step >= 4 && step <= 8 && currentPreferenceDef && (() => {
+            const currentSelected = selection[currentPreferenceDef.dimension] ?? [];
+            const allOptions = Array.from(
+              new Set([...currentPreferenceDef.options, ...currentSelected])
+            );
+
+            const handleAddCustom = () => {
+              if (!customOptionInput.trim()) return;
+              const raw = customOptionInput.trim();
+              const code = toOptionCode(raw);
+              setCustomLabels((prev) => ({ ...prev, [code]: raw }));
+              toggleOption(currentPreferenceDef.dimension, code, currentPreferenceDef.single);
+              setCustomOptionInput("");
+            };
+
+            return (
+              <div className="space-y-3">
+                {allOptions.map((optionValue) => {
+                  const isSelected = currentSelected.includes(optionValue);
+                  const isCustom = !currentPreferenceDef.options.includes(optionValue);
+                  const label =
+                    customLabels[optionValue] ||
+                    t(`onboarding.option.${optionValue}`, {
+                      defaultValue: optionValue,
+                    });
+
+                  return (
+                    <button
+                      key={optionValue}
+                      type="button"
+                      onClick={() =>
+                        toggleOption(
+                          currentPreferenceDef.dimension,
+                          optionValue,
+                          currentPreferenceDef.single,
+                        )
+                      }
                       className={cn(
-                        "flex size-6 items-center justify-center rounded-full transition-all",
+                        "group flex w-full h-14 items-center justify-between rounded-full border px-6 text-left font-medium transition-all duration-200 cursor-pointer select-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                         isSelected
-                          ? "bg-background text-foreground"
-                          : "border border-border/80 group-hover:border-foreground/40",
+                          ? "border-foreground bg-foreground text-background shadow-xs"
+                          : "border-border/80 bg-background hover:border-foreground/40 hover:bg-accent text-foreground",
                       )}
                     >
-                      {isSelected && (
-                        <Check className="size-3.5 stroke-[2.5]" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                      <span className="text-sm sm:text-base truncate mr-2">
+                        {label}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isCustom && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isSelected) {
+                                toggleOption(currentPreferenceDef.dimension, optionValue, false);
+                              }
+                              setCustomLabels((prev) => {
+                                const next = { ...prev };
+                                delete next[optionValue];
+                                return next;
+                              });
+                            }}
+                            className="p-1 rounded-full hover:bg-background/20 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                            title={t("onboarding.customOption.remove", { defaultValue: "Xóa" })}
+                          >
+                            <X className="size-3.5" />
+                          </span>
+                        )}
+                        <div
+                          className={cn(
+                            "flex size-6 items-center justify-center rounded-full transition-all",
+                            isSelected
+                              ? "bg-background text-foreground"
+                              : "border border-border/80 group-hover:border-foreground/40",
+                          )}
+                        >
+                          {isSelected && (
+                            <Check className="size-3.5 stroke-[2.5]" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {/* Inline custom option text input */}
+                <div className="pt-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={customOptionInput}
+                      onChange={(e) => setCustomOptionInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && customOptionInput.trim()) {
+                          e.preventDefault();
+                          handleAddCustom();
+                        }
+                      }}
+                      placeholder={t("onboarding.customOption.placeholder", {
+                        defaultValue: "Nhập lựa chọn của bạn...",
+                      })}
+                      className="h-12 rounded-full px-5 text-sm bg-background border-border/80"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddCustom}
+                      disabled={!customOptionInput.trim()}
+                      className="h-12 px-6 rounded-full font-semibold text-sm shrink-0 cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      <span>{t("onboarding.customOption.add", { defaultValue: "Thêm" })}</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Step 9: Free Text Note (onboarding_free_text) */}
           {step === 9 && (

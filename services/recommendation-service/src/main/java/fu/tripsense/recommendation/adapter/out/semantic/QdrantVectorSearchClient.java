@@ -1,6 +1,7 @@
 package fu.tripsense.recommendation.adapter.out.semantic;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.tripsense.recommendation.config.RecommendationProperties;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -21,11 +22,15 @@ import org.springframework.web.client.RestClient;
 public class QdrantVectorSearchClient implements VectorSearchClient {
   private final RestClient restClient;
   private final RecommendationProperties.Semantic properties;
+  private final ObjectMapper objectMapper;
 
   public QdrantVectorSearchClient(
-      RestClient recommendationRestClient, RecommendationProperties properties) {
+      RestClient recommendationRestClient,
+      RecommendationProperties properties,
+      ObjectMapper objectMapper) {
     this.restClient = recommendationRestClient;
     this.properties = properties.getSemantic();
+    this.objectMapper = objectMapper;
   }
 
   @Override
@@ -39,26 +44,32 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
                     + properties.getCollection()
                     + "/points/query");
     configure(request);
-    JsonNode response =
+    String raw =
         request
             .body(Map.of("query", vector, "limit", limit, "with_payload", true))
             .retrieve()
-            .body(JsonNode.class);
-    JsonNode points = response == null ? null : response.path("result").path("points");
-    if (points == null || !points.isArray()) return List.of();
-    return StreamSupport.stream(points.spliterator(), false)
-        .map(
-            point ->
-                new SemanticCandidate(
-                    point.path("payload").path("placeId").asText(), point.path("score").asDouble()))
-        .filter(value -> value.placeId() != null && !value.placeId().isBlank())
-        .toList();
+            .body(String.class);
+
+    try {
+      JsonNode response = raw != null ? objectMapper.readTree(raw) : null;
+      JsonNode points = response == null ? null : response.path("result").path("points");
+      if (points == null || !points.isArray()) return List.of();
+      return StreamSupport.stream(points.spliterator(), false)
+          .map(
+              point ->
+                  new SemanticCandidate(
+                      point.path("payload").path("placeId").asText(), point.path("score").asDouble()))
+          .filter(value -> value.placeId() != null && !value.placeId().isBlank())
+          .toList();
+    } catch (Exception e) {
+      return List.of();
+    }
   }
 
   @Override
   public Optional<String> storedContentHash(String placeId) {
     try {
-      JsonNode response =
+      String raw =
           request(
                   restClient
                       .get()
@@ -69,13 +80,17 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
                               + "/points/"
                               + pointId(placeId)))
               .retrieve()
-              .body(JsonNode.class);
+              .body(String.class);
+      if (raw == null) {
+        return Optional.empty();
+      }
+      JsonNode response = objectMapper.readTree(raw);
       String value =
           response == null
               ? null
               : response.path("result").path("payload").path("contentHash").asText(null);
       return Optional.ofNullable(value);
-    } catch (RuntimeException exception) {
+    } catch (Exception exception) {
       return Optional.empty();
     }
   }

@@ -6,9 +6,11 @@ import fu.tripsense.recommendation.application.port.PlaceSnapshotResolver;
 import fu.tripsense.recommendation.config.RecommendationProperties;
 import fu.tripsense.recommendation.domain.Candidate;
 import fu.tripsense.recommendation.domain.CandidateSource;
+import fu.tripsense.recommendation.domain.PlaceSnapshot;
 import fu.tripsense.recommendation.domain.RecommendationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -65,19 +67,24 @@ public class SemanticCandidateGenerator implements CandidateGenerator {
             embedding,
             Math.min(
                 sourceLimit, Math.max(context.limit() * candidateMultiplier, context.limit())));
+    List<String> placeIds = found.stream().map(SemanticCandidate::placeId).toList();
+    Map<String, PlaceSnapshot> resolved = places.resolveBatch(placeIds);
     List<Candidate> candidates = new ArrayList<>();
     List<String> degradations = new ArrayList<>();
     for (int index = 0; index < found.size(); index++) {
       SemanticCandidate semantic = found.get(index);
       int rank = index + 1;
-      places
-          .find(semantic.placeId())
-          .ifPresentOrElse(
-              place ->
-                  candidates.add(
-                      new Candidate(
-                          semantic.placeId(), source(), rank, semantic.similarity(), place, null)),
-              () -> degradations.add("SEMANTIC_PLACE_UNRESOLVED"));
+      PlaceSnapshot place = resolved != null ? resolved.get(semantic.placeId()) : null;
+      if (place == null) {
+        place = places.find(semantic.placeId()).orElse(null);
+      }
+      if (place != null) {
+        candidates.add(
+            new Candidate(
+                semantic.placeId(), source(), rank, semantic.similarity(), place, null));
+      } else {
+        degradations.add("SEMANTIC_PLACE_UNRESOLVED");
+      }
     }
     return new CandidateGenerationResult(
         source(), candidates, degradations.stream().distinct().toList());

@@ -3,6 +3,7 @@ package fu.tripsense.placeservice.controller;
 import fu.tripsense.placeservice.dto.ApiResponse;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
 import fu.tripsense.placeservice.service.PlaceDetailsService;
@@ -44,6 +45,7 @@ public class PlaceController {
       @RequestParam(name = "lat", required = false) Double lat,
       @RequestParam(name = "lng", required = false) Double lng,
       @RequestParam(name = "radius", required = false) Integer radius,
+      @RequestParam(name = "category", required = false) String category,
       @RequestParam(name = "limit", required = false, defaultValue = "20") Integer limit) {
     if (!StringUtils.hasText(query)) {
       return ResponseEntity.badRequest()
@@ -79,11 +81,26 @@ public class PlaceController {
           .body(ApiResponse.error("INVALID_LIMIT", "Limit must be between 1 and 50"));
     }
 
-    List<PlaceDto> results = placeSearchService.searchPlaces(query, lat, lng, radius, limit);
+    final PlaceBrowseCategory browseCategory;
+    try {
+      browseCategory = PlaceBrowseCategory.parse(category);
+    } catch (IllegalArgumentException exception) {
+      return ResponseEntity.badRequest()
+          .body(
+              ApiResponse.error(
+                  "INVALID_CATEGORY", "Category must be FOOD, CAFE, STAY, or ATTRACTION"));
+    }
+
+    List<PlaceDto> results =
+        browseCategory == null
+            ? placeSearchService.searchPlaces(query, lat, lng, radius, limit)
+            : placeSearchService.searchPlaces(query, lat, lng, radius, limit, browseCategory);
 
     Map<String, Object> meta = new HashMap<>();
     meta.put("query", query);
     meta.put("total", results.size());
+    meta.put("returned", results.size());
+    if (browseCategory != null) meta.put("category", browseCategory.name());
 
     return ResponseEntity.ok(ApiResponse.ok(results, meta));
   }
@@ -168,6 +185,16 @@ public class PlaceController {
             .cacheControl(CacheControl.noStore())
             .body(ApiResponse.ok(place.get()))
         : ResponseEntity.ok(ApiResponse.ok(place.get()));
+  }
+
+  @PostMapping("/batch-snapshots")
+  public ResponseEntity<ApiResponse<List<PlaceDto>>> getBatchSnapshots(
+      @RequestBody List<String> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return ResponseEntity.ok(ApiResponse.ok(List.of()));
+    }
+    List<PlaceDto> snapshots = placeDetailsService.getSnapshots(ids);
+    return ResponseEntity.ok(ApiResponse.ok(snapshots));
   }
 
   @GetMapping("/nearby")

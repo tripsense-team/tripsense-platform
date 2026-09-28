@@ -172,4 +172,45 @@ class ZioMapProviderTest {
     assertEquals("https://lh3.googleusercontent.com/photo-1", gallery.get(0).url());
     server.verify();
   }
+
+  @Test
+  void getPlaceDetailsParsesDetailsSuccessfully() {
+    ZioMapProperties props = new ZioMapProperties();
+    props.setBaseUrl("https://ziomap-api.socibi.com");
+    props.setApiKey("test-key");
+    RestClient.Builder builder = RestClient.builder().baseUrl(props.getBaseUrl());
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    provider = new ZioMapProvider(props, builder.build());
+
+    String mockJson = "{"
+        + "\"place_id\":\"ChIJcf3AFV8bQjERfAAOOHRbWu4\","
+        + "\"name\":\"DỊCH VỤ VẬN CHUYỂN\","
+        + "\"formatted_address\":\"11 Phú Lộc 5, Đà Nẵng\","
+        + "\"rating\":3.4,"
+        + "\"user_ratings_total\":5,"
+        + "\"reviews\":[{"
+        + "\"author_name\":\"Doanh Nghiệp\","
+        + "\"profile_photo_url\":\"https://lh3.googleusercontent.com/test\","
+        + "\"rating\":5,"
+        + "\"relative_time_description\":\"3 năm trước\","
+        + "\"text\":\"DỊCH VỤ TỐT\","
+        + "\"time\":1666666283"
+        + "}]"
+        + "}";
+
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/details")))
+        .andRespond(withSuccess(mockJson, MediaType.APPLICATION_JSON));
+
+    var result = provider.getPlaceDetails("ChIJcf3AFV8bQjERfAAOOHRbWu4");
+    assertTrue(result.isPresent());
+    PlaceDto dto = result.get();
+    assertEquals("ChIJcf3AFV8bQjERfAAOOHRbWu4", dto.getProviderPlaceId());
+    assertEquals(3.4, dto.getRating());
+    assertEquals(5, dto.getUserRatingCount());
+    assertEquals(1, dto.getReviews().size());
+    assertEquals("Doanh Nghiệp", dto.getReviews().get(0).getAuthorName());
+    server.verify();
+  }
 }
+

@@ -1,6 +1,7 @@
 package fu.tripsense.recommendation.adapter.out.semantic;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.tripsense.recommendation.config.RecommendationProperties;
 import java.util.List;
 import java.util.Map;
@@ -18,11 +19,15 @@ import org.springframework.web.client.RestClient;
 public class OpenAiCompatibleEmbeddingClient implements EmbeddingClient {
   private final RestClient restClient;
   private final RecommendationProperties.Semantic properties;
+  private final ObjectMapper objectMapper;
 
   public OpenAiCompatibleEmbeddingClient(
-      RestClient recommendationRestClient, RecommendationProperties properties) {
+      RestClient recommendationRestClient,
+      RecommendationProperties properties,
+      ObjectMapper objectMapper) {
     this.restClient = recommendationRestClient;
     this.properties = properties.getSemantic();
+    this.objectMapper = objectMapper;
   }
 
   @Override
@@ -38,16 +43,25 @@ public class OpenAiCompatibleEmbeddingClient implements EmbeddingClient {
     if (!properties.getEmbeddingApiKey().isBlank()) {
       request.header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getEmbeddingApiKey());
     }
-    JsonNode response =
+    String raw =
         request
-            .body(Map.of("model", properties.getEmbeddingModel(), "input", content))
+            .body(Map.of("model", properties.getEmbeddingModel(), "input", content, "dimensions", 1536))
             .retrieve()
-            .body(JsonNode.class);
-    JsonNode embedding = response == null ? null : response.path("data").path(0).path("embedding");
-    if (embedding == null || !embedding.isArray()) {
-      throw new IllegalStateException("Embedding provider returned no vector");
+            .body(String.class);
+
+    try {
+      JsonNode response = raw != null ? objectMapper.readTree(raw) : null;
+      JsonNode embedding = response == null ? null : response.path("data").path(0).path("embedding");
+      if (embedding == null || !embedding.isArray()) {
+        throw new IllegalStateException("Embedding provider returned no vector: " + raw);
+      }
+      return StreamSupport.stream(embedding.spliterator(), false).map(JsonNode::asDouble).toList();
+    } catch (Exception e) {
+      if (e instanceof IllegalStateException ise) {
+        throw ise;
+      }
+      throw new IllegalStateException("Failed to parse embedding response: " + e.getMessage(), e);
     }
-    return StreamSupport.stream(embedding.spliterator(), false).map(JsonNode::asDouble).toList();
   }
 
   @Override

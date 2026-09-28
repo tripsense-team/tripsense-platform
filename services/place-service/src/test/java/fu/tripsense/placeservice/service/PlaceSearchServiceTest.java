@@ -15,6 +15,7 @@ import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.providers.PlaceProvider;
@@ -102,6 +103,62 @@ class PlaceSearchServiceTest {
     assertEquals("saved-1", result.get(0).getId());
     verify(cache)
         .putSearchResults(eq("hải sản ngon"), anyDouble(), anyDouble(), anyInt(), anyInt(), any());
+  }
+
+  @Test
+  void browseCategoryUsesOrSemanticsAndDoesNotRequireEveryStayKeyword() {
+    when(cache.getSearchResults(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(Optional.empty());
+    when(repository.searchByText(eq("khách sạn"), any(Pageable.class)))
+        .thenReturn(Collections.emptyList());
+    when(provider.getProviderName()).thenReturn("ziomap");
+
+    PlaceDto hotel =
+        PlaceDto.builder()
+            .provider("ziomap")
+            .providerPlaceId("hotel-provider")
+            .name("Sea Wind Hotel")
+            .categories(List.of("hotel"))
+            .build();
+    PlaceDto restaurant =
+        PlaceDto.builder()
+            .provider("ziomap")
+            .providerPlaceId("food-provider")
+            .name("Sea Wind Restaurant")
+            .categories(List.of("restaurant"))
+            .build();
+    when(provider.textSearch(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(List.of(hotel, restaurant));
+    when(persistence.upsertProviderPlace(hotel, "ziomap")).thenReturn(hotel);
+    when(persistence.upsertProviderPlace(restaurant, "ziomap")).thenReturn(restaurant);
+
+    List<PlaceDto> result =
+        service.searchPlaces(
+            "khách sạn homestay resort ở Đà Nẵng",
+            16.0544,
+            108.2022,
+            12_000,
+            48,
+            PlaceBrowseCategory.STAY);
+
+    assertEquals(List.of("hotel-provider"), result.stream().map(PlaceDto::getProviderPlaceId).toList());
+    verify(cache)
+        .putSearchResults(
+            eq("STAY|khách sạn"), anyDouble(), anyDouble(), anyInt(), eq(48), any());
+  }
+
+  @Test
+  void foodCategoryAcceptsRestaurantWithoutMarketingAdjective() {
+    PlaceDto restaurant =
+        PlaceDto.builder()
+            .name("Bếp Nhà")
+            .categories(List.of("vietnamese_restaurant"))
+            .build();
+    PlaceDto cafe =
+        PlaceDto.builder().name("Morning Coffee").categories(List.of("cafe")).build();
+
+    assertEquals(true, PlaceBrowseCategory.FOOD.matches(restaurant));
+    assertEquals(false, PlaceBrowseCategory.FOOD.matches(cafe));
   }
 
   @Test

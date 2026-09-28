@@ -294,3 +294,24 @@
 .tripsense-mindtrip-popup {
   z-index: 30 !important;
 }
+
+/* Ensure MapVina container smoothly occupies full area without stretching WebGL canvas texture */
+.mapvinagl-map,
+.maplibregl-map {
+  overflow: hidden !important;
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mapvinagl-canvas-container,
+.maplibregl-canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mapvinagl-canvas,
+.maplibregl-canvas {
+  outline: none;
+}
+

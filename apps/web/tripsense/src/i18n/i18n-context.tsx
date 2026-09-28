@@ -123,7 +123,19 @@ export function I18nProvider({ children, initialLocale }: I18nProviderProps) {
 export function useTranslation(): I18nContextValue {
   const context = React.useContext(I18nContext);
   if (!context) {
-    throw new Error("useTranslation must be used within an <I18nProvider />");
+    const fallbackTranslations = LOCALES[DEFAULT_LOCALE]?.translations;
+    return {
+      locale: DEFAULT_LOCALE,
+      setLocale: () => {},
+      t: (key: string, params?: Record<string, string | number>) => {
+        const text = resolvePath(fallbackTranslations, key);
+        if (text === undefined) {
+          return key;
+        }
+        return interpolate(text, params);
+      },
+      availableLocales: Object.values(LOCALES),
+    };
   }
   return context;
 }

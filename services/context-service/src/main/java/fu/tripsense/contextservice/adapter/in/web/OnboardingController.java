@@ -67,18 +67,20 @@ public class OnboardingController {
   @GetMapping("/preferences")
   public List<PreferenceResponse> preferences(
       @RequestParam(defaultValue = "TRIP_PLANNING") String purpose) {
-    if (!"TRIP_PLANNING".equals(purpose))
+    if (!java.util.Set.of("TRIP_PLANNING", "EXPLORE_RECOMMENDATION").contains(purpose))
       throw new IllegalArgumentException("Unsupported preference purpose");
     return signals.findForUser(currentUser.requiredUser().id()).stream()
         .filter(
             signal ->
-                dimensions
-                    .findActive(signal.dimensionCode())
-                    .map(
-                        definition ->
-                            definition.sensitivity()
-                                == PreferenceDimensionCatalog.Sensitivity.STANDARD)
-                    .orElse(false))
+                ("EXPLORE_RECOMMENDATION".equals(purpose)
+                        && "EXPLORE_AFFINITY".equals(signal.dimensionCode()))
+                    || dimensions
+                        .findActive(signal.dimensionCode())
+                        .map(
+                            definition ->
+                                definition.sensitivity()
+                                    == PreferenceDimensionCatalog.Sensitivity.STANDARD)
+                        .orElse(false))
         .map(PreferenceResponse::from)
         .toList();
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approvedAttributionUrl, approvedPhoto, approvedPhotoGallery, getFallbackPlacePhoto, hasFreshPhotoLookup } from "./approved-photo";
+import { approvedAttributionUrl, approvedPhoto, approvedPhotoGallery, hasFreshPhotoLookup } from "./approved-photo";
 import type { Place } from "../types";
 
 const photo = { url: "https://lh3.googleusercontent.com/photo", source: "ziomap",
@@ -35,25 +35,13 @@ describe("approvedPhoto", () => {
     expect(hasFreshPhotoLookup(place, undefined, now)).toBe(false);
   });
 
-  it("accepts unsplash image URLs as approved media hosts", () => {
+  it("rejects generic Unsplash images because they are not evidence for a place", () => {
     const unsplashPhoto = { ...photo, url: "https://images.unsplash.com/photo-123" };
-    expect(approvedPhoto(unsplashPhoto)?.url).toBe(unsplashPhoto.url);
+    expect(approvedPhoto(unsplashPhoto)).toBeNull();
   });
 
-  it("returns appropriate fallback photos based on place name keywords", () => {
-    const beachPhoto = getFallbackPlacePhoto("Bãi biển Mỹ Khê");
-    expect(beachPhoto.url).toContain("images.unsplash.com");
-    expect(beachPhoto.displayApproved).toBe(true);
-
-    const bridgePhoto = getFallbackPlacePhoto("Cầu Rồng");
-    expect(bridgePhoto.url).toContain("images.unsplash.com");
-
-    const foodPhoto = getFallbackPlacePhoto("Quán Bún Chả Cá");
-    expect(foodPhoto.url).toContain("images.unsplash.com");
-
-    const caoLauPhoto = getFallbackPlacePhoto("Mỳ Quảng Cao Lầu Ngon");
-    expect(caoLauPhoto.attribution?.[0]?.displayName).toBe("Ẩm thực & Quán ăn địa phương");
-
+  it("does not manufacture a gallery when no verified photo exists", () => {
+    expect(approvedPhotoGallery([], undefined, [])).toEqual([]);
     const googleLh5 = { ...photo, url: "https://lh5.googleusercontent.com/place-photos/abc" };
     expect(approvedPhoto(googleLh5)?.url).toBe(googleLh5.url);
   });

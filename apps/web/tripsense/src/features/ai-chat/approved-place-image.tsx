@@ -6,15 +6,16 @@ import { Coffee, Landmark, MapPin, Mountain, ShoppingBag, Utensils, Waves } from
 import type { PlacePhotoEvidence } from "@/features/places/types";
 import { approvedPhoto } from "@/features/places/utils/approved-photo";
 
-function getCategoryIcon(name: string, category = "") {
+function CategoryPlaceholderIcon({ name, category = "" }: { name: string; category?: string }) {
   const text = `${name} ${category}`.toLowerCase();
-  if (/cà phê|cafe|coffee/i.test(text)) return Coffee;
-  if (/ăn|quán|bún|phở|mì|mỳ|cao lầu|cơm|bánh|lẩu|restaurant|food|ẩm thực|nướng|thịt/i.test(text)) return Utensils;
-  if (/biển|bãi|beach|sea|đảo|ocean|mỹ khê/i.test(text)) return Waves;
-  if (/núi|hills|bà nà|sơn trà|đèo|hải vân|ngũ hành sơn|rừng/i.test(text)) return Mountain;
-  if (/chợ|market|phố|đêm|mua sắm|shop/i.test(text)) return ShoppingBag;
-  if (/chùa|temple|pagoda|linh ứng|tháp|nhà thờ|di tích|lăng|heritage|bảo tàng|museum/i.test(text)) return Landmark;
-  return MapPin;
+  const className = "h-5 w-5";
+  if (/cà phê|cafe|coffee/i.test(text)) return <Coffee className={className} />;
+  if (/ăn|quán|bún|phở|mì|mỳ|cao lầu|cơm|bánh|lẩu|restaurant|food|ẩm thực|nướng|thịt/i.test(text)) return <Utensils className={className} />;
+  if (/biển|bãi|beach|sea|đảo|ocean|mỹ khê/i.test(text)) return <Waves className={className} />;
+  if (/núi|hills|bà nà|sơn trà|đèo|hải vân|ngũ hành sơn|rừng/i.test(text)) return <Mountain className={className} />;
+  if (/chợ|market|phố|đêm|mua sắm|shop/i.test(text)) return <ShoppingBag className={className} />;
+  if (/chùa|temple|pagoda|linh ứng|tháp|nhà thờ|di tích|lăng|heritage|bảo tàng|museum/i.test(text)) return <Landmark className={className} />;
+  return <MapPin className={className} />;
 }
 
 export function PlacePlaceholder({
@@ -26,13 +27,12 @@ export function PlacePlaceholder({
   category?: string;
   className?: string;
 }) {
-  const Icon = getCategoryIcon(name, category);
   return (
     <div
       className={`${className} relative flex w-full flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-primary/10 via-muted to-muted/80 p-3 select-none text-muted-foreground`}
     >
       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background/90 text-primary shadow-2xs ring-1 ring-border/50 mb-1.5 transition-transform duration-200 group-hover:scale-105">
-        <Icon className="h-5 w-5" />
+        <CategoryPlaceholderIcon name={name} category={category} />
       </div>
       <span className="text-micro font-semibold text-foreground/90 text-center line-clamp-1 max-w-full px-2">
         {name}
@@ -58,15 +58,6 @@ export function ApprovedPlaceImage({
   let usable: PlacePhotoEvidence | null = null;
   if (photo) {
     usable = approvedPhoto(photo as PlacePhotoEvidence);
-    if (!usable && typeof photo.url === "string" && /^https?:\/\//i.test(photo.url)) {
-      usable = {
-        url: photo.url,
-        source: photo.source || "TripSense",
-        attribution: photo.attribution || [],
-        fetchedAt: new Date().toISOString(),
-        displayApproved: true,
-      };
-    }
   }
 
   if (!usable) {

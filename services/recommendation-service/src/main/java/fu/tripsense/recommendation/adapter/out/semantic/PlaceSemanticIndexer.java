@@ -1,5 +1,6 @@
 package fu.tripsense.recommendation.adapter.out.semantic;
 
+import fu.tripsense.recommendation.application.port.PlaceIndexer;
 import fu.tripsense.recommendation.domain.PlaceSnapshot;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -9,7 +10,7 @@ import org.springframework.stereotype.Component;
     prefix = "tripsense.recommendation.semantic",
     name = "enabled",
     havingValue = "true")
-public class PlaceSemanticIndexer {
+public class PlaceSemanticIndexer implements PlaceIndexer {
   private final PlaceSemanticDocumentBuilder documents;
   private final EmbeddingClient embeddings;
   private final VectorSearchClient vectors;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { useAuthStore } from "../store/use-auth-store";
+import { useAuthStore, loadCachedUser } from "../store/use-auth-store";
 import { UserRole, UserStatus } from "../types";
 import {
   hasLoggedInCookie,
@@ -130,5 +130,25 @@ describe("Auth Store & Navigation Lifecycle", () => {
     expect(UserRole.MODERATOR).toBe("ROLE_MODERATOR");
     expect(UserRole.ADMIN).toBe("ROLE_ADMIN");
     expect(UserRole.USER).toBe("ROLE_USER");
+  });
+
+  it("9. preserves cached user in localStorage during setAuth and can be loaded via loadCachedUser", () => {
+    const mockUser = {
+      id: "user-reload-test",
+      email: "reload@tripsense.app",
+      role: UserRole.USER,
+      status: UserStatus.ACTIVE,
+      name: "Traveler Reload",
+    };
+
+    useAuthStore.getState().setAuth(mockUser, "mock.jwt.token");
+    const cached = loadCachedUser();
+    expect(cached).not.toBeNull();
+    expect(cached?.id).toBe("user-reload-test");
+    expect(cached?.email).toBe("reload@tripsense.app");
+
+    // Calling clearAuth should wipe cached user
+    useAuthStore.getState().clearAuth();
+    expect(loadCachedUser()).toBeNull();
   });
 });

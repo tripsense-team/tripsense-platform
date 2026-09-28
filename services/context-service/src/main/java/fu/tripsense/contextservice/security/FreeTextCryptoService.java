@@ -23,18 +23,19 @@ public class FreeTextCryptoService {
   private static final int GCM_IV_LENGTH_BYTES = 12;
   private static final int GCM_TAG_LENGTH_BITS = 128;
   public static final String KEY_REF = "aes-gcm:v1";
+  private static final String DEFAULT_LEGACY_SECRET = "tripsense-context-onboarding-secure-key-32b";
 
   private final SecretKey secretKey;
+  private final SecretKey legacyKey;
   private final SecureRandom secureRandom = new SecureRandom();
 
   public FreeTextCryptoService(
       @Value("${context.encryption.secret:tripsense-context-onboarding-secure-key-32b}")
           String secret) {
     try {
-      MessageDigest sha = MessageDigest.getInstance("SHA-256");
-      byte[] keyBytes = sha.digest(secret.getBytes(StandardCharsets.UTF_8));
-      this.secretKey = new SecretKeySpec(keyBytes, "AES");
-      if ("tripsense-context-onboarding-secure-key-32b".equals(secret)) {
+      this.secretKey = deriveKey(secret);
+      this.legacyKey = deriveKey(DEFAULT_LEGACY_SECRET);
+      if (DEFAULT_LEGACY_SECRET.equals(secret)) {
         log.warn(
             "FreeTextCryptoService is using the DEFAULT insecure encryption secret. Override CONTEXT_ENCRYPTION_SECRET in production!");
       } else {
@@ -43,6 +44,12 @@ public class FreeTextCryptoService {
     } catch (Exception e) {
       throw new IllegalStateException("Failed to initialize AES key for FreeTextCryptoService", e);
     }
+  }
+
+  private SecretKey deriveKey(String secret) throws Exception {
+    MessageDigest sha = MessageDigest.getInstance("SHA-256");
+    byte[] keyBytes = sha.digest(secret.getBytes(StandardCharsets.UTF_8));
+    return new SecretKeySpec(keyBytes, "AES");
   }
 
   public byte[] encrypt(String plaintext) {
@@ -72,19 +79,33 @@ public class FreeTextCryptoService {
       return null;
     }
     try {
-      ByteBuffer byteBuffer = ByteBuffer.wrap(cipherBytes);
-      byte[] iv = new byte[GCM_IV_LENGTH_BYTES];
-      byteBuffer.get(iv);
-      byte[] encrypted = new byte[byteBuffer.remaining()];
-      byteBuffer.get(encrypted);
-
-      Cipher cipher = Cipher.getInstance(ALGORITHM);
-      cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
-      byte[] plainBytes = cipher.doFinal(encrypted);
-      return new String(plainBytes, StandardCharsets.UTF_8);
+      return decryptWithKey(cipherBytes, secretKey);
     } catch (Exception e) {
+      // If primary decryption fails, check if the payload was encrypted with the legacy default key
+      if (!secretKey.equals(legacyKey)) {
+        try {
+          String decrypted = decryptWithKey(cipherBytes, legacyKey);
+          log.info("Successfully decrypted free-text payload using legacy fallback key");
+          return decrypted;
+        } catch (Exception fallbackEx) {
+          // Both failed, proceed to warning
+        }
+      }
       log.warn("Failed to decrypt free-text payload (possibly invalid key or corrupted data): {}", e.getMessage());
       return null;
     }
+  }
+
+  private String decryptWithKey(byte[] cipherBytes, SecretKey key) throws Exception {
+    ByteBuffer byteBuffer = ByteBuffer.wrap(cipherBytes);
+    byte[] iv = new byte[GCM_IV_LENGTH_BYTES];
+    byteBuffer.get(iv);
+    byte[] encrypted = new byte[byteBuffer.remaining()];
+    byteBuffer.get(encrypted);
+
+    Cipher cipher = Cipher.getInstance(ALGORITHM);
+    cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
+    byte[] plainBytes = cipher.doFinal(encrypted);
+    return new String(plainBytes, StandardCharsets.UTF_8);
   }
 }
