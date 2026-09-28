@@ -19,6 +19,7 @@ import {
   deleteApiKey,
   activateApiKey,
   resetQuotaKeys,
+  testApiKey,
 } from "../services/settings-api";
 
 describe("Settings API", () => {
@@ -185,6 +186,20 @@ describe("Settings API", () => {
     expect(result.resetCount).toBe(3);
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/places/admin/keys/reset-quota?provider=ZIOMAP",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("tests API key via admin endpoint", async () => {
+    mockApiClient.mockResolvedValueOnce({
+      success: true,
+      data: { id: "key-1", valid: true, status: "ACTIVE" },
+    });
+
+    const result = await testApiKey("key-1");
+    expect(result.valid).toBe(true);
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/keys/key-1/test",
       expect.objectContaining({ method: "POST" }),
     );
   });
