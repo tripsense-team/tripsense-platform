@@ -24,7 +24,8 @@ public class GoogleTokenVerifier {
   public void init() {
     if (googleClientId != null && !googleClientId.isBlank()) {
       GoogleIdTokenVerifier.Builder builder =
-          new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance());
+          new GoogleIdTokenVerifier.Builder(
+              new NetHttpTransport(), GsonFactory.getDefaultInstance());
       builder.setAudience(Collections.singletonList(googleClientId.trim()));
       this.verifier = builder.build();
       log.info("GoogleTokenVerifier initialized with audience client-id configured");
@@ -41,7 +42,8 @@ public class GoogleTokenVerifier {
     }
 
     if (this.verifier == null) {
-      log.error("Google OAuth login attempted but GOOGLE_CLIENT_ID is not configured on the server");
+      log.error(
+          "Google OAuth login attempted but GOOGLE_CLIENT_ID is not configured on the server");
       throw new BadCredentialsException("Google authentication is not configured on this server");
     }
 

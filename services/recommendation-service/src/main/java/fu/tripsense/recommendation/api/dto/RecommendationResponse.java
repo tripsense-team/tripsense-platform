@@ -3,15 +3,15 @@ package fu.tripsense.recommendation.api.dto;
 import fu.tripsense.recommendation.domain.AlgorithmVersions;
 import fu.tripsense.recommendation.domain.GeoPoint;
 import fu.tripsense.recommendation.domain.PlaceSnapshot;
+import fu.tripsense.recommendation.domain.QuietnessEvidence;
+import fu.tripsense.recommendation.domain.RankingCriterion;
+import fu.tripsense.recommendation.domain.RecommendationReason;
 import fu.tripsense.recommendation.domain.RecommendationReasonCode;
 import fu.tripsense.recommendation.domain.RecommendationResult;
 import fu.tripsense.recommendation.domain.ScoreBreakdown;
 import java.util.List;
-import java.util.UUID;
 import java.util.Map;
-import fu.tripsense.recommendation.domain.QuietnessEvidence;
-import fu.tripsense.recommendation.domain.RecommendationReason;
-import fu.tripsense.recommendation.domain.RankingCriterion;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 public record RecommendationResponse(
@@ -45,34 +45,54 @@ public record RecommendationResponse(
                           .filter(requested::contains)
                           .toList(),
                       requested.stream()
-                          .filter(feature -> !availableCriteria(candidate.features()).contains(feature))
+                          .filter(
+                              feature -> !availableCriteria(candidate.features()).contains(feature))
                           .toList(),
                       candidate.reasons().stream().map(Reason::from).toList());
                 })
             .toList();
-    List<RankingCriterion.Feature> basis = requested.stream()
-        .filter(feature -> items.stream().anyMatch(item -> item.availableCriteria().contains(feature)))
-        .toList();
-    List<RankingCriterion.Feature> unavailable = requested.stream()
-        .filter(feature -> items.stream().noneMatch(item -> item.availableCriteria().contains(feature)))
-        .toList();
+    List<RankingCriterion.Feature> basis =
+        requested.stream()
+            .filter(
+                feature ->
+                    items.stream().anyMatch(item -> item.availableCriteria().contains(feature)))
+            .toList();
+    List<RankingCriterion.Feature> unavailable =
+        requested.stream()
+            .filter(
+                feature ->
+                    items.stream().noneMatch(item -> item.availableCriteria().contains(feature)))
+            .toList();
     boolean complete = items.size() >= result.requestedCount();
     String rankingStatus = basis.isEmpty() ? "UNRANKED" : "RANKED";
-    Warning warning = complete
-        ? null
-        : items.isEmpty()
-            ? new Warning("NO_ELIGIBLE_CANDIDATES", "recommendation.noEligibleCandidates")
-            : new Warning("INSUFFICIENT_VERIFIED_CANDIDATES", "recommendation.insufficientVerifiedCandidates");
+    Warning warning =
+        complete
+            ? null
+            : items.isEmpty()
+                ? new Warning("NO_ELIGIBLE_CANDIDATES", "recommendation.noEligibleCandidates")
+                : new Warning(
+                    "INSUFFICIENT_VERIFIED_CANDIDATES",
+                    "recommendation.insufficientVerifiedCandidates");
     return new RecommendationResponse(
-        result.recommendationId(), result.requestedCount(), items.size(), complete, rankingStatus, basis, unavailable,
+        result.recommendationId(),
+        result.requestedCount(),
+        items.size(),
+        complete,
+        rankingStatus,
+        basis,
+        unavailable,
         warning,
-        items, result.versions(), result.degradations(),
+        items,
+        result.versions(),
+        result.degradations(),
         new FilterSummary(
             result.retrievedCount(),
             Math.max(
                 0,
                 result.retrievedCount()
-                    - result.rejectedByReason().values().stream().mapToInt(Integer::intValue).sum()),
+                    - result.rejectedByReason().values().stream()
+                        .mapToInt(Integer::intValue)
+                        .sum()),
             result.rejectedByReason()));
   }
 
@@ -88,17 +108,27 @@ public record RecommendationResponse(
       List<Reason> reasons) {}
 
   public record Warning(String code, String messageKey) {}
+
   public record FilterSummary(int retrieved, int eligible, Map<String, Integer> rejectedByReason) {}
+
   public record Distance(Double straightLineKm, Double routeDistanceKm, String kind) {
     static Distance from(fu.tripsense.recommendation.domain.CandidateFeatures features) {
       return features.geographic().available()
-          ? new Distance(features.geographic().distanceKm(), null, "STRAIGHT_LINE") : null;
+          ? new Distance(features.geographic().distanceKm(), null, "STRAIGHT_LINE")
+          : null;
     }
   }
-  public record Reason(RecommendationReasonCode code, String criterion, Object supportingValue, double contribution) {
+
+  public record Reason(
+      RecommendationReasonCode code,
+      String criterion,
+      Object supportingValue,
+      double contribution) {
     static Reason from(RecommendationReason reason) {
-      return new Reason(reason.code(), criterion(reason.code()), reason.supportingValue(), reason.contribution());
+      return new Reason(
+          reason.code(), criterion(reason.code()), reason.supportingValue(), reason.contribution());
     }
+
     private static String criterion(RecommendationReasonCode code) {
       return switch (code) {
         case NEAR_TRIP_AREA -> "DISTANCE";
@@ -168,5 +198,4 @@ public record RecommendationResponse(
     if (features.semantic().available()) values.add(RankingCriterion.Feature.SEMANTIC);
     return List.copyOf(values);
   }
-
 }

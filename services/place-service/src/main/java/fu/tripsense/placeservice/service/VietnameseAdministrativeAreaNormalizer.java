@@ -48,7 +48,8 @@ public final class VietnameseAdministrativeAreaNormalizer {
 
   private static String stripAdministrativePrefix(String value) {
     if (!StringUtils.hasText(value)) return null;
-    return value.trim()
+    return value
+        .trim()
         .replaceFirst("(?iu)^(?:quận|huyện|thành phố|tp\\.?)\\s+", "")
         .replaceFirst("\\s+\\d{5,6}$", "")
         .trim();

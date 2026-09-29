@@ -28,10 +28,61 @@ public class RecommendationProperties {
   @Valid private Feedback feedback = new Feedback();
   @Valid private Versions versions = new Versions();
   @Valid private Taxonomy taxonomy = new Taxonomy();
+  @Valid private Explore explore = new Explore();
 
   @Data
   public static class Taxonomy {
     private Map<String, List<String>> categoryAliases = new LinkedHashMap<>();
+  }
+
+  @Data
+  public static class Explore {
+    @Min(1)
+    private int minimumUsefulResults = 6;
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    private double minimumQueryRelevance = 0.15;
+
+    @Min(1)
+    private int maximumProviderQueryRank = 40;
+
+    private Duration cacheTtl = Duration.ofMinutes(10);
+    private Duration lastKnownGoodTtl = Duration.ofHours(24);
+    private String cacheKeySecret = "";
+    private Map<String, Destination> destinations = defaultDestinations();
+
+    private static Map<String, Destination> defaultDestinations() {
+      Map<String, Destination> values = new LinkedHashMap<>();
+      values.put("danang", new Destination("Đà Nẵng", 16.0544, 108.2022, 12_000, 35_000));
+      values.put("hue", new Destination("Huế", 16.4637, 107.5909, 12_000, 30_000));
+      values.put("hoian", new Destination("Hội An", 15.8801, 108.3380, 10_000, 25_000));
+      return values;
+    }
+  }
+
+  @Data
+  public static class Destination {
+    @NotBlank private String name;
+    private double lat;
+    private double lng;
+
+    @Min(100)
+    private int defaultRadiusMeters;
+
+    @Min(100)
+    private int maximumRadiusMeters;
+
+    public Destination() {}
+
+    public Destination(
+        String name, double lat, double lng, int defaultRadiusMeters, int maximumRadiusMeters) {
+      this.name = name;
+      this.lat = lat;
+      this.lng = lng;
+      this.defaultRadiusMeters = defaultRadiusMeters;
+      this.maximumRadiusMeters = maximumRadiusMeters;
+    }
   }
 
   @Data

@@ -34,7 +34,7 @@ public class SecurityConfig {
                     (request, response, error) -> response.sendError(401, "Unauthorized")))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/actuator/**")
+                auth.requestMatchers("/actuator/**", "/error")
                     .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()

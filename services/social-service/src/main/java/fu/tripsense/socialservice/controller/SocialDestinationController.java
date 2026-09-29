@@ -17,8 +17,7 @@ public class SocialDestinationController {
   @GetMapping({"/destinations/trending", "/trending-destinations"})
   public ApiResponse<List<TrendingDestinationResponse>> getTrendingDestinations(
       @RequestParam(defaultValue = "4") int limit) {
-    List<TrendingDestinationResponse> response =
-        destinationService.getTrendingDestinations(limit);
+    List<TrendingDestinationResponse> response = destinationService.getTrendingDestinations(limit);
     return ApiResponse.success(response);
   }
 }

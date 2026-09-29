@@ -16,6 +16,8 @@ public class TripSensePlaceProperties {
 
   private CacheProperties cache = new CacheProperties();
   private SearchProperties search = new SearchProperties();
+  private String recommendationServiceUrl = "http://localhost:8088";
+  private String recommendationInternalApiKey = "";
 
   @Data
   public static class CacheProperties {

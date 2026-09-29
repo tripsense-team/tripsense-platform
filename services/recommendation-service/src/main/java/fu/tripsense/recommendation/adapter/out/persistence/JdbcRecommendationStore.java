@@ -2,6 +2,9 @@ package fu.tripsense.recommendation.adapter.out.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.tripsense.recommendation.algorithm.profile.InteractionWeightCalculator;
+import fu.tripsense.recommendation.algorithm.profile.MultiTimescaleProfileComposer;
+import fu.tripsense.recommendation.algorithm.profile.ProfileSegment;
 import fu.tripsense.recommendation.application.FeedbackCommand;
 import fu.tripsense.recommendation.application.FeedbackConflictException;
 import fu.tripsense.recommendation.application.FeedbackValidationException;
@@ -36,12 +39,20 @@ public class JdbcRecommendationStore
   private final JdbcTemplate jdbc;
   private final ObjectMapper objectMapper;
   private final RecommendationProperties properties;
+  private final InteractionWeightCalculator interactionWeights;
+  private final MultiTimescaleProfileComposer profileComposer;
 
   public JdbcRecommendationStore(
-      JdbcTemplate jdbc, ObjectMapper objectMapper, RecommendationProperties properties) {
+      JdbcTemplate jdbc,
+      ObjectMapper objectMapper,
+      RecommendationProperties properties,
+      InteractionWeightCalculator interactionWeights,
+      MultiTimescaleProfileComposer profileComposer) {
     this.jdbc = jdbc;
     this.objectMapper = objectMapper;
     this.properties = properties;
+    this.interactionWeights = interactionWeights;
+    this.profileComposer = profileComposer;
   }
 
   @Override
@@ -190,12 +201,16 @@ public class JdbcRecommendationStore
   }
 
   @Override
-  public UserProfileSnapshot read(UUID userId, boolean personalizationEnabled) {
+  public UserProfileSnapshot read(
+      UUID userId, UUID tripId, String sessionId, boolean personalizationEnabled) {
     if (!personalizationEnabled) return UserProfileSnapshot.coldStart(false);
     Set<String> seen = new HashSet<>();
     Set<String> saved = new HashSet<>();
     Set<String> trip = new HashSet<>();
     Set<String> negative = new HashSet<>();
+    Map<String, Double> longTermAffinities = new java.util.HashMap<>();
+    Map<String, Double> tripAffinities = new java.util.HashMap<>();
+    Map<String, Double> sessionAffinities = new java.util.HashMap<>();
     jdbc.query(
         """
         SELECT item.place_id
@@ -239,19 +254,100 @@ public class JdbcRecommendationStore
         },
         userId,
         properties.getFeedback().getMaxHistoryEvents());
+    Instant now = Instant.now();
+    jdbc.query(
+        """
+        SELECT event.event_type, event.occurred_at, event.trip_id, event.session_id,
+               item.feature_snapshot
+        FROM recommendation_feedback_event event
+        JOIN recommendation_impression_item item
+          ON item.recommendation_id = event.recommendation_id
+         AND item.place_id = event.place_id
+        WHERE event.user_id = ?
+        ORDER BY event.occurred_at DESC
+        LIMIT ?
+        """,
+        rs -> {
+          FeedbackEventType eventType = FeedbackEventType.valueOf(rs.getString("event_type"));
+          Instant occurredAt = rs.getTimestamp("occurred_at").toInstant();
+          double weight = interactionWeight(eventType, occurredAt, now);
+          for (String category : categories(rs.getString("feature_snapshot"))) {
+            longTermAffinities.merge(category, weight, Double::sum);
+            UUID eventTripId = rs.getObject("trip_id", UUID.class);
+            if (tripId != null && tripId.equals(eventTripId)) {
+              tripAffinities.merge(category, weight, Double::sum);
+            }
+            String eventSessionId = rs.getString("session_id");
+            if (sessionId != null && sessionId.equals(eventSessionId)) {
+              sessionAffinities.merge(category, weight, Double::sum);
+            }
+          }
+        },
+        userId,
+        properties.getFeedback().getMaxHistoryEvents());
+    Map<String, Double> categoryAffinities =
+        profileComposer.compose(
+            segment(longTermAffinities), segment(tripAffinities), segment(sessionAffinities));
     boolean available =
-        !seen.isEmpty() || !saved.isEmpty() || !trip.isEmpty() || !negative.isEmpty();
+        !seen.isEmpty()
+            || !saved.isEmpty()
+            || !trip.isEmpty()
+            || !negative.isEmpty()
+            || !categoryAffinities.isEmpty();
     return new UserProfileSnapshot(
         available,
         true,
         Set.of(),
         Set.of(),
-        Map.of(),
+        categoryAffinities,
         seen,
         saved,
         trip,
         negative,
         available ? Instant.now() : null);
+  }
+
+  private ProfileSegment segment(Map<String, Double> values) {
+    if (values.isEmpty()) return new ProfileSegment(false, Map.of());
+    double max = values.values().stream().mapToDouble(Math::abs).max().orElse(1);
+    Map<String, Double> normalized = new java.util.HashMap<>();
+    values.forEach(
+        (category, value) -> normalized.put(category, Math.max(-1, Math.min(1, value / max))));
+    return new ProfileSegment(true, normalized);
+  }
+
+  private java.util.List<String> categories(String featureSnapshot) {
+    try {
+      var node = objectMapper.readTree(featureSnapshot).path("place").path("categories");
+      if (!node.isArray()) return java.util.List.of();
+      java.util.List<String> values = new java.util.ArrayList<>();
+      node.forEach(
+          value -> {
+            String category = value.asText("").trim().toLowerCase(java.util.Locale.ROOT);
+            if (!category.isBlank()) values.add(category);
+          });
+      return values;
+    } catch (RuntimeException | JsonProcessingException exception) {
+      return java.util.List.of();
+    }
+  }
+
+  private double interactionWeight(FeedbackEventType eventType, Instant occurredAt, Instant now) {
+    RecommendationProperties.Interaction interaction =
+        switch (eventType) {
+          case IMPRESSION -> RecommendationProperties.Interaction.VIEW;
+          case CLICK, BOOKING_CLICK -> RecommendationProperties.Interaction.CLICK;
+          case DETAIL_VIEW -> RecommendationProperties.Interaction.DETAIL_VIEW;
+          case LIKE -> RecommendationProperties.Interaction.LIKE;
+          case SAVE, UNSAVE -> RecommendationProperties.Interaction.SAVE;
+          case ADD_TO_TRIP, REMOVE_FROM_TRIP -> RecommendationProperties.Interaction.ADD_TO_TRIP;
+          case DISLIKE -> RecommendationProperties.Interaction.DISLIKE;
+        };
+    double value = interactionWeights.weight(interaction, occurredAt, now);
+    return switch (eventType) {
+      case UNSAVE, REMOVE_FROM_TRIP -> -value;
+      default -> value;
+    };
   }
 
   @Override

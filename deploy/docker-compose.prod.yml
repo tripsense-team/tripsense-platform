@@ -55,7 +55,13 @@ services:
       api-gateway:
         condition: service_started
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -114,6 +120,10 @@ services:
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_API_KEY: ${ZIOMAP_API_KEY}
       ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
+      RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY}
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
+      API_KEY_ENCRYPTION_SECRET: ${API_KEY_ENCRYPTION_SECRET:-tripsense-default-api-key-encryption-secret-32b}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -156,6 +166,8 @@ services:
       TRIP_DB_PASS: ${TRIP_DB_PASS}
       REDIS_URL: ${REDIS_URL}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY}
+      RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -239,7 +251,11 @@ services:
       RECOMMENDATION_SEMANTIC_ENABLED: ${RECOMMENDATION_SEMANTIC_ENABLED:-false}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
-      QDRANT_URL: http://qdrant:6333
+      QDRANT_URL: ${QDRANT_URL:-http://localhost:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      QDRANT_PLACE_COLLECTION: ${QDRANT_PLACE_COLLECTION:-tripsense_places}
+      RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET:-tripsense-cache-key-secret-recommendation-2026}
+      RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-tripsense-internal-recommendation-key-sec-2026}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:

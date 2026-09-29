@@ -3,9 +3,13 @@
 import * as React from "react";
 import * as mapvinagl from "mapvina-gl";
 import "mapvina-gl/dist/mapvina-gl.css";
+import { Search, CloudSun } from "lucide-react";
+import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collapse-button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { MapVinaContainerProps } from "../types";
 import type { Place } from "@/features/places/types";
+import { useTranslation } from "@/i18n";
 import { createMapVinaPopup } from "./mapvina-popup";
 
 const MAPVINA_API_KEY = process.env.NEXT_PUBLIC_MAPVINA_API_KEY;
@@ -346,7 +350,7 @@ function createMarkerWrapper(
 
   if (isSelectedOrHigh) {
     const pill = document.createElement("div");
-    pill.className = `flex items-center gap-1.5 px-2.5 py-1 rounded-full shadow-lg border backdrop-blur-md transition-all ${
+    pill.className = `flex items-center gap-1.5 px-2.5 py-1 rounded-full shadow-lg border transition-all ${
       isSelected
         ? "bg-zinc-900 text-white border-white/40 ring-4 ring-primary/30 shadow-2xl dark:bg-white dark:text-zinc-900"
         : "bg-background/95 text-foreground border-border/80 hover:bg-background hover:scale-105 shadow-md"
@@ -419,6 +423,15 @@ function createMarkerWrapper(
   return wrapper;
 }
 
+function hasOriginalUserEvent(event: unknown): boolean {
+  return Boolean(
+    event &&
+      typeof event === "object" &&
+      "originalEvent" in event &&
+      (event as { originalEvent?: unknown }).originalEvent,
+  );
+}
+
 export function MapVinaContainer({
   places,
   selectedPlaceId,
@@ -431,16 +444,25 @@ export function MapVinaContainer({
   className,
   autoFitBounds = false,
   fitBoundsTrigger,
+  showExploreThisArea,
+  onExploreAreaClick,
+  onToggleCollapsePanel,
+  isPanelCollapsed,
+  weatherText,
 }: MapVinaContainerProps) {
+  const { t, locale } = useTranslation();
   const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
   const mapRef = React.useRef<mapvinagl.Map | null>(null);
   const markersRef = React.useRef<{ [id: string]: mapvinagl.Marker }>({});
+  const markerRenderKeysRef = React.useRef<Record<string, string>>({});
   const popupRef = React.useRef<mapvinagl.Popup | null>(null);
+  const popupSignatureRef = React.useRef("");
   const onSelectPlaceRef = React.useRef(onSelectPlace);
   const onAddAndSelectPlaceRef = React.useRef(onAddAndSelectPlace);
   const onViewDetailsRef = React.useRef(onViewDetails);
   const onViewportChangeRef = React.useRef(onViewportChange);
   const isUserInteractingRef = React.useRef(false);
+  const programmaticCameraMoveRef = React.useRef(false);
   const initialCenterRef = React.useRef(center);
   const initialZoomRef = React.useRef(zoom);
   const lastFittedPlaceIdsRef = React.useRef<string>("");
@@ -544,10 +566,18 @@ export function MapVinaContainer({
     });
 
     mapInstance.on("dragstart", () => {
+      programmaticCameraMoveRef.current = false;
       isUserInteractingRef.current = true;
     });
 
-    mapInstance.on("zoomstart", () => {
+    mapInstance.on("zoomstart", (event) => {
+      if (
+        programmaticCameraMoveRef.current &&
+        !hasOriginalUserEvent(event)
+      ) {
+        return;
+      }
+      programmaticCameraMoveRef.current = false;
       isUserInteractingRef.current = true;
     });
 
@@ -695,6 +725,12 @@ export function MapVinaContainer({
 
     // Complete-Stop Idle Detection: Fires only when the user stops panning/zooming
     mapInstance.on("idle", () => {
+      if (programmaticCameraMoveRef.current) {
+        programmaticCameraMoveRef.current = false;
+        isUserInteractingRef.current = false;
+        return;
+      }
+
       if (isUserInteractingRef.current) {
         isUserInteractingRef.current = false;
 
@@ -747,8 +783,71 @@ export function MapVinaContainer({
     return () => {
       mapInstance.remove();
       mapRef.current = null;
+      markerRenderKeysRef.current = {};
+      popupSignatureRef.current = "";
     };
   }, []);
+
+  // Coalesced single-flight resize executor: ensures map.resize() runs exactly ONCE per frame
+  // and never repeatedly wipes WebGL buffers (preventing map reload / flashing effect)
+  const resizeRafRef = React.useRef<number | null>(null);
+  const triggerMapResize = React.useCallback(() => {
+    if (!mapRef.current) return;
+    if (resizeRafRef.current) {
+      cancelAnimationFrame(resizeRafRef.current);
+    }
+    resizeRafRef.current = requestAnimationFrame(() => {
+      resizeRafRef.current = null;
+      if (mapRef.current) {
+        mapRef.current.resize();
+      }
+    });
+  }, []);
+
+  // 1. Trigger resize when isPanelCollapsed changes
+  React.useEffect(() => {
+    triggerMapResize();
+  }, [isPanelCollapsed, triggerMapResize]);
+
+  // 2. Trigger resize when sidebar toggles
+  React.useEffect(() => {
+    const handleSidebarToggle = () => {
+      triggerMapResize();
+    };
+    window.addEventListener("tripsense:sidebar-toggle", handleSidebarToggle);
+    return () => {
+      window.removeEventListener("tripsense:sidebar-toggle", handleSidebarToggle);
+    };
+  }, [triggerMapResize]);
+
+  // 3. Observe container size shifts (window resize, layout changes)
+  React.useEffect(() => {
+    const el = mapContainerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    let prevW = el.clientWidth;
+    let prevH = el.clientHeight;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      if (Math.abs(width - prevW) < 2 && Math.abs(height - prevH) < 2) {
+        return;
+      }
+      prevW = width;
+      prevH = height;
+      triggerMapResize();
+    });
+
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (resizeRafRef.current) {
+        cancelAnimationFrame(resizeRafRef.current);
+      }
+    };
+  }, [isLoaded, triggerMapResize]);
 
   // Update Markers
   React.useEffect(() => {
@@ -767,6 +866,7 @@ export function MapVinaContainer({
       if (!validPlaceIds.has(id)) {
         markersRef.current[id].remove();
         delete markersRef.current[id];
+        delete markerRenderKeysRef.current[id];
       }
     });
 
@@ -781,24 +881,34 @@ export function MapVinaContainer({
       const isSelected =
         place.id === selectedPlaceId ||
         (!!place.providerPlaceId && place.providerPlaceId === selectedPlaceId);
-      const innerWrapper = createMarkerWrapper(
-        place,
-        isSelected,
-        currentZoom,
-        validPlaces.length,
-      );
+      const markerPresentation =
+        currentZoom >= 11.5 || validPlaces.length <= 15 ? "expanded" : "compact";
+      const markerRenderKey = [
+        isSelected ? "selected" : "idle",
+        markerPresentation,
+        place.name,
+        place.rating ?? "",
+        place.categories?.join("|") ?? "",
+      ].join("::");
 
       if (markersRef.current[place.id]) {
         const marker = markersRef.current[place.id];
         marker.setLngLat([place.location.lng, place.location.lat]);
         const currentEl = marker.getElement();
         currentEl.style.zIndex = isSelected ? "1000" : "10";
-        currentEl.replaceChildren(innerWrapper);
+        if (markerRenderKeysRef.current[place.id] !== markerRenderKey) {
+          currentEl.replaceChildren(
+            createMarkerWrapper(place, isSelected, currentZoom, validPlaces.length),
+          );
+          markerRenderKeysRef.current[place.id] = markerRenderKey;
+        }
       } else {
         const el = document.createElement("div");
         el.className = "tripsense-mapvina-marker cursor-pointer select-none";
         el.style.zIndex = isSelected ? "1000" : "10";
-        el.appendChild(innerWrapper);
+        el.appendChild(
+          createMarkerWrapper(place, isSelected, currentZoom, validPlaces.length),
+        );
 
         el.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -815,6 +925,7 @@ export function MapVinaContainer({
           .addTo(map);
 
         markersRef.current[place.id] = marker;
+        markerRenderKeysRef.current[place.id] = markerRenderKey;
       }
     });
   }, [places, selectedPlaceId, isLoaded, currentZoom]);
@@ -837,8 +948,10 @@ export function MapVinaContainer({
     if (validPlaces.length > 1) {
       const bounds = new mapvinagl.LngLatBounds();
       validPlaces.forEach((p) => bounds.extend([p.location!.lng, p.location!.lat]));
+      programmaticCameraMoveRef.current = true;
       map.fitBounds(bounds, { padding: 60, maxZoom: 14.5, duration: 600 });
     } else if (validPlaces.length === 1 && validPlaces[0].location) {
+      programmaticCameraMoveRef.current = true;
       map.flyTo({ center: [validPlaces[0].location.lng, validPlaces[0].location.lat], zoom: 14, duration: 500 });
     }
   }, [places, selectedPlaceId, isLoaded, autoFitBounds]);
@@ -856,8 +969,10 @@ export function MapVinaContainer({
     if (validPlaces.length > 1) {
       const bounds = new mapvinagl.LngLatBounds();
       validPlaces.forEach((p) => bounds.extend([p.location!.lng, p.location!.lat]));
+      programmaticCameraMoveRef.current = true;
       map.fitBounds(bounds, { padding: 60, maxZoom: 14.5, duration: 600 });
     } else if (validPlaces.length === 1 && validPlaces[0].location) {
+      programmaticCameraMoveRef.current = true;
       map.flyTo({ center: [validPlaces[0].location.lng, validPlaces[0].location.lat], zoom: 14, duration: 500 });
     }
   }, [fitBoundsTrigger, places, isLoaded]);
@@ -867,12 +982,12 @@ export function MapVinaContainer({
     const map = mapRef.current;
     if (!map || !isLoaded) return;
 
-    if (popupRef.current) {
-      popupRef.current.remove();
-      popupRef.current = null;
-    }
-
     if (!selectedPlaceId) {
+      if (popupRef.current) {
+        popupRef.current.remove();
+        popupRef.current = null;
+      }
+      popupSignatureRef.current = "";
       lastSelectedPlaceIdRef.current = null;
       return;
     }
@@ -882,23 +997,60 @@ export function MapVinaContainer({
         p.id === selectedPlaceId ||
         (!!p.providerPlaceId && p.providerPlaceId === selectedPlaceId),
     );
-    if (!place || !place.location) return;
+    if (!place || !place.location) {
+      if (popupRef.current) {
+        popupRef.current.remove();
+        popupRef.current = null;
+      }
+      popupSignatureRef.current = "";
+      return;
+    }
+
+    const isFav = !!favorites[place.id];
+    const popupSignature = JSON.stringify([
+      place.id,
+      place.providerPlaceId,
+      place.name,
+      place.address,
+      place.oldAddress,
+      place.phone,
+      place.website,
+      place.openingHours,
+      place.rating,
+      place.categories,
+      place.socials,
+      place.location.lat,
+      place.location.lng,
+      isFav,
+      locale,
+    ]);
+
+    if (popupRef.current && popupSignatureRef.current === popupSignature) {
+      return;
+    }
+
+    if (popupRef.current) {
+      popupRef.current.remove();
+      popupRef.current = null;
+    }
+    popupSignatureRef.current = popupSignature;
 
     // Only flyTo when selectedPlaceId actually changes to avoid jarring map re-centering during background updates
     if (lastSelectedPlaceIdRef.current !== selectedPlaceId) {
       lastSelectedPlaceIdRef.current = selectedPlaceId;
-      const targetZoom = Math.max(map.getZoom(), 15.5);
+      const curZoom = map.getZoom();
+      const targetZoom = curZoom < 14 ? 15 : curZoom;
+      programmaticCameraMoveRef.current = true;
       map.flyTo({
         center: [place.location.lng, place.location.lat],
-        offset: [0, 95],
+        offset: [0, 80],
         zoom: targetZoom,
-        duration: 800,
+        duration: 500,
         essential: true,
       });
     }
 
-    const isFav = !!favorites[place.id];
-    const container = createMapVinaPopup(place, isFav);
+    const container = createMapVinaPopup(place, isFav, t);
 
     container
       .querySelector("#btn-close-popup")
@@ -948,16 +1100,49 @@ export function MapVinaContainer({
       .addTo(map);
 
     popupRef.current = popup;
-  }, [selectedPlaceId, places, isLoaded, favorites]);
+  }, [selectedPlaceId, places, isLoaded, favorites, locale, t]);
 
   return (
     <div
       className={cn(
-        "relative isolate z-0 w-full h-full min-h-[500px] overflow-hidden rounded-3xl border border-border shadow-md",
+        "relative isolate z-0 w-full h-full min-h-[400px] overflow-hidden rounded-r-none border-0 shadow-none",
+        isPanelCollapsed ? "rounded-none" : "rounded-l-2xl lg:rounded-l-3xl",
         className,
       )}
     >
       <div ref={mapContainerRef} className="w-full h-full" />
+
+      {/* Top-Left: Collapse/Expand Feed Panel Button (Reusing existing SidebarCollapseButton) */}
+      {onToggleCollapsePanel && (
+        <TooltipProvider delayDuration={150}>
+          <SidebarCollapseButton
+            collapsed={Boolean(isPanelCollapsed)}
+            onToggleCollapse={onToggleCollapsePanel}
+            collapseTitle={t("places.collapseFeed", { defaultValue: "Collapse list" })}
+            expandTitle={t("places.expandFeed", { defaultValue: "Expand list" })}
+            tooltipSide="right"
+            className="absolute top-4 left-4 z-20 h-10 w-10 bg-background/95 hover:bg-background text-foreground border border-border/80 shadow-md dark:bg-card/95"
+          />
+        </TooltipProvider>
+      )}
+
+      {/* Top-Center: Floating "Explore this area" Button */}
+      {showExploreThisArea && onExploreAreaClick && (
+        <button
+          type="button"
+          onClick={onExploreAreaClick}
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-background/95 hover:bg-background text-foreground border border-border/80 shadow-md px-4 py-2 text-xs font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <Search className="h-3.5 w-3.5 text-primary" />
+          <span>{t("places.exploreThisArea", { defaultValue: "Explore this area" })}</span>
+        </button>
+      )}
+
+      {/* Bottom-Left: Floating Weather Badge */}
+      <div className="absolute bottom-4 left-4 z-20 hidden sm:flex items-center gap-2 rounded-full bg-background/95 border border-border/80 shadow-md px-3.5 py-1.5 text-xs font-medium text-foreground pointer-events-none">
+        <CloudSun className="h-4 w-4 text-amber-500" />
+        <span>{weatherText || (locale === "vi" ? `79°F ${t("places.weatherBrokenClouds", { defaultValue: "Mây rải rác" })}` : `79°F ${t("places.weatherBrokenClouds", { defaultValue: "Broken clouds" })}`)}</span>
+      </div>
     </div>
   );
 }

@@ -109,7 +109,8 @@ public final class OnboardingProfile {
     if (newAttributes != null) {
       attributes.putAll(newAttributes);
     }
-    this.freeText = (newFreeText != null && !newFreeText.trim().isEmpty()) ? newFreeText.trim() : null;
+    this.freeText =
+        (newFreeText != null && !newFreeText.trim().isEmpty()) ? newFreeText.trim() : null;
     version++;
     updatedAt = Instant.now();
   }

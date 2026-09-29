@@ -6,24 +6,42 @@ import {
 } from "../utils/cookie-indicator";
 
 const CACHED_USER_KEY = "tripsense_cached_user";
+const memoryCache: Record<string, string> = {};
 
-function loadCachedUser(): User | null {
-  if (typeof window === "undefined") return null;
+export function loadCachedUser(): User | null {
   try {
-    const raw = localStorage.getItem(CACHED_USER_KEY);
+    const raw =
+      typeof window !== "undefined" &&
+      typeof window.localStorage?.getItem === "function"
+        ? window.localStorage.getItem(CACHED_USER_KEY)
+        : memoryCache[CACHED_USER_KEY];
     return raw ? JSON.parse(raw) : null;
   } catch {
-    return null;
+    return memoryCache[CACHED_USER_KEY]
+      ? JSON.parse(memoryCache[CACHED_USER_KEY])
+      : null;
   }
 }
 
 function saveCachedUser(user: User | null) {
-  if (typeof window === "undefined") return;
   try {
     if (user) {
-      localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+      const val = JSON.stringify(user);
+      memoryCache[CACHED_USER_KEY] = val;
+      if (
+        typeof window !== "undefined" &&
+        typeof window.localStorage?.setItem === "function"
+      ) {
+        window.localStorage.setItem(CACHED_USER_KEY, val);
+      }
     } else {
-      localStorage.removeItem(CACHED_USER_KEY);
+      delete memoryCache[CACHED_USER_KEY];
+      if (
+        typeof window !== "undefined" &&
+        typeof window.localStorage?.removeItem === "function"
+      ) {
+        window.localStorage.removeItem(CACHED_USER_KEY);
+      }
     }
   } catch {
     // Ignore storage issues

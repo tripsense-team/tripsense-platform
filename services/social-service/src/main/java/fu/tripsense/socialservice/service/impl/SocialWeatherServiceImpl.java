@@ -72,9 +72,7 @@ public class SocialWeatherServiceImpl implements SocialWeatherService {
     double tempVal = current.temperature() != null ? current.temperature() : city.getDefaultTemp();
     int temp = (int) Math.round(tempVal);
     int humidity =
-        current.relativeHumidity() != null
-            ? current.relativeHumidity()
-            : city.getDefaultHumidity();
+        current.relativeHumidity() != null ? current.relativeHumidity() : city.getDefaultHumidity();
 
     ConditionInfo conditionInfo = mapWmoCode(current.weatherCode(), tempVal);
 
@@ -115,31 +113,25 @@ public class SocialWeatherServiceImpl implements SocialWeatherService {
     }
 
     return switch (code) {
-      case 0 -> new ConditionInfo(
-          "Trời quang", "weatherConditionSunny", isCold ? "cool" : "sunny");
-      case 1, 2 -> new ConditionInfo(
-          "Mây rải rác", "weatherConditionPartlyCloudy", isCold ? "cool" : "partlyCloudy");
-      case 3 -> new ConditionInfo(
-          "Nhiều mây", "weatherConditionCloudy", isCold ? "cool" : "cloudy");
+      case 0 -> new ConditionInfo("Trời quang", "weatherConditionSunny", isCold ? "cool" : "sunny");
+      case 1, 2 ->
+          new ConditionInfo(
+              "Mây rải rác", "weatherConditionPartlyCloudy", isCold ? "cool" : "partlyCloudy");
+      case 3 ->
+          new ConditionInfo("Nhiều mây", "weatherConditionCloudy", isCold ? "cool" : "cloudy");
       case 45, 48 -> new ConditionInfo("Có sương mù", "weatherConditionCool", "cool");
-      case 51, 53, 55 -> new ConditionInfo(
-          "Mưa phùn nhẹ", "weatherConditionRainy", "rainy");
-      case 56, 57 -> new ConditionInfo(
-          "Mưa phùn lạnh", "weatherConditionRainy", "rainy");
-      case 61, 63, 65 -> new ConditionInfo(
-          "Có mưa", "weatherConditionRainy", "rainy");
-      case 66, 67 -> new ConditionInfo(
-          "Mưa lạnh", "weatherConditionRainy", "rainy");
-      case 71, 73, 75, 77, 85, 86 -> new ConditionInfo(
-          "Rất lạnh", "weatherConditionCool", "cool");
-      case 80, 81, 82 -> new ConditionInfo(
-          "Mưa rào", "weatherConditionRainy", "rainy");
-      case 95, 96, 99 -> new ConditionInfo(
-          "Có giông sét", "weatherConditionRainy", "rainy");
-      default -> new ConditionInfo(
-          isCold ? "Dịu mát" : "Nắng ráo",
-          isCold ? "weatherConditionCool" : "weatherConditionSunny",
-          isCold ? "cool" : "sunny");
+      case 51, 53, 55 -> new ConditionInfo("Mưa phùn nhẹ", "weatherConditionRainy", "rainy");
+      case 56, 57 -> new ConditionInfo("Mưa phùn lạnh", "weatherConditionRainy", "rainy");
+      case 61, 63, 65 -> new ConditionInfo("Có mưa", "weatherConditionRainy", "rainy");
+      case 66, 67 -> new ConditionInfo("Mưa lạnh", "weatherConditionRainy", "rainy");
+      case 71, 73, 75, 77, 85, 86 -> new ConditionInfo("Rất lạnh", "weatherConditionCool", "cool");
+      case 80, 81, 82 -> new ConditionInfo("Mưa rào", "weatherConditionRainy", "rainy");
+      case 95, 96, 99 -> new ConditionInfo("Có giông sét", "weatherConditionRainy", "rainy");
+      default ->
+          new ConditionInfo(
+              isCold ? "Dịu mát" : "Nắng ráo",
+              isCold ? "weatherConditionCool" : "weatherConditionSunny",
+              isCold ? "cool" : "sunny");
     };
   }
 }

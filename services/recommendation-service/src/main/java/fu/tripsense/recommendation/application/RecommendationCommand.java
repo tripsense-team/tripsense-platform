@@ -20,4 +20,12 @@ public record RecommendationCommand(
     Set<String> requiredCategories,
     GeographicScope geographicScope,
     List<RankingCriterion> rankingCriteria,
-    int limit) {}
+    int limit,
+    String preferencePurpose) {
+  public RecommendationCommand {
+    preferencePurpose =
+        preferencePurpose == null || preferencePurpose.isBlank()
+            ? "TRIP_PLANNING"
+            : preferencePurpose;
+  }
+}

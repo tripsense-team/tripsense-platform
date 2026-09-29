@@ -4,8 +4,10 @@ import fu.tripsense.recommendation.api.dto.ApiResponse;
 import fu.tripsense.recommendation.application.CandidateRetrievalUnavailableException;
 import fu.tripsense.recommendation.application.FeedbackConflictException;
 import fu.tripsense.recommendation.application.FeedbackValidationException;
+import fu.tripsense.recommendation.application.InvalidDestinationException;
 import fu.tripsense.recommendation.application.TripContextNotAccessibleException;
 import fu.tripsense.recommendation.application.TripContextUnavailableException;
+import fu.tripsense.recommendation.security.InternalAuthenticationException;
 import fu.tripsense.recommendation.security.UnauthenticatedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class RecommendationExceptionHandler {
+  @ExceptionHandler(InternalAuthenticationException.class)
+  ResponseEntity<ApiResponse<Void>> internalUnauthenticated(
+      InternalAuthenticationException exception) {
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        .body(ApiResponse.error("INTERNAL_UNAUTHENTICATED", "Internal authentication is required"));
+  }
+
+  @ExceptionHandler(InvalidDestinationException.class)
+  ResponseEntity<ApiResponse<Void>> invalidDestination(InvalidDestinationException exception) {
+    return ResponseEntity.badRequest()
+        .body(
+            ApiResponse.error("INVALID_DESTINATION", "The selected destination is not supported"));
+  }
+
   @ExceptionHandler({
     IllegalArgumentException.class,
     MethodArgumentNotValidException.class,
@@ -71,7 +87,20 @@ public class RecommendationExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   ResponseEntity<ApiResponse<Void>> unexpected(Exception exception) {
-    log.error("Unhandled recommendation failure", exception);
+    String message = exception.getMessage();
+    if (message != null
+        && (message.contains("Broken pipe") || message.contains("Connection reset by peer"))) {
+      log.warn(
+          "Client disconnected before recommendation response could be written: errorType={}, message={}",
+          exception.getClass().getSimpleName(),
+          message);
+      return null;
+    }
+    log.error(
+        "Unhandled recommendation failure: errorType={}, message={}",
+        exception.getClass().getSimpleName(),
+        message,
+        exception);
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
         .body(ApiResponse.error("INTERNAL_ERROR", "An unexpected error occurred"));
   }

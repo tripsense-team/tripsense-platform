@@ -8,12 +8,6 @@ import lombok.Builder;
 
 @Builder
 public record InviteTripMemberRequest(
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
-    String email,
-
-    @NotNull(message = "Role is required")
-    TripMemberRole role,
-
-    String message
-) {}
+    @NotBlank(message = "Email is required") @Email(message = "Invalid email format") String email,
+    @NotNull(message = "Role is required") TripMemberRole role,
+    String message) {}

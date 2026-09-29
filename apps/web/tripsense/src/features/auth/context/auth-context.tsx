@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { authApi } from "../services/auth-api";
-import { useAuthStore } from "../store/use-auth-store";
+import { useAuthStore, loadCachedUser } from "../store/use-auth-store";
 import { profileService } from "@/features/profile";
 import {
   hasLoggedInCookie,
@@ -64,8 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Bootstrap Auth ONLY when status === "checking" || status === "initializing" (e.g. F5 page reload)
   React.useEffect(() => {
-    let isMounted = true;
-
     // Do NOT bootstrap if already authenticated or unauthenticated
     if (status !== "checking" && status !== "initializing") {
       return;
@@ -77,9 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     hasBootstrappedRef.current = true;
 
-    // Guard: If browser has NO logged_in cookie indicator (guest / logged out user),
-    // immediately transition status = "unauthenticated" WITHOUT SENDING ANY REFRESH REQUEST!
-    if (!hasLoggedInCookie()) {
+    // Check candidate session: either non-HttpOnly logged_in cookie OR cached user in localStorage
+    const hasCandidateSession = hasLoggedInCookie() || !!loadCachedUser();
+    if (!hasCandidateSession) {
       clearAuth();
       return;
     }
@@ -87,57 +85,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function bootstrapAuthSession() {
       try {
         const response = await authApi.refreshToken();
-        if (isMounted && response.success && response.data?.accessToken) {
+        if (response.success && response.data?.accessToken) {
           setLoggedInCookie();
           const claims = parseJwtClaims(response.data.accessToken);
-          if (claims) {
-            const roleStr = claims.role || UserRole.USER;
-            const parsedRole =
-              roleStr === "ROLE_ADMIN" ? UserRole.ADMIN : UserRole.USER;
+          const cached = loadCachedUser();
+          const roleStr = claims?.role || cached?.role || UserRole.USER;
+          const parsedRole =
+            roleStr === "ROLE_ADMIN" ? UserRole.ADMIN : UserRole.USER;
 
-            const recoveredUser: User = {
-              id: claims.sub || "user-id",
-              email: claims.email || "user@tripsense.app",
-              role: parsedRole,
-              status: UserStatus.ACTIVE,
-            };
+          const recoveredUser: User = {
+            id: claims?.sub || cached?.id || "user-id",
+            email: claims?.email || cached?.email || "user@tripsense.app",
+            role: parsedRole,
+            status: UserStatus.ACTIVE,
+            avatar: cached?.avatar,
+            name: cached?.name,
+          };
 
-            setAuth(recoveredUser, response.data.accessToken);
+          setAuth(recoveredUser, response.data.accessToken);
 
-            // Background fetch to restore avatar/name from user-service
-            // We ignore isMounted here because setAuth triggers a re-render that resets it,
-            // and we still want to populate the global store with the profile data.
-            profileService
-              .getUserProfile(recoveredUser.id)
-              .then((profile) => {
-                if (profile) {
-                  useAuthStore.getState().updateUserProfile({
-                    avatar: profile.avatarUrl || undefined,
-                    name: profile.displayName || undefined,
-                  });
-                }
-              })
-              .catch(() => {
-                // Ignore background fetch error
-              });
-          }
-        } else if (isMounted) {
+          // Background fetch to restore avatar/name from user-service
+          profileService
+            .getUserProfile(recoveredUser.id)
+            .then((profile) => {
+              if (profile) {
+                useAuthStore.getState().updateUserProfile({
+                  avatar: profile.avatarUrl || undefined,
+                  name: profile.displayName || undefined,
+                });
+              }
+            })
+            .catch(() => {
+              // Ignore background fetch error
+            });
+        } else {
           clearLoggedInCookie();
           clearAuth();
         }
       } catch {
-        if (isMounted) {
-          clearLoggedInCookie();
-          clearAuth();
-        }
+        clearLoggedInCookie();
+        clearAuth();
       }
     }
 
     bootstrapAuthSession();
-
-    return () => {
-      isMounted = false;
-    };
   }, [status, setAuth, clearAuth]);
 
   const login = async (

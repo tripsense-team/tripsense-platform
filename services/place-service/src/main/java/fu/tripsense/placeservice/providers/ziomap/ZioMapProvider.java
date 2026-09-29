@@ -1,6 +1,9 @@
 package fu.tripsense.placeservice.providers.ziomap;
 
 import fu.tripsense.placeservice.config.ZioMapProperties;
+import fu.tripsense.placeservice.domain.model.ApiKeyPoolItem;
+import fu.tripsense.placeservice.domain.model.ApiKeyProvider;
+import fu.tripsense.placeservice.domain.model.ApiKeyStatus;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
@@ -14,7 +17,9 @@ import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPhotoResponse;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapPlaceResult;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchPlace;
 import fu.tripsense.placeservice.providers.ziomap.dto.ZioMapTextSearchResponse;
+import fu.tripsense.placeservice.service.ApiKeyPoolService;
 import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
+import jakarta.annotation.PreDestroy;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -24,8 +29,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -38,11 +49,76 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
   public static final String PROVIDER_NAME = "ziomap";
   private final ZioMapProperties properties;
   private final RestClient restClient;
+  private final ApiKeyPoolService apiKeyPoolService;
 
+  private volatile boolean lastCallQuotaExceeded = false;
+  private volatile String lastQuotaErrorMessage = "";
+  private final ExecutorService photoExecutor =
+      Executors.newFixedThreadPool(8, new CustomizableThreadFactory("ziomap-photo-"));
+
+  @Autowired
   public ZioMapProvider(
-      ZioMapProperties properties, @Qualifier("zioMapRestClient") RestClient restClient) {
+      ZioMapProperties properties,
+      @Qualifier("zioMapRestClient") RestClient restClient,
+      @Autowired(required = false) ApiKeyPoolService apiKeyPoolService) {
     this.properties = properties;
     this.restClient = restClient;
+    this.apiKeyPoolService = apiKeyPoolService;
+  }
+
+  public ZioMapProvider(ZioMapProperties properties, RestClient restClient) {
+    this(properties, restClient, null);
+  }
+
+  @PreDestroy
+  public void destroy() {
+    photoExecutor.shutdown();
+    try {
+      if (!photoExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+        photoExecutor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      photoExecutor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  public String getEffectiveApiKey() {
+    if (apiKeyPoolService != null) {
+      String key = apiKeyPoolService.getActiveKey(ApiKeyProvider.ZIOMAP);
+      if (StringUtils.hasText(key)) return key;
+    }
+    return properties.getApiKey();
+  }
+
+  private boolean handleQuotaErrorAndRotate(Exception ex) {
+    if (isQuotaOrAuthError(ex)) {
+      if (apiKeyPoolService != null) {
+        String failedKey = getEffectiveApiKey();
+        ApiKeyStatus failureStatus = isAuthError(ex) ? ApiKeyStatus.INVALID : ApiKeyStatus.EXHAUSTED;
+        java.util.Optional<ApiKeyPoolItem> nextKey =
+            apiKeyPoolService.markExhaustedAndRotate(
+                ApiKeyProvider.ZIOMAP, failedKey, failureStatus, ex.getMessage());
+        if (nextKey.isPresent()) {
+          properties.setApiKey(nextKey.get().getRawKey());
+          lastCallQuotaExceeded = false;
+          log.info(
+              "[ZioMapProvider] Key error. Auto-rotated to next key: {}",
+              nextKey.get().getMaskedKey());
+          return true;
+        }
+      }
+      lastCallQuotaExceeded = true;
+      lastQuotaErrorMessage = "ZioMap API báo lỗi hết token/quota: " + ex.getMessage();
+      log.error("ZioMap quota exceeded or all keys in pool exhausted: {}", ex.getMessage());
+    }
+    return false;
+  }
+
+  private void recordSuccess() {
+    if (apiKeyPoolService != null) {
+      apiKeyPoolService.recordSuccess(ApiKeyProvider.ZIOMAP, getEffectiveApiKey());
+    }
   }
 
   @Override
@@ -53,6 +129,11 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
   @Override
   public List<PlaceDto> textSearch(
       String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
+    return textSearchWithRetry(query, lat, lng, radiusMeters, limit, 0);
+  }
+
+  private List<PlaceDto> textSearchWithRetry(
+      String query, Double lat, Double lng, Integer radiusMeters, Integer limit, int retryCount) {
     if (!StringUtils.hasText(query)) {
       return Collections.emptyList();
     }
@@ -82,8 +163,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       RestClient.RequestHeadersSpec<?> requestSpec =
           restClient.get().uri(uriBuilder.build().toUriString());
 
-      if (StringUtils.hasText(properties.getApiKey())) {
-        requestSpec.header("x-api-key", properties.getApiKey());
+      String effectiveKey = getEffectiveApiKey();
+      if (StringUtils.hasText(effectiveKey)) {
+        requestSpec.header("x-api-key", effectiveKey);
       }
 
       ZioMapTextSearchResponse response =
@@ -100,8 +182,16 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
           results.add(dto);
         }
       }
+      recordSuccess();
       return results;
     } catch (Exception ex) {
+      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+        log.info(
+            "[ZioMapProvider] Retrying textSearch for query '{}' with rotated key (attempt {})",
+            query,
+            retryCount + 1);
+        return textSearchWithRetry(query, lat, lng, radiusMeters, limit, retryCount + 1);
+      }
       log.error("Failed to execute ZioMap text search for query '{}': {}", query, ex.getMessage());
       throw new PlaceProviderException("ZioMap text search is unavailable", ex);
     }
@@ -110,6 +200,11 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
   @Override
   public List<AutocompleteSuggestionDto> autocomplete(
       String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
+    return autocompleteWithRetry(query, lat, lng, radiusMeters, limit, 0);
+  }
+
+  private List<AutocompleteSuggestionDto> autocompleteWithRetry(
+      String query, Double lat, Double lng, Integer radiusMeters, Integer limit, int retryCount) {
     if (!StringUtils.hasText(query)) {
       return Collections.emptyList();
     }
@@ -131,8 +226,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       RestClient.RequestHeadersSpec<?> requestSpec =
           restClient.get().uri(uriBuilder.build().toUriString());
 
-      if (StringUtils.hasText(properties.getApiKey())) {
-        requestSpec.header("x-api-key", properties.getApiKey());
+      String effectiveKey = getEffectiveApiKey();
+      if (StringUtils.hasText(effectiveKey)) {
+        requestSpec.header("x-api-key", effectiveKey);
       }
 
       ZioMapAutocompleteResponse response =
@@ -179,6 +275,13 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
       return suggestions;
     } catch (Exception ex) {
+      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+        log.info(
+            "[ZioMapProvider] Retrying autocomplete for query '{}' with rotated key (attempt {})",
+            query,
+            retryCount + 1);
+        return autocompleteWithRetry(query, lat, lng, radiusMeters, limit, retryCount + 1);
+      }
       log.warn(
           "ZioMap autocomplete failed for query '{}' ({}), falling back to textSearch",
           query,
@@ -206,7 +309,10 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     if (!StringUtils.hasText(providerPlaceId)) {
       return Optional.empty();
     }
+    return fetchPlaceDetailsWithRetry(providerPlaceId, 0);
+  }
 
+  private Optional<PlaceDto> fetchPlaceDetailsWithRetry(String providerPlaceId, int retryCount) {
     try {
       UriComponentsBuilder uriBuilder =
           UriComponentsBuilder.fromPath("/api/place/details")
@@ -216,8 +322,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       RestClient.RequestHeadersSpec<?> requestSpec =
           restClient.get().uri(uriBuilder.build().toUriString());
 
-      if (StringUtils.hasText(properties.getApiKey())) {
-        requestSpec.header("x-api-key", properties.getApiKey());
+      String apiKey = getEffectiveApiKey();
+      if (StringUtils.hasText(apiKey)) {
+        requestSpec.header("x-api-key", apiKey);
       }
 
       ZioMapPlaceResult response = requestSpec.retrieve().body(ZioMapPlaceResult.class);
@@ -226,8 +333,15 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         return Optional.empty();
       }
 
+      recordSuccess();
       return Optional.ofNullable(mapPlaceResultToDto(response));
     } catch (Exception ex) {
+      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+        log.info(
+            "[ZioMapProvider] Retrying place details for '{}' with newly rotated key",
+            providerPlaceId);
+        return fetchPlaceDetailsWithRetry(providerPlaceId, retryCount + 1);
+      }
       log.error(
           "Failed to execute ZioMap place details for id '{}': {}",
           providerPlaceId,
@@ -243,8 +357,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
   @Override
   public List<PlacePhotoDto> getPhotoGallery(String providerPlaceId, int limit) {
+    String effectiveKey = getEffectiveApiKey();
     if (!properties.isPhotoDisplayApproved()
-        || !StringUtils.hasText(properties.getApiKey())
+        || !StringUtils.hasText(effectiveKey)
         || providerPlaceId == null
         || !providerPlaceId.matches("[A-Za-z0-9._:-]{1,200}")
         || limit <= 0) {
@@ -261,18 +376,16 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
           restClient
               .get()
               .uri(detailsUri)
-              .header("x-api-key", properties.getApiKey())
+              .header("x-api-key", effectiveKey)
               .retrieve()
               .body(ZioMapPhotoDetailsResponse.class);
       if (details == null || details.photos() == null || details.photos().isEmpty()) {
         return List.of();
       }
-      List<PlacePhotoDto> gallery = new ArrayList<>();
+      List<ZioMapPhotoDetailsResponse.Photo> candidatePhotos = new ArrayList<>();
       Set<String> seenNames = new HashSet<>();
-      Set<String> seenUrls = new HashSet<>();
-      int photoRequests = 0;
       for (ZioMapPhotoDetailsResponse.Photo photo : details.photos()) {
-        if (photoRequests >= Math.min(limit, 5)) {
+        if (candidatePhotos.size() >= Math.min(limit, 5)) {
           break;
         }
         if (photo == null
@@ -281,51 +394,82 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
             || !seenNames.add(photo.name())) {
           continue;
         }
+        candidatePhotos.add(photo);
+      }
+
+      if (candidatePhotos.isEmpty()) {
+        return List.of();
+      }
+
+      List<CompletableFuture<Optional<PlacePhotoDto>>> futures =
+          candidatePhotos.stream()
+              .map(
+                  photo ->
+                      CompletableFuture.supplyAsync(() -> fetchSinglePhoto(photo), photoExecutor))
+              .toList();
+
+      CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+      List<PlacePhotoDto> gallery = new ArrayList<>();
+      Set<String> seenUrls = new HashSet<>();
+      for (CompletableFuture<Optional<PlacePhotoDto>> future : futures) {
         try {
-          photoRequests++;
-          String photoUri =
-              UriComponentsBuilder.fromPath("/api/place/photos")
-                  .queryParam("name", photo.name())
-                  .queryParam(
-                      "maxWidthPx", Math.max(1, Math.min(1200, properties.getPhotoMaxWidthPx())))
-                  .build()
-                  .encode()
-                  .toUriString();
-          ZioMapPhotoResponse response =
-              restClient
-                  .get()
-                  .uri(photoUri)
-                  .header("x-api-key", properties.getApiKey())
-                  .retrieve()
-                  .body(ZioMapPhotoResponse.class);
-          if (response == null
-              || !safePhotoUrl(response.photoUri())
-              || !seenUrls.add(response.photoUri())) {
-            continue;
+          Optional<PlacePhotoDto> opt = future.join();
+          if (opt.isPresent() && seenUrls.add(opt.get().url())) {
+            gallery.add(opt.get());
           }
-          List<PlacePhotoDto.Attribution> attribution =
-              photo.authorAttributions() == null
-                  ? List.of()
-                  : photo.authorAttributions().stream()
-                      .filter(item -> item != null && StringUtils.hasText(item.displayName()))
-                      .limit(4)
-                      .map(
-                          item ->
-                              new PlacePhotoDto.Attribution(
-                                  item.displayName(),
-                                  safeAttributionUrl(item.uri()) ? item.uri() : null))
-                      .toList();
-          gallery.add(
-              new PlacePhotoDto(
-                  response.photoUri(), PROVIDER_NAME, attribution, Instant.now(), true));
         } catch (Exception ex) {
-          log.debug("One ZioMap gallery image unavailable; type={}", ex.getClass().getSimpleName());
+          log.debug("ZioMap gallery image future completed exceptionally: {}", ex.getMessage());
         }
       }
+      recordSuccess();
       return List.copyOf(gallery);
     } catch (Exception ex) {
+      if (handleQuotaErrorAndRotate(ex)) {
+        return getPhotoGallery(providerPlaceId, limit);
+      }
       log.warn("ZioMap photo unavailable for place; type={}", ex.getClass().getSimpleName());
       return List.of();
+    }
+  }
+
+  private Optional<PlacePhotoDto> fetchSinglePhoto(ZioMapPhotoDetailsResponse.Photo photo) {
+    try {
+      String photoUri =
+          UriComponentsBuilder.fromPath("/api/place/photos")
+              .queryParam("name", photo.name())
+              .queryParam(
+                  "maxWidthPx", Math.max(1, Math.min(1200, properties.getPhotoMaxWidthPx())))
+              .build()
+              .encode()
+              .toUriString();
+      ZioMapPhotoResponse response =
+          restClient
+              .get()
+              .uri(photoUri)
+              .header("x-api-key", getEffectiveApiKey())
+              .retrieve()
+              .body(ZioMapPhotoResponse.class);
+      if (response == null || !safePhotoUrl(response.photoUri())) {
+        return Optional.empty();
+      }
+      List<PlacePhotoDto.Attribution> attribution =
+          photo.authorAttributions() == null
+              ? List.of()
+              : photo.authorAttributions().stream()
+                  .filter(item -> item != null && StringUtils.hasText(item.displayName()))
+                  .limit(4)
+                  .map(
+                      item ->
+                          new PlacePhotoDto.Attribution(
+                              item.displayName(),
+                              safeAttributionUrl(item.uri()) ? item.uri() : null))
+                  .toList();
+      return Optional.of(
+          new PlacePhotoDto(response.photoUri(), PROVIDER_NAME, attribution, Instant.now(), true));
+    } catch (Exception ex) {
+      log.debug("One ZioMap gallery image unavailable; type={}", ex.getClass().getSimpleName());
+      return Optional.empty();
     }
   }
 
@@ -423,8 +567,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
     String district =
         VietnameseAdministrativeAreaNormalizer.district(
-            textSearchComponent(item, "administrative_area_level_2"),
-            item.getFormattedAddress());
+            textSearchComponent(item, "administrative_area_level_2"), item.getFormattedAddress());
     String city =
         VietnameseAdministrativeAreaNormalizer.city(
             firstNonBlank(
@@ -684,5 +827,120 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       return Optional.of(matched);
     }
     return Optional.empty();
+  }
+
+  public boolean validateAndApplyApiKey(String newApiKey) {
+    if (!StringUtils.hasText(newApiKey)) {
+      return false;
+    }
+    String trimmed = newApiKey.trim();
+    try {
+      UriComponentsBuilder uriBuilder =
+          UriComponentsBuilder.fromPath("/api/place/autocomplete")
+              .queryParam("input", "test")
+              .queryParam("language", "vi")
+              .queryParam("region", "vn");
+
+      RestClient.RequestHeadersSpec<?> requestSpec =
+          restClient.get().uri(uriBuilder.build().toUriString());
+      requestSpec.header("x-api-key", trimmed);
+
+      var response = requestSpec.retrieve().toBodilessEntity();
+      if (response.getStatusCode().is2xxSuccessful()) {
+        properties.setApiKey(trimmed);
+        properties.setPhotoDisplayApproved(true);
+        lastCallQuotaExceeded = false;
+        lastQuotaErrorMessage = "";
+        if (apiKeyPoolService != null) {
+          apiKeyPoolService.addKeys(ApiKeyProvider.ZIOMAP, List.of(trimmed));
+        }
+        log.info("ZioMap API key updated and verified successfully");
+        return true;
+      }
+      return false;
+    } catch (Exception ex) {
+      log.warn("Failed to validate ZioMap API key: {}", ex.getMessage());
+      return false;
+    }
+  }
+
+  public boolean isLastCallQuotaExceeded() {
+    return lastCallQuotaExceeded;
+  }
+
+  public String getLastQuotaErrorMessage() {
+    return lastQuotaErrorMessage;
+  }
+
+  public void clearQuotaExceeded() {
+    lastCallQuotaExceeded = false;
+    lastQuotaErrorMessage = "";
+  }
+
+  private boolean isQuotaOrAuthError(Throwable throwable) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (current instanceof org.springframework.web.client.RestClientResponseException restEx) {
+        int status = restEx.getStatusCode().value();
+        if (status == 401 || status == 402 || status == 403 || status == 429) {
+          return true;
+        }
+      }
+      String msg = current.getMessage();
+      if (msg != null) {
+        String lower = msg.toLowerCase();
+        if (lower.contains("401")
+            || lower.contains("402")
+            || lower.contains("403")
+            || lower.contains("429")
+            || lower.contains("quota")
+            || lower.contains("unauthorized")
+            || lower.contains("payment required")
+            || lower.contains("too many requests")
+            || lower.contains("rate limit")
+            || lower.contains("credit")) {
+          return true;
+        }
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  private boolean isAuthError(Throwable throwable) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (current instanceof org.springframework.web.client.RestClientResponseException restEx) {
+        int status = restEx.getStatusCode().value();
+        if (status == 401 || status == 403) {
+          return true;
+        }
+      }
+      String msg = current.getMessage();
+      if (msg != null) {
+        String lower = msg.toLowerCase();
+        if (lower.contains("401") || lower.contains("403") || lower.contains("unauthorized") || lower.contains("forbidden")) {
+          return true;
+        }
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  public String getMaskedApiKey() {
+    String key = getEffectiveApiKey();
+    if (!StringUtils.hasText(key)) {
+      return "";
+    }
+    String trimmed = key.trim();
+    if (trimmed.length() <= 12) {
+      return "***";
+    }
+    return trimmed.substring(0, 8) + "..." + trimmed.substring(trimmed.length() - 4);
+  }
+
+  public boolean isApiKeyConfigured() {
+    return StringUtils.hasText(getEffectiveApiKey());
   }
 }

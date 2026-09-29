@@ -28,6 +28,11 @@ export interface MapVinaContainerProps {
   className?: string;
   autoFitBounds?: boolean;
   fitBoundsTrigger?: number;
+  showExploreThisArea?: boolean;
+  onExploreAreaClick?: () => void;
+  onToggleCollapsePanel?: () => void;
+  isPanelCollapsed?: boolean;
+  weatherText?: string;
 }
 
 // Backward compatibility alias

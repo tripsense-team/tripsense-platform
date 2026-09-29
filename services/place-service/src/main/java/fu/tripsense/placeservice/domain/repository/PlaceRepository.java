@@ -15,6 +15,8 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
 
   Optional<Place> findByProviderAndProviderPlaceId(String provider, String providerPlaceId);
 
+  List<Place> findByProviderPlaceIdIn(List<String> providerPlaceIds);
+
   List<Place> findByNormalizedName(String normalizedName);
 
   List<Place> findByLocationNear(Point point, Distance distance, Pageable pageable);
@@ -24,4 +26,14 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
 
   @Query("{ $text: { $search: ?0 } }")
   List<Place> searchByText(String text, Pageable pageable);
+
+  @Query(
+      "{ $or: [ { 'reviews': { $size: 0 } }, { 'reviews': null }, { 'photos': { $size: 0 } }, { 'photos': null }, { 'rating': null } ] }")
+  List<Place> findPendingEnrichment(Pageable pageable);
+
+  @Query(
+      value =
+          "{ $or: [ { 'reviews': { $size: 0 } }, { 'reviews': null }, { 'photos': { $size: 0 } }, { 'photos': null }, { 'rating': null } ] }",
+      count = true)
+  long countPendingEnrichment();
 }

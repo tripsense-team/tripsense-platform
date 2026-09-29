@@ -196,6 +196,7 @@ services:
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
+      RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -238,6 +239,8 @@ services:
       QDRANT_URL: http://qdrant:6333
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+      RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}
+      RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET:-}
     depends_on:
       recommendation-db:
         condition: service_healthy

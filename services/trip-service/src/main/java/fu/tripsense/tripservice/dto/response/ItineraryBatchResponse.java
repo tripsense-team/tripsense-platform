@@ -4,12 +4,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ItineraryBatchResponse(
-        UUID receiptId,
-        UUID tripId,
-        String proposalId,
-        long tripRevision,
-        int appliedOperationCount,
-        Instant appliedAt,
-        boolean replayed
-) {
-}
+    UUID receiptId,
+    UUID tripId,
+    String proposalId,
+    long tripRevision,
+    int appliedOperationCount,
+    Instant appliedAt,
+    boolean replayed) {}

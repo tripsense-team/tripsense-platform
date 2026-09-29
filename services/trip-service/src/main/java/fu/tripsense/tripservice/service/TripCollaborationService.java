@@ -38,7 +38,8 @@ public interface TripCollaborationService {
   TripCollaborationSummaryResponse getCollaborationSummary(UUID userId, UUID tripId);
 
   // Update member role (Owner only)
-  TripMemberResponse updateMemberRole(UUID userId, UUID tripId, UUID memberId, UpdateMemberRoleRequest request);
+  TripMemberResponse updateMemberRole(
+      UUID userId, UUID tripId, UUID memberId, UpdateMemberRoleRequest request);
 
   // TF-80: Remove a member from the trip (Owner only)
   void removeMember(UUID userId, UUID tripId, UUID memberId);

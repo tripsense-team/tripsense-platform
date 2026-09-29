@@ -25,6 +25,9 @@ const updateBrowserTabTitle = (count: number) => {
   }
 };
 
+let lastFetchTime = 0;
+const FOCUS_THROTTLE_MS = 30000; // 30 seconds cooldown between background focus refetches
+
 export const useChatUnreadStore = create<ChatUnreadState>((set, get) => ({
   unreadConversationsCount: 0,
   totalUnreadMessages: 0,
@@ -32,48 +35,72 @@ export const useChatUnreadStore = create<ChatUnreadState>((set, get) => ({
 
   setUnreadCount: (count: number) => {
     const safeCount = Math.max(0, count);
-    set({ unreadConversationsCount: safeCount });
-    updateBrowserTabTitle(safeCount);
+    if (get().unreadConversationsCount !== safeCount) {
+      set({ unreadConversationsCount: safeCount });
+      updateBrowserTabTitle(safeCount);
+    }
   },
 
   decrementUnreadCount: () => {
     const current = get().unreadConversationsCount;
     const next = Math.max(0, current - 1);
-    set({ unreadConversationsCount: next });
-    updateBrowserTabTitle(next);
+    if (current !== next) {
+      set({ unreadConversationsCount: next });
+      updateBrowserTabTitle(next);
+    }
   },
 
   fetchUnreadSummary: async () => {
+    const now = Date.now();
+    if (now - lastFetchTime < FOCUS_THROTTLE_MS) {
+      return;
+    }
+    lastFetchTime = now;
+
     try {
-      set({ isLoading: true });
       const summary = await chatApi.unreadSummary();
       const count = summary.unreadConversationsCount ?? 0;
-      set({
-        unreadConversationsCount: count,
-        totalUnreadMessages: summary.totalUnreadMessages ?? 0,
-        isLoading: false,
-      });
-      updateBrowserTabTitle(count);
+      const total = summary.totalUnreadMessages ?? 0;
+      const current = get();
+
+      // Only mutate state if count or total actually changed!
+      // This prevents triggering unnecessary component re-renders across the app.
+      if (
+        current.unreadConversationsCount !== count ||
+        current.totalUnreadMessages !== total
+      ) {
+        set({
+          unreadConversationsCount: count,
+          totalUnreadMessages: total,
+          isLoading: false,
+        });
+        updateBrowserTabTitle(count);
+      }
     } catch {
-      set({ isLoading: false });
+      // Silently ignore background unread fetch failure
     }
   },
 
   reset: () => {
-    set({ unreadConversationsCount: 0, totalUnreadMessages: 0, isLoading: false });
+    lastFetchTime = 0;
+    const current = get();
+    if (current.unreadConversationsCount !== 0 || current.totalUnreadMessages !== 0) {
+      set({ unreadConversationsCount: 0, totalUnreadMessages: 0, isLoading: false });
+    }
     updateBrowserTabTitle(0);
   },
 }));
 
 export function useChatUnreadCount() {
-  const {
-    unreadConversationsCount,
-    totalUnreadMessages,
-    decrementUnreadCount,
-    setUnreadCount,
-    fetchUnreadSummary,
-    reset,
-  } = useChatUnreadStore();
+  const unreadConversationsCount = useChatUnreadStore(
+    (s) => s.unreadConversationsCount,
+  );
+  const totalUnreadMessages = useChatUnreadStore((s) => s.totalUnreadMessages);
+  const decrementUnreadCount = useChatUnreadStore((s) => s.decrementUnreadCount);
+  const setUnreadCount = useChatUnreadStore((s) => s.setUnreadCount);
+  const fetchUnreadSummary = useChatUnreadStore((s) => s.fetchUnreadSummary);
+  const reset = useChatUnreadStore((s) => s.reset);
+
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const authVersion = useAuthStore((s) => s.authVersion);
   const timerRef = useRef<number | null>(null);
@@ -87,6 +114,7 @@ export function useChatUnreadCount() {
     void fetchUnreadSummary();
 
     const handleCustomEvent = () => {
+      lastFetchTime = 0; // Bypass throttle on explicit notification event
       void fetchUnreadSummary();
     };
 
@@ -97,17 +125,15 @@ export function useChatUnreadCount() {
     };
 
     window.addEventListener("chat:unread-changed", handleCustomEvent);
-    window.addEventListener("focus", handleVisibility);
     document.addEventListener("visibilitychange", handleVisibility);
 
-    // Background poll fallback every 45 seconds
+    // Background poll fallback every 60 seconds
     timerRef.current = window.setInterval(() => {
       void fetchUnreadSummary();
-    }, 45000);
+    }, 60000);
 
     return () => {
       window.removeEventListener("chat:unread-changed", handleCustomEvent);
-      window.removeEventListener("focus", handleVisibility);
       document.removeEventListener("visibilitychange", handleVisibility);
       if (timerRef.current) {
         clearInterval(timerRef.current);

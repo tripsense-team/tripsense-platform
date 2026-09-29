@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -159,31 +160,33 @@ export const SidebarCollapseButton = React.forwardRef<
     const title = collapsed ? expandTitle : collapseTitle;
 
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            ref={ref}
-            type="button"
-            onClick={onToggleCollapse}
-            title={title}
-            aria-label={title}
-            className={cn(
-              "h-10 w-10 rounded-full bg-neutral-100 hover:bg-neutral-200/90 text-foreground inline-flex items-center justify-center shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 active:scale-95 dark:bg-neutral-800 dark:hover:bg-neutral-700",
-              className,
-            )}
-            {...props}
-          >
-            {collapsed ? (
-              <SidebarExpandIcon className="h-5 w-5" />
-            ) : (
-              <SidebarCollapseIcon className="h-5 w-5" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side={tooltipSide} sideOffset={8}>
-          {title}
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              ref={ref}
+              type="button"
+              onClick={onToggleCollapse}
+              title={title}
+              aria-label={title}
+              className={cn(
+                "h-10 w-10 rounded-full bg-neutral-100 hover:bg-neutral-200/90 text-foreground inline-flex items-center justify-center shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 active:scale-95 dark:bg-neutral-800 dark:hover:bg-neutral-700",
+                className,
+              )}
+              {...props}
+            >
+              {collapsed ? (
+                <SidebarExpandIcon className="h-5 w-5" />
+              ) : (
+                <SidebarCollapseIcon className="h-5 w-5" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side={tooltipSide} sideOffset={8}>
+            {title}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   },
 );

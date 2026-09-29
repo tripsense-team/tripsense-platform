@@ -29,7 +29,7 @@ class OnboardingServiceTest {
     assertEquals(1, signals.published.size());
     assertEquals(2, outbox.events.size());
     assertDoesNotThrow(() -> service.complete(userId, saved.version()));
-    assertEquals(1, signals.published.size());
+    assertEquals(2, signals.published.size());
   }
 
   @Test

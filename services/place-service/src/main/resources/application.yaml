@@ -2,25 +2,28 @@ spring:
   application:
     name: place-service
   mongodb:
-    uri: ${MONGODB_URI}
-    database: ${MONGODB_DATABASE}
+    uri: ${MONGODB_URI:mongodb://localhost:27017}
+    database: ${MONGODB_DATABASE:tripsense_place}
   data:
     mongodb:
-      uri: ${MONGODB_URI}
-      database: ${MONGODB_DATABASE}
-      auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:false}
+      uri: ${MONGODB_URI:mongodb://localhost:27017}
+      database: ${MONGODB_DATABASE:tripsense_place}
+      auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:true}
     redis:
-      url: ${REDIS_URL}
+      url: ${REDIS_URL:redis://localhost:6379}
       timeout: 2000ms
 
 server:
   port: ${PLACE_SERVICE_PORT:${SERVER_PORT:8083}}
   shutdown: graceful
 
+jwt:
+  access-secret: ${JWT_ACCESS_SECRET:}
+
 ziomap:
   base-url: ${ZIOMAP_BASE_URL:https://ziomap-api.socibi.com}
-  api-key: ${ZIOMAP_API_KEY}
-  timeout-ms: ${ZIOMAP_TIMEOUT_MS:8000}
+  api-key: ${ZIOMAP_API_KEY:}
+  timeout-ms: ${ZIOMAP_TIMEOUT_MS:2500}
   photo-display-approved: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:false}
   photo-max-width-px: ${ZIOMAP_PHOTO_MAX_WIDTH_PX:640}
   photo-allowed-hosts: ${ZIOMAP_PHOTO_ALLOWED_HOSTS:lh3.googleusercontent.com,ziomap-api.socibi.com}
@@ -38,6 +41,9 @@ tripsense:
       provider-ttl-seconds: ${CACHE_TTL_PROVIDER_SECONDS:2592000}
     search:
       min-local-results: ${MIN_LOCAL_RESULTS:5}
+    recommendation-service-url: ${RECOMMENDATION_SERVICE_URL:http://localhost:8088}
+    recommendation-internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:}
+    encryption-secret: ${API_KEY_ENCRYPTION_SECRET:tripsense-default-api-key-encryption-secret-32b}
 
 eureka:
   client:

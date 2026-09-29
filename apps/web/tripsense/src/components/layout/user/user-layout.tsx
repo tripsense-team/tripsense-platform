@@ -25,6 +25,12 @@ export function UserLayout({ children, user, onSignInClick }: UserLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [authModalOpen, setAuthModalOpen] = React.useState(false);
   const isChatWorkspace = pathname === "/chat" || pathname.startsWith("/chat/");
+  const isFullBleedWorkspace =
+    isChatWorkspace ||
+    pathname === "/explore" ||
+    pathname.startsWith("/explore/") ||
+    pathname === "/places" ||
+    pathname.startsWith("/places/");
 
   const handleOpenSignIn = () => {
     if (onSignInClick) {
@@ -44,14 +50,25 @@ export function UserLayout({ children, user, onSignInClick }: UserLayoutProps) {
         {/* Left Sidebar */}
         <UserSidebar
           collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggleCollapse={() => {
+            const next = !sidebarCollapsed;
+            setSidebarCollapsed(next);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("tripsense:sidebar-toggle", {
+                  detail: { collapsed: next },
+                }),
+              );
+            }
+          }}
+          disableTransition={isFullBleedWorkspace}
         />
 
         {/* Main Content Area */}
         <main
           className={cn(
             "flex-1 min-h-0",
-            isChatWorkspace
+            isFullBleedWorkspace
               ? "flex flex-col overflow-hidden pb-16 md:pb-0"
               : "overflow-y-auto pb-16 md:pb-6",
           )}

@@ -1,4 +1,5 @@
 import type { Place } from "@/features/places/types";
+import { getTodayOpeningHours } from "@/features/places/utils/opening-hours";
 
 const BUTTON_CLASS =
   "w-8 h-8 rounded-xl border border-border bg-card hover:bg-muted text-foreground flex items-center justify-center transition-colors cursor-pointer shadow-xs";
@@ -79,6 +80,7 @@ function createExternalInfoRow(
 export function createMapVinaPopup(
   place: Place,
   isFavorite: boolean,
+  t?: (key: string, params?: Record<string, string | number>) => string,
 ): HTMLDivElement {
   const container = document.createElement("div");
   container.className =
@@ -97,10 +99,10 @@ export function createMapVinaPopup(
   category.className =
     "text-xs text-muted-foreground font-medium capitalize mt-0.5";
   category.textContent =
-    place.categories?.[0]?.replace(/_/g, " ") ?? "Địa điểm";
+    place.categories?.[0]?.replace(/_/g, " ") ?? (t ? t("places.defaultCategory") : "Place");
   titleColumn.append(title, category);
 
-  const closeButton = createActionButton("btn-close-popup", "Đóng", "×");
+  const closeButton = createActionButton("btn-close-popup", t ? t("places.close") : "Close", "×");
   header.append(titleColumn, closeButton);
   container.appendChild(header);
 
@@ -113,7 +115,7 @@ export function createMapVinaPopup(
     directions.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${place.location.lat},${place.location.lng}`)}`;
     directions.target = "_blank";
     directions.rel = "noopener noreferrer";
-    directions.textContent = "Dẫn đường";
+    directions.textContent = t ? t("places.directions") : "Directions";
     actions.appendChild(directions);
   }
 
@@ -122,19 +124,21 @@ export function createMapVinaPopup(
     const phone = document.createElement("a");
     phone.className = BUTTON_CLASS;
     phone.href = phoneUrl;
-    phone.title = "Gọi điện";
-    phone.setAttribute("aria-label", "Gọi điện");
+    phone.title = t ? t("places.call") : "Call";
+    phone.setAttribute("aria-label", t ? t("places.call") : "Call");
     phone.textContent = "☎";
     actions.appendChild(phone);
   }
 
   const favorite = createActionButton(
     "btn-fav-popup",
-    "Yêu thích",
+    isFavorite
+      ? (t ? t("places.unsavePlace") : "Remove Saved Place")
+      : (t ? t("places.savePlace") : "Save Place"),
     isFavorite ? "♥" : "♡",
   );
-  const share = createActionButton("btn-share-popup", "Chia sẻ", "↗");
-  const details = createActionButton("btn-detail-popup", "Xem chi tiết", "ⓘ");
+  const share = createActionButton("btn-share-popup", t ? t("places.share") : "Share", "↗");
+  const details = createActionButton("btn-detail-popup", t ? t("places.viewDetails") : "View details", "ⓘ");
   actions.append(favorite, share, details);
   container.appendChild(actions);
 
@@ -142,27 +146,33 @@ export function createMapVinaPopup(
   info.className = "space-y-2.5 text-xs border-t border-border/60 pt-3";
   info.appendChild(
     createInfoRow(
-      "Địa chỉ",
-      place.address || place.district || "Thành phố Đà Nẵng",
+      t ? t("places.address") : "Address",
+      place.address || place.district || (t ? t("places.cityDaNang") : "Da Nang City"),
     ),
   );
   if (place.oldAddress)
-    info.appendChild(createInfoRow("Địa chỉ cũ", place.oldAddress));
-  if (place.phone) info.appendChild(createInfoRow("Điện thoại", place.phone));
-  if (place.openingHours)
-    info.appendChild(createInfoRow("Giờ hoạt động", place.openingHours));
+    info.appendChild(createInfoRow(t ? t("places.oldAddress") : "Old address", place.oldAddress));
+  if (place.openingHours) {
+    const todayHours = getTodayOpeningHours(place.openingHours);
+    info.appendChild(
+      createInfoRow(
+        t ? t("places.openingHours") : "Opening Hours",
+        todayHours || place.openingHours
+      )
+    );
+  }
 
   const website = safeHttpUrl(place.website);
   if (website)
     info.appendChild(
-      createExternalInfoRow("Trang web", place.website ?? website, website),
+      createExternalInfoRow(t ? t("places.website") : "Website", place.website ?? website, website),
     );
 
   const social = safeHttpUrl(place.socials?.[0]);
   if (social)
     info.appendChild(
       createExternalInfoRow(
-        "Mạng xã hội",
+        t ? t("places.social") : "Social",
         place.socials?.[0] ?? social,
         social,
       ),

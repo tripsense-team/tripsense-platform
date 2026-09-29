@@ -3,8 +3,8 @@ package fu.tripsense.recommendation.application;
 import fu.tripsense.recommendation.application.port.CandidateFilter;
 import fu.tripsense.recommendation.domain.FusedCandidate;
 import fu.tripsense.recommendation.domain.RecommendationContext;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -40,5 +40,6 @@ public class CandidateFilterPipeline {
     return new FilterOutcome(List.copyOf(eligible), Map.copyOf(rejectedByReason));
   }
 
-  public record FilterOutcome(List<FusedCandidate> eligible, Map<String, Integer> rejectedByReason) {}
+  public record FilterOutcome(
+      List<FusedCandidate> eligible, Map<String, Integer> rejectedByReason) {}
 }

@@ -35,12 +35,14 @@ public class UserServiceImpl implements UserService {
   @Transactional(readOnly = true)
   public List<PublicProfileDto> searchPublicProfiles(String query, int limit) {
     String normalized = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
-    if (normalized.length() < 2 || normalized.length() > 50 || limit < 1 || limit > 20
+    if (normalized.length() < 2
+        || normalized.length() > 50
+        || limit < 1
+        || limit > 20
         || normalized.chars().anyMatch(Character::isISOControl)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid search query");
     }
-    String prefix = normalized.replace("!", "!!").replace("%", "!%")
-        .replace("_", "!_") + "%";
+    String prefix = normalized.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
     return userProfileRepository.searchEnabledPublicNames(prefix, limit).stream()
         .map(row -> new PublicProfileDto((UUID) row[0], (String) row[1], (String) row[2]))
         .toList();

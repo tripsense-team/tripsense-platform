@@ -38,8 +38,7 @@ public class Place {
   @TextIndexed(weight = 5)
   private String name;
 
-  @Indexed
-  private String normalizedName;
+  @Indexed private String normalizedName;
 
   @GeoSpatialIndexed(type = GeoSpatialIndexType.GEO_2DSPHERE)
   private GeoJsonPoint location;

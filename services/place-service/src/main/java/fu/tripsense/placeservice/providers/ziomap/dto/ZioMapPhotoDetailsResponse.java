@@ -5,9 +5,9 @@ import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ZioMapPhotoDetailsResponse(List<Photo> photos) {
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Photo(String name, List<Attribution> authorAttributions) {}
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Photo(String name, List<Attribution> authorAttributions) {}
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Attribution(String displayName, String uri) {}
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record Attribution(String displayName, String uri) {}
 }

@@ -7,5 +7,4 @@ import lombok.Builder;
 public record TripCollaborationSummaryResponse(
     List<TripMemberResponse> members,
     List<TripInvitationResponse> pendingInvitations,
-    String currentUserRole
-) {}
+    String currentUserRole) {}

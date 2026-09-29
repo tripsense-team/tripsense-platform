@@ -13,7 +13,6 @@ import fu.tripsense.recommendation.domain.UserProfileSnapshot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -26,28 +25,31 @@ import org.springframework.web.client.RestClient;
 @Slf4j
 @Component
 public class RemoteRecommendationContextProvider implements RecommendationContextProvider {
-  private static final Set<String> CATEGORY_DIMENSIONS =
-      Set.of("FOOD_STYLE", "ACTIVITY_INTEREST", "STAY_STYLE", "SPLURGE_CATEGORY");
-
   private final RestClient restClient;
   private final RecommendationProperties.Downstream endpoints;
   private final ObservedHistoryReader historyReader;
+  private final ExplorePreferenceMapper preferenceMapper;
 
   public RemoteRecommendationContextProvider(
       RestClient recommendationRestClient,
       RecommendationProperties properties,
-      ObservedHistoryReader historyReader) {
+      ObservedHistoryReader historyReader,
+      ExplorePreferenceMapper preferenceMapper) {
     this.restClient = recommendationRestClient;
     this.endpoints = properties.getDownstream();
     this.historyReader = historyReader;
+    this.preferenceMapper = preferenceMapper;
   }
 
   @Override
   public RecommendationContext resolve(RecommendationCommand command) {
     boolean enabled = personalizationEnabled(command.accessToken());
-    UserProfileSnapshot observed = historyReader.read(command.userId(), enabled);
+    UserProfileSnapshot observed =
+        historyReader.read(command.userId(), command.tripId(), command.sessionId(), enabled);
     UserProfileSnapshot profile =
-        enabled ? mergeDeclared(observed, command.accessToken()) : observed;
+        enabled
+            ? mergeDeclared(observed, command.accessToken(), command.preferencePurpose())
+            : observed;
     TripContextSnapshot trip =
         command.tripId() == null ? null : getTrip(command.tripId(), command.accessToken());
     String query = resolveQuery(command, trip);
@@ -100,21 +102,31 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
     }
   }
 
-  private UserProfileSnapshot mergeDeclared(UserProfileSnapshot observed, String token) {
+  private UserProfileSnapshot mergeDeclared(
+      UserProfileSnapshot observed, String token, String purpose) {
     try {
       PreferenceSignal[] response =
           restClient
               .get()
-              .uri(endpoints.getContextUrl() + "/api/context/preferences?purpose=TRIP_PLANNING")
+              .uri(
+                  endpoints.getContextUrl() + "/api/context/preferences?purpose={purpose}", purpose)
               .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
               .retrieve()
               .body(PreferenceSignal[].class);
       Set<String> preferred = new HashSet<>(observed.preferredCategories());
+      Map<String, Double> affinities = new java.util.HashMap<>(observed.categoryAffinities());
       if (response != null) {
         for (PreferenceSignal signal : response) {
-          if (CATEGORY_DIMENSIONS.contains(signal.dimensionCode()) && signal.valueCode() != null) {
-            preferred.add(signal.valueCode().toLowerCase(Locale.ROOT));
-          }
+          preferenceMapper
+              .map(signal.dimensionCode(), signal.valueCode(), signal.confidence())
+              .forEach(
+                  (category, confidence) -> {
+                    preferred.add(category);
+                    affinities.merge(
+                        category,
+                        confidence,
+                        (current, incoming) -> 1 - ((1 - Math.max(0, current)) * (1 - incoming)));
+                  });
         }
       }
       return new UserProfileSnapshot(
@@ -122,7 +134,7 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
           true,
           preferred,
           observed.dislikedCategories(),
-          observed.categoryAffinities(),
+          affinities,
           observed.seenPlaceIds(),
           observed.savedPlaceIds(),
           observed.addedToTripPlaceIds(),

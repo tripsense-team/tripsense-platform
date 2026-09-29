@@ -1,7 +1,6 @@
 package fu.tripsense.apigateway;
 
 import java.util.List;
-import org.springframework.http.HttpMethod;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
@@ -10,9 +9,14 @@ import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.Ordered;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 
 @Configuration
 class GatewayRoutesConfig {
+
+  static final String BLOCK_INTERNAL_ROUTE_ID = "block-internal-endpoints";
 
   static final String PLACE_SERVICE_ROUTE_ID = "place-service";
   static final String PLACE_SERVICE_PATH = "/api/places/**";
@@ -59,12 +63,28 @@ class GatewayRoutesConfig {
           boolean placeRateLimitingEnabled,
       @Value("${tripsense.gateway.social-rate-limit.enabled:false}")
           boolean socialRateLimitingEnabled,
-      @Value("${tripsense.gateway.chat-rate-limit.enabled:true}")
-          boolean chatRateLimitingEnabled,
+      @Value("${tripsense.gateway.chat-rate-limit.enabled:true}") boolean chatRateLimitingEnabled,
       @Value("${tripsense.gateway.recommendations-rate-limit.enabled:true}")
           boolean recommendationRateLimitingEnabled) {
     return routes
         .routes()
+        .route(
+            BLOCK_INTERNAL_ROUTE_ID,
+            route ->
+                route
+                    .order(Ordered.HIGHEST_PRECEDENCE)
+                    .path(
+                        "/api/*/internal/**",
+                        "/api/places/internal/**",
+                        "/api/recommendations/internal/**")
+                    .filters(
+                        filters ->
+                            filters.filter(
+                                (exchange, chain) -> {
+                                  exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                                  return exchange.getResponse().setComplete();
+                                }))
+                    .uri("no://op"))
         .route(
             PLACE_SERVICE_ROUTE_ID,
             route -> {
@@ -119,30 +139,47 @@ class GatewayRoutesConfig {
                     .uri(AI_SERVICE_URI))
         .route(
             "chat-stream",
-            route -> route.path(CHAT_STREAM_PATH)
-                .filters(filters -> filters.setResponseHeader("Cache-Control","no-store")
-                    .setResponseHeader("X-Accel-Buffering","no"))
-                .uri(SOCIAL_SERVICE_URI))
+            route ->
+                route
+                    .path(CHAT_STREAM_PATH)
+                    .filters(
+                        filters ->
+                            filters
+                                .setResponseHeader("Cache-Control", "no-store")
+                                .setResponseHeader("X-Accel-Buffering", "no"))
+                    .uri(SOCIAL_SERVICE_URI))
         .route(
             "chat-send",
             route -> {
-              var r=route.path("/api/social/chat/conversations/*/messages").and().method(HttpMethod.POST);
-              if (chatRateLimitingEnabled) r.filters(filters -> filters.requestRateLimiter(config -> {
-                config.setRateLimiter(chatRedisRateLimiter);
-                config.setKeyResolver(clientIpKeyResolver);
-                config.setDenyEmptyKey(true);
-              }));
+              var r =
+                  route
+                      .path("/api/social/chat/conversations/*/messages")
+                      .and()
+                      .method(HttpMethod.POST);
+              if (chatRateLimitingEnabled)
+                r.filters(
+                    filters ->
+                        filters.requestRateLimiter(
+                            config -> {
+                              config.setRateLimiter(chatRedisRateLimiter);
+                              config.setKeyResolver(clientIpKeyResolver);
+                              config.setDenyEmptyKey(true);
+                            }));
               return r.uri(SOCIAL_SERVICE_URI);
             })
         .route(
             "chat-user-search",
             route -> {
-              var r=route.path("/api/social/chat/users").and().method(HttpMethod.GET);
-              if (chatRateLimitingEnabled) r.filters(filters -> filters.requestRateLimiter(config -> {
-                config.setRateLimiter(chatRedisRateLimiter);
-                config.setKeyResolver(clientIpKeyResolver);
-                config.setDenyEmptyKey(true);
-              }));
+              var r = route.path("/api/social/chat/users").and().method(HttpMethod.GET);
+              if (chatRateLimitingEnabled)
+                r.filters(
+                    filters ->
+                        filters.requestRateLimiter(
+                            config -> {
+                              config.setRateLimiter(chatRedisRateLimiter);
+                              config.setKeyResolver(clientIpKeyResolver);
+                              config.setDenyEmptyKey(true);
+                            }));
               return r.uri(SOCIAL_SERVICE_URI);
             })
         .route(

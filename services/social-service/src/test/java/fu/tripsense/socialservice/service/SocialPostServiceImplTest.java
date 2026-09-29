@@ -1027,8 +1027,7 @@ class SocialPostServiceImplTest {
                 new PublicProfileClientResponse(
                     authorId, "Bryan Howard", "https://img.com/avatar.jpg")));
 
-    SocialPostPageResponse result =
-        service.listPosts(null, "STANDARD", 0, 10, null);
+    SocialPostPageResponse result = service.listPosts(null, "STANDARD", 0, 10, null);
 
     assertThat(result.items()).hasSize(1);
     SocialPostResponse first = result.items().getFirst();

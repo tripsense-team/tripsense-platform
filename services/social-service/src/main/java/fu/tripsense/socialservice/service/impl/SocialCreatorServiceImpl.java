@@ -3,7 +3,6 @@ package fu.tripsense.socialservice.service.impl;
 import fu.tripsense.socialservice.client.PublicProfileClientResponse;
 import fu.tripsense.socialservice.client.UserPublicProfileClient;
 import fu.tripsense.socialservice.dto.response.SuggestedCreatorResponse;
-import fu.tripsense.socialservice.entity.SocialUserFollow;
 import fu.tripsense.socialservice.exception.SocialException;
 import fu.tripsense.socialservice.repository.SocialPostRepository;
 import fu.tripsense.socialservice.repository.SocialTripShareRepository;
@@ -108,7 +107,8 @@ public class SocialCreatorServiceImpl implements SocialCreatorService {
 
       String avatar = (profile != null) ? profile.avatarUrl() : null;
       if (avatar == null || avatar.isBlank()) {
-        avatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80";
+        avatar =
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80";
       }
 
       long followerCount = followRepository.countByIdFollowedUserId(creatorId);
@@ -131,14 +131,13 @@ public class SocialCreatorServiceImpl implements SocialCreatorService {
               (int) postCount));
     }
 
-    // 5. Prioritize creators viewer does NOT follow yet, then sort by followerCount desc, then postCount desc
+    // 5. Prioritize creators viewer does NOT follow yet, then sort by followerCount desc, then
+    // postCount desc
     return candidates.stream()
         .sorted(
             Comparator.comparing(CreatorCandidate::isFollowing)
-                .thenComparing(
-                    Comparator.comparingLong(CreatorCandidate::followerCount).reversed())
-                .thenComparing(
-                    Comparator.comparingInt(CreatorCandidate::tripCount).reversed()))
+                .thenComparing(Comparator.comparingLong(CreatorCandidate::followerCount).reversed())
+                .thenComparing(Comparator.comparingInt(CreatorCandidate::tripCount).reversed()))
         .limit(limit)
         .map(
             c ->

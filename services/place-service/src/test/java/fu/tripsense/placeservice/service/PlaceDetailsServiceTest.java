@@ -1,7 +1,6 @@
 package fu.tripsense.placeservice.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceReview;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
@@ -37,13 +37,20 @@ class PlaceDetailsServiceTest {
   @Mock private PlaceEnrichmentProvider enrichmentProvider;
   @Mock private PlaceCacheService cache;
   @Mock private PlacePersistenceService persistence;
+  @Mock private RecommendationIndexerClient recommendationIndexerClient;
 
   private PlaceDetailsService service;
 
   @BeforeEach
   void setUp() {
     service =
-        new PlaceDetailsServiceImpl(repository, provider, enrichmentProvider, cache, persistence);
+        new PlaceDetailsServiceImpl(
+            repository,
+            provider,
+            enrichmentProvider,
+            cache,
+            persistence,
+            recommendationIndexerClient);
   }
 
   @Test
@@ -154,6 +161,35 @@ class PlaceDetailsServiceTest {
     PlaceDto result = service.getDetails("place-1", null, null, null).orElseThrow();
 
     assertEquals(current, result);
+  }
+
+  @Test
+  void triggersIndexingOnPlaceDetailsLookup() {
+    Place entity = completeEntity(Instant.now());
+    PlaceDto dto = completeDto();
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+
+    service.getDetails("place-1", null, null, null);
+
+    verify(recommendationIndexerClient).triggerIndexingAsync(any());
+  }
+
+  @Test
+  void getSnapshotsFetchesBatchFromRepositoryWithoutExternalCalls() {
+    Place entity1 = completeEntity(Instant.now());
+    PlaceDto dto1 = completeDto();
+    when(repository.findAllById(List.of("place-1", "place-2"))).thenReturn(List.of(entity1));
+    when(repository.findByProviderPlaceIdIn(List.of("place-2"))).thenReturn(List.of());
+    when(persistence.toDto(entity1)).thenReturn(dto1);
+
+    List<PlaceDto> snapshots = service.getSnapshots(List.of("place-1", "place-2"));
+
+    assertEquals(1, snapshots.size());
+    assertEquals("place-1", snapshots.get(0).getId());
+    verify(provider, never()).getPlaceDetails(any());
+    verify(enrichmentProvider, never()).enrichPlace(any(), any(), any());
   }
 
   private Place completeEntity(Instant fetchedAt) {
