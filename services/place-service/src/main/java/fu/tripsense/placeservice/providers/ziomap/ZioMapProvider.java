@@ -3,6 +3,7 @@ package fu.tripsense.placeservice.providers.ziomap;
 import fu.tripsense.placeservice.config.ZioMapProperties;
 import fu.tripsense.placeservice.domain.model.ApiKeyPoolItem;
 import fu.tripsense.placeservice.domain.model.ApiKeyProvider;
+import fu.tripsense.placeservice.domain.model.ApiKeyStatus;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
@@ -94,14 +95,15 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     if (isQuotaOrAuthError(ex)) {
       if (apiKeyPoolService != null) {
         String failedKey = getEffectiveApiKey();
+        ApiKeyStatus failureStatus = isAuthError(ex) ? ApiKeyStatus.INVALID : ApiKeyStatus.EXHAUSTED;
         java.util.Optional<ApiKeyPoolItem> nextKey =
             apiKeyPoolService.markExhaustedAndRotate(
-                ApiKeyProvider.ZIOMAP, failedKey, ex.getMessage());
+                ApiKeyProvider.ZIOMAP, failedKey, failureStatus, ex.getMessage());
         if (nextKey.isPresent()) {
           properties.setApiKey(nextKey.get().getRawKey());
           lastCallQuotaExceeded = false;
           log.info(
-              "[ZioMapProvider] Key exhausted. Auto-rotated to next key: {}",
+              "[ZioMapProvider] Key error. Auto-rotated to next key: {}",
               nextKey.get().getMaskedKey());
           return true;
         }
@@ -127,6 +129,11 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
   @Override
   public List<PlaceDto> textSearch(
       String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
+    return textSearchWithRetry(query, lat, lng, radiusMeters, limit, 0);
+  }
+
+  private List<PlaceDto> textSearchWithRetry(
+      String query, Double lat, Double lng, Integer radiusMeters, Integer limit, int retryCount) {
     if (!StringUtils.hasText(query)) {
       return Collections.emptyList();
     }
@@ -178,8 +185,12 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       recordSuccess();
       return results;
     } catch (Exception ex) {
-      if (handleQuotaErrorAndRotate(ex)) {
-        log.info("[ZioMapProvider] Key exhausted during textSearch. Auto-rotated to next key");
+      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+        log.info(
+            "[ZioMapProvider] Retrying textSearch for query '{}' with rotated key (attempt {})",
+            query,
+            retryCount + 1);
+        return textSearchWithRetry(query, lat, lng, radiusMeters, limit, retryCount + 1);
       }
       log.error("Failed to execute ZioMap text search for query '{}': {}", query, ex.getMessage());
       throw new PlaceProviderException("ZioMap text search is unavailable", ex);
@@ -189,6 +200,11 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
   @Override
   public List<AutocompleteSuggestionDto> autocomplete(
       String query, Double lat, Double lng, Integer radiusMeters, Integer limit) {
+    return autocompleteWithRetry(query, lat, lng, radiusMeters, limit, 0);
+  }
+
+  private List<AutocompleteSuggestionDto> autocompleteWithRetry(
+      String query, Double lat, Double lng, Integer radiusMeters, Integer limit, int retryCount) {
     if (!StringUtils.hasText(query)) {
       return Collections.emptyList();
     }
@@ -259,6 +275,13 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
       return suggestions;
     } catch (Exception ex) {
+      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+        log.info(
+            "[ZioMapProvider] Retrying autocomplete for query '{}' with rotated key (attempt {})",
+            query,
+            retryCount + 1);
+        return autocompleteWithRetry(query, lat, lng, radiusMeters, limit, retryCount + 1);
+      }
       log.warn(
           "ZioMap autocomplete failed for query '{}' ({}), falling back to textSearch",
           query,
@@ -876,6 +899,27 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
             || lower.contains("too many requests")
             || lower.contains("rate limit")
             || lower.contains("credit")) {
+          return true;
+        }
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  private boolean isAuthError(Throwable throwable) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (current instanceof org.springframework.web.client.RestClientResponseException restEx) {
+        int status = restEx.getStatusCode().value();
+        if (status == 401 || status == 403) {
+          return true;
+        }
+      }
+      String msg = current.getMessage();
+      if (msg != null) {
+        String lower = msg.toLowerCase();
+        if (lower.contains("401") || lower.contains("403") || lower.contains("unauthorized") || lower.contains("forbidden")) {
           return true;
         }
       }

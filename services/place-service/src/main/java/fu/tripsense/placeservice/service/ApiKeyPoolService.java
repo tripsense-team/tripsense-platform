@@ -7,15 +7,21 @@ import fu.tripsense.placeservice.domain.model.ApiKeyStatus;
 import fu.tripsense.placeservice.domain.repository.ApiKeyPoolRepository;
 import fu.tripsense.placeservice.security.ApiKeyCryptoService;
 import jakarta.annotation.PostConstruct;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -26,17 +32,24 @@ public class ApiKeyPoolService {
   private final ApiKeyPoolRepository repository;
   private final ZioMapProperties zioMapProperties;
   private final ApiKeyCryptoService apiKeyCryptoService;
+  private final MongoTemplate mongoTemplate;
 
   @Value("${EMBEDDING_API_KEY:${embedding.api-key:}}")
   private String defaultGeminiKey;
 
+  /** In-memory cache for decrypted active raw keys to avoid repeated AES decryption on every request. */
+  private final Map<ApiKeyProvider, CachedActiveKey> activeKeyCache = new ConcurrentHashMap<>();
+  private static final Duration CACHE_TTL = Duration.ofMinutes(2);
+
+  private record CachedActiveKey(String keyHash, String rawKey, Instant expiresAt) {}
+
   @PostConstruct
   public void seedInitialKeys() {
     try {
-      // Seed ZioMap key if pool is empty
+      // Seed ZioMap key if pool has no active or standby key
       if (repository.countByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.ACTIVE) == 0
-          && repository.countByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.AVAILABLE)
-              == 0) {
+          && repository.countByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.INACTIVE) == 0
+          && repository.countByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.AVAILABLE) == 0) {
         String initialZioKey = zioMapProperties.getApiKey();
         if (initialZioKey != null && !initialZioKey.isBlank()) {
           saveKeyIfAbsent(ApiKeyProvider.ZIOMAP, initialZioKey, ApiKeyStatus.ACTIVE);
@@ -46,10 +59,10 @@ public class ApiKeyPoolService {
         }
       }
 
-      // Seed Gemini key if pool is empty
+      // Seed Gemini key if pool has no active or standby key
       if (repository.countByProviderAndStatus(ApiKeyProvider.GEMINI, ApiKeyStatus.ACTIVE) == 0
-          && repository.countByProviderAndStatus(ApiKeyProvider.GEMINI, ApiKeyStatus.AVAILABLE)
-              == 0) {
+          && repository.countByProviderAndStatus(ApiKeyProvider.GEMINI, ApiKeyStatus.INACTIVE) == 0
+          && repository.countByProviderAndStatus(ApiKeyProvider.GEMINI, ApiKeyStatus.AVAILABLE) == 0) {
         if (defaultGeminiKey != null && !defaultGeminiKey.isBlank()) {
           saveKeyIfAbsent(ApiKeyProvider.GEMINI, defaultGeminiKey, ApiKeyStatus.ACTIVE);
           log.info(
@@ -75,39 +88,7 @@ public class ApiKeyPoolService {
     return null;
   }
 
-  public synchronized void normalizeActiveKeys(ApiKeyProvider provider) {
-    List<ApiKeyPoolItem> activeKeys =
-        repository.findByProviderAndStatus(provider, ApiKeyStatus.ACTIVE);
-    if (activeKeys.size() > 1) {
-      activeKeys.sort(
-          Comparator.comparingLong(ApiKeyPoolItem::getSuccessCount)
-              .reversed()
-              .thenComparing(
-                  item -> item.getLastUsedAt() != null ? item.getLastUsedAt() : Instant.EPOCH,
-                  Comparator.reverseOrder())
-              .thenComparing(
-                  item -> item.getCreatedAt() != null ? item.getCreatedAt() : Instant.EPOCH));
-
-      ApiKeyPoolItem primary = activeKeys.get(0);
-      String primaryRaw = resolveRawKey(primary);
-      if (provider == ApiKeyProvider.ZIOMAP && primaryRaw != null) {
-        zioMapProperties.setApiKey(primaryRaw);
-      }
-
-      for (int i = 1; i < activeKeys.size(); i++) {
-        ApiKeyPoolItem redundant = activeKeys.get(i);
-        redundant.setStatus(ApiKeyStatus.AVAILABLE);
-        repository.save(redundant);
-        log.info(
-            "[ApiKeyPool] Normalized pool: demoted redundant ACTIVE key to AVAILABLE: provider={}, key={}",
-            provider,
-            redundant.getMaskedKey());
-      }
-    }
-  }
-
   public List<ApiKeyPoolItem> listKeys(ApiKeyProvider provider) {
-    normalizeActiveKeys(provider);
     return repository.findByProviderOrderByCreatedAtAsc(provider);
   }
 
@@ -130,8 +111,10 @@ public class ApiKeyPoolService {
         continue;
       }
 
+      // First key becomes ACTIVE only if no ACTIVE key currently exists
       ApiKeyStatus initialStatus =
-          (!hasActive && saved.isEmpty()) ? ApiKeyStatus.ACTIVE : ApiKeyStatus.AVAILABLE;
+          (!hasActive && saved.isEmpty()) ? ApiKeyStatus.ACTIVE : ApiKeyStatus.INACTIVE;
+
       ApiKeyPoolItem item =
           ApiKeyPoolItem.builder()
               .provider(provider)
@@ -142,9 +125,13 @@ public class ApiKeyPoolService {
               .status(initialStatus)
               .createdAt(Instant.now())
               .build();
-      saved.add(repository.save(item));
+
+      ApiKeyPoolItem persisted = repository.save(item);
+      saved.add(persisted);
+
       if (initialStatus == ApiKeyStatus.ACTIVE) {
         hasActive = true;
+        cacheActiveKey(provider, keyHash, trimmed);
         if (provider == ApiKeyProvider.ZIOMAP) {
           zioMapProperties.setApiKey(trimmed);
         }
@@ -153,8 +140,11 @@ public class ApiKeyPoolService {
     return saved;
   }
 
+  /**
+   * Retrieves the current ACTIVE key item from database.
+   * If none is found, attempts to promote the first available standby (INACTIVE / AVAILABLE) key.
+   */
   public synchronized Optional<ApiKeyPoolItem> getActiveKeyItem(ApiKeyProvider provider) {
-    normalizeActiveKeys(provider);
     Optional<ApiKeyPoolItem> active =
         repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(provider, ApiKeyStatus.ACTIVE);
     if (active.isPresent()) {
@@ -162,74 +152,224 @@ public class ApiKeyPoolService {
       return active;
     }
 
-    // If no active, try to promote first AVAILABLE
-    Optional<ApiKeyPoolItem> available =
-        repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(
-            provider, ApiKeyStatus.AVAILABLE);
-    if (available.isPresent()) {
-      ApiKeyPoolItem promoted = available.get();
-      promoted.setStatus(ApiKeyStatus.ACTIVE);
-      repository.save(promoted);
-      String rawKey = resolveRawKey(promoted);
-      if (provider == ApiKeyProvider.ZIOMAP && rawKey != null) {
-        zioMapProperties.setApiKey(rawKey);
-      }
-      return Optional.of(promoted);
+    // Auto-promote first standby key if no active key exists
+    Optional<ApiKeyPoolItem> standby =
+        repository.findFirstByProviderAndStatusInOrderByCreatedAtAsc(
+            provider, List.of(ApiKeyStatus.INACTIVE, ApiKeyStatus.AVAILABLE));
+
+    if (standby.isPresent()) {
+      return Optional.of(setActiveKey(standby.get().getId()));
     }
 
     return Optional.empty();
   }
 
+  /**
+   * Fast resolution of effective active raw key with in-memory caching.
+   */
   public String getActiveKey(ApiKeyProvider provider) {
-    return getActiveKeyItem(provider)
-        .map(this::resolveRawKey)
-        .orElseGet(
-            () -> {
-              if (provider == ApiKeyProvider.ZIOMAP) return zioMapProperties.getApiKey();
-              return defaultGeminiKey;
-            });
+    CachedActiveKey cached = activeKeyCache.get(provider);
+    Instant now = Instant.now();
+    if (cached != null && cached.expiresAt().isAfter(now) && cached.rawKey() != null) {
+      return cached.rawKey();
+    }
+
+    Optional<ApiKeyPoolItem> activeItem = getActiveKeyItem(provider);
+    if (activeItem.isPresent()) {
+      String raw = resolveRawKey(activeItem.get());
+      if (raw != null) {
+        cacheActiveKey(provider, activeItem.get().getKeyHash(), raw);
+        return raw;
+      }
+    }
+
+    // Fallback to static properties if pool is empty
+    if (provider == ApiKeyProvider.ZIOMAP) {
+      return zioMapProperties.getApiKey();
+    } else if (provider == ApiKeyProvider.GEMINI) {
+      return defaultGeminiKey;
+    }
+    return null;
   }
 
+  /**
+   * Atomically activates a key and demotes any existing active keys of the same provider to INACTIVE.
+   * Immediately invalidates in-memory cache so subsequent requests use the new key without restart.
+   */
+  public synchronized ApiKeyPoolItem setActiveKey(String id) {
+    ApiKeyPoolItem target =
+        repository
+            .findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("API Key not found with id: " + id));
+
+    ApiKeyProvider provider = target.getProvider();
+
+    if (target.getStatus() == ApiKeyStatus.DISABLED) {
+      throw new IllegalArgumentException(
+          "API Key này đang bị vô hiệu hóa (DISABLED). Vui lòng chuyển sang INACTIVE trước khi kích hoạt.");
+    }
+    if (target.getStatus() == ApiKeyStatus.INVALID) {
+      throw new IllegalArgumentException("API Key này không hợp lệ (INVALID), không thể kích hoạt.");
+    }
+
+    String rawKey = resolveRawKey(target);
+
+    // 1. Demote any currently ACTIVE keys of this provider to INACTIVE
+    Query demoteQuery =
+        Query.query(
+            Criteria.where("provider")
+                .is(provider)
+                .and("status")
+                .is(ApiKeyStatus.ACTIVE)
+                .and("id")
+                .ne(id));
+    Update demoteUpdate = Update.update("status", ApiKeyStatus.INACTIVE);
+    mongoTemplate.updateMulti(demoteQuery, demoteUpdate, ApiKeyPoolItem.class);
+
+    // 2. Atomically promote target key to ACTIVE and clear failure marks
+    Query promoteQuery = Query.query(Criteria.where("id").is(id));
+    Update promoteUpdate =
+        new Update()
+            .set("status", ApiKeyStatus.ACTIVE)
+            .set("failureReason", null)
+            .set("exhaustedAt", null);
+    ApiKeyPoolItem updated =
+        mongoTemplate.findAndModify(
+            promoteQuery,
+            promoteUpdate,
+            FindAndModifyOptions.options().returnNew(true),
+            ApiKeyPoolItem.class);
+
+    if (updated == null) {
+      throw new IllegalArgumentException("Không thể kích hoạt API Key với id: " + id);
+    }
+
+    updated.setRawKey(rawKey);
+
+    // 3. Update cache & properties
+    cacheActiveKey(provider, updated.getKeyHash(), rawKey);
+    if (provider == ApiKeyProvider.ZIOMAP && rawKey != null) {
+      zioMapProperties.setApiKey(rawKey);
+    }
+
+    log.info(
+        "[ApiKeyPool] Switched active key atomically for provider {}: {}",
+        provider,
+        updated.getMaskedKey());
+    return updated;
+  }
+
+  /**
+   * Manually disables a key. Disabled keys will NEVER be auto-promoted or resurrected by quota reset.
+   */
+  public synchronized ApiKeyPoolItem disableKey(String id) {
+    ApiKeyPoolItem target =
+        repository
+            .findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("API Key not found with id: " + id));
+
+    boolean wasActive = target.getStatus() == ApiKeyStatus.ACTIVE;
+    ApiKeyProvider provider = target.getProvider();
+
+    target.setStatus(ApiKeyStatus.DISABLED);
+    target.setFailureReason("Manually disabled by administrator");
+    ApiKeyPoolItem saved = repository.save(target);
+
+    if (wasActive) {
+      invalidateCache(provider);
+      // Promote next standby key
+      getActiveKeyItem(provider);
+    }
+
+    log.info("[ApiKeyPool] Key disabled: id={}, provider={}, masked={}", id, provider, target.getMaskedKey());
+    return saved;
+  }
+
+  /**
+   * Re-enables a DISABLED or INVALID key, putting it into INACTIVE standby state.
+   */
+  public synchronized ApiKeyPoolItem enableKey(String id) {
+    ApiKeyPoolItem target =
+        repository
+            .findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("API Key not found with id: " + id));
+
+    target.setStatus(ApiKeyStatus.INACTIVE);
+    target.setFailureReason(null);
+    target.setExhaustedAt(null);
+    ApiKeyPoolItem saved = repository.save(target);
+
+    // If no active key exists, promote this one
+    if (repository.countByProviderAndStatus(target.getProvider(), ApiKeyStatus.ACTIVE) == 0) {
+      return setActiveKey(id);
+    }
+
+    log.info("[ApiKeyPool] Key enabled to INACTIVE: id={}, provider={}, masked={}", id, target.getProvider(), target.getMaskedKey());
+    return saved;
+  }
+
+  /**
+   * Handles quota/rate-limit/auth failure with Anti-Thundering-Herd check.
+   * Only rotates if the failed key is STILL the current ACTIVE key.
+   */
   public synchronized Optional<ApiKeyPoolItem> markExhaustedAndRotate(
-      ApiKeyProvider provider, String failedRawKey, String reason) {
-    if (failedRawKey != null && !failedRawKey.isBlank()) {
-      String keyHash = apiKeyCryptoService.hashKey(failedRawKey);
-      repository
-          .findByProviderAndKeyHash(provider, keyHash)
-          .ifPresent(
-              item -> {
-                item.setStatus(ApiKeyStatus.EXHAUSTED);
-                item.setExhaustedAt(Instant.now());
-                item.setFailureReason(reason);
-                repository.save(item);
-                log.warn(
-                    "[ApiKeyPool] Key marked EXHAUSTED: provider={}, key={}, reason={}",
-                    provider,
-                    item.getMaskedKey(),
-                    reason);
-              });
+      ApiKeyProvider provider, String failedRawKey, ApiKeyStatus failureStatus, String reason) {
+    if (failedRawKey == null || failedRawKey.isBlank()) {
+      return getActiveKeyItem(provider);
     }
 
-    // Promote next AVAILABLE key
-    Optional<ApiKeyPoolItem> nextAvailable =
-        repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(
-            provider, ApiKeyStatus.AVAILABLE);
-    if (nextAvailable.isPresent()) {
-      ApiKeyPoolItem next = nextAvailable.get();
-      next.setStatus(ApiKeyStatus.ACTIVE);
-      repository.save(next);
-      String rawKey = resolveRawKey(next);
-      if (provider == ApiKeyProvider.ZIOMAP && rawKey != null) {
-        zioMapProperties.setApiKey(rawKey);
-      }
+    String failedKeyHash = apiKeyCryptoService.hashKey(failedRawKey);
+
+    Optional<ApiKeyPoolItem> currentActiveOpt =
+        repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(provider, ApiKeyStatus.ACTIVE);
+
+    if (currentActiveOpt.isEmpty()) {
+      return promoteNextStandbyKey(provider);
+    }
+
+    ApiKeyPoolItem currentActive = currentActiveOpt.get();
+
+    // Anti-Thundering-Herd: If the failed key is NOT the current active key, skip rotating again!
+    if (!currentActive.getKeyHash().equals(failedKeyHash)) {
       log.info(
-          "[ApiKeyPool] Rotated to new ACTIVE key: provider={}, key={}",
-          provider,
-          next.getMaskedKey());
-      return Optional.of(next);
+          "[ApiKeyPool] Key {} was already rotated by another thread. Current active key is: {}. Skipping duplicate rotation.",
+          ApiKeyPoolItem.mask(failedRawKey),
+          currentActive.getMaskedKey());
+      return Optional.of(currentActive);
     }
 
-    log.error("[ApiKeyPool] All keys in pool are EXHAUSTED for provider={}!", provider);
+    currentActive.setStatus(failureStatus != null ? failureStatus : ApiKeyStatus.EXHAUSTED);
+    currentActive.setExhaustedAt(Instant.now());
+    currentActive.setFailureReason(reason);
+    repository.save(currentActive);
+    invalidateCache(provider);
+
+    log.warn(
+        "[ApiKeyPool] Active key marked {}: provider={}, key={}, reason={}",
+        currentActive.getStatus(),
+        provider,
+        currentActive.getMaskedKey(),
+        reason);
+
+    return promoteNextStandbyKey(provider);
+  }
+
+  public Optional<ApiKeyPoolItem> markExhaustedAndRotate(
+      ApiKeyProvider provider, String failedRawKey, String reason) {
+    return markExhaustedAndRotate(provider, failedRawKey, ApiKeyStatus.EXHAUSTED, reason);
+  }
+
+  private Optional<ApiKeyPoolItem> promoteNextStandbyKey(ApiKeyProvider provider) {
+    Optional<ApiKeyPoolItem> nextStandby =
+        repository.findFirstByProviderAndStatusInOrderByCreatedAtAsc(
+            provider, List.of(ApiKeyStatus.INACTIVE, ApiKeyStatus.AVAILABLE));
+
+    if (nextStandby.isPresent()) {
+      ApiKeyPoolItem next = nextStandby.get();
+      return Optional.of(setActiveKey(next.getId()));
+    }
+
+    log.error("[ApiKeyPool] All keys in pool are exhausted/unavailable for provider={}!", provider);
     return Optional.empty();
   }
 
@@ -246,55 +386,12 @@ public class ApiKeyPoolService {
             });
   }
 
-  public synchronized ApiKeyPoolItem setActiveKey(String id) {
-    ApiKeyPoolItem target =
-        repository
-            .findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("API Key not found with id: " + id));
-
-    ApiKeyProvider provider = target.getProvider();
-    String rawKey = resolveRawKey(target);
-
-    // If key is EXHAUSTED, test with provider endpoint first before allowing activation
-    if (target.getStatus() == ApiKeyStatus.EXHAUSTED) {
-      boolean valid = testKey(provider, rawKey);
-      if (!valid) {
-        throw new IllegalArgumentException(
-            "API Key này hiện vẫn HẾT HẠN MỨC (429/Quota) hoặc không hợp lệ. Nhà cung cấp từ chối kích hoạt!");
-      }
-      target.setFailureReason(null);
-      target.setExhaustedAt(null);
-    } else if (target.getStatus() == ApiKeyStatus.INVALID) {
-      throw new IllegalArgumentException("API Key này không hợp lệ, không thể kích hoạt.");
-    }
-
-    // Demote ALL other ACTIVE keys for this provider to AVAILABLE
-    List<ApiKeyPoolItem> currentActives =
-        repository.findByProviderAndStatus(provider, ApiKeyStatus.ACTIVE);
-    for (ApiKeyPoolItem activeItem : currentActives) {
-      if (!activeItem.getId().equals(id)) {
-        activeItem.setStatus(ApiKeyStatus.AVAILABLE);
-        repository.save(activeItem);
-      }
-    }
-
-    target.setStatus(ApiKeyStatus.ACTIVE);
-    ApiKeyPoolItem saved = repository.save(target);
-    saved.setRawKey(rawKey);
-    if (provider == ApiKeyProvider.ZIOMAP && rawKey != null) {
-      zioMapProperties.setApiKey(rawKey);
-    }
-    log.info(
-        "[ApiKeyPool] Manually switched active key for provider {}: {}",
-        provider,
-        target.getMaskedKey());
-    return saved;
-  }
-
   public boolean testKey(ApiKeyProvider provider, String rawKey) {
     if (rawKey == null || rawKey.isBlank()) return false;
-    if (provider == ApiKeyProvider.ZIOMAP) {
-      try {
+    String trimmed = rawKey.trim();
+
+    try {
+      if (provider == ApiKeyProvider.ZIOMAP) {
         String baseUrl = zioMapProperties.getBaseUrl();
         if (baseUrl == null || baseUrl.isBlank()) baseUrl = "https://ziomap-api.socibi.com";
         org.springframework.web.client.RestClient client =
@@ -310,32 +407,52 @@ public class ApiKeyPoolService {
                             .queryParam("language", "vi")
                             .queryParam("region", "vn")
                             .build())
-                .header("x-api-key", rawKey.trim())
+                .header("x-api-key", trimmed)
                 .retrieve()
                 .toBodilessEntity();
         return res.getStatusCode().is2xxSuccessful();
-      } catch (Exception e) {
-        log.warn("[ApiKeyPool] ZioMap validation failed: {}", e.getMessage());
-        return false;
-      }
-    } else if (provider == ApiKeyProvider.GEMINI) {
-      try {
+      } else if (provider == ApiKeyProvider.GEMINI) {
         org.springframework.web.client.RestClient client =
             org.springframework.web.client.RestClient.builder()
                 .baseUrl("https://generativelanguage.googleapis.com")
                 .build();
         var res =
-            client.get().uri("/v1beta/models?key=" + rawKey.trim()).retrieve().toBodilessEntity();
+            client.get().uri("/v1beta/models?key=" + trimmed).retrieve().toBodilessEntity();
         return res.getStatusCode().is2xxSuccessful();
-      } catch (Exception e) {
-        log.warn("[ApiKeyPool] Gemini validation failed: {}", e.getMessage());
-        return false;
+      } else if (provider == ApiKeyProvider.OPENAI) {
+        org.springframework.web.client.RestClient client =
+            org.springframework.web.client.RestClient.builder()
+                .baseUrl("https://api.openai.com")
+                .build();
+        var res =
+            client
+                .get()
+                .uri("/v1/models")
+                .header("Authorization", "Bearer " + trimmed)
+                .retrieve()
+                .toBodilessEntity();
+        return res.getStatusCode().is2xxSuccessful();
+      } else if (provider == ApiKeyProvider.GOOGLE_MAPS) {
+        org.springframework.web.client.RestClient client =
+            org.springframework.web.client.RestClient.builder()
+                .baseUrl("https://maps.googleapis.com")
+                .build();
+        var res =
+            client
+                .get()
+                .uri("/maps/api/place/autocomplete/json?input=test&key=" + trimmed)
+                .retrieve()
+                .toBodilessEntity();
+        return res.getStatusCode().is2xxSuccessful();
       }
+    } catch (Exception e) {
+      log.warn("[ApiKeyPool] Validation failed for provider {}: {}", provider, e.getMessage());
+      return false;
     }
     return false;
   }
 
-  public synchronized Map<String, Object> testKeyById(String id) {
+  public Map<String, Object> testKeyById(String id) {
     ApiKeyPoolItem target =
         repository
             .findById(id)
@@ -347,7 +464,7 @@ public class ApiKeyPoolService {
 
     if (valid) {
       if (target.getStatus() == ApiKeyStatus.EXHAUSTED) {
-        target.setStatus(ApiKeyStatus.AVAILABLE);
+        target.setStatus(ApiKeyStatus.INACTIVE);
         target.setFailureReason(null);
         target.setExhaustedAt(null);
         repository.save(target);
@@ -355,12 +472,11 @@ public class ApiKeyPoolService {
     } else {
       boolean wasActive = target.getStatus() == ApiKeyStatus.ACTIVE;
       target.setStatus(ApiKeyStatus.EXHAUSTED);
-      target.setFailureReason(
-          "Thử nghiệm kết nối thất bại (403 Forbidden / 429 Hết hạn mức / Key không hợp lệ)");
+      target.setFailureReason("Connection test failed (403 / 429 Quota Exceeded / Invalid Key)");
       target.setExhaustedAt(Instant.now());
       repository.save(target);
       if (wasActive) {
-        // Rotate to next available
+        invalidateCache(provider);
         getActiveKeyItem(provider);
       }
     }
@@ -382,27 +498,45 @@ public class ApiKeyPoolService {
               ApiKeyProvider provider = item.getProvider();
               repository.deleteById(id);
               if (wasActive) {
-                // Promote next available
+                invalidateCache(provider);
                 getActiveKeyItem(provider);
               }
             });
   }
 
+  /**
+   * Resets ONLY EXHAUSTED keys for a provider back to INACTIVE standby.
+   * Never modifies DISABLED or INVALID keys.
+   */
   public synchronized int resetQuotaAll(ApiKeyProvider provider) {
     List<ApiKeyPoolItem> exhausted =
         repository.findByProviderAndStatus(provider, ApiKeyStatus.EXHAUSTED);
     int count = 0;
     for (ApiKeyPoolItem item : exhausted) {
-      item.setStatus(ApiKeyStatus.AVAILABLE);
+      item.setStatus(ApiKeyStatus.INACTIVE);
       item.setFailureReason(null);
       item.setExhaustedAt(null);
       repository.save(item);
       count++;
     }
-    // If no active key currently, promote first available
-    getActiveKeyItem(provider);
-    log.info("[ApiKeyPool] Reset quota for {} keys of provider {}", count, provider);
+
+    if (repository.countByProviderAndStatus(provider, ApiKeyStatus.ACTIVE) == 0) {
+      getActiveKeyItem(provider);
+    }
+    invalidateCache(provider);
+    log.info("[ApiKeyPool] Reset quota for {} EXHAUSTED keys of provider {}", count, provider);
     return count;
+  }
+
+  public void invalidateCache(ApiKeyProvider provider) {
+    activeKeyCache.remove(provider);
+  }
+
+  private void cacheActiveKey(ApiKeyProvider provider, String keyHash, String rawKey) {
+    if (rawKey != null && !rawKey.isBlank()) {
+      activeKeyCache.put(
+          provider, new CachedActiveKey(keyHash, rawKey, Instant.now().plus(CACHE_TTL)));
+    }
   }
 
   private void saveKeyIfAbsent(ApiKeyProvider provider, String rawKey, ApiKeyStatus status) {

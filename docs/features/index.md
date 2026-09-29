@@ -7,6 +7,7 @@ Track every feature that enters the multi-agent workflow.
 | `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |
 | `explore-category-discovery-and-pagination` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./explore-category-discovery-and-pagination.md) |
 | `place-batch-enrichment-and-ziomap-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./place-batch-enrichment-and-ziomap-settings.md) |
+| `provider-api-key-management` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./provider-api-key-management.md) |
 | `explore-for-you-personalized-recommendations` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/recommendation-service`, `services/context-service`, `services/place-service` | [Docs](./explore-for-you-personalized-recommendations.md) |
 | `mindtrip-explore-experience-redesign` | DONE | `apps/web/tripsense` | [Docs](./mindtrip-explore-experience-redesign.md) |
 | `explore-search-autocomplete-dropdown` | DONE | `apps/web/tripsense` | [Docs](./explore-search-autocomplete-dropdown.md) |

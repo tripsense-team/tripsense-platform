@@ -2,5 +2,8 @@ package fu.tripsense.placeservice.domain.model;
 
 public enum ApiKeyProvider {
   ZIOMAP,
-  GEMINI
+  GEMINI,
+  MAPVINA,
+  OPENAI,
+  GOOGLE_MAPS
 }

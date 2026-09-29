@@ -15,9 +15,12 @@ import {
   fetchBatchProgress,
   cancelBatchEnrichment,
   fetchApiKeys,
+  fetchActiveApiKey,
   addApiKeys,
   deleteApiKey,
   activateApiKey,
+  disableApiKey,
+  enableApiKey,
   resetQuotaKeys,
   testApiKey,
 } from "../services/settings-api";
@@ -173,6 +176,36 @@ describe("Settings API", () => {
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/places/admin/keys/key-2/activate",
       expect.objectContaining({ method: "POST" }),
+    );
+
+    mockApiClient.mockResolvedValueOnce({ success: true, data: null });
+    await expect(disableApiKey("key-2")).resolves.toBeNull();
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/keys/key-2/disable",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    mockApiClient.mockResolvedValueOnce({ success: true, data: null });
+    await expect(enableApiKey("key-2")).resolves.toBeNull();
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/keys/key-2/enable",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("fetches active API key for provider", async () => {
+    const mockActive = {
+      id: "key-1",
+      provider: "ZIOMAP",
+      maskedKey: "abc...xyz",
+      status: "ACTIVE",
+    };
+    mockApiClient.mockResolvedValueOnce({ success: true, data: mockActive });
+    const result = await fetchActiveApiKey("ZIOMAP");
+    expect(result?.status).toBe("ACTIVE");
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/keys/active?provider=ZIOMAP",
+      expect.objectContaining({ cache: "no-store" }),
     );
   });
 
