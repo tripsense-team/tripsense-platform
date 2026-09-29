@@ -58,6 +58,26 @@ public class ApiKeyPoolController {
     return ResponseEntity.ok(ApiResponse.ok(ApiKeyPoolItemDto.from(item)));
   }
 
+  @PostMapping("/{id}/disable")
+  public ResponseEntity<ApiResponse<ApiKeyPoolItemDto>> disableKey(@PathVariable String id) {
+    var item = apiKeyPoolService.disableKey(id);
+    return ResponseEntity.ok(ApiResponse.ok(ApiKeyPoolItemDto.from(item)));
+  }
+
+  @PostMapping("/{id}/enable")
+  public ResponseEntity<ApiResponse<ApiKeyPoolItemDto>> enableKey(@PathVariable String id) {
+    var item = apiKeyPoolService.enableKey(id);
+    return ResponseEntity.ok(ApiResponse.ok(ApiKeyPoolItemDto.from(item)));
+  }
+
+  @GetMapping("/active")
+  public ResponseEntity<ApiResponse<ApiKeyPoolItemDto>> getActiveKey(
+      @RequestParam(name = "provider", defaultValue = "ZIOMAP") ApiKeyProvider provider) {
+    var item = apiKeyPoolService.getActiveKeyItem(provider);
+    return item.map(apiKeyPoolItem -> ResponseEntity.ok(ApiResponse.ok(ApiKeyPoolItemDto.from(apiKeyPoolItem))))
+        .orElseGet(() -> ResponseEntity.ok(ApiResponse.ok(null)));
+  }
+
   @PostMapping("/{id}/test")
   public ResponseEntity<ApiResponse<Map<String, Object>>> testKey(@PathVariable String id) {
     var result = apiKeyPoolService.testKeyById(id);

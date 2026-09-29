@@ -33,8 +33,8 @@ export interface BatchEnrichmentProgress {
   recentLogs: string[];
 }
 
-export type ApiKeyProvider = "ZIOMAP" | "GEMINI";
-export type ApiKeyStatus = "ACTIVE" | "AVAILABLE" | "EXHAUSTED" | "INVALID";
+export type ApiKeyProvider = "ZIOMAP" | "GEMINI" | "MAPVINA" | "OPENAI" | "GOOGLE_MAPS";
+export type ApiKeyStatus = "ACTIVE" | "INACTIVE" | "AVAILABLE" | "DISABLED" | "EXHAUSTED" | "INVALID";
 
 export interface ApiKeyPoolItem {
   id: string;

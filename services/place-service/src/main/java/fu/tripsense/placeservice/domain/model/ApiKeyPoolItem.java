@@ -18,6 +18,11 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @AllArgsConstructor
 @Document(collection = "api_key_pool")
 @CompoundIndex(name = "provider_key_hash_idx", def = "{'provider': 1, 'keyHash': 1}", unique = true)
+@CompoundIndex(
+    name = "unique_active_key_per_provider",
+    def = "{'provider': 1, 'status': 1}",
+    unique = true,
+    partialFilter = "{'status': 'ACTIVE'}")
 public class ApiKeyPoolItem {
 
   @Id @Builder.Default private String id = UUID.randomUUID().toString();
@@ -35,7 +40,7 @@ public class ApiKeyPoolItem {
 
   private String maskedKey;
 
-  @Indexed @Builder.Default private ApiKeyStatus status = ApiKeyStatus.AVAILABLE;
+  @Indexed @Builder.Default private ApiKeyStatus status = ApiKeyStatus.INACTIVE;
 
   @Builder.Default private long successCount = 0;
 

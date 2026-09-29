@@ -16,9 +16,10 @@ public interface ApiKeyPoolRepository extends MongoRepository<ApiKeyPoolItem, St
   Optional<ApiKeyPoolItem> findFirstByProviderAndStatusOrderByCreatedAtAsc(
       ApiKeyProvider provider, ApiKeyStatus status);
 
-  Optional<ApiKeyPoolItem> findByProviderAndKeyHash(ApiKeyProvider provider, String keyHash);
+  Optional<ApiKeyPoolItem> findFirstByProviderAndStatusInOrderByCreatedAtAsc(
+      ApiKeyProvider provider, java.util.Collection<ApiKeyStatus> statuses);
 
-  Optional<ApiKeyPoolItem> findByProviderAndRawKey(ApiKeyProvider provider, String rawKey);
+  Optional<ApiKeyPoolItem> findByProviderAndKeyHash(ApiKeyProvider provider, String keyHash);
 
   List<ApiKeyPoolItem> findByProviderAndStatus(ApiKeyProvider provider, ApiKeyStatus status);
 

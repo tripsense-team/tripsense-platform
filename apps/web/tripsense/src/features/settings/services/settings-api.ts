@@ -1,6 +1,7 @@
 import { apiClient } from "@/services/api-client";
 import type {
   ApiKeyPoolItem,
+  ApiKeyProvider,
   BatchEnrichmentProgress,
   BatchEnrichmentRequest,
   PlaceStats,
@@ -104,7 +105,7 @@ export async function cancelBatchEnrichment(
 }
 
 export async function fetchApiKeys(
-  provider: "ZIOMAP" | "GEMINI",
+  provider: ApiKeyProvider,
   signal?: AbortSignal,
 ): Promise<ApiKeyPoolItem[]> {
   return request<ApiKeyPoolItem[]>(
@@ -116,8 +117,21 @@ export async function fetchApiKeys(
   );
 }
 
+export async function fetchActiveApiKey(
+  provider: ApiKeyProvider,
+  signal?: AbortSignal,
+): Promise<ApiKeyPoolItem | null> {
+  return request<ApiKeyPoolItem | null>(
+    `/api/places/admin/keys/active?provider=${provider}`,
+    {
+      signal,
+      cache: "no-store",
+    },
+  );
+}
+
 export async function addApiKeys(
-  provider: "ZIOMAP" | "GEMINI",
+  provider: ApiKeyProvider,
   keys: string[],
   signal?: AbortSignal,
 ): Promise<ApiKeyPoolItem[]> {
@@ -148,8 +162,28 @@ export async function activateApiKey(
   });
 }
 
+export async function disableApiKey(
+  id: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return request<void>(`/api/places/admin/keys/${id}/disable`, {
+    method: "POST",
+    signal,
+  });
+}
+
+export async function enableApiKey(
+  id: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return request<void>(`/api/places/admin/keys/${id}/enable`, {
+    method: "POST",
+    signal,
+  });
+}
+
 export async function resetQuotaKeys(
-  provider: "ZIOMAP" | "GEMINI",
+  provider: ApiKeyProvider,
   signal?: AbortSignal,
 ): Promise<{ resetCount: number }> {
   return request<{ resetCount: number }>(

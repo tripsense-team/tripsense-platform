@@ -15,6 +15,10 @@ import {
   Cpu,
   RefreshCw,
   Zap,
+  PowerOff,
+  Power,
+  Globe,
+  Bot,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import {
@@ -22,6 +26,8 @@ import {
   addApiKeys,
   deleteApiKey,
   activateApiKey,
+  disableApiKey,
+  enableApiKey,
   resetQuotaKeys,
   testApiKey,
 } from "../services/settings-api";
@@ -67,8 +73,13 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
   }, [provider, loadKeys]);
 
   const activeKeyItem = keys.find((k) => k.status === "ACTIVE");
-  const availableCount = keys.filter((k) => k.status === "AVAILABLE").length;
-  const exhaustedCount = keys.filter((k) => k.status === "EXHAUSTED").length;
+  const standbyCount = keys.filter(
+    (k) => k.status === "INACTIVE" || k.status === "AVAILABLE"
+  ).length;
+  const disabledCount = keys.filter((k) => k.status === "DISABLED").length;
+  const exhaustedCount = keys.filter(
+    (k) => k.status === "EXHAUSTED" || k.status === "INVALID"
+  ).length;
 
   const handleAddKeys = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +124,10 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
   };
 
   const handleActivate = async (id: string) => {
+    if (!window.confirm(t("settings.tokenPool.activateConfirm"))) {
+      return;
+    }
+
     setActionKeyId(id);
     setFeedback(null);
     try {
@@ -132,6 +147,48 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
         err instanceof Error ? err.message : "Failed to activate API key";
       setFeedback({ type: "error", message: msg });
       await loadKeys(provider);
+    } finally {
+      setActionKeyId(null);
+    }
+  };
+
+  const handleDisable = async (id: string) => {
+    if (!window.confirm(t("settings.tokenPool.disableConfirm"))) {
+      return;
+    }
+
+    setActionKeyId(id);
+    setFeedback(null);
+    try {
+      await disableApiKey(id);
+      await loadKeys(provider);
+      setFeedback({
+        type: "success",
+        message: t("settings.tokenPool.disableSuccess"),
+      });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to disable API key";
+      setFeedback({ type: "error", message: msg });
+    } finally {
+      setActionKeyId(null);
+    }
+  };
+
+  const handleEnable = async (id: string) => {
+    setActionKeyId(id);
+    setFeedback(null);
+    try {
+      await enableApiKey(id);
+      await loadKeys(provider);
+      setFeedback({
+        type: "success",
+        message: t("settings.tokenPool.enableSuccess"),
+      });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to enable API key";
+      setFeedback({ type: "error", message: msg });
     } finally {
       setActionKeyId(null);
     }
@@ -237,7 +294,7 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
 
         {/* Provider Switcher Tabs & Quick Actions */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-xl border border-border/60 bg-background/80 p-1 shadow-xs">
+          <div className="inline-flex flex-wrap rounded-xl border border-border/60 bg-background/80 p-1 shadow-xs">
             <button
               type="button"
               onClick={() => setProvider("ZIOMAP")}
@@ -261,6 +318,42 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
             >
               <Cpu className="h-3.5 w-3.5" />
               <span>{t("settings.tokenPool.tabGemini")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setProvider("OPENAI")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                provider === "OPENAI"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Bot className="h-3.5 w-3.5" />
+              <span>{t("settings.tokenPool.tabOpenAi")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setProvider("MAPVINA")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                provider === "MAPVINA"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              <span>{t("settings.tokenPool.tabMapVina")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setProvider("GOOGLE_MAPS")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                provider === "GOOGLE_MAPS"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              <span>{t("settings.tokenPool.tabGoogleMaps")}</span>
             </button>
           </div>
 
@@ -292,17 +385,27 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
           </div>
         </div>
 
-        {/* Available Keys */}
+        {/* Standby Keys (INACTIVE / AVAILABLE) */}
         <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 transition-all">
           <div className="text-xs text-muted-foreground">
             {t("settings.tokenPool.availableKeys")}
           </div>
           <div className="mt-1 text-lg font-bold text-blue-600 dark:text-blue-400">
-            {availableCount}
+            {standbyCount}
           </div>
         </div>
 
-        {/* Exhausted Keys */}
+        {/* Disabled Keys */}
+        <div className="rounded-xl border border-border/60 bg-muted/40 p-3.5 transition-all">
+          <div className="text-xs text-muted-foreground">
+            {t("settings.tokenPool.statusDisabled")}
+          </div>
+          <div className="mt-1 text-lg font-bold text-muted-foreground">
+            {disabledCount}
+          </div>
+        </div>
+
+        {/* Exhausted / Issue Keys */}
         <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3.5 transition-all">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{t("settings.tokenPool.exhaustedKeys")}</span>
@@ -322,16 +425,6 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
             {exhaustedCount}
           </div>
         </div>
-
-        {/* Total Keys */}
-        <div className="rounded-xl border border-border/50 bg-background/60 p-3.5 transition-all">
-          <div className="text-xs text-muted-foreground">
-            {t("settings.tokenPool.totalKeys")}
-          </div>
-          <div className="mt-1 text-lg font-bold text-foreground">
-            {keys.length}
-          </div>
-        </div>
       </div>
 
       {/* Batch Add API Keys Form */}
@@ -340,7 +433,7 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           <span>{t("settings.tokenPool.addKeysTitle")}</span>
           <span className="text-[11px] font-normal text-muted-foreground">
-            ({provider === "ZIOMAP" ? "ZioMap API Tokens" : "Google AI Studio API Keys"})
+            ({provider})
           </span>
         </div>
         <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-start">
@@ -440,10 +533,16 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                           {t("settings.tokenPool.statusActive")}
                         </span>
                       )}
-                      {k.status === "AVAILABLE" && (
+                      {(k.status === "INACTIVE" || k.status === "AVAILABLE") && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
                           <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                          {t("settings.tokenPool.statusAvailable")}
+                          {t("settings.tokenPool.statusInactive")}
+                        </span>
+                      )}
+                      {k.status === "DISABLED" && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          <PowerOff className="h-2.5 w-2.5" />
+                          {t("settings.tokenPool.statusDisabled")}
                         </span>
                       )}
                       {k.status === "EXHAUSTED" && (
@@ -460,7 +559,7 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                         </div>
                       )}
                       {k.status === "INVALID" && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-gray-500/20 bg-gray-500/10 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
                           {t("settings.tokenPool.statusInvalid")}
                         </span>
                       )}
@@ -480,32 +579,58 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {k.status !== "ACTIVE" && (
+                        {/* Activate Button */}
+                        {k.status !== "ACTIVE" && k.status !== "DISABLED" && (
                           <button
                             type="button"
                             onClick={() => handleActivate(k.id)}
                             disabled={actionKeyId === k.id || k.status === "INVALID"}
-                            title={
-                              k.status === "EXHAUSTED"
-                                ? "Key đã hết hạn mức. Hệ thống sẽ kiểm tra với nhà cung cấp trước khi kích hoạt."
-                                : undefined
-                            }
-                            className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium shadow-xs transition disabled:opacity-50 ${
-                              k.status === "EXHAUSTED"
-                                ? "border-rose-500/30 bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 dark:text-rose-400"
-                                : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                            }`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary shadow-xs transition hover:bg-primary/20 disabled:opacity-50"
                           >
                             {actionKeyId === k.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
                             ) : null}
-                            <span>
-                              {k.status === "EXHAUSTED"
-                                ? t("settings.tokenPool.testAndActivate")
-                                : t("settings.tokenPool.activate")}
-                            </span>
+                            <span>{t("settings.tokenPool.activate")}</span>
                           </button>
                         )}
+
+                        {/* Enable button for DISABLED key */}
+                        {k.status === "DISABLED" && (
+                          <button
+                            type="button"
+                            onClick={() => handleEnable(k.id)}
+                            disabled={actionKeyId === k.id}
+                            title={t("settings.tokenPool.enable")}
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-600 shadow-xs transition hover:bg-emerald-500/20 dark:text-emerald-400 disabled:opacity-50"
+                          >
+                            {actionKeyId === k.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Power className="h-3 w-3" />
+                            )}
+                            <span>{t("settings.tokenPool.enable")}</span>
+                          </button>
+                        )}
+
+                        {/* Disable button for non-disabled key */}
+                        {k.status !== "DISABLED" && (
+                          <button
+                            type="button"
+                            onClick={() => handleDisable(k.id)}
+                            disabled={actionKeyId === k.id}
+                            title={t("settings.tokenPool.disable")}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-background/80 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-xs transition hover:border-amber-500/40 hover:text-amber-600 disabled:opacity-50"
+                          >
+                            {actionKeyId === k.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <PowerOff className="h-3 w-3" />
+                            )}
+                            <span>{t("settings.tokenPool.disable")}</span>
+                          </button>
+                        )}
+
+                        {/* Test button */}
                         {k.status !== "INVALID" && (
                           <button
                             type="button"
@@ -520,6 +645,8 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                             <span>{t("settings.tokenPool.testKey")}</span>
                           </button>
                         )}
+
+                        {/* Delete button */}
                         <button
                           type="button"
                           onClick={() => handleDelete(k.id)}
