@@ -27,7 +27,8 @@ public class ApiKeyCryptoService {
   private static final int GCM_TAG_LENGTH_BITS = 128;
   private static final String DEFAULT_SECRET = "tripsense-default-api-key-encryption-secret-32b";
 
-  private final SecretKey secretKey;
+  private final SecretKey primarySecretKey;
+  private final SecretKey fallbackDefaultKey;
   private final SecureRandom secureRandom = new SecureRandom();
 
   public ApiKeyCryptoService(
@@ -35,8 +36,12 @@ public class ApiKeyCryptoService {
               "${tripsense.places.encryption-secret:tripsense-default-api-key-encryption-secret-32b}")
           String secret) {
     try {
-      this.secretKey = deriveKey(secret);
-      if (DEFAULT_SECRET.equals(secret)) {
+      String effectiveSecret =
+          (secret == null || secret.isBlank()) ? DEFAULT_SECRET : secret.trim();
+      this.primarySecretKey = deriveKey(effectiveSecret);
+      this.fallbackDefaultKey = deriveKey(DEFAULT_SECRET);
+
+      if (DEFAULT_SECRET.equals(effectiveSecret)) {
         log.warn(
             "[ApiKeyCryptoService] Using default encryption secret. Set API_KEY_ENCRYPTION_SECRET in production!");
       }
@@ -61,7 +66,7 @@ public class ApiKeyCryptoService {
       secureRandom.nextBytes(iv);
 
       Cipher cipher = Cipher.getInstance(ALGORITHM);
-      cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
+      cipher.init(Cipher.ENCRYPT_MODE, primarySecretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
       byte[] encrypted = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
 
       ByteBuffer byteBuffer = ByteBuffer.allocate(iv.length + encrypted.length);
@@ -79,6 +84,29 @@ public class ApiKeyCryptoService {
     if (cipherBase64 == null || cipherBase64.trim().isEmpty()) {
       return null;
     }
+
+    // 1. Try with primary configured key
+    String result = doDecrypt(cipherBase64, primarySecretKey);
+    if (result != null) {
+      return result;
+    }
+
+    // 2. If primary failed and differs from default, try fallback default secret
+    if (!primarySecretKey.equals(fallbackDefaultKey)) {
+      log.warn(
+          "[ApiKeyCryptoService] Decryption with primary secret failed, attempting fallback to DEFAULT_SECRET...");
+      result = doDecrypt(cipherBase64, fallbackDefaultKey);
+      if (result != null) {
+        log.info("[ApiKeyCryptoService] Successfully decrypted payload using DEFAULT_SECRET fallback.");
+        return result;
+      }
+    }
+
+    log.warn("[ApiKeyCryptoService] Failed to decrypt credential payload with all available secrets");
+    return null;
+  }
+
+  private String doDecrypt(String cipherBase64, SecretKey key) {
     try {
       byte[] cipherBytes = Base64.getDecoder().decode(cipherBase64);
       if (cipherBytes.length <= GCM_IV_LENGTH_BYTES) {
@@ -91,11 +119,10 @@ public class ApiKeyCryptoService {
       byteBuffer.get(encrypted);
 
       Cipher cipher = Cipher.getInstance(ALGORITHM);
-      cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
+      cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv));
       byte[] plainBytes = cipher.doFinal(encrypted);
       return new String(plainBytes, StandardCharsets.UTF_8);
     } catch (Exception e) {
-      log.warn("[ApiKeyCryptoService] Failed to decrypt credential payload: {}", e.getMessage());
       return null;
     }
   }

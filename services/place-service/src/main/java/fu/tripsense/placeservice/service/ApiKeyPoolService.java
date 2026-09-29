@@ -213,6 +213,10 @@ public class ApiKeyPoolService {
     }
 
     String rawKey = resolveRawKey(target);
+    if (rawKey == null || rawKey.isBlank()) {
+      throw new IllegalArgumentException(
+          "Không thể giải mã API Key này để kích hoạt. Vui lòng kiểm tra lại cấu hình mã hóa.");
+    }
 
     // 1. Demote any currently ACTIVE keys of this provider to INACTIVE
     Query demoteQuery =
@@ -386,8 +390,19 @@ public class ApiKeyPoolService {
             });
   }
 
+  public record KeyValidationResult(boolean isValid, String failureReason, ApiKeyStatus suggestedStatus) {}
+
   public boolean testKey(ApiKeyProvider provider, String rawKey) {
-    if (rawKey == null || rawKey.isBlank()) return false;
+    return validateKeyWithDetails(provider, rawKey).isValid();
+  }
+
+  public KeyValidationResult validateKeyWithDetails(ApiKeyProvider provider, String rawKey) {
+    if (rawKey == null || rawKey.isBlank()) {
+      return new KeyValidationResult(
+          false,
+          "Không thể giải mã API Key: Khóa mã hóa không khớp hoặc key bị trống (Decryption failed)",
+          ApiKeyStatus.INVALID);
+    }
     String trimmed = rawKey.trim();
 
     try {
@@ -410,7 +425,9 @@ public class ApiKeyPoolService {
                 .header("x-api-key", trimmed)
                 .retrieve()
                 .toBodilessEntity();
-        return res.getStatusCode().is2xxSuccessful();
+        if (res.getStatusCode().is2xxSuccessful()) {
+          return new KeyValidationResult(true, null, null);
+        }
       } else if (provider == ApiKeyProvider.GEMINI) {
         org.springframework.web.client.RestClient client =
             org.springframework.web.client.RestClient.builder()
@@ -418,7 +435,9 @@ public class ApiKeyPoolService {
                 .build();
         var res =
             client.get().uri("/v1beta/models?key=" + trimmed).retrieve().toBodilessEntity();
-        return res.getStatusCode().is2xxSuccessful();
+        if (res.getStatusCode().is2xxSuccessful()) {
+          return new KeyValidationResult(true, null, null);
+        }
       } else if (provider == ApiKeyProvider.OPENAI) {
         org.springframework.web.client.RestClient client =
             org.springframework.web.client.RestClient.builder()
@@ -431,7 +450,9 @@ public class ApiKeyPoolService {
                 .header("Authorization", "Bearer " + trimmed)
                 .retrieve()
                 .toBodilessEntity();
-        return res.getStatusCode().is2xxSuccessful();
+        if (res.getStatusCode().is2xxSuccessful()) {
+          return new KeyValidationResult(true, null, null);
+        }
       } else if (provider == ApiKeyProvider.GOOGLE_MAPS) {
         org.springframework.web.client.RestClient client =
             org.springframework.web.client.RestClient.builder()
@@ -443,13 +464,28 @@ public class ApiKeyPoolService {
                 .uri("/maps/api/place/autocomplete/json?input=test&key=" + trimmed)
                 .retrieve()
                 .toBodilessEntity();
-        return res.getStatusCode().is2xxSuccessful();
+        if (res.getStatusCode().is2xxSuccessful()) {
+          return new KeyValidationResult(true, null, null);
+        }
       }
+    } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
+      log.warn("[ApiKeyPool] Validation 429 Too Many Requests for provider {}: {}", provider, e.getMessage());
+      return new KeyValidationResult(
+          false, "429: Hết hạn mức truy vấn nhà cung cấp (Quota Exceeded)", ApiKeyStatus.EXHAUSTED);
+    } catch (org.springframework.web.client.HttpClientErrorException.Unauthorized
+        | org.springframework.web.client.HttpClientErrorException.Forbidden e) {
+      log.warn("[ApiKeyPool] Validation 401/403 for provider {}: {}", provider, e.getMessage());
+      return new KeyValidationResult(
+          false, "401/403: API Key không hợp lệ hoặc IP bị chặn bởi nhà cung cấp", ApiKeyStatus.INVALID);
+    } catch (org.springframework.web.client.ResourceAccessException e) {
+      log.warn("[ApiKeyPool] Validation network error for provider {}: {}", provider, e.getMessage());
+      return new KeyValidationResult(
+          false, "Lỗi kết nối mạng: Không thể kết nối tới máy chủ nhà cung cấp (" + e.getMessage() + ")", null);
     } catch (Exception e) {
-      log.warn("[ApiKeyPool] Validation failed for provider {}: {}", provider, e.getMessage());
-      return false;
+      log.warn("[ApiKeyPool] Validation exception for provider {}: {}", provider, e.getMessage());
+      return new KeyValidationResult(false, "Lỗi kiểm tra kết nối: " + e.getMessage(), ApiKeyStatus.EXHAUSTED);
     }
-    return false;
+    return new KeyValidationResult(false, "Phản hồi không xác định từ nhà cung cấp", ApiKeyStatus.EXHAUSTED);
   }
 
   public Map<String, Object> testKeyById(String id) {
@@ -460,10 +496,10 @@ public class ApiKeyPoolService {
 
     ApiKeyProvider provider = target.getProvider();
     String rawKey = resolveRawKey(target);
-    boolean valid = testKey(provider, rawKey);
+    KeyValidationResult result = validateKeyWithDetails(provider, rawKey);
 
-    if (valid) {
-      if (target.getStatus() == ApiKeyStatus.EXHAUSTED) {
+    if (result.isValid()) {
+      if (target.getStatus() == ApiKeyStatus.EXHAUSTED || target.getStatus() == ApiKeyStatus.INVALID) {
         target.setStatus(ApiKeyStatus.INACTIVE);
         target.setFailureReason(null);
         target.setExhaustedAt(null);
@@ -471,11 +507,15 @@ public class ApiKeyPoolService {
       }
     } else {
       boolean wasActive = target.getStatus() == ApiKeyStatus.ACTIVE;
-      target.setStatus(ApiKeyStatus.EXHAUSTED);
-      target.setFailureReason("Connection test failed (403 / 429 Quota Exceeded / Invalid Key)");
-      target.setExhaustedAt(Instant.now());
+      ApiKeyStatus newStatus =
+          result.suggestedStatus() != null ? result.suggestedStatus() : target.getStatus();
+      target.setStatus(newStatus);
+      target.setFailureReason(result.failureReason());
+      if (newStatus == ApiKeyStatus.EXHAUSTED) {
+        target.setExhaustedAt(Instant.now());
+      }
       repository.save(target);
-      if (wasActive) {
+      if (wasActive && newStatus != ApiKeyStatus.ACTIVE) {
         invalidateCache(provider);
         getActiveKeyItem(provider);
       }
@@ -483,7 +523,7 @@ public class ApiKeyPoolService {
 
     return Map.of(
         "id", id,
-        "valid", valid,
+        "valid", result.isValid(),
         "status", target.getStatus().name(),
         "maskedKey", target.getMaskedKey() != null ? target.getMaskedKey() : "",
         "failureReason", target.getFailureReason() != null ? target.getFailureReason() : "");

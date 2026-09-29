@@ -13,6 +13,7 @@ import fu.tripsense.placeservice.domain.repository.ApiKeyPoolRepository;
 import fu.tripsense.placeservice.security.ApiKeyCryptoService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -219,5 +220,25 @@ class ApiKeyPoolServiceTest {
     assertThat(activated.getId()).isEqualTo("id-3");
     verify(mongoTemplate).updateMulti(any(Query.class), any(Update.class), eq(ApiKeyPoolItem.class));
     verify(mongoTemplate).findAndModify(any(Query.class), any(Update.class), any(FindAndModifyOptions.class), eq(ApiKeyPoolItem.class));
+  }
+
+  @Test
+  void testKeyById_handlesUndecryptableKey() {
+    ApiKeyPoolItem badKey =
+        ApiKeyPoolItem.builder()
+            .id("bad-id")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .encryptedKey("corrupted-base64-payload")
+            .status(ApiKeyStatus.INACTIVE)
+            .build();
+
+    when(repository.findById("bad-id")).thenReturn(Optional.of(badKey));
+    when(repository.save(any(ApiKeyPoolItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    Map<String, Object> result = service.testKeyById("bad-id");
+
+    assertThat(result.get("valid")).isEqualTo(false);
+    assertThat(result.get("status")).isEqualTo("INVALID");
+    assertThat((String) result.get("failureReason")).contains("Không thể giải mã API Key");
   }
 }

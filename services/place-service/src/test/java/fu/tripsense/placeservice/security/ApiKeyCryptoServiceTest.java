@@ -62,4 +62,31 @@ class ApiKeyCryptoServiceTest {
     assertThat(cryptoService.decrypt("   ")).isNull();
     assertThat(cryptoService.hashKey(null)).isNull();
   }
+
+  @Test
+  void constructor_withBlankOrNullSecret_fallsBackToDefaultSecret() {
+    ApiKeyCryptoService defaultService = new ApiKeyCryptoService("tripsense-default-api-key-encryption-secret-32b");
+    ApiKeyCryptoService blankService = new ApiKeyCryptoService("   ");
+    ApiKeyCryptoService nullService = new ApiKeyCryptoService(null);
+
+    String key = "test-secret-value-123";
+    String encryptedWithDefault = defaultService.encrypt(key);
+
+    assertThat(blankService.decrypt(encryptedWithDefault)).isEqualTo(key);
+    assertThat(nullService.decrypt(encryptedWithDefault)).isEqualTo(key);
+  }
+
+  @Test
+  void decrypt_withFallbackToDefaultSecret_succeedsWhenPrimarySecretDiffers() {
+    // Encrypted using default secret (like old database records)
+    ApiKeyCryptoService defaultService = new ApiKeyCryptoService("tripsense-default-api-key-encryption-secret-32b");
+    String original = "my-secret-token-xyz";
+    String encryptedWithDefault = defaultService.encrypt(original);
+
+    // New service instance with a custom production secret
+    ApiKeyCryptoService customService = new ApiKeyCryptoService("brand-new-custom-production-secret-12345678");
+
+    // Must still decrypt correctly thanks to fallback
+    assertThat(customService.decrypt(encryptedWithDefault)).isEqualTo(original);
+  }
 }
