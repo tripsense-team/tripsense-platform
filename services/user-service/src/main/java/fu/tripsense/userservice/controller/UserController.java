@@ -1,5 +1,6 @@
 package fu.tripsense.userservice.controller;
 
+import fu.tripsense.userservice.dto.request.PartnerEnrollmentRequest;
 import fu.tripsense.userservice.dto.request.PublicProfileBatchRequest;
 import fu.tripsense.userservice.dto.request.TravelPreferenceRequest;
 import fu.tripsense.userservice.dto.request.UpdateProfileRequest;
@@ -7,6 +8,7 @@ import fu.tripsense.userservice.dto.response.ApiResponse;
 import fu.tripsense.userservice.dto.response.OnboardingGateDto;
 import fu.tripsense.userservice.dto.response.PublicProfileDto;
 import fu.tripsense.userservice.dto.response.TravelPreferenceDto;
+import fu.tripsense.userservice.dto.response.UserDto;
 import fu.tripsense.userservice.dto.response.UserProfileDto;
 import fu.tripsense.userservice.entity.User;
 import fu.tripsense.userservice.service.TravelPreferenceService;
@@ -26,6 +28,19 @@ public class UserController {
 
   private final UserService userService;
   private final TravelPreferenceService travelPreferenceService;
+
+  @GetMapping("/me")
+  public ResponseEntity<ApiResponse<UserDto>> getMe(@AuthenticationPrincipal User currentUser) {
+    return ResponseEntity.ok(ApiResponse.success(userService.getMe(currentUser.getId())));
+  }
+
+  @PostMapping({"/me/partner-enrollment", "/partner-enrollment"})
+  public ResponseEntity<ApiResponse<UserDto>> enrollPartner(
+      @AuthenticationPrincipal User currentUser,
+      @RequestBody(required = false) PartnerEnrollmentRequest request) {
+    UserDto enrolled = userService.enrollPartner(currentUser.getId(), request);
+    return ResponseEntity.ok(ApiResponse.success("Partner enrollment successful", enrolled));
+  }
 
   @GetMapping("/profile/{userId}")
   public ResponseEntity<ApiResponse<UserProfileDto>> getUserProfile(@PathVariable UUID userId) {

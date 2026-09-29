@@ -17,6 +17,7 @@ import { siteConfig } from "@/config/site";
 import { useAuth } from "../context/auth-context";
 import { UserRole, type AuthModalStep } from "../types";
 import { getAuthErrorMessage } from "../utils/auth-error-helper";
+import { isUserAdmin } from "../utils/role-helpers";
 import { GoogleLogin } from "@react-oauth/google";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/services/api-client";
@@ -121,11 +122,11 @@ export function AuthModal({
       const response = await loginWithGoogle(idToken);
       setSuccessMsg("Logged in with Google successfully!");
 
-      const loggedInRole = response.data?.user?.role;
+      const isAdmin = isUserAdmin(response.data?.user);
       setTimeout(() => {
         onOpenChange(false);
         // Role-Based Navigation: ADMIN to /admin, USER to /explore
-        if (loggedInRole === UserRole.ADMIN) {
+        if (isAdmin) {
           router.replace("/admin");
         } else {
           router.replace("/explore");
@@ -165,11 +166,11 @@ export function AuthModal({
       const response = await login({ email, password });
       setSuccessMsg("Đăng nhập thành công!");
 
-      const loggedInRole = response.data?.user?.role;
+      const isAdmin = isUserAdmin(response.data?.user);
       setTimeout(() => {
         onOpenChange(false);
         // Role-Based Navigation: ADMIN to /admin, USER to /explore
-        if (loggedInRole === UserRole.ADMIN) {
+        if (isAdmin) {
           router.replace("/admin");
         } else {
           router.replace("/explore");

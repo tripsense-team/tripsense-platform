@@ -7,6 +7,8 @@ import { useAuthStore } from "../store/use-auth-store";
 import { UserRole } from "../types";
 import { AuthLoadingScreen } from "@/components/shared";
 
+import { normalizeRole, isUserAdmin } from "../utils/role-helpers";
+
 export interface AuthGuardProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
@@ -28,8 +30,13 @@ export function AuthGuard({
     if (isChecking) return false;
     if (requireAuth && !isAuthenticated) return false;
     if (allowedRoles && allowedRoles.length > 0) {
-      if (!isAuthenticated) return false;
-      if (!user || !allowedRoles.includes(user.role)) return false;
+      if (!isAuthenticated || !user) return false;
+      const userRole = normalizeRole(user.role);
+      const hasDirectRole = allowedRoles.includes(userRole);
+      const hasRolesArray =
+        Array.isArray(user.roles) &&
+        user.roles.some((r) => allowedRoles.includes(normalizeRole(r)));
+      return hasDirectRole || hasRolesArray;
     }
     return true;
   }, [isChecking, requireAuth, isAuthenticated, allowedRoles, user]);
@@ -59,15 +66,15 @@ export function AuthGuard({
         return;
       }
 
-      if (user && !allowedRoles.includes(user.role)) {
-        if (user.role === UserRole.USER) {
-          router.replace("/explore");
+      if (user && !isAuthorized) {
+        if (isUserAdmin(user)) {
+          router.replace("/admin");
         } else {
-          router.replace("/");
+          router.replace("/explore");
         }
       }
     }
-  }, [isChecking, isAuthenticated, user, allowedRoles, requireAuth, router]);
+  }, [isChecking, isAuthenticated, isAuthorized, user, allowedRoles, requireAuth, router]);
 
   // Zero Flicker: while checking OR if unauthorized/unauthenticated, render loading screen
   if (isChecking || !isAuthorized) {

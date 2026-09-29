@@ -52,6 +52,13 @@ jwt:
 place-service:
   url: ${PLACE_SERVICE_URL:http://localhost:${PLACE_SERVICE_PORT:8083}}
 
+hotel:
+  mail:
+    url: ${HOTEL_MAIL_URL:http://localhost:8082}
+    secret: ${HOTEL_MAIL_SECRET:}
+  jobs:
+    enabled: ${HOTEL_JOBS_ENABLED:true}
+
 management:
   endpoint:
     health:

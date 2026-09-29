@@ -160,6 +160,8 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SOCIAL_RATE_LIMIT_ENABLED: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      AI_RESPONSE_TIMEOUT: ${AI_RESPONSE_TIMEOUT:-300s}
+      GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT: ${GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT:-300s}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -232,6 +234,7 @@ services:
       RECOMMENDATION_DB_PASS: ${RECOMMENDATION_DB_PASS:-123456}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       PLACE_SERVICE_URL: http://place-service:8082
       CONTEXT_SERVICE_URL: http://context-service:8087
       TRIP_SERVICE_URL: http://trip-service:8084
@@ -380,6 +383,7 @@ services:
         required: false
     environment:
       TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
+      HOTEL_MAIL_URL: http://mail-service:8082
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: "5432"
       TRIP_DB_USER: ${TRIP_DB_USER:-postgres}
@@ -461,8 +465,11 @@ services:
       AI_DATABASE_URL: ${AI_DATABASE_URL:-postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-${OPENAI_MODEL:-gpt-4o-mini}}
+      AI_MODEL: ${AI_MODEL:-${OPENAI_MODEL:-gpt-5.6-luna}}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
       AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
+      RUN_TIMEOUT_SECONDS: ${RUN_TIMEOUT_SECONDS:-300}
+      RUN_LEASE_SECONDS: ${RUN_LEASE_SECONDS:-300}
       PLACE_SERVICE_URL: http://place-service:8082
       RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       TRIP_SERVICE_URL: http://trip-service:8084

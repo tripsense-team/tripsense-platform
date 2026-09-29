@@ -84,6 +84,11 @@ export function CommentItem({
               <span className="text-micro text-muted-foreground">
                 · {formatRelativeTime(comment.createdAt, locale)}
               </span>
+              {comment.submittedUnderRevision && (
+                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-micro font-semibold text-primary">
+                  bản v{comment.submittedUnderRevision}
+                </span>
+              )}
             </div>
 
             {/* Replying indicator tag if this comment is a reply */}

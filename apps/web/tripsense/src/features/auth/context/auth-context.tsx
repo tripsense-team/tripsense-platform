@@ -4,6 +4,7 @@ import * as React from "react";
 import { authApi } from "../services/auth-api";
 import { useAuthStore, loadCachedUser } from "../store/use-auth-store";
 import { profileService } from "@/features/profile";
+import { normalizeRole } from "../utils/role-helpers";
 import {
   hasLoggedInCookie,
   setLoggedInCookie,
@@ -90,8 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const claims = parseJwtClaims(response.data.accessToken);
           const cached = loadCachedUser();
           const roleStr = claims?.role || cached?.role || UserRole.USER;
-          const parsedRole =
-            roleStr === "ROLE_ADMIN" ? UserRole.ADMIN : UserRole.USER;
+          const parsedRole = normalizeRole(roleStr);
 
           const recoveredUser: User = {
             id: claims?.sub || cached?.id || "user-id",
@@ -105,6 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuth(recoveredUser, response.data.accessToken);
 
           // Background fetch to restore avatar/name from user-service
+          // We ignore isMounted here because setAuth triggers a re-render that resets it,
+          // and we still want to populate the global store with the profile data.
           profileService
             .getUserProfile(recoveredUser.id)
             .then((profile) => {
@@ -113,6 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   avatar: profile.avatarUrl || undefined,
                   name: profile.displayName || undefined,
                 });
+                if (profile.onboardingRequired === false) {
+                  useAuthStore.getState().setOnboardingCompleted(true);
+                }
               }
             })
             .catch(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { LandingHeader, LandingFooter } from "@/components/layout/landing";
 import {
   LandingHero,
@@ -16,9 +16,8 @@ import { AuthModal, useAuth } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
 
 function LandingContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, status, isLoading } = useAuth();
+  const { status, isLoading } = useAuth();
 
   const signinParam = searchParams.get("signin");
   const signupParam = searchParams.get("signup");
@@ -33,14 +32,6 @@ function LandingContent() {
   const authModalOpen = isParamPrompt || activeMode !== null;
   const authMode = activeMode ?? (signupParam === "true" ? "signup" : "signin");
 
-  // Authenticated User Route Rule:
-  // If user is authenticated, immediately redirect to Home (/explore)
-  React.useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/explore");
-    }
-  }, [isLoading, isAuthenticated, router]);
-
   const handleOpenAuthModal = (mode: "signin" | "signup") => {
     setAuthModalDismissed(false);
     setActiveMode(mode);
@@ -53,9 +44,8 @@ function LandingContent() {
     }
   };
 
-  // While checking auth status OR if already authenticated (redirect in flight):
-  // Render AuthLoadingScreen. DO NOT render Landing Page!
-  if (isLoading || status === "checking" || isAuthenticated) {
+  // While checking auth status:
+  if (isLoading || status === "checking") {
     return <AuthLoadingScreen />;
   }
 

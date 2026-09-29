@@ -73,4 +73,104 @@ class UserControllerTest {
 
     verify(userService).getPublicProfile(id);
   }
+
+  @Test
+  @DisplayName("getMe returns 200 and current UserDto")
+  void getMe_Success() throws Exception {
+    UUID id = UUID.randomUUID();
+    fu.tripsense.userservice.entity.User currentUser =
+        fu.tripsense.userservice.entity.User.builder()
+            .id(id)
+            .email("me@tripsense.app")
+            .role("ROLE_USER")
+            .partnerEnrolled(true)
+            .status(fu.tripsense.userservice.enums.UserStatus.ACTIVE)
+            .build();
+
+    org.springframework.security.core.context.SecurityContextHolder.getContext()
+        .setAuthentication(
+            new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                currentUser, null, currentUser.getAuthorities()));
+
+    fu.tripsense.userservice.dto.response.UserDto dto =
+        fu.tripsense.userservice.dto.response.UserDto.builder()
+            .id(id)
+            .email("me@tripsense.app")
+            .role("ROLE_USER")
+            .roles(List.of("ROLE_USER", "ROLE_PARTNER"))
+            .partnerEnrolled(true)
+            .status(fu.tripsense.userservice.enums.UserStatus.ACTIVE)
+            .build();
+
+    when(userService.getMe(id)).thenReturn(dto);
+
+    MockMvc customMvc =
+        MockMvcBuilders.standaloneSetup(userController)
+            .setCustomArgumentResolvers(
+                new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
+            .build();
+
+    customMvc
+        .perform(get("/api/users/me").accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.id").value(id.toString()))
+        .andExpect(jsonPath("$.data.email").value("me@tripsense.app"))
+        .andExpect(jsonPath("$.data.role").value("ROLE_USER"))
+        .andExpect(jsonPath("$.data.roles[0]").value("ROLE_USER"))
+        .andExpect(jsonPath("$.data.roles[1]").value("ROLE_PARTNER"))
+        .andExpect(jsonPath("$.data.partnerEnrolled").value(true));
+
+    verify(userService).getMe(id);
+  }
+
+  @Test
+  @DisplayName("enrollPartner returns 200 and updated UserDto with partner role")
+  void enrollPartner_Success() throws Exception {
+    UUID id = UUID.randomUUID();
+    fu.tripsense.userservice.entity.User currentUser =
+        fu.tripsense.userservice.entity.User.builder()
+            .id(id)
+            .email("me@tripsense.app")
+            .role("ROLE_USER")
+            .status(fu.tripsense.userservice.enums.UserStatus.ACTIVE)
+            .build();
+
+    org.springframework.security.core.context.SecurityContextHolder.getContext()
+        .setAuthentication(
+            new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                currentUser, null, currentUser.getAuthorities()));
+
+    fu.tripsense.userservice.dto.response.UserDto dto =
+        fu.tripsense.userservice.dto.response.UserDto.builder()
+            .id(id)
+            .email("me@tripsense.app")
+            .role("ROLE_USER")
+            .roles(List.of("ROLE_USER", "ROLE_PARTNER"))
+            .partnerEnrolled(true)
+            .status(fu.tripsense.userservice.enums.UserStatus.ACTIVE)
+            .build();
+
+    when(userService.enrollPartner(eq(id), any())).thenReturn(dto);
+
+    MockMvc customMvc =
+        MockMvcBuilders.standaloneSetup(userController)
+            .setCustomArgumentResolvers(
+                new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
+            .build();
+
+    customMvc
+        .perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
+                    "/api/users/me/partner-enrollment")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"acceptedTermsVersion\":\"v1.0\"}")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.partnerEnrolled").value(true))
+        .andExpect(jsonPath("$.data.roles[1]").value("ROLE_PARTNER"));
+
+    verify(userService).enrollPartner(eq(id), any());
+  }
 }

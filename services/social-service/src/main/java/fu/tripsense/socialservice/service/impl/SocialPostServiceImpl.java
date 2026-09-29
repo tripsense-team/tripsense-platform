@@ -7,6 +7,7 @@ import fu.tripsense.socialservice.client.PublicProfileClientResponse;
 import fu.tripsense.socialservice.client.TripPublicationClientResponse;
 import fu.tripsense.socialservice.client.TripServiceClient;
 import fu.tripsense.socialservice.client.UserPublicProfileClient;
+import fu.tripsense.socialservice.client.dto.InternalGuideSummaryResponse;
 import fu.tripsense.socialservice.dto.request.CreateCommentRequest;
 import fu.tripsense.socialservice.dto.request.CreatePostRequest;
 import fu.tripsense.socialservice.dto.request.CreateTripShareRequest;
@@ -50,6 +51,7 @@ public class SocialPostServiceImpl implements SocialPostService {
   private final CommentLikeRepository commentLikes;
   private final SocialTripShareRepository tripShares;
   private final SocialTripShareSnapshotRepository tripShareSnapshots;
+  private final SocialGuidePromotionRepository guidePromotions;
   private final TripServiceClient tripServiceClient;
   private final CurrentUserProvider currentUserProvider;
   private final ObjectMapper objectMapper;
@@ -78,9 +80,11 @@ public class SocialPostServiceImpl implements SocialPostService {
       UUID userId, String rawType, int page, int size, AuthenticatedUser viewer) {
     validatePage(page, size);
     String type = rawType == null ? "ALL" : rawType.trim().toUpperCase(Locale.ROOT);
-    if (!Set.of("ALL", "STANDARD", "TRIP_SHARE").contains(type)) {
+    if (!Set.of("ALL", "STANDARD", "TRIP_SHARE", "GUIDE_PROMOTION").contains(type)) {
       throw new SocialException(
-          HttpStatus.BAD_REQUEST, "INVALID_POST_TYPE", "Type must be ALL, STANDARD, or TRIP_SHARE");
+          HttpStatus.BAD_REQUEST,
+          "INVALID_POST_TYPE",
+          "Type must be ALL, STANDARD, TRIP_SHARE, or GUIDE_PROMOTION");
     }
     Pageable pageable =
         PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
@@ -92,6 +96,8 @@ public class SocialPostServiceImpl implements SocialPostService {
       result = posts.findByPostTypeAndDeletedAtIsNull("STANDARD", pageable);
     } else if (userId == null && "TRIP_SHARE".equals(type)) {
       result = posts.findPublicFeedByType("TRIP_SHARE", pageable);
+    } else if (userId == null && "GUIDE_PROMOTION".equals(type)) {
+      result = posts.findPublicFeedByType("GUIDE_PROMOTION", pageable);
     } else if (userId == null) {
       result =
           viewer == null
@@ -105,6 +111,8 @@ public class SocialPostServiceImpl implements SocialPostService {
       result = posts.findByAuthorIdAndPostTypeAndDeletedAtIsNull(userId, "STANDARD", pageable);
     } else if ("TRIP_SHARE".equals(type)) {
       result = posts.findPublicPostsByAuthorIdAndType(userId, "TRIP_SHARE", pageable);
+    } else if ("GUIDE_PROMOTION".equals(type)) {
+      result = posts.findPublicPostsByAuthorIdAndType(userId, "GUIDE_PROMOTION", pageable);
     } else {
       result =
           viewer == null
@@ -586,6 +594,15 @@ public class SocialPostServiceImpl implements SocialPostService {
               share.setUpdatedAt(now);
               tripShares.save(share);
             });
+
+    guidePromotions
+        .findById(postId)
+        .ifPresent(
+            gp -> {
+              gp.setRemovedAt(now);
+              gp.setUpdatedAt(now);
+              guidePromotions.save(gp);
+            });
   }
 
   @Override
@@ -657,7 +674,8 @@ public class SocialPostServiceImpl implements SocialPostService {
                       ? c.getReplyToAuthorName()
                       : (c.getParentCommentId() == null
                           ? null
-                          : names.get(c.getParentCommentId())));
+                          : names.get(c.getParentCommentId())),
+                  c.getSubmittedUnderRevision());
             })
         .toList();
   }
@@ -682,7 +700,7 @@ public class SocialPostServiceImpl implements SocialPostService {
     if (requestedParentId != null) {
       SocialComment targetParent =
           comments
-              .findByIdAndPostIdAndDeletedAtIsNull(requestedParentId, postId)
+               .findByIdAndPostIdAndDeletedAtIsNull(requestedParentId, postId)
               .orElseThrow(
                   () ->
                       new SocialException(
@@ -725,6 +743,7 @@ public class SocialPostServiceImpl implements SocialPostService {
                 .content(content)
                 .likeCount(0)
                 .replyToAuthorName(replyToAuthorName)
+                .submittedUnderRevision(request.submittedUnderRevision())
                 .createdAt(now)
                 .updatedAt(now)
                 .build());
@@ -752,7 +771,8 @@ public class SocialPostServiceImpl implements SocialPostService {
         comment.getCreatedAt(),
         0,
         false,
-        replyToAuthorName);
+        replyToAuthorName,
+        comment.getSubmittedUnderRevision());
   }
 
   @Override
@@ -834,6 +854,21 @@ public class SocialPostServiceImpl implements SocialPostService {
         tripShares.findByPostIdIn(ids).stream()
             .collect(Collectors.toMap(SocialTripShare::getPostId, Function.identity()));
 
+    Map<UUID, SocialGuidePromotion> guidePromotionsByPostId =
+        guidePromotions.findByPostIdIn(ids).stream()
+            .collect(Collectors.toMap(SocialGuidePromotion::getPostId, Function.identity()));
+
+    List<UUID> sourcePromotionIds =
+        guidePromotionsByPostId.values().stream()
+            .map(SocialGuidePromotion::getSourcePromotionId)
+            .distinct()
+            .toList();
+
+    Map<UUID, InternalGuideSummaryResponse> guideSummaries =
+        sourcePromotionIds.isEmpty()
+            ? Map.of()
+            : tripServiceClient.fetchGuideSummariesBatch(sourcePromotionIds);
+
     List<UUID> authorIds = postList.stream().map(SocialPost::getAuthorId).distinct().toList();
     Map<UUID, PublicProfileClientResponse> profilesByUserId =
         (userPublicProfileClient == null || authorIds.isEmpty())
@@ -854,6 +889,15 @@ public class SocialPostServiceImpl implements SocialPostService {
             p -> {
               SocialTripShare share = sharesByPostId.get(p.getId());
               SharedTripSummaryResponse tripSummary = share != null ? toTripSummary(share) : null;
+              SocialGuidePromotion gp = guidePromotionsByPostId.get(p.getId());
+              InternalGuideSummaryResponse guideSummary =
+                  gp != null ? guideSummaries.get(gp.getSourcePromotionId()) : null;
+              GuidePromotionSummaryResponse guidePromotion =
+                  guideSummary != null ? toGuidePromotionSummary(guideSummary) : null;
+              String guideAvailability =
+                  guideSummary != null
+                      ? guideSummary.availability()
+                      : (gp != null ? (gp.isDistributionEnabled() && gp.getRemovedAt() == null ? "AVAILABLE" : "UNAVAILABLE") : null);
               String visibility = share != null ? share.getVisibility() : "PUBLIC";
               String postType = p.getPostType() != null ? p.getPostType() : "STANDARD";
               PublicProfileClientResponse profile = profilesByUserId.get(p.getAuthorId());
@@ -876,6 +920,8 @@ public class SocialPostServiceImpl implements SocialPostService {
                   urls.getOrDefault(p.getId(), List.of()),
                   visibility,
                   tripSummary,
+                  guidePromotion,
+                  guideAvailability,
                   p.getCreatedAt(),
                   p.getUpdatedAt(),
                   p.getLikeCount(),
@@ -883,6 +929,23 @@ public class SocialPostServiceImpl implements SocialPostService {
                   liked.contains(p.getId()));
             })
         .toList();
+  }
+
+  private GuidePromotionSummaryResponse toGuidePromotionSummary(InternalGuideSummaryResponse res) {
+    return new GuidePromotionSummaryResponse(
+        res.businessId(),
+        res.promotionId(),
+        res.approvedRevisionId(),
+        res.title(),
+        res.summary(),
+        res.coverImageUrl(),
+        res.areaTopics(),
+        res.skillLabels(),
+        res.languageLabels(),
+        res.indicativePrice(),
+        res.profilePath(),
+        res.promotionPath(),
+        res.canRequestInquiry());
   }
 
   private SharedTripSummaryResponse toTripSummary(SocialTripShare s) {
@@ -940,6 +1003,21 @@ public class SocialPostServiceImpl implements SocialPostService {
   }
 
   private void requireViewablePost(SocialPost post, AuthenticatedUser viewer) {
+    if ("GUIDE_PROMOTION".equals(post.getPostType())) {
+      SocialGuidePromotion gp =
+          guidePromotions
+              .findById(post.getId())
+              .filter(g -> g.getRemovedAt() == null)
+              .orElseThrow(
+                  () ->
+                      new SocialException(
+                          HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Guide promotion post not found"));
+      if (!gp.isDistributionEnabled() && (viewer == null || !viewer.id().equals(post.getAuthorId()))) {
+        throw new SocialException(HttpStatus.NOT_FOUND, "POST_NOT_FOUND", "Post not found");
+      }
+      return;
+    }
+
     if (!"TRIP_SHARE".equals(post.getPostType())) {
       return;
     }

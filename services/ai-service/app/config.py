@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,15 +9,22 @@ class Settings(BaseSettings):
     ai_database_url: str = "sqlite:///./tripsense_ai.db"
     jwt_access_secret: str = ""
     openai_api_key: str = ""
-    ai_model: str = "gpt-4o-mini"
+    ai_model: str = "gpt-5.6-luna"
+    openai_model: str | None = None
     ai_model_base_url: str | None = None
+
+    @model_validator(mode="after")
+    def sync_model(self) -> "Settings":
+        if self.openai_model and (not self.ai_model or self.ai_model in ("gpt-4o-mini", "gpt-5-gemini")):
+            self.ai_model = self.openai_model
+        return self
     ai_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     eureka_server: str | None = "http://localhost:8761/eureka/"
     ai_service_port: int = 8085
     max_message_chars: int = 8000
     max_context_messages: int = 20
     max_output_tokens: int = 1200
-    run_timeout_seconds: int = 120
+    run_timeout_seconds: int = 300
     per_user_active_runs: int = 3
     per_user_requests_per_minute: int = 10
     model_input_cost_per_million: float = 0
@@ -24,8 +32,9 @@ class Settings(BaseSettings):
     place_service_url: str = "http://place-service:8082"
     recommendation_service_url: str = "http://recommendation-service:8088"
     trip_service_url: str = "http://trip-service:8084"
+    hotel_gateway_url: str = "http://api-gateway:8080"
     user_service_url: str = "http://user-service:8081"
-    tool_timeout_seconds: float = 20
+    tool_timeout_seconds: float = 30
     max_tool_response_bytes: int = 262_144
     max_tool_calls_per_run: int = 4
     weather_provider: str = "mock"
@@ -33,7 +42,7 @@ class Settings(BaseSettings):
     brave_search_api_key: str = ""
     max_web_searches_per_run: int = 2
     routing_osrm_base_url: str = ""
-    run_lease_seconds: int = 120
+    run_lease_seconds: int = 300
     run_lease_poll_millis: int = 100
     max_clarifications_per_goal: int = 2
     summary_recent_messages: int = 8

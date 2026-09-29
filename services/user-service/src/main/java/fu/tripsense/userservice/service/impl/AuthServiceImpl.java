@@ -189,6 +189,8 @@ public class AuthServiceImpl implements AuthService {
         .id(user.getId())
         .email(user.getEmail())
         .role(user.getRole())
+        .roles(user.getRoles())
+        .partnerEnrolled(user.isPartnerEnrolled())
         .status(user.getStatus())
         .build();
   }
@@ -368,6 +370,8 @@ public class AuthServiceImpl implements AuthService {
                     .id(user.getId())
                     .email(user.getEmail())
                     .role(user.getRole())
+                    .roles(user.getRoles())
+                    .partnerEnrolled(user.isPartnerEnrolled())
                     .status(user.getStatus())
                     .build())
             .build();

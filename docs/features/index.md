@@ -12,6 +12,9 @@ Track every feature that enters the multi-agent workflow.
 | `mindtrip-explore-experience-redesign` | DONE | `apps/web/tripsense` | [Docs](./mindtrip-explore-experience-redesign.md) |
 | `explore-search-autocomplete-dropdown` | DONE | `apps/web/tripsense` | [Docs](./explore-search-autocomplete-dropdown.md) |
 | `place-detail-map-overlay` | DONE | `apps/web/tripsense` | [Docs](./place-detail-map-overlay.md) |
+| `partner-onboarding-and-business-approval` | DONE | `services/user-service`, `services/trip-service` (partner/hotel/guide), `services/social-service` (Community), `services/mail-service`, `services/api-gateway`, `services/ai-service`, `apps/web/tripsense` | [Docs — onboarding, Community guide promotion & inquiries](./partner-onboarding-and-business-approval.md) |
+| `hotel-management-and-booking` | SUPERSEDED; IMPLEMENTATION PAUSED | Inventory/hold invariants retained; Partner plan replaces onboarding/approval and extends fulfilment/support | [Docs](./hotel-management-and-booking.md) |
+| `hotel-availability-and-ota-redirect` | SUPERSEDED | External OTA integration deferred; first-party inventory is current direction | [Docs](./hotel-availability-and-ota-redirect.md) |
 | `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |
 | `web-typography-system` | DONE | `apps/web/tripsense` | [Docs](./web-typography-system.md) |
 | `place-search-embedding-sync` | DONE | `services/place-service`, `services/recommendation-service` | [Docs](./place-search-embedding-sync.md) |
@@ -47,6 +50,7 @@ Track every feature that enters the multi-agent workflow.
 - `APPROVED`: human approved the plan (`STATUS: APPROVED`).
 - `IMPLEMENTING`: approved implementation is in progress.
 - `DONE`: implementation, tests, review, and docs are complete.
+- `SUPERSEDED`: a newer feature plan replaces this scope; retained for reference, not authorization to implement.
 
 ## Template
 

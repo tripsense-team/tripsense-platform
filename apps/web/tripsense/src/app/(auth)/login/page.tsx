@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
-import { useAuth, UserRole, getAuthErrorMessage } from "@/features/auth";
+import { useAuth, UserRole, getAuthErrorMessage, isUserAdmin } from "@/features/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,8 +35,8 @@ export default function LoginPage() {
 
     try {
       const response = await login({ email: email.trim(), password });
-      const loggedInRole = response.data?.user?.role;
-      if (loggedInRole === UserRole.ADMIN) {
+      const isAdmin = isUserAdmin(response.data?.user);
+      if (isAdmin) {
         router.replace("/admin");
       } else {
         router.replace("/explore");

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { UserLayout } from "@/components/layout";
-import { useAuth, useAuthStore } from "@/features/auth";
+import { useAuth, useAuthStore, isUserAdmin } from "@/features/auth";
 import { onboardingApi } from "@/features/onboarding/services/onboarding-api";
 import { AuthLoadingScreen } from "@/components/shared";
 
@@ -19,6 +19,7 @@ export default function MainLayout({
 
   const isChecking =
     isLoading || status === "checking" || status === "initializing";
+  const isAdmin = isUserAdmin(user);
 
   // 1. Redirect unauthenticated users
   React.useEffect(() => {
@@ -50,7 +51,7 @@ export default function MainLayout({
       isChecking ||
       !isAuthenticated ||
       !user ||
-      user.role === "ROLE_ADMIN" ||
+      isAdmin ||
       onboardingCompleted
     ) {
       return;
@@ -90,7 +91,9 @@ export default function MainLayout({
         try {
           const gate = await onboardingApi.getGate();
           if (!active) return;
-          if (gate && !gate.required) {
+          const isRequired =
+            (gate as any)?.data?.required ?? (gate as any)?.required;
+          if (isRequired === false) {
             // User not requiring onboarding -> allow access without lockout
             setOnboardingCompleted(true);
             return;
@@ -111,7 +114,7 @@ export default function MainLayout({
     isChecking,
     isAuthenticated,
     user?.id,
-    user?.role,
+    isAdmin,
     onboardingCompleted,
     pathname,
     router,
@@ -128,7 +131,7 @@ export default function MainLayout({
   if (
     isChecking ||
     !isAuthenticated ||
-    (user?.role !== "ROLE_ADMIN" && !onboardingCompleted)
+    (!isAdmin && !onboardingCompleted)
   ) {
     return <AuthLoadingScreen message="Đang kiểm tra quyền truy cập..." />;
   }

@@ -151,4 +151,36 @@ describe("Auth Store & Navigation Lifecycle", () => {
     useAuthStore.getState().clearAuth();
     expect(loadCachedUser()).toBeNull();
   });
+
+  it("10. normalizes backend role strings ('ADMIN' -> UserRole.ADMIN, 'USER' -> UserRole.USER)", async () => {
+    const { normalizeRole, isUserAdmin } = await import("../utils/role-helpers");
+    expect(normalizeRole("ADMIN")).toBe(UserRole.ADMIN);
+    expect(normalizeRole("ROLE_ADMIN")).toBe(UserRole.ADMIN);
+    expect(normalizeRole("USER")).toBe(UserRole.USER);
+    expect(normalizeRole("ROLE_USER")).toBe(UserRole.USER);
+    expect(normalizeRole("MODERATOR")).toBe(UserRole.MODERATOR);
+    expect(normalizeRole("PARTNER")).toBe(UserRole.PARTNER);
+    expect(normalizeRole(null)).toBe(UserRole.USER);
+
+    expect(isUserAdmin({ role: "ADMIN" as any })).toBe(true);
+    expect(isUserAdmin({ role: UserRole.ADMIN })).toBe(true);
+    expect(isUserAdmin({ roles: ["ROLE_ADMIN"] })).toBe(true);
+    expect(isUserAdmin({ role: "USER" as any })).toBe(false);
+  });
+
+  it("11. setAuth normalizes incoming backend 'ADMIN' role and marks onboardingCompleted true", () => {
+    const backendAdmin = {
+      id: "admin-ea20c072",
+      email: "admin@tripsense.app",
+      role: "ADMIN" as any,
+      roles: ["ROLE_ADMIN", "ROLE_PARTNER"],
+      status: UserStatus.ACTIVE,
+    };
+
+    useAuthStore.getState().setAuth(backendAdmin, "admin.jwt.token");
+    const state = useAuthStore.getState();
+    expect(state.user?.role).toBe(UserRole.ADMIN);
+    expect(state.onboardingCompleted).toBe(true);
+    expect(state.isAuthenticated).toBe(true);
+  });
 });

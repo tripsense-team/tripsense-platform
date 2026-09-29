@@ -19,6 +19,7 @@ import {
   MoreHorizontal,
   User,
   LogOut,
+  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,8 @@ export interface NavItemDef {
 }
 
 const mainNavDefs: NavItemDef[] = [
+  { key: "trip.hotels.title", fallbackTitle: "Hotels", href: "/hotels", icon: MapPin },
+  { key: "nav.partner", fallbackTitle: "Partner", href: "/partner", icon: Store },
   {
     key: "nav.explore",
     fallbackTitle: "Explore",

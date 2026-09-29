@@ -1,15 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { Sparkles, Play, Star, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/features/auth";
 
 interface LandingHeroProps {
   onOpenAuthModal?: (mode: "signin" | "signup") => void;
 }
 
 export function LandingHero({ onOpenAuthModal }: LandingHeroProps) {
+  const { isAuthenticated, user } = useAuth();
   return (
     <section className="relative overflow-hidden pt-8 pb-16 md:pt-12 md:pb-24">
       <div className="container max-w-7xl mx-auto px-4 sm:px-6">
@@ -26,24 +29,47 @@ export function LandingHero({ onOpenAuthModal }: LandingHeroProps) {
             </div>
 
             <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.08] text-white">
-              Travel <br className="hidden sm:inline" />
-              differently.
+              {isAuthenticated && user?.name ? (
+                <>
+                  Welcome back, <br className="hidden sm:inline" />
+                  {user.name.split(" ")[0]}.
+                </>
+              ) : (
+                <>
+                  Travel <br className="hidden sm:inline" />
+                  differently.
+                </>
+              )}
             </h1>
 
             <p className="text-base sm:text-xl text-white/90 font-medium max-w-lg leading-relaxed">
-              Plan trips, get personalized recommendations, and book all in one
-              place with intelligent AI assistance.
+              {isAuthenticated
+                ? "Continue planning your next adventure with intelligent AI recommendations and custom itineraries."
+                : "Plan trips, get personalized recommendations, and book all in one place with intelligent AI assistance."}
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
-              <Button
-                size="lg"
-                onClick={() => onOpenAuthModal?.("signup")}
-                className="rounded-full bg-black text-white hover:bg-black/80 px-8 py-6 text-base font-semibold shadow-lg gap-2 border border-white/10"
-              >
-                <span>Start a trip</span>
-                <Sparkles className="h-4 w-4" />
-              </Button>
+              {isAuthenticated ? (
+                <Button
+                  asChild
+                  size="lg"
+                  className="rounded-full bg-black text-white hover:bg-black/80 px-8 py-6 text-base font-semibold shadow-lg gap-2 border border-white/10"
+                >
+                  <Link href="/ai-planner">
+                    <span>Plan your next trip</span>
+                    <Sparkles className="h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  onClick={() => onOpenAuthModal?.("signup")}
+                  className="rounded-full bg-black text-white hover:bg-black/80 px-8 py-6 text-base font-semibold shadow-lg gap-2 border border-white/10"
+                >
+                  <span>Start a trip</span>
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="lg"

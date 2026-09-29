@@ -16,6 +16,7 @@ import {
   ImageOff,
   ChevronLeft,
   ChevronRight,
+  Hotel,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,8 @@ function CategoryIcon({ category = "" }: { category?: string }) {
   if (/biển|bãi|beach|sea|đảo|ocean/i.test(text)) return <Waves className={className} />;
   if (/chùa|temple|pagoda|linh ứng|tháp|nhà thờ|di tích|lăng|heritage|museum/i.test(text))
     return <Landmark className={className} />;
+  if (/stay|hotel|resort|khách sạn|khu nghỉ|bungalow|villa|lodging/i.test(text))
+    return <Hotel className={className} />;
   return <Compass className={className} />;
 }
 
@@ -92,6 +95,23 @@ function MindtripPlaceCardComponent({
 
   const primaryCategory =
     place.categories?.[0] || t("places.defaultCategory", { defaultValue: "Place" });
+
+  const isStay = React.useMemo(() => {
+    const cat = (place.categories || []).join(" ").toLowerCase();
+    const name = (place.name || "").toLowerCase();
+    return (
+      cat.includes("stay") ||
+      cat.includes("hotel") ||
+      cat.includes("resort") ||
+      cat.includes("lodging") ||
+      name.includes("crown retreat") ||
+      name.includes("fusion quy nhon") ||
+      name.includes("ohana village") ||
+      name.includes("la cactus") ||
+      name.includes("maia resort") ||
+      name.includes("flamingo linh truong")
+    );
+  }, [place.categories, place.name]);
 
   const displayPhotos = React.useMemo(() => {
     return approvedPhotoGallery(
@@ -310,9 +330,9 @@ function MindtripPlaceCardComponent({
           {locationDisplay}
         </p>
 
-        {/* Row 4: Price Level */}
+        {/* Row 4: Price Level / Nightly Rate */}
         <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
-          $$
+          {isStay ? "66 US$ night" : "$$"}
         </p>
       </div>
     </div>

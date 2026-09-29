@@ -18,9 +18,10 @@ import { useDeletePost } from "../hooks";
 import { cn } from "@/lib/utils";
 import { ReportPostDialog } from "./report-post-dialog";
 import { useTranslation } from "@/i18n";
-import { Loader2, Check, UserPlus } from "lucide-react";
+import { Loader2, Check, UserPlus, Compass, ShieldCheck } from "lucide-react";
 import { getSocialPostRepository } from "../services";
 import { Button } from "@/components/ui/button";
+import { GuideInquiryFormModal } from "@/features/partner";
 
 interface PostCardProps {
   post: SocialPost;
@@ -42,6 +43,7 @@ export function PostCard({
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = React.useState(false);
+  const [inquiryModalOpen, setInquiryModalOpen] = React.useState(false);
 
   const visibilityLabel = (visibility?: SocialPost["visibility"]) => {
     switch (visibility) {
@@ -168,11 +170,21 @@ export function PostCard({
               >
                 {post.type === "TRIP_SHARE"
                   ? t("social.postTypeTrip")
+                  : post.type === "GUIDE_PROMOTION"
+                  ? (t("social.postTypeGuide") || "Hướng dẫn viên")
                   : t("social.postTypeStandard")}
               </Badge>
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{formatRelativeTime(post.createdAt, locale)}</span>
+              {post.updatedAt && post.updatedAt !== post.createdAt && (
+                <>
+                  <span>•</span>
+                  <span className="text-primary font-medium">
+                    {t("social.updatedAt") || "Đã cập nhật"}: {formatRelativeTime(post.updatedAt, locale)}
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span>{visibilityLabel(post.visibility)}</span>
             </div>
@@ -266,6 +278,82 @@ export function PostCard({
           compact={showDetailLink}
           href={`/community/posts/${post.id}`}
         />
+      )}
+
+      {/* Guide Promotion Artifact Card */}
+      {post.type === "GUIDE_PROMOTION" && post.guidePromotion && (
+        <div className="mb-4 rounded-xl border border-primary/25 bg-gradient-to-br from-primary/5 via-card to-background p-4 shadow-xs">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-2">
+                <Compass className="h-3.5 w-3.5" />
+                <span>Gói dịch vụ hướng dẫn viên</span>
+              </div>
+              <h4 className="text-base font-bold text-foreground line-clamp-1">
+                {post.guidePromotion.title}
+              </h4>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {post.guidePromotion.summary}
+              </p>
+            </div>
+
+            {post.guidePromotion.indicativePrice && (
+              <div className="text-right shrink-0">
+                <span className="text-[11px] text-muted-foreground block">Mức giá:</span>
+                <span className="text-sm font-bold text-primary">
+                  {post.guidePromotion.indicativePrice.amount.toLocaleString("vi-VN")}{" "}
+                  {post.guidePromotion.indicativePrice.currency} / {post.guidePromotion.indicativePrice.unit}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {post.guidePromotion.areaTopics?.map((at) => (
+              <Badge key={at} variant="outline" className="text-micro">
+                {at}
+              </Badge>
+            ))}
+            {post.guidePromotion.skillLabels?.map((sk) => (
+              <Badge key={sk} variant="secondary" className="text-micro">
+                {sk}
+              </Badge>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+            <Link
+              href={`/guides/${post.guidePromotion.businessId}`}
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Xem hồ sơ chuyên môn &rarr;
+            </Link>
+
+            <Button
+              size="sm"
+              onClick={() => setInquiryModalOpen(true)}
+              disabled={post.guidePromotion.canRequestInquiry === false}
+              className="h-8 text-xs font-medium"
+            >
+              {post.guidePromotion.canRequestInquiry === false
+                ? "Tạm dừng nhận mới"
+                : "Gửi yêu cầu tư vấn"}
+            </Button>
+          </div>
+
+          {/* Inquiry Modal */}
+          <GuideInquiryFormModal
+            open={inquiryModalOpen}
+            onOpenChange={setInquiryModalOpen}
+            guideBusinessId={post.guidePromotion.businessId}
+            guideDisplayName={post.author.name}
+            promotionId={post.guidePromotion.promotionId}
+            expectedSourceRevisionId={post.guidePromotion.approvedRevisionId || "00000000-0000-0000-0000-000000000000"}
+            sourceCommunityPostId={post.id}
+            areaId={post.guidePromotion.areaTopics?.[0] || "hoi-an"}
+            topicIds={post.guidePromotion.areaTopics?.slice(1) || ["general"]}
+          />
+        </div>
       )}
 
       {/* Media gallery */}

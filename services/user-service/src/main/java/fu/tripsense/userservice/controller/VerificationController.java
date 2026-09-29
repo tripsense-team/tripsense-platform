@@ -30,6 +30,8 @@ public class VerificationController {
             .id(user.getId())
             .email(user.getEmail())
             .role(user.getRole())
+            .roles(user.getRoles())
+            .partnerEnrolled(user.isPartnerEnrolled())
             .status(user.getStatus())
             .build();
     return ResponseEntity.ok(ApiResponse.success("Email verified successfully", userDto));

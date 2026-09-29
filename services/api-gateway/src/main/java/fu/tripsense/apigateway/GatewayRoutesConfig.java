@@ -33,6 +33,8 @@ class GatewayRoutesConfig {
 
   static final String TRIP_SERVICE_ROUTE_ID = "trip-service";
   static final String TRIP_SERVICE_PATH = "/api/trips/**";
+  static final String PARTNER_SERVICE_PATH = "/api/partners/**";
+  static final String ADMIN_PARTNER_SERVICE_PATH = "/api/admin/**";
   static final String TRIP_SERVICE_URI = "lb://trip-service";
 
   static final String SOCIAL_SERVICE_ROUTE_ID = "social-service";
@@ -68,6 +70,14 @@ class GatewayRoutesConfig {
           boolean recommendationRateLimitingEnabled) {
     return routes
         .routes()
+        .route("hotel-reservations", route -> route.path("/api/hotels/**")
+            .filters(filters -> filters.setResponseHeader("Cache-Control", "no-store")
+                .requestRateLimiter(config -> {
+                  config.setRateLimiter(placeRedisRateLimiter);
+                  config.setKeyResolver(clientIpKeyResolver);
+                  config.setDenyEmptyKey(true);
+                }))
+            .uri(TRIP_SERVICE_URI))
         .route(
             BLOCK_INTERNAL_ROUTE_ID,
             route ->
@@ -106,7 +116,24 @@ class GatewayRoutesConfig {
             route ->
                 route.path(USER_SERVICE_AUTH_PATH, USER_SERVICE_USERS_PATH).uri(USER_SERVICE_URI))
         .route(MAIL_SERVICE_ROUTE_ID, route -> route.path(MAIL_SERVICE_PATH).uri(MAIL_SERVICE_URI))
-        .route(TRIP_SERVICE_ROUTE_ID, route -> route.path(TRIP_SERVICE_PATH).uri(TRIP_SERVICE_URI))
+        .route(
+            TRIP_SERVICE_ROUTE_ID,
+            route ->
+                route
+                    .path(
+                        TRIP_SERVICE_PATH,
+                        PARTNER_SERVICE_PATH,
+                        ADMIN_PARTNER_SERVICE_PATH,
+                        "/api/guides/**",
+                        "/api/guide-promotions/**",
+                        "/api/guide-taxonomy",
+                        "/api/partner-listings/**",
+                        "/api/public/restaurants/**",
+                        "/api/partner-support-cases/**",
+                        "/api/guide-inquiries/**",
+                        "/api/me/guide-inquiries",
+                        "/api/me/guide-blocks/**")
+                    .uri(TRIP_SERVICE_URI))
         .route(
             RECOMMENDATION_SERVICE_ROUTE_ID,
             route -> {

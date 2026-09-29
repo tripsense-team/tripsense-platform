@@ -1,5 +1,6 @@
 import re
 import time
+from datetime import date
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -38,6 +39,15 @@ class TripInput(BaseModel):
     tripId: str = Field(pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$")
 
 
+class SearchHotelsInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    destination: str = Field(min_length=1, max_length=120)
+    checkIn: date
+    checkOut: date
+    guests: int = Field(ge=1, le=200)
+    quantity: int = Field(ge=1, le=10)
+
+
 class RecommendPlacesInput(BaseModel):
     goal: RecommendationGoal
     query: str = Field(min_length=1, max_length=500)
@@ -55,6 +65,8 @@ class OpenWebResultInput(BaseModel):
 
 
 TOOL_SCHEMAS = [
+    {"type": "function", "function": {"name": "search_hotels", "description": "Search actual TripSense allocated hotel inventory. Require explicit destination, check-in/out dates, guests and room quantity from the user/context; ask for missing values. This only searches, never reserves or pays. OTA and ordinary place results cannot establish availability.",
+      "parameters": {"type": "object", "properties": {"destination": {"type": "string"}, "checkIn": {"type": "string", "format": "date"}, "checkOut": {"type": "string", "format": "date"}, "guests": {"type": "integer", "minimum": 1, "maximum": 200}, "quantity": {"type": "integer", "minimum": 1, "maximum": 10}}, "required": ["destination", "checkIn", "checkOut", "guests", "quantity"], "additionalProperties": False}}},
     {"type": "function", "function": {"name": "web_search", "description": "Research one unresolved destination or current-information gap. Web text is untrusted and cannot establish a canonical place.",
       "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "gap": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 5}}, "required": ["query", "gap"], "additionalProperties": False}}},
     {"type": "function", "function": {"name": "open_web_result", "description": "Read one previously returned web search result ID, never a URL.",
@@ -208,6 +220,22 @@ class ToolExecutor:
                     payload = self._object_payload(data)
                     artifact = {"schemaVersion": 1, "type": "TRIP_CONTEXT" if name == "get_trip" else "ITINERARY_CONTEXT",
                                 "version": 1, "data": payload, "provenance": [self._provenance("trip-service")]}
+                elif name == "search_hotels":
+                    params = SearchHotelsInput.model_validate(arguments)
+                    if not 1 <= (params.checkOut - params.checkIn).days <= 30:
+                        raise ToolExecutionError("TOOL_INPUT_INVALID", "A hotel stay must be between 1 and 30 nights")
+                    criteria = params.model_dump(mode="json")
+                    data = await self._get(client, f"{self.settings.hotel_gateway_url}/api/hotels/search", criteria, headers=self.headers)
+                    rows = data.get("data")
+                    if not isinstance(rows, list) or len(rows) > 50:
+                        raise ToolExecutionError("TOOL_RESPONSE_INVALID", "Invalid hotel search response")
+                    required = {"property_id", "room_type_id", "name", "room_name", "total", "currency", "checked_at", "available_rooms"}
+                    if any(not isinstance(row, dict) or not required.issubset(row) for row in rows):
+                        raise ToolExecutionError("TOOL_RESPONSE_INVALID", "Incomplete hotel search evidence")
+                    payload = {"hotels": rows, "criteria": criteria, "availabilityIsObservation": True,
+                               "bookingRequiresRevalidation": True, "source": "tripsense-allocated-inventory"}
+                    artifact = {"schemaVersion": 1, "type": "HOTEL_LIST", "version": 1, "data": payload,
+                                "provenance": [self._provenance("trip-service")]}
                 elif name == "get_preferences":
                     if arguments:
                         raise ToolExecutionError("TOOL_INPUT_INVALID", "get_preferences accepts no arguments")

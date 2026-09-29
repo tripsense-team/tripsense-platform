@@ -2,6 +2,7 @@ export enum UserRole {
   USER = "ROLE_USER",
   ADMIN = "ROLE_ADMIN",
   MODERATOR = "ROLE_MODERATOR",
+  PARTNER = "ROLE_PARTNER",
 }
 
 export enum UserStatus {
@@ -26,6 +27,8 @@ export interface User {
   id: string;
   email: string;
   role: UserRole;
+  roles?: string[];
+  partnerEnrolled?: boolean;
   status: UserStatus;
   name?: string;
   avatar?: string;

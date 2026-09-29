@@ -15,6 +15,7 @@ import {
   FileText,
   Settings,
   ShieldCheck,
+  Store,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,12 @@ const adminNavGroups: AdminNavGroup[] = [
       },
       { title: "Destinations & Places", href: "/admin/places", icon: MapPin },
       { title: "Trips & Itineraries", href: "/admin/trips", icon: Route },
+      {
+        title: "Partner Approvals",
+        href: "/admin/partners",
+        icon: Store,
+        badge: "New",
+      },
     ],
   },
   {

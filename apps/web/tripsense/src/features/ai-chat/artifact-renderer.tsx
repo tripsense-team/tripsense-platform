@@ -1,4 +1,5 @@
 import * as React from "react";
+import { HotelEvidence } from "@/features/hotels/components/hotel-evidence";
 import { AlertTriangle, CalendarDays, CloudSun, Heart, Info, MapPin, Route, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isDevelopmentFixturePlace, type AiArtifact, type AiItineraryPreview, type AiPlaceEvidence } from "./types";
@@ -422,6 +423,7 @@ export function ArtifactRenderer({
 
   return <div className="space-y-2">{visibleArtifacts.map((artifact, artIndex) => {
     const artKey = `art-${artifact.artifactId || artIndex}`;
+    if (artifact.type === "HOTEL_LIST") return <HotelEvidence key={artKey} artifact={artifact} />;
     if (artifact.type === "PLACE_LIST" || artifact.type === "PLACE_CARD") return <Places key={artKey} artifact={artifact} onFeedback={onFeedback} onSelectPlace={onSelectPlace} selectedPlaceId={selectedPlaceId} onViewDetails={onViewDetails} />;
     if (artifact.type === "TRIP_CONTEXT" || artifact.type === "ITINERARY_CONTEXT") return <TripContext key={artKey} artifact={artifact} />;
     if (artifact.type === "ITINERARY_PREVIEW") return <ItineraryPreview key={artKey} artifact={artifact} onSelectPlace={onSelectPlace} selectedPlaceId={selectedPlaceId} onViewDetails={onViewDetails} onCreateTripFromPlan={onCreateTripFromPlan} />;

@@ -678,6 +678,9 @@ def allowed_tools(action: ActionType, travel_goal: TravelGoal | None = None) -> 
             tools.update({"search_places", "nearby_places", "recommend_places", "get_place_details"})
         if any(sg in travel_goal.subgoals for sg in ("plan_itinerary", "modify_itinerary", "hotel_nearby")):
             tools.update({"get_trip", "get_itinerary", "search_places", "recommend_places"})
+    if action in {ActionType.PLACE_SEARCH, ActionType.PLACE_RECOMMENDATION, ActionType.PLAN_ITINERARY,
+                  ActionType.MODIFY_ITINERARY, ActionType.REFINE_PLAN, ActionType.TRIP_QA}:
+        tools.add("search_hotels")
     return tools
 
 
@@ -953,6 +956,9 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                                  f"Looking for verified {req.target} options." if req else "Looking for canonical places that match your request.",
                                                  requirement_id=req.id if req else None,
                                                  activity_id=act_id)
+                        elif call["name"] == "search_hotels":
+                            await start_activity(run_id, conversation_id, "SEARCH", "scouting_places",
+                                                 "Checking hotel rooms...", "Checking TripSense allocated inventory for the requested stay.")
                         elif call["name"] == "get_place_details":
                             await start_activity(run_id, conversation_id, "SEARCH", "checking_sources",
                                                  "Gathering place details...",
@@ -1065,6 +1071,9 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                                         artifact = {**result.artifact, "artifactId": str(uuid4())}
                                         artifacts.append(artifact)
                                     await publish(run_id, conversation_id, "artifact.upsert", artifact)
+                                if result.artifact.get("type") == "HOTEL_LIST":
+                                    await complete_activity(run_id, conversation_id, "Checked hotel availability",
+                                                            "TripSense inventory was checked for the requested dates. Booking requires a new check.")
                                 if result.artifact.get("type") == "PLACE_LIST":
                                     count = len(result.artifact.get("data", {}).get("places", []))
                                     accepted_count = eval_progress['accepted'] if eval_progress else count
@@ -1539,7 +1548,9 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
 
                 has_place_evidence = any(item.get("tool") in {"search_places", "nearby_places", "recommend_places", "get_place_details"}
                                          and bool(item.get("data")) for item in grounding_results)
-                if goal is not None and retrieval_outcome != "SUFFICIENT" and not has_place_evidence:
+                has_hotel_evidence = any(item.get("tool") == "search_hotels" and isinstance(item.get("data"), dict)
+                                         for item in grounding_results)
+                if goal is not None and retrieval_outcome != "SUFFICIENT" and not has_place_evidence and not has_hotel_evidence:
                     prompts.append({
                         "role": "system",
                         "content": (
@@ -1559,29 +1570,48 @@ async def execute_run(run_id: str, bearer_token: str) -> None:
                 else:
                     response_stream = adapter.stream(prompts, budget.output_tokens)
 
-                async for delta in response_stream:
-                    with SessionLocal() as db:
-                        current = db.get(Run, run_id)
-                        if current and current.status in (RunStatus.CANCEL_REQUESTED, RunStatus.SUPERSEDED):
-                            was_superseded = current.status == RunStatus.SUPERSEDED
-                            current.status = RunStatus.SUPERSEDED if was_superseded else RunStatus.CANCELLED
-                            current.finished_at = now()
-                            db.commit()
-                            await complete_activity(run_id, conversation_id,
-                                                    "Run superseded" if was_superseded else "Run cancelled",
-                                                    "The operation was stopped.", AgentActivityStatus.SKIPPED)
-                            activity_trackers.pop(run_id, None)
-                            event_type = "run.superseded" if was_superseded else "run.cancelled"
-                            await publish(run_id, conversation_id, event_type, {"reason": "replacement" if was_superseded else "user_requested"})
-                            release_conversation_lease(conversation_id, lease_token)
-                            return
-                    content += delta
-                    delta_buffer += delta
-                    if len(delta_buffer) >= 128:
+                try:
+                    async for delta in response_stream:
+                        with SessionLocal() as db:
+                            current = db.get(Run, run_id)
+                            if current and current.status in (RunStatus.CANCEL_REQUESTED, RunStatus.SUPERSEDED):
+                                was_superseded = current.status == RunStatus.SUPERSEDED
+                                current.status = RunStatus.SUPERSEDED if was_superseded else RunStatus.CANCELLED
+                                current.finished_at = now()
+                                db.commit()
+                                await complete_activity(run_id, conversation_id,
+                                                        "Run superseded" if was_superseded else "Run cancelled",
+                                                        "The operation was stopped.", AgentActivityStatus.SKIPPED)
+                                activity_trackers.pop(run_id, None)
+                                event_type = "run.superseded" if was_superseded else "run.cancelled"
+                                await publish(run_id, conversation_id, event_type, {"reason": "replacement" if was_superseded else "user_requested"})
+                                release_conversation_lease(conversation_id, lease_token)
+                                return
+                        content += delta
+                        delta_buffer += delta
+                        if len(delta_buffer) >= 128:
+                            await publish(run_id, conversation_id, "assistant.delta", {"textDelta": delta_buffer})
+                            delta_buffer = ""
+                    if delta_buffer:
                         await publish(run_id, conversation_id, "assistant.delta", {"textDelta": delta_buffer})
                         delta_buffer = ""
-                if delta_buffer:
-                    await publish(run_id, conversation_id, "assistant.delta", {"textDelta": delta_buffer})
+                except Exception as stream_err:
+                    logger.warning("model_stream_fallback run_id=%s error=%s", run_id, stream_err)
+                    if not content.strip():
+                        if preview is not None:
+                            dest = (travel_goal.destination if travel_goal else None) or "điểm đến của bạn"
+                            days = preview.get("days", [])
+                            content = (
+                                f"Dưới đây là lịch trình gợi ý {len(days)} ngày tại {dest} được tối ưu hóa từ dữ liệu của TripSense.\n\n"
+                                "Bạn có thể xem chi tiết từng điểm dừng, thời gian và lộ trình di chuyển trực tiếp trên thẻ lịch trình và bản đồ bên dưới."
+                            )
+                        elif any(item.get("type") in {"RECOMMENDATION_LIST", "PLACE_LIST"} for item in artifacts):
+                            content = "Dưới đây là danh sách địa điểm phù hợp nhất được gợi ý từ hệ thống dữ liệu TripSense:"
+                        elif has_place_evidence:
+                            content = "Dưới đây là các địa điểm tìm thấy từ hệ thống dữ liệu TripSense:"
+                        else:
+                            content = "Hệ thống AI xử lý ngôn ngữ đang bảo trì tạm thời (503 Service Unavailable). Vui lòng thử lại sau giây lát."
+                        await publish(run_id, conversation_id, "assistant.delta", {"textDelta": content})
             await complete_activity(run_id, conversation_id)
             with SessionLocal() as db:
                 current = db.get(Run, run_id)
