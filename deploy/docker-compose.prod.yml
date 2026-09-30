@@ -199,6 +199,8 @@ services:
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
       CLOUDINARY_SOCIAL_FOLDER: ${CLOUDINARY_SOCIAL_FOLDER:-tripsense/social}
       TRIP_SERVICE_URL: http://trip-service:8084
+      PLACE_SERVICE_URL: http://place-service:8082
+      COMMUNITY_REVIEWS_WRITE_ENABLED: ${COMMUNITY_REVIEWS_WRITE_ENABLED:-false}
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
@@ -207,6 +209,8 @@ services:
       user-service:
         condition: service_started
       trip-service:
+        condition: service_started
+      place-service:
         condition: service_started
       discovery-server:
         condition: service_healthy

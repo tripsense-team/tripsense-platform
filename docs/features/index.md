@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `save-add-place-and-community-reviews` | APPROVED; IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/trip-service`, `services/social-service`, `services/user-service` | [Docs](./save-add-place-and-community-reviews.md) |
 | `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |
 | `explore-category-discovery-and-pagination` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./explore-category-discovery-and-pagination.md) |
 | `place-batch-enrichment-and-ziomap-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./place-batch-enrichment-and-ziomap-settings.md) |

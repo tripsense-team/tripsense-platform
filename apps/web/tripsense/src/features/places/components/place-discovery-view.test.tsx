@@ -39,6 +39,16 @@ vi.mock("@/features/trip-management", () => ({
   prefetchUserTrips: vi.fn(),
 }));
 
+vi.mock("@/features/place-actions", () => ({
+  AddToTripDialog: () => null,
+  SaveToCollectionDialog: () => null,
+  usePlaceActions: () => ({
+    savedByPlace: new Map(),
+    tripsByPlace: new Map(),
+    isLoading: false,
+  }),
+}));
+
 import { PlaceDiscoveryView } from "./place-discovery-view";
 import { useExploreStore } from "../store/use-explore-store";
 

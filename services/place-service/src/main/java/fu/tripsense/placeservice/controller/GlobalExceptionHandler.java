@@ -1,6 +1,7 @@
 package fu.tripsense.placeservice.controller;
 
 import fu.tripsense.placeservice.dto.ApiResponse;
+import fu.tripsense.placeservice.exception.PlaceActionException;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+  @ExceptionHandler(PlaceActionException.class)
+  public ResponseEntity<ApiResponse<Void>> handlePlaceAction(PlaceActionException ex) {
+    return ResponseEntity.status(ex.status()).body(ApiResponse.error(ex.code(), ex.getMessage()));
+  }
 
   @ExceptionHandler(MissingServletRequestParameterException.class)
   public ResponseEntity<ApiResponse<Void>> handleMissingParams(

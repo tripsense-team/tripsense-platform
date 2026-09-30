@@ -47,6 +47,8 @@ import { chainItineraryItemsTimes, chainItineraryResponse, formatDisplayTimeRang
 import { getPlaceDetails, searchPlaces } from "@/features/places/services/places-api";
 import type { Place } from "@/features/places/types";
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
+import { ScheduleTripPlaceDialog, TripPlacePool } from "@/features/place-actions";
+import type { TripPlace } from "@/features/place-actions";
 import { cn } from "@/lib/utils";
 
 const MapVinaContainer = dynamic(
@@ -287,6 +289,8 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   const [editingItem, setEditingItem] = React.useState<ItineraryItemResponse | null>(null);
   const [editItemDraft, setEditItemDraft] = React.useState<UpdateItineraryItemRequest | null>(null);
   const [submittingEdit, setSubmittingEdit] = React.useState(false);
+  const [editItemError, setEditItemError] = React.useState<string | null>(null);
+  const [schedulingPlace, setSchedulingPlace] = React.useState<TripPlace | null>(null);
 
   const places = useResolvedTripPlaces(trip, itinerary);
   const itemPhotoUrls = useItineraryItemPhotoCache(trip, itinerary);
@@ -606,6 +610,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
 
   function handleStartEditItem(item: ItineraryItemResponse) {
     if (!canEditItinerary) return;
+    setEditItemError(null);
     setEditingItem(item);
     setEditItemDraft({
       placeId: item.placeId,
@@ -625,7 +630,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     if (!trip || !editingItem || !editItemDraft || !canEditItinerary) return;
 
     setSubmittingEdit(true);
-    setError(null);
+    setEditItemError(null);
     try {
       const updatedPayload = {
         ...editItemDraft,
@@ -652,11 +657,11 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
       setEditItemDraft(null);
       const details = await loadTripDetails(trip.id);
       setItinerary(details.itinerary);
-      setFeedbackMessage("Đã cập nhật thông tin địa điểm.");
+      setFeedbackMessage(t("trip.itemUpdatedSuccess"));
     } catch (err) {
       const details = await loadTripDetails(trip.id);
       setItinerary(details.itinerary);
-      setError(err instanceof Error ? err.message : "Could not update itinerary item");
+      setEditItemError(err instanceof Error ? err.message : t("trip.itemUpdateError"));
     } finally {
       setSubmittingEdit(false);
     }
@@ -790,6 +795,11 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
             ))}
             <Badge variant="secondary" className="ml-auto rounded-full">{itineraryItemCount(itinerary)} selected</Badge>
           </div>
+          <TripPlacePool
+            tripId={trip.id}
+            canEdit={canEditItinerary}
+            onSchedule={setSchedulingPlace}
+          />
           <ItineraryList
             trip={trip}
             itinerary={itinerary}
@@ -872,15 +882,29 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
       <EditItemDialog
         item={editingItem}
         draft={editItemDraft}
+        error={editItemError}
         submitting={submittingEdit}
         onOpenChange={(open) => {
           if (!open) {
             setEditingItem(null);
             setEditItemDraft(null);
+            setEditItemError(null);
           }
         }}
         onDraftChange={setEditItemDraft}
         onSubmit={handleUpdateItem}
+      />
+      <ScheduleTripPlaceDialog
+        tripId={trip.id}
+        place={schedulingPlace}
+        days={itinerary?.days ?? []}
+        expectedTripRevision={itinerary?.revision}
+        onOpenChange={(open) => setSchedulingPlace(open ? schedulingPlace : null)}
+        onScheduled={async () => {
+          const freshItinerary = await getItinerary(trip.id);
+          setItinerary(chainItineraryResponse(freshItinerary));
+          setFeedbackMessage(t("trip.scheduledPlaceSuccess"));
+        }}
       />
       <TripMembersDialog
         tripId={trip.id}

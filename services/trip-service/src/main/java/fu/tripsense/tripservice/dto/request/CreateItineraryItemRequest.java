@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record CreateItineraryItemRequest(
     UUID placeId,
+    String placeRef,
     @NotNull ItineraryItemType type,
     @NotBlank @Size(max = 200) String title,
     LocalTime startTime,
@@ -22,6 +23,25 @@ public record CreateItineraryItemRequest(
       LocalTime endTime,
       Integer durationMinutes,
       String notes) {
-    this(placeId, type, title, startTime, endTime, durationMinutes, notes, null);
+    this(placeId, null, type, title, startTime, endTime, durationMinutes, notes, null);
+  }
+
+  public CreateItineraryItemRequest(
+      UUID placeId,
+      String placeRef,
+      ItineraryItemType type,
+      String title,
+      LocalTime startTime,
+      LocalTime endTime,
+      Integer durationMinutes,
+      String notes) {
+    this(placeId, placeRef, type, title, startTime, endTime, durationMinutes, notes, null);
+  }
+
+  public String effectivePlaceRef() {
+    if (placeRef != null && !placeRef.isBlank()) {
+      return placeRef;
+    }
+    return placeId != null ? placeId.toString() : null;
   }
 }

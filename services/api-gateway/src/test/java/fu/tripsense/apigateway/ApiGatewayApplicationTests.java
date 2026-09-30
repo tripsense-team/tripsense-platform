@@ -87,4 +87,23 @@ class ApiGatewayApplicationTests {
               assertThat(route.getFilters()).isNotEmpty();
             });
   }
+
+  @Test
+  void featureRoutesHaveScopedRateLimitFilters() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .filteredOn(
+            route ->
+                List.of(
+                        GatewayRoutesConfig.COLLECTION_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.SAVED_MEMBERSHIP_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.TRIP_PLACE_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.REVIEW_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.REVIEW_READS_ROUTE_ID)
+                    .contains(route.getId()))
+        .hasSize(5)
+        .allSatisfy(route -> assertThat(route.getFilters()).isNotEmpty());
+  }
 }
