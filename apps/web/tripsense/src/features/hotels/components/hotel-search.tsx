@@ -1,6 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { HotelCheckoutReview } from "./hotel-checkout-review";
+import { bookingIntentKey, clearBookingIntent } from "../services/hotel-service-adapter";
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
@@ -11,6 +14,7 @@ import type { HotelBooking, HotelCriteria, HotelOffer } from "../types";
 
 export function HotelSearch() {
   const { t } = useTranslation();
+  const actorId=useAuthStore(s=>s.user?.id ?? "anonymous");
   const [criteria, setCriteria] = useState<HotelCriteria>({ destination: "", checkIn: "", checkOut: "", guests: 2, quantity: 1 });
   const [offers, setOffers] = useState<HotelOffer[] | null>(null);
   const [bookings, setBookings] = useState<HotelBooking[]>([]);
@@ -32,6 +36,7 @@ export function HotelSearch() {
     finally { pending.current = false; setBusy(false); }
   }
   const refresh = async () => setBookings(await hotelApi<HotelBooking[]>("/bookings"));
+  useEffect(() => { hotelApi<HotelBooking[]>("/bookings").then(setBookings).catch(e => setError(getSafeErrorMessage(e, t("trip.hotels.failed")))); }, [t]);
   const money = (value: number, currency: string) => new Intl.NumberFormat(undefined, { style: "currency", currency }).format(value);
   return <section className="space-y-5">
     <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" onSubmit={e => { e.preventDefault(); const current = ++generation.current; void act(async () => {
@@ -50,19 +55,19 @@ export function HotelSearch() {
       <p>{money(offer.total, offer.currency)} · {t("trip.hotels.totalStay")}</p>
       <Button disabled={busy} onClick={() => void act(async () => {
         const body = { roomTypeId: offer.room_type_id, checkIn: criteria.checkIn, checkOut: criteria.checkOut, guests: criteria.guests, quantity: criteria.quantity };
-        const signature = JSON.stringify(body); const key = keys.current.get(signature) ?? crypto.randomUUID(); keys.current.set(signature, key);
+        const signature = JSON.stringify(body); const key = keys.current.get(signature) ?? bookingIntentKey(actorId,body); keys.current.set(signature, key);
         const held = await hotelApi<HotelBooking>("/holds", "POST", body, key);
         if (held.status === "HELD") setReview(held);
         else { keys.current.delete(signature); await refresh(); setOffers(null); }
       })}>{t("trip.hotels.hold")}</Button>
     </article>)}</div>
-    {review && <article className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <h3 className="font-semibold">{t("trip.hotels.review")}</h3>
-      <p>{review.check_in} → {review.check_out} · {review.quantity} {t("trip.hotels.quantity")} · {money(review.total, review.currency)}</p>
-      <p>{t("trip.hotels.expires")} {new Date(review.expires_at).toLocaleString()}</p><p>{t("trip.hotels.payAtProperty")}</p>
-      <Button disabled={busy} onClick={() => void act(async () => { await hotelApi(`/bookings/${review.id}/confirm`, "POST"); setReview(null); setOffers(null); await refresh(); })}>{t("trip.hotels.confirm")}</Button>
-      <Button variant="outline" disabled={busy} onClick={() => setCancel(review)}>{t("common.cancel")}</Button>
-    </article>}
+    {review && <HotelCheckoutReview key={review.id} booking={review} onUpdated={b=>{
+      if (["CONFIRMED","CANCELLED","EXPIRED"].includes(b.status)) {
+        const intent={roomTypeId:b.room_type_id,checkIn:b.check_in,checkOut:b.check_out,guests:b.guests,quantity:b.quantity};
+        clearBookingIntent(actorId,intent); keys.current.delete(JSON.stringify(intent));
+      }
+      setReview(b); void refresh();
+    }} />}
     <div className="flex items-center justify-between"><h2 className="font-semibold">{t("trip.hotels.myBookings")}</h2><Button variant="outline" disabled={busy} onClick={() => void act(refresh)}>{t("common.refresh")}</Button></div>
     {bookings.map(b => <article key={b.id} className="space-y-2 rounded-lg border border-border p-3">
       <h3 className="font-semibold">{b.property_name} · {b.room_name}</h3>

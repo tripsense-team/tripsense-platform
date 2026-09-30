@@ -192,7 +192,7 @@ export default function AdminReviewsPage() {
 
                   {/* Review Text */}
                   <p className="text-xs text-foreground/90 leading-relaxed bg-muted/30 p-3 rounded-lg border border-border/50">
-                    "{rev.content}"
+                    &quot;{rev.content}&quot;
                   </p>
                 </div>
 

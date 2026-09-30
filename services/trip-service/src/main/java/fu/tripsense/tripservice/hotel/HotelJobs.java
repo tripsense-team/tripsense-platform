@@ -20,8 +20,9 @@ public class HotelJobs {
   private final HotelService hotels;
   private final HotelMailClient mail;
   private final MeterRegistry metrics;
-  public HotelJobs(JdbcTemplate db,TransactionTemplate tx,HotelService hotels,HotelMailClient mail,MeterRegistry metrics) {
-    this.db=db; this.tx=tx; this.hotels=hotels; this.mail=mail; this.metrics=metrics;
+  private final PayOsPaymentService payOsPayments;
+  public HotelJobs(JdbcTemplate db,TransactionTemplate tx,HotelService hotels,HotelMailClient mail,MeterRegistry metrics,PayOsPaymentService payOsPayments) {
+    this.db=db; this.tx=tx; this.hotels=hotels; this.mail=mail; this.metrics=metrics; this.payOsPayments=payOsPayments;
   }
   @Configuration
   @EnableScheduling
@@ -30,7 +31,7 @@ public class HotelJobs {
 
   @Scheduled(fixedDelayString="${hotel.jobs.interval-ms:15000}")
   public void tick() {
-    try { hotels.expire(); dispatch(); deliver(); }
+    try { hotels.expire(); dispatch(); deliver(); payOsPayments.reconcile(); }
     catch(Exception e) { metrics.counter("hotel.worker.failures").increment(); log.warn("hotel_worker_failed type={}",e.getClass().getSimpleName()); }
   }
   public void dispatch() {
@@ -44,9 +45,18 @@ public class HotelJobs {
       for(var e:events) {
         String type=(String)e.get("event_type");
         String message=switch(type) {
-          case "BOOKING_CONFIRMED" -> "Reservation confirmed. Payment is due at the property.";
+          case "BOOKING_CONFIRMED" -> {
+              String method = db.queryForObject("SELECT payment_method FROM hotel_booking WHERE id=?",String.class,e.get("aggregate_id"));
+              yield "PAYOS".equals(method) ? "Reservation confirmed. Online payment received."
+                  : "DEMO_ONLINE".equals(method) ? "Reservation confirmed. Demo payment recorded; no real funds moved."
+                  : "Reservation confirmed. Payment is due at the property.";
+          }
           case "BOOKING_CANCELLED" -> "Reservation cancelled. The allocated rooms have been released.";
           case "BOOKING_EXPIRED" -> "Reservation hold expired. Search again to check available rooms.";
+          case "BOOKING_CHECKED_IN" -> "Guest check-in recorded for this reservation.";
+          case "BOOKING_CHECKED_OUT" -> "Guest check-out recorded for this reservation.";
+          case "BOOKING_NO_SHOW" -> "No-show recorded for this reservation.";
+          case "BOOKING_DEMO_SETTLED" -> "Demo partner settlement recorded; no real funds moved.";
           case "INVENTORY_LOW" -> "Allocated inventory is low for one or more nights. Review your calendar.";
           default -> "Property verification status changed. Review your property dashboard.";
         };

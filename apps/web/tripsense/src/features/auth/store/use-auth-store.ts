@@ -50,7 +50,7 @@ function saveCachedUser(user: User | null) {
 
 function parseJwtClaims(
   token: string,
-): { sub?: string; email?: string; role?: string; exp?: number } | null {
+): { sub?: string; email?: string; role?: string; roles?: string[]; exp?: number } | null {
   try {
     const base64Url = token.split(".")[1];
     if (!base64Url) return null;
@@ -152,6 +152,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               id: claims.sub || "user-id",
               email: claims.email || "user@tripsense.app",
               role: roleFromClaim,
+              roles: claims.roles ?? [roleFromClaim],
               status: UserStatus.ACTIVE,
             }
           : null);

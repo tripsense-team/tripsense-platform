@@ -25,6 +25,7 @@ import org.springframework.http.HttpStatus;
 @ExtendWith(MockitoExtension.class)
 class PartnerAdminServiceTest {
 
+  @Mock private PartnerChecklistService checklistService;
   @Mock private PartnerBusinessRepository businessRepository;
   @Mock private PartnerBusinessMemberRepository memberRepository;
   @Mock private PartnerApplicationRepository applicationRepository;

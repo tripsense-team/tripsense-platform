@@ -78,6 +78,7 @@ export interface ApplicationDetailDto {
   state: ApplicationState;
   requestedCapabilities: PartnerCapability[];
   grantedCapabilities?: PartnerCapability[];
+  profileSnapshot?: Record<string, unknown>;
   reviewerUserId?: string | null;
   reviewedAt?: string | null;
   reviewReason?: string | null;

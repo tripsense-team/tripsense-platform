@@ -333,7 +333,7 @@ class GuideInquiryServiceTest {
         List.of("Lunch"),
         new BigDecimal("1800000"),
         Instant.now().plus(1, ChronoUnit.DAYS),
-        new ProposalContactConsent(true, true, "v1.0"));
+        new ProposalContactConsent(true, false, "v1.0"));
 
     GuideInquiryDto result = inquiryService.sendProposal(guideOwnerUser, inquiryId, proposalInput);
 
@@ -364,7 +364,8 @@ class GuideInquiryServiceTest {
         .inquiryId(inquiryId)
         .revision(1)
         .requirementsRevision(1)
-        .guideConsentSnapshot("{\"shareEmail\":true,\"sharePhone\":true,\"termsVersion\":\"v1.0\"}")
+        .guideConsentSnapshot("{\"shareEmail\":true,\"sharePhone\":false,\"termsVersion\":\"v1.0\"}")
+        .contactEmail(guideOwnerUser.email())
         .authorId(guideOwnerId)
         .validUntil(Instant.now().plus(2, ChronoUnit.DAYS))
         .state(GuideProposalState.PENDING)
@@ -422,10 +423,6 @@ class GuideInquiryServiceTest {
     assertThat(existingConsent.getRevokedAt()).isNotNull();
 
     // Now customer checks contacts
-    when(consentRepository.findByIdInquiryIdAndIdGrantorUserIdAndIdChannel(inquiryId, guideOwnerId, ContactConsentChannel.EMAIL))
-        .thenReturn(Optional.of(existingConsent)); // returns REVOKED
-    when(consentRepository.findByIdInquiryIdAndIdGrantorUserIdAndIdChannel(inquiryId, guideOwnerId, ContactConsentChannel.PHONE))
-        .thenReturn(Optional.empty());
 
     InquiryContactsDto contacts = inquiryService.getInquiryContacts(customerUser, inquiryId);
 

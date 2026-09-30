@@ -1,4 +1,5 @@
 export type HotelProperty = {
+  business_id: string;
   id: string;
   name: string;
   destination: string;
@@ -16,6 +17,10 @@ export type HotelRoom = {
 };
 
 export type HotelOffer = {
+  address: string;
+  capacity: number;
+  cancellation_policy: string;
+  free_cancellation_until: string;
   property_id: string;
   room_type_id: string;
   name: string;
@@ -36,6 +41,10 @@ export type HotelCriteria = {
 };
 
 export type HotelBooking = {
+  version: number;
+  payment_method: string;
+  cancellation_policy: string;
+  free_cancellation_until: string;
   id: string;
   property_id: string;
   room_type_id: string;
@@ -49,6 +58,22 @@ export type HotelBooking = {
   currency: string;
   status: string;
   expires_at: string;
+};
+
+export type PayOsPayment = {
+  provider: string;
+  state: string;
+  amount: number;
+  currency: string;
+  checkoutUrl: string;
+  expiresAt: string;
+  resolution: string;
+  lastCheckedAt: string;
+};
+
+export type PayOsPaymentResult = {
+  booking: HotelBooking;
+  payment?: PayOsPayment;
 };
 
 export type HotelInventory = {

@@ -84,6 +84,8 @@ class GuideCommunityDistributionIntegrationTest extends RealInfrastructureTest {
         """
         {
           "expectedVersion": 0,
+          "checklistId": "CHK-GUIDE-V1",
+          "checklistVersion": "1.0",
           "requestedCapabilities": ["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"]
         }
         """;
@@ -107,6 +109,7 @@ class GuideCommunityDistributionIntegrationTest extends RealInfrastructureTest {
           "expectedBusinessVersion": 0,
           "expectedApplicationVersion": 0,
           "decision": "APPROVE",
+          "checklistResults": [{"code":"PROFILE","result":"PASS"},{"code":"CONTACT","result":"PASS"},{"code":"OWNERSHIP","result":"PASS"}],
           "reason": "All credentials verified",
           "capabilityDecisions": [
             {"capability": "GUIDE_LISTING", "grant": true},

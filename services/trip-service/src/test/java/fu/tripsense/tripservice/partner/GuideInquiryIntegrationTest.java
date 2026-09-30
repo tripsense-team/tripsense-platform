@@ -87,6 +87,8 @@ class GuideInquiryIntegrationTest extends RealInfrastructureTest {
         """
         {
           "expectedVersion": 0,
+          "checklistId": "CHK-GUIDE-V1",
+          "checklistVersion": "1.0",
           "requestedCapabilities": ["GUIDE_LISTING", "GUIDE_INQUIRY"]
         }
         """;
@@ -111,6 +113,7 @@ class GuideInquiryIntegrationTest extends RealInfrastructureTest {
           "expectedBusinessVersion": 0,
           "expectedApplicationVersion": 0,
           "decision": "APPROVE",
+          "checklistResults": [{"code":"PROFILE","result":"PASS"},{"code":"CONTACT","result":"PASS"},{"code":"OWNERSHIP","result":"PASS"}],
           "reason": "Guide profile approved for consultation",
           "capabilityDecisions": [
             {"capability": "GUIDE_LISTING", "grant": true},
@@ -308,7 +311,7 @@ class GuideInquiryIntegrationTest extends RealInfrastructureTest {
           "validUntil": "%s",
           "contactConsent": {
             "shareEmail": true,
-            "sharePhone": true,
+            "sharePhone": false,
             "termsVersion": "v1.0"
           }
         }
@@ -340,7 +343,7 @@ class GuideInquiryIntegrationTest extends RealInfrastructureTest {
           "note": "Rất mong được đồng hành cùng anh!",
           "contactConsent": {
             "shareEmail": true,
-            "sharePhone": true,
+            "sharePhone": false,
             "termsVersion": "v1.0"
           }
         }
@@ -364,8 +367,8 @@ class GuideInquiryIntegrationTest extends RealInfrastructureTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.emailConsented").value(true))
         .andExpect(jsonPath("$.data.email").isNotEmpty())
-        .andExpect(jsonPath("$.data.phoneConsented").value(true))
-        .andExpect(jsonPath("$.data.phone").isNotEmpty());
+        .andExpect(jsonPath("$.data.phoneConsented").value(false))
+        .andExpect(jsonPath("$.data.phone").value(nullValue()));
 
     // 12. Dynamic Consent Revocation: Guide revokes EMAIL consent
     String revokePayload = """
@@ -391,8 +394,8 @@ class GuideInquiryIntegrationTest extends RealInfrastructureTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.emailConsented").value(false))
         .andExpect(jsonPath("$.data.email").value(nullValue()))
-        .andExpect(jsonPath("$.data.phoneConsented").value(true))
-        .andExpect(jsonPath("$.data.phone").isNotEmpty());
+        .andExpect(jsonPath("$.data.phoneConsented").value(false))
+        .andExpect(jsonPath("$.data.phone").value(nullValue()));
 
     // 13. Suspension Fencing check: Admin suspends business
     String suspendPayload = """

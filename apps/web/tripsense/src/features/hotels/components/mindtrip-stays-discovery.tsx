@@ -13,6 +13,9 @@ import {
   MapPin,
   RefreshCw,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import type { MindtripHotel } from "../types";
@@ -26,13 +29,15 @@ export interface MindtripStaysDiscoveryProps {
 }
 
 const DESTINATIONS = [
+  "Tất cả",
   "Quy Nhơn",
-  "Thi Xa An Khe",
   "Đà Nẵng",
   "Hội An",
-  "Huế",
   "Nha Trang",
   "Phú Quốc",
+  "Hà Nội",
+  "Hồ Chí Minh",
+  "Huế",
 ];
 
 const CATEGORIES = [
@@ -60,6 +65,23 @@ export function MindtripStaysDiscovery({
   const [isLoading, setIsLoading] = React.useState(true);
   const [themeMode, setThemeMode] = React.useState<"light" | "dark">("light");
 
+  const [criteria, setCriteria] = React.useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
+    const toIso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return {
+      checkIn: toIso(tomorrow),
+      checkOut: toIso(dayAfter),
+      guests: 2,
+      quantity: 1,
+    };
+  });
+  const [searchError, setSearchError] = React.useState("");
+  const generation = React.useRef(0);
+
   // Sync initial theme
   React.useEffect(() => {
     if (typeof document !== "undefined") {
@@ -82,21 +104,25 @@ export function MindtripStaysDiscovery({
 
   // Load real hotels for the selected destination
   const loadHotels = React.useCallback(async (dest: string) => {
-    setIsLoading(true);
+    const current = ++generation.current;
+    setIsLoading(true); setSearchError(""); setSelectedHotel(null);
+    if(!criteria.checkIn || !criteria.checkOut) { setHotels([]); setIsLoading(false); return; }
     try {
-      const result = await searchRealHotels(dest);
+      const searchDest = dest === "Tất cả" ? "all" : dest;
+      const result = await searchRealHotels(searchDest,criteria.checkIn,criteria.checkOut,criteria.guests,criteria.quantity);
+      if(current !== generation.current) return;
       setHotels(result);
       if (result.length > 0) {
         setSelectedHotel(result[0]);
       } else {
         setSelectedHotel(null);
       }
-    } catch {
-      // Error handled inside adapter
+    } catch (error) {
+      if(current === generation.current) setSearchError(getSafeErrorMessage(error));
     } finally {
-      setIsLoading(false);
+      if(current === generation.current) setIsLoading(false);
     }
-  }, []);
+  }, [criteria]);
 
   React.useEffect(() => {
     void loadHotels(selectedDestination);
@@ -127,6 +153,88 @@ export function MindtripStaysDiscovery({
         )}
       >
         <div className="p-4 sm:p-6 lg:p-7 space-y-5 max-w-5xl mx-auto w-full">
+          <div className="rounded-2xl border border-border bg-card p-3 sm:p-4 shadow-2xs space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground mr-1">
+                {t("trip.hotels.destination", { defaultValue: "Điểm đến" })}:
+              </span>
+              {DESTINATIONS.map((dest) => (
+                <button
+                  key={dest}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDestination(dest);
+                    void loadHotels(dest);
+                  }}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer",
+                    selectedDestination === dest
+                      ? "bg-foreground text-background shadow-xs font-semibold"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                  )}
+                >
+                  {dest}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 items-end">
+              <label className="space-y-1 text-xs font-medium">
+                <span>{t("trip.hotels.checkIn")}</span>
+                <Input
+                  type="date"
+                  value={criteria.checkIn}
+                  onChange={(e) => setCriteria((prev) => ({ ...prev, checkIn: e.target.value }))}
+                  className="h-8.5 text-xs"
+                />
+              </label>
+
+              <label className="space-y-1 text-xs font-medium">
+                <span>{t("trip.hotels.checkOut")}</span>
+                <Input
+                  type="date"
+                  value={criteria.checkOut}
+                  onChange={(e) => setCriteria((prev) => ({ ...prev, checkOut: e.target.value }))}
+                  className="h-8.5 text-xs"
+                />
+              </label>
+
+              <label className="space-y-1 text-xs font-medium">
+                <span>{t("trip.hotels.guests")}</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={criteria.guests}
+                  onChange={(e) => setCriteria((prev) => ({ ...prev, guests: Number(e.target.value) }))}
+                  className="h-8.5 text-xs"
+                />
+              </label>
+
+              <label className="space-y-1 text-xs font-medium">
+                <span>{t("trip.hotels.quantity")}</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={criteria.quantity}
+                  onChange={(e) => setCriteria((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
+                  className="h-8.5 text-xs"
+                />
+              </label>
+
+              <Button
+                onClick={() => void loadHotels(selectedDestination)}
+                disabled={isLoading || !criteria.checkIn || !criteria.checkOut}
+                size="sm"
+                className="h-8.5 text-xs font-semibold shadow-2xs gap-1.5"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>{t("common.search")}</span>
+              </Button>
+            </div>
+          </div>
+          {searchError && <p role="alert" className="text-destructive">{searchError}</p>}
           {/* Top Destination Selector + Actions Bar */}
           <div className="flex items-center justify-between gap-3">
             <div className="relative">
@@ -348,7 +456,12 @@ export function MindtripStaysDiscovery({
           )}
         >
           <MindtripHotelDetailOverlay
+            key={`${selectedHotel.id}:${JSON.stringify(criteria)}`}
             hotel={selectedHotel}
+            checkInDate={criteria.checkIn}
+            checkOutDate={criteria.checkOut}
+            guestCount={criteria.guests}
+            quantity={criteria.quantity}
             onClose={() => setSelectedHotel(null)}
             isPanelCollapsed={isPanelCollapsed}
             onTogglePanel={() => setIsPanelCollapsed((prev) => !prev)}

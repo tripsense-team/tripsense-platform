@@ -42,7 +42,7 @@ const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 function parseJwtClaims(
   token: string,
-): { sub?: string; email?: string; role?: string; exp?: number } | null {
+): { sub?: string; email?: string; role?: string; roles?: string[]; exp?: number } | null {
   try {
     const base64Url = token.split(".")[1];
     if (!base64Url) return null;
@@ -97,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: claims?.sub || cached?.id || "user-id",
             email: claims?.email || cached?.email || "user@tripsense.app",
             role: parsedRole,
+            roles: claims?.roles ?? [parsedRole],
             status: UserStatus.ACTIVE,
             avatar: cached?.avatar,
             name: cached?.name,

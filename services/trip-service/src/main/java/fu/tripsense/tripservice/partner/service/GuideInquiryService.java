@@ -412,6 +412,10 @@ public class GuideInquiryService {
           "REQUIREMENTS_CHANGED", "Requirements revision mismatch. Customer updated requirements.", HttpStatus.CONFLICT);
     }
 
+    if (input.contactConsent() == null || !input.contactConsent().shareEmail() || input.contactConsent().sharePhone()
+        || !Objects.equals(user.id(), business.getOwnerUserId()) || user.email() == null || user.email().isBlank()) {
+      throw new TripServiceException("CONTACT_UNAVAILABLE", "The guide owner must consent to sharing their account email. Verified phone sharing is unavailable.", HttpStatus.CONFLICT);
+    }
     Instant now = Instant.now();
     if (input.validUntil().isBefore(now)) {
       throw new TripServiceException("INVALID_PROPOSAL_VALIDITY", "validUntil cannot be in the past", HttpStatus.BAD_REQUEST);
@@ -442,6 +446,7 @@ public class GuideInquiryService {
             .requirementsRevision(input.requirementsRevision())
             .proposalData(writeJson(input))
             .guideConsentSnapshot(writeJson(input.contactConsent()))
+            .contactEmail(user.email())
             .authorId(user.id())
             .validUntil(input.validUntil())
             .state(GuideProposalState.PENDING)
@@ -554,22 +559,13 @@ public class GuideInquiryService {
     }
 
     UUID guideOwnerId = business.getOwnerUserId();
-
-    // Customer grants to Guide Owner
-    if (request.contactConsent().shareEmail()) {
-      saveConsent(inquiryId, customer.id(), ContactConsentChannel.EMAIL, guideOwnerId);
+    if (!request.contactConsent().shareEmail() || request.contactConsent().sharePhone()
+        || customer.email() == null || customer.email().isBlank() || proposal.getContactEmail() == null
+        || !Objects.equals(proposal.getAuthorId(),guideOwnerId) || !guideConsent.shareEmail() || guideConsent.sharePhone()) {
+      throw new TripServiceException("CONTACT_UNAVAILABLE", "Both parties must share a sourced account email. Submit a new proposal if contact details are missing.", HttpStatus.CONFLICT);
     }
-    if (request.contactConsent().sharePhone()) {
-      saveConsent(inquiryId, customer.id(), ContactConsentChannel.PHONE, guideOwnerId);
-    }
-
-    // Guide Owner grants to Customer
-    if (guideConsent.shareEmail()) {
-      saveConsent(inquiryId, guideOwnerId, ContactConsentChannel.EMAIL, customer.id());
-    }
-    if (guideConsent.sharePhone()) {
-      saveConsent(inquiryId, guideOwnerId, ContactConsentChannel.PHONE, customer.id());
-    }
+    saveConsent(inquiryId,customer.id(),ContactConsentChannel.EMAIL,guideOwnerId,customer.email());
+    saveConsent(inquiryId,guideOwnerId,ContactConsentChannel.EMAIL,customer.id(),proposal.getContactEmail());
 
     proposal.setState(GuideProposalState.ACCEPTED);
     proposalRepository.save(proposal);
@@ -644,27 +640,14 @@ public class GuideInquiryService {
     boolean isCustomer = Objects.equals(user.id(), inquiry.getCustomerId());
     UUID counterpartyId = isCustomer ? business.getOwnerUserId() : inquiry.getCustomerId();
 
-    boolean emailConsented =
-        consentRepository
-            .findByIdInquiryIdAndIdGrantorUserIdAndIdChannel(
-                inquiryId, counterpartyId, ContactConsentChannel.EMAIL)
-            .filter(c -> c.getState() == ContactConsentState.ACTIVE)
-            .isPresent();
-
-    boolean phoneConsented =
-        consentRepository
-            .findByIdInquiryIdAndIdGrantorUserIdAndIdChannel(
-                inquiryId, counterpartyId, ContactConsentChannel.PHONE)
-            .filter(c -> c.getState() == ContactConsentState.ACTIVE)
-            .isPresent();
-
-    String counterpartyEmail = emailConsented
-        ? (isCustomer ? "guide-" + business.getId().toString().substring(0, 8) + "@partner.tripsense.vn" : "customer-" + inquiry.getCustomerId().toString().substring(0, 8) + "@user.tripsense.vn")
-        : null;
-
-    String counterpartyPhone = phoneConsented
-        ? (isCustomer ? "+84900000000" : "+84911111111")
-        : null;
+    var emailConsent = consentRepository.findByIdInquiryIdAndIdGrantorUserIdAndIdChannel(
+        inquiryId,counterpartyId,ContactConsentChannel.EMAIL)
+        .filter(consent -> consent.getState() == ContactConsentState.ACTIVE
+            && Objects.equals(consent.getGranteeUserId(),user.id()) && consent.getContactValue()!=null);
+    String counterpartyEmail=emailConsent.map(PartnerInquiryContactConsent::getContactValue).orElse(null);
+    boolean emailConsented=counterpartyEmail!=null;
+    boolean phoneConsented=false;
+    String counterpartyPhone=null;
 
     String notice = (!emailConsented && !phoneConsented)
         ? "Contact details are currently masked because no active consent was granted or consent has been revoked."
@@ -889,7 +872,7 @@ public class GuideInquiryService {
     }
   }
 
-  private void saveConsent(UUID inquiryId, UUID grantorId, ContactConsentChannel channel, UUID granteeId) {
+  private void saveConsent(UUID inquiryId, UUID grantorId, ContactConsentChannel channel, UUID granteeId, String contactValue) {
     PartnerInquiryContactConsent consent =
         consentRepository
             .findByIdInquiryIdAndIdGrantorUserIdAndIdChannel(inquiryId, grantorId, channel)
@@ -899,6 +882,7 @@ public class GuideInquiryService {
                         .id(new PartnerInquiryContactConsentId(inquiryId, grantorId, channel))
                         .granteeUserId(granteeId)
                         .build());
+    consent.setContactValue(contactValue);
     consent.setState(ContactConsentState.ACTIVE);
     consent.setRevokedAt(null);
     consentRepository.save(consent);

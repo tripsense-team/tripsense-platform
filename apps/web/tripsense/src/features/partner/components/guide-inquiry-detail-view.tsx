@@ -126,7 +126,7 @@ export function GuideInquiryDetailView({ inquiryId }: GuideInquiryDetailViewProp
         validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         contactConsent: {
           shareEmail: true,
-          sharePhone: true,
+          sharePhone: false,
         },
       };
 
@@ -151,7 +151,7 @@ export function GuideInquiryDetailView({ inquiryId }: GuideInquiryDetailViewProp
         note: action === "AGREE_TO_CONTACT" ? "Đồng ý phương án tư vấn" : "Cần điều chỉnh thêm",
         contactConsent: {
           shareEmail: true,
-          sharePhone: true,
+          sharePhone: false,
         },
       };
 

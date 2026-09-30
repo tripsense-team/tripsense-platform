@@ -33,19 +33,15 @@ export function MindtripBookStayModal({
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date();
     dayAfter.setDate(dayAfter.getDate() + 2);
-    const formatter = new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
-      day: "numeric",
-      month: "short",
-    });
     return {
-      dynamicCheckIn: formatter.format(tomorrow),
-      dynamicCheckOut: formatter.format(dayAfter),
+      dynamicCheckIn: `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,"0")}-${String(tomorrow.getDate()).padStart(2,"0")}`,
+      dynamicCheckOut: `${dayAfter.getFullYear()}-${String(dayAfter.getMonth()+1).padStart(2,"0")}-${String(dayAfter.getDate()).padStart(2,"0")}`,
     };
   }, [locale]);
 
   const checkInDate = propCheckIn || dynamicCheckIn;
   const checkOutDate = propCheckOut || dynamicCheckOut;
-  const guestCount = propGuests ?? 1;
+  const guestCount = propGuests ?? 2;
 
   // Close on Escape key
   React.useEffect(() => {

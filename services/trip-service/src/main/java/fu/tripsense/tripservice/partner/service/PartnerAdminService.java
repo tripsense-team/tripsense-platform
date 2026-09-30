@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Slf4j
 public class PartnerAdminService {
+  private final PartnerChecklistService checklistService;
 
   private final PartnerBusinessRepository businessRepository;
   private final PartnerBusinessMemberRepository memberRepository;
@@ -79,7 +80,8 @@ public class PartnerAdminService {
           HttpStatus.CONFLICT);
     }
 
-    // Save checklist results
+    if ("APPROVE".equalsIgnoreCase(request.decision())) checklistService.validateApproval(application,business,request);
+    // Save checklist results only after approval invariants pass.
     if (request.checklistResults() != null) {
       for (AdminReviewDecisionRequest.ChecklistResultDto res : request.checklistResults()) {
         checklistResultRepository.save(

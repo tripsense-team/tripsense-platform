@@ -54,7 +54,7 @@ describe("Mindtrip Hotel Components", () => {
     expect(html).toContain("14 thg 10");
     expect(html).toContain("Check out");
     expect(html).toContain("15 thg 10");
-    expect(html).toContain("1 adult");
+    expect(html).toContain("2 adults");
 
     // Feature Book your stay card & 3 value points
     expect(html).toContain("Book your stay");

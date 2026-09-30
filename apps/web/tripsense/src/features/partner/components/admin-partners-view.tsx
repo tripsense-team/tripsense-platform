@@ -10,10 +10,13 @@ import {
   Columns,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
+import { useTranslation } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   adminGetApplications,
+  adminGetApplicationChecklist,
   adminGetManagementClaims,
   adminReviewApplication,
   adminReviewManagementClaim,
@@ -25,6 +28,7 @@ import type {
 } from "../types";
 
 export function AdminPartnersView() {
+  const { t } = useTranslation();
   const [applications, setApplications] = React.useState<ApplicationDetailDto[]>([]);
   const [claims, setClaims] = React.useState<ManagementClaimDto[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -33,6 +37,19 @@ export function AdminPartnersView() {
   const [reviewReason, setReviewReason] = React.useState("");
   const [submittingReview, setSubmittingReview] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [checklist, setChecklist] = React.useState<{ code: string; label: string; required: boolean }[]>([]);
+  const [checklistResults, setChecklistResults] = React.useState<Record<string, "PASS" | "FAIL" | "NEEDS_INFO">>({});
+
+  React.useEffect(() => {
+    setChecklist([]);
+    setChecklistResults({});
+    if (!selectedApp) return;
+    let active = true;
+    adminGetApplicationChecklist(selectedApp.id)
+      .then(items => { if (active) setChecklist(items); })
+      .catch(() => { if (active) setActionError(t("partner.checklist.loadError")); });
+    return () => { active = false; };
+  }, [selectedApp?.id, t]);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -44,15 +61,13 @@ export function AdminPartnersView() {
       ]);
       setApplications(apps || []);
       setClaims(clms || []);
-      if (apps && apps.length > 0 && !selectedApp) {
-        setSelectedApp(apps[0]);
-      }
+      setSelectedApp(current => apps?.find(app => app.id === current?.id) ?? apps?.[0] ?? null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Không thể tải danh sách thẩm định");
+      setError(getSafeErrorMessage(err, "Không thể tải danh sách thẩm định"));
     } finally {
       setLoading(false);
     }
-  }, [selectedApp]);
+  }, []);
 
   React.useEffect(() => {
     loadData();
@@ -60,6 +75,10 @@ export function AdminPartnersView() {
 
   const handleDecision = async (decision: "APPROVE" | "REQUEST_CHANGES" | "REJECT") => {
     if (!selectedApp) return;
+    if (decision === "APPROVE" && (checklist.length === 0 || checklist.some(item => item.required && checklistResults[item.code] !== "PASS"))) {
+      setActionError(t("partner.checklist.requirePass"));
+      return;
+    }
 
     if (decision !== "APPROVE" && !reviewReason.trim()) {
       setActionError(
@@ -84,6 +103,7 @@ export function AdminPartnersView() {
         expectedBusinessVersion: selectedApp.businessVersion ?? 0,
         expectedApplicationVersion: selectedApp.version,
         decision,
+        checklistResults: checklist.map(item => ({ code: item.code, result: checklistResults[item.code] ?? "NEEDS_INFO" })),
         reason: reviewReason.trim() || undefined,
         capabilityDecisions,
       };
@@ -93,7 +113,7 @@ export function AdminPartnersView() {
       setSelectedApp(null);
       await loadData();
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Lỗi khi xử lý thẩm định");
+      setActionError(getSafeErrorMessage(err, "Lỗi khi xử lý thẩm định"));
     } finally {
       setSubmittingReview(false);
     }
@@ -120,7 +140,7 @@ export function AdminPartnersView() {
       setReviewReason("");
       await loadData();
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Lỗi khi xử lý kháng cáo");
+      setActionError(getSafeErrorMessage(err, "Lỗi khi xử lý kháng cáo"));
     } finally {
       setSubmittingReview(false);
     }
@@ -257,6 +277,15 @@ export function AdminPartnersView() {
                     onChange={(e) => setReviewReason(e.target.value)}
                   />
                 </div>
+
+                {selectedApp.checklistId && <div className="space-y-2 rounded-lg border border-border p-3">
+                  {checklist.map(item => <label key={item.code} className="flex items-center justify-between gap-3">
+                    <span>{["PROFILE", "CONTACT", "OWNERSHIP"].includes(item.code) ? t(`partner.checklist.items.${item.code}`) : item.label}{item.required ? " *" : ""}</span>
+                    <select aria-label={item.label} className="rounded-md border border-input bg-background p-2" value={checklistResults[item.code] ?? "NEEDS_INFO"} onChange={e => setChecklistResults(prev => ({ ...prev, [item.code]: e.target.value as "PASS" | "FAIL" | "NEEDS_INFO" }))}>
+                      <option value="NEEDS_INFO">{t("partner.checklist.needsInfo")}</option><option value="PASS">{t("partner.checklist.pass")}</option><option value="FAIL">{t("partner.checklist.fail")}</option>
+                    </select>
+                  </label>)}
+                </div>}
 
                 {actionError && (
                   <div className="flex items-center gap-2 p-3 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md">

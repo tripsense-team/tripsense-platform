@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { isUserPartner } from "@/features/auth/utils/role-helpers";
 import { Plus, Store, CheckCircle, Clock, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PartnerBusinessCard } from "./partner-business-card";
@@ -12,7 +13,7 @@ import type { BusinessDetailDto } from "../types";
 
 export function PartnerDashboardView() {
   const user = useAuthStore((state) => state.user);
-  const isPartner = user?.roles?.includes("ROLE_PARTNER");
+  const isPartner = isUserPartner(user);
 
   const [businesses, setBusinesses] = React.useState<BusinessDetailDto[]>([]);
   const [loading, setLoading] = React.useState(true);

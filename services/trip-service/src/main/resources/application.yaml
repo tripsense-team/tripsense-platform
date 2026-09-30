@@ -58,6 +58,14 @@ hotel:
     secret: ${HOTEL_MAIL_SECRET:}
   jobs:
     enabled: ${HOTEL_JOBS_ENABLED:true}
+  demo-payments-enabled: ${HOTEL_DEMO_PAYMENTS_ENABLED:false}
+
+payos:
+  enabled: ${PAYOS_ENABLED:true}
+  client-id: ${PAY_OS_CLIENT_ID:}
+  api-key: ${PAY_OS_API_KEY:}
+  checksum-key: ${PAY_OS_CHECKSUM_KEY:}
+  return-base-url: ${PAYOS_RETURN_BASE_URL:http://localhost:3000}
 
 management:
   endpoint:

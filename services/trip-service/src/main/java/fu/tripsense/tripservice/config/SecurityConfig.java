@@ -67,6 +67,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                         "/api/partner-listings/**",
                         "/api/hotels/search")
                     .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/hotels/payments/payos/webhook")
+                    .permitAll()
                     .requestMatchers("/api/admin/**")
                     .hasRole("ADMIN")
                     .anyRequest()

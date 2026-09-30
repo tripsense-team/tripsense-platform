@@ -21,7 +21,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
-import { executeDirectBooking } from "../services/hotel-service-adapter";
+import { HotelCheckoutReview } from "./hotel-checkout-review";
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { createDirectHold, bookingIntentKey, clearBookingIntent } from "../services/hotel-service-adapter";
 import type { MindtripHotel, HotelRoomData, HotelBooking } from "../types";
 
 export interface MindtripAvailableRoomsViewProps {
@@ -30,6 +32,7 @@ export interface MindtripAvailableRoomsViewProps {
   checkInDate?: string;
   checkOutDate?: string;
   guestCount?: number;
+  quantity?: number;
   onBookRoom?: (room: HotelRoomData) => void;
 }
 
@@ -40,27 +43,32 @@ export function MindtripAvailableRoomsView({
   checkOutDate: propCheckOut,
   guestCount: propGuests,
   onBookRoom,
+  quantity = 1,
 }: MindtripAvailableRoomsViewProps) {
   const { t, locale } = useTranslation();
+  const actorId = useAuthStore(s=>s.user?.id ?? "anonymous");
+  const [heldBooking,setHeldBooking] = React.useState<HotelBooking | null>(null);
+  const [heldRoom,setHeldRoom] = React.useState<HotelRoomData | null>(null);
+  const [currentHotel, setCurrentHotel] = React.useState<MindtripHotel>(hotel);
+
+  React.useEffect(() => {
+    setCurrentHotel(hotel);
+  }, [hotel]);
 
   const { dynamicCheckIn, dynamicCheckOut } = React.useMemo(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date();
     dayAfter.setDate(dayAfter.getDate() + 2);
-    const formatter = new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
-      day: "numeric",
-      month: "short",
-    });
     return {
-      dynamicCheckIn: formatter.format(tomorrow),
-      dynamicCheckOut: formatter.format(dayAfter),
+      dynamicCheckIn: `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,"0")}-${String(tomorrow.getDate()).padStart(2,"0")}`,
+      dynamicCheckOut: `${dayAfter.getFullYear()}-${String(dayAfter.getMonth()+1).padStart(2,"0")}-${String(dayAfter.getDate()).padStart(2,"0")}`,
     };
   }, [locale]);
 
   const checkInDate = propCheckIn || dynamicCheckIn;
   const checkOutDate = propCheckOut || dynamicCheckOut;
-  const guestCount = propGuests ?? 1;
+  const guestCount = propGuests ?? 2;
   const [showTotalPriceWithTax, setShowTotalPriceWithTax] = React.useState(false);
   const [selectedRoomForDetails, setSelectedRoomForDetails] = React.useState<HotelRoomData | null>(null);
   const [confirmedBooking, setConfirmedBooking] = React.useState<{
@@ -91,14 +99,17 @@ export function MindtripAvailableRoomsView({
       if (onBookRoom) {
         onBookRoom(room);
       }
-      const booking = await executeDirectBooking({
+      const criteria = {
         roomTypeId: room.id,
         checkIn: checkInDate,
         checkOut: checkOutDate,
         guests: guestCount,
-        quantity: 1,
-      });
-      setConfirmedBooking({ booking, room });
+        quantity,
+      };
+      const booking = await createDirectHold(criteria,bookingIntentKey(actorId,criteria));
+      setHeldRoom(room); setHeldBooking(booking);
+      if (["CANCELLED","EXPIRED"].includes(booking.status)) clearBookingIntent(actorId,criteria);
+      if (booking.status === "CONFIRMED") setConfirmedBooking({booking,room});
     } catch (err: unknown) {
       const safeMsg = getSafeErrorMessage(
         err,
@@ -112,10 +123,33 @@ export function MindtripAvailableRoomsView({
     }
   };
 
-  const hasRooms = Array.isArray(hotel.rooms) && hotel.rooms.length > 0;
+  const refreshRooms = React.useCallback(async () => {
+    try {
+      const hotels = await searchRealHotels(
+        hotel.destination,
+        checkInDate,
+        checkOutDate,
+        guestCount,
+        quantity
+      );
+      const found = hotels.find((h) => h.id === hotel.id);
+      if (found) setCurrentHotel(found);
+    } catch {
+      // Ignored
+    }
+  }, [hotel.destination, hotel.id, checkInDate, checkOutDate, guestCount, quantity]);
+
+  const hasRooms = Array.isArray(currentHotel.rooms) && currentHotel.rooms.length > 0;
 
   return (
     <div className="min-h-full w-full bg-background text-foreground p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 animate-in fade-in-0 duration-200">
+      {heldBooking && <HotelCheckoutReview key={heldBooking.id} booking={heldBooking} onUpdated={booking=>{
+        if (["CONFIRMED","CANCELLED","EXPIRED"].includes(booking.status)) {
+          clearBookingIntent(actorId,{roomTypeId:booking.room_type_id,checkIn:booking.check_in,checkOut:booking.check_out,guests:booking.guests,quantity:booking.quantity});
+          void refreshRooms();
+        }
+        setHeldBooking(booking); if(booking.status === "CONFIRMED" && heldRoom) setConfirmedBooking({booking,room:heldRoom});
+      }} />}
       {/* 1. Header Bar: Back Arrow, Hotel Mini Card, Date Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         {/* Left: Back button + Hotel Info */}
@@ -257,7 +291,7 @@ export function MindtripAvailableRoomsView({
       ) : (
         /* Room Cards Responsive Grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {hotel.rooms!.map((room) => {
+          {currentHotel.rooms!.map((room) => {
             const isAlertActive = priceAlerts.has(room.id);
             const priceToShow = showTotalPriceWithTax ? room.totalWithTax : room.pricePerNight;
             const currentPhoto = room.photos[0] || thumbnail;

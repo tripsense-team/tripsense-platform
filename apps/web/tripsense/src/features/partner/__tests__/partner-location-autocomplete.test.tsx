@@ -53,7 +53,7 @@ function render(open = true) {
   act(() => root.render(<I18nProvider initialLocale="vi"><PartnerWizardModal open={open} onOpenChange={() => {}} /></I18nProvider>));
 }
 function item(text: string) {
-  const result = Array.from(container.querySelectorAll("li, button")).find((node) => node.textContent?.includes(text));
+  const result = Array.from(container.querySelectorAll<HTMLElement>("li, button")).find((node) => node.textContent?.includes(text));
   expect(result, text).toBeDefined();
   return result!;
 }

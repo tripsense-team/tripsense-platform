@@ -58,6 +58,10 @@ export async function getPartnerContext(): Promise<PartnerContextDto> {
   return request<PartnerContextDto>("/api/partners/businesses");
 }
 
+export async function adminGetApplicationChecklist(applicationId: string): Promise<{ code: string; label: string; required: boolean }[]> {
+  return request(`/api/admin/partner-applications/${applicationId}/checklist`);
+}
+
 export async function getBusinessDetail(businessId: string): Promise<BusinessDetailDto> {
   return request<BusinessDetailDto>(`/api/partners/businesses/${businessId}`);
 }

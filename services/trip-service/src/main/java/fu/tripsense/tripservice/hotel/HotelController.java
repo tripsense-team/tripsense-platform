@@ -12,9 +12,17 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/hotels")
 public class HotelController {
+  @GetMapping("/commerce/config") public Object commerceConfig() { return hotels.commerceConfig(); }
+  @GetMapping("/commerce") public Object commerce() { return hotels.commerce(users.get()); }
+  @GetMapping("/bookings/{id}") public Object booking(@PathVariable UUID id) { return hotels.bookingDetail(users.get(),id); }
+  @PostMapping("/bookings/{id}/demo-payment") public Object demoPayment(@PathVariable UUID id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody DemoPaymentInput input) { return hotels.demoPayment(users.get(),id,key,input.outcome()); }
+  @PostMapping("/bookings/{id}/demo-settlement") public Object demoSettlement(@PathVariable UUID id,@RequestHeader("Idempotency-Key") String key) { return hotels.demoSettlement(users.get(),id,key); }
+  @PostMapping("/bookings/{id}/payos-payment") public Object payosPayment(@PathVariable UUID id) { return payOsPayments.initiatePayment(users.get(),id); }
+  @GetMapping("/bookings/{id}/payment") public Object paymentStatus(@PathVariable UUID id) { return payOsPayments.getPaymentStatus(users.get(),id); }
   private final HotelService hotels;
   private final CurrentUserProvider users;
-  public HotelController(HotelService hotels,CurrentUserProvider users) { this.hotels=hotels; this.users=users; }
+  private final PayOsPaymentService payOsPayments;
+  public HotelController(HotelService hotels,CurrentUserProvider users,PayOsPaymentService payOsPayments) { this.hotels=hotels; this.users=users; this.payOsPayments=payOsPayments; }
   @GetMapping("/search")
   public ResponseEntity<?> search(@RequestParam String destination,@RequestParam LocalDate checkIn,@RequestParam LocalDate checkOut,@RequestParam int guests,@RequestParam int quantity) {
     return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(hotels.search(destination,checkIn,checkOut,guests,quantity));

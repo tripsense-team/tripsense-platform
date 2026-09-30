@@ -328,6 +328,7 @@ export function PartnerWizardModal({
       const draftProfile: Record<string, unknown> = {
         bio: description.trim(),
         description: description.trim(),
+        destination: selectedPlace?.city || customAddress.trim(),
         address: customAddress.trim() || selectedPlace?.address,
         placeId: selectedPlace?.id || selectedPlace?.providerPlaceId,
         placeName: selectedPlace?.name || displayName.trim(),
@@ -351,7 +352,7 @@ export function PartnerWizardModal({
       await submitBusinessApplication(draft.id, {
         expectedVersion: draft.version,
         requestedCapabilities: selectedCapabilities,
-        checklistId: `${kind.toLowerCase()}-standard-checklist`,
+        checklistId: `CHK-${kind === "TOUR_GUIDE" ? "GUIDE" : kind}-V1`,
         checklistVersion: "1.0",
         profileSnapshot: {
           ...draftProfile,

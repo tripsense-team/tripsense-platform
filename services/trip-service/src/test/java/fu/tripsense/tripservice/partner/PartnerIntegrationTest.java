@@ -105,10 +105,10 @@ class PartnerIntegrationTest extends RealInfrastructureTest {
             "address": "123 An Bang Beach",
             "destination": "Hoi An"
           },
-          "documentIds": ["%s"]
+          "documentIds": []
         }
         """
-            .formatted(businessVersion, UUID.randomUUID());
+            .formatted(businessVersion);
 
     MvcResult submitResult =
         mockMvc
@@ -141,8 +141,9 @@ class PartnerIntegrationTest extends RealInfrastructureTest {
           "expectedApplicationVersion": 0,
           "decision": "APPROVE",
           "checklistResults": [
-            {"code": "CHECK_DOCS", "result": "PASS"},
-            {"code": "CHECK_LOCATION", "result": "PASS"}
+            {"code": "PROFILE", "result": "PASS"},
+            {"code": "CONTACT", "result": "PASS"},
+            {"code": "OWNERSHIP", "result": "PASS"}
           ],
           "capabilityDecisions": [
             {"capability": "HOTEL_LISTING", "grant": true},

@@ -29,7 +29,7 @@ import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collapse-button";
-import { MindtripHotelDetailOverlay, placeToMindtripHotel, type MindtripHotel } from "@/features/hotels";
+import { MindtripHotelDetailOverlay, placeToMindtripHotel, fetchDirectOffersForPlace, type MindtripHotel } from "@/features/hotels";
 import type { Place } from "../types";
 import { approvedPhotoGallery } from "../utils/approved-photo";
 import { OpeningHoursDisplay } from "./opening-hours-display";
@@ -91,6 +91,13 @@ export function PlaceDetailOverlay({
   const { t, locale } = useTranslation();
   const [activeTab, setActiveTab] = React.useState<"overview" | "reviews" | "location">("overview");
   const [isExpandedDesc, setIsExpandedDesc] = React.useState(false);
+  const [directBooking, setDirectBooking] = React.useState<{
+    hasDirectBooking: true;
+    propertyId: string;
+    rooms: MindtripHotel["rooms"];
+    pricePerNight: number;
+    currency: string;
+  } | null>(null);
 
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
@@ -165,6 +172,18 @@ export function PlaceDetailOverlay({
       window.speechSynthesis.speak(utterance);
     }
   };
+
+  // Fetch direct booking data from trip-service when this is a hotel place
+  React.useEffect(() => {
+    if (!isHotel) return;
+    let cancelled = false;
+    setDirectBooking(null);
+    fetchDirectOffersForPlace({ id: place.id, name: place.name, city: place.city, district: place.district }, "", "", 2, 1)
+      .then(result => { if (!cancelled) setDirectBooking(result); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHotel, place.id]);
 
   // Scrollspy: update active tab indicator when scrolling through sections
   React.useEffect(() => {
@@ -241,10 +260,20 @@ export function PlaceDetailOverlay({
         ? displayPhotos.map((p) => p.url)
         : baseHotel.photos;
 
+    // Merge with direct booking data fetched from trip-service (if available)
     const hotelData: MindtripHotel = {
       ...baseHotel,
       photos: hotelPhotos,
       description: place.description || undefined,
+      ...(directBooking
+        ? {
+            id: directBooking.propertyId,
+            hasDirectBooking: true,
+            rooms: directBooking.rooms,
+            pricePerNight: directBooking.pricePerNight,
+            currency: directBooking.currency,
+          }
+        : {}),
     };
 
     return (

@@ -140,7 +140,7 @@ export default function SavedPlacesPage() {
                   </p>
                   {place.notes && (
                     <p className="text-micro text-muted-foreground bg-muted/30 p-2 rounded mt-2 border border-border/40 italic">
-                      "{place.notes}"
+                      &quot;{place.notes}&quot;
                     </p>
                   )}
                 </div>

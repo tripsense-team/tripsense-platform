@@ -41,6 +41,7 @@ export interface MindtripHotelDetailOverlayProps {
   checkInDate?: string;
   checkOutDate?: string;
   guestCount?: number;
+  quantity?: number;
 }
 
 export function MindtripHotelDetailOverlay({
@@ -56,6 +57,7 @@ export function MindtripHotelDetailOverlay({
   checkInDate: propCheckIn,
   checkOutDate: propCheckOut,
   guestCount: propGuestCount,
+  quantity = 1,
 }: MindtripHotelDetailOverlayProps) {
   const { t, locale } = useTranslation();
 
@@ -78,19 +80,15 @@ export function MindtripHotelDetailOverlay({
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfter = new Date();
     dayAfter.setDate(dayAfter.getDate() + 2);
-    const formatter = new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
-      day: "numeric",
-      month: "short",
-    });
     return {
-      dynamicCheckIn: formatter.format(tomorrow),
-      dynamicCheckOut: formatter.format(dayAfter),
+      dynamicCheckIn: `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,"0")}-${String(tomorrow.getDate()).padStart(2,"0")}`,
+      dynamicCheckOut: `${dayAfter.getFullYear()}-${String(dayAfter.getMonth()+1).padStart(2,"0")}-${String(dayAfter.getDate()).padStart(2,"0")}`,
     };
   }, [locale]);
 
   const activeCheckIn = propCheckIn || dynamicCheckIn;
   const activeCheckOut = propCheckOut || dynamicCheckOut;
-  const activeGuests = propGuestCount ?? 1;
+  const activeGuests = propGuestCount ?? 2;
 
   const displayLocation = [hotel.district, hotel.city].filter(Boolean).join(", ") || hotel.address;
 
@@ -157,6 +155,7 @@ export function MindtripHotelDetailOverlay({
           checkInDate={activeCheckIn}
           checkOutDate={activeCheckOut}
           guestCount={activeGuests}
+          quantity={quantity}
         />
       </div>
     );
@@ -620,7 +619,7 @@ export function MindtripHotelDetailOverlay({
                     </div>
                     {rev.text && (
                       <p className="text-xs text-foreground/85 leading-relaxed">
-                        "{rev.text}"
+                        &quot;{rev.text}&quot;
                       </p>
                     )}
                   </div>

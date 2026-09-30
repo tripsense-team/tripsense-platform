@@ -14,6 +14,8 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PartnerInquiryContactConsent {
+  @Column(name = "contact_value", length = 254)
+  private String contactValue;
 
   @EmbeddedId private PartnerInquiryContactConsentId id;
 

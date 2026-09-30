@@ -22,6 +22,15 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
 public class PartnerAdminController {
+  private final fu.tripsense.tripservice.partner.service.PartnerChecklistService checklistService;
+
+  @GetMapping("/partner-applications/{id}/checklist")
+  public Object checklist(@AuthenticationPrincipal AuthenticatedUser admin,@PathVariable UUID id) {
+    adminService.requireAdmin(admin);
+    var app=applicationRepository.findById(id).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND));
+    var business=businessRepository.findById(app.getBusinessId()).orElseThrow();
+    return ApiResponse.success(checklistService.load(app.getChecklistId(),app.getChecklistVersion(),business.getKind().name()).getItemsJson());
+  }
 
   private final PartnerAdminService adminService;
   private final PartnerApplicationRepository applicationRepository;

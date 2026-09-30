@@ -383,6 +383,12 @@ services:
         required: false
     environment:
       TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
+      HOTEL_DEMO_PAYMENTS_ENABLED: ${HOTEL_DEMO_PAYMENTS_ENABLED:-false}
+      PAYOS_ENABLED: ${PAYOS_ENABLED:-true}
+      PAY_OS_CLIENT_ID: ${PAY_OS_CLIENT_ID:-}
+      PAY_OS_API_KEY: ${PAY_OS_API_KEY:-}
+      PAY_OS_CHECKSUM_KEY: ${PAY_OS_CHECKSUM_KEY:-}
+      PAYOS_RETURN_BASE_URL: ${PAYOS_RETURN_BASE_URL:-http://localhost:3000}
       HOTEL_MAIL_URL: http://mail-service:8082
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: "5432"

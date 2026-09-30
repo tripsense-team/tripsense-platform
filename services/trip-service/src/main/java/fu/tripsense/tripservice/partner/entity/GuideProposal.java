@@ -16,6 +16,8 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GuideProposal {
+  @Column(name = "contact_email", length = 254)
+  private String contactEmail;
 
   @Id private UUID id;
 

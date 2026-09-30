@@ -24,7 +24,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
-@SpringBootTest(properties={"hotel.jobs.enabled=false","spring.cache.type=simple"})
+@SpringBootTest(properties={"hotel.jobs.enabled=false","spring.cache.type=simple","HOTEL_DEMO_PAYMENTS_ENABLED=true"})
 @AutoConfigureMockMvc
 class HotelReservationIntegrationTest extends RealInfrastructureTest {
   @Autowired HotelService service;
@@ -34,20 +34,80 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
   @Autowired MockMvc http;
   AuthenticatedUser owner,customer,other,admin;
   UUID pid,rid;
+  UUID businessId;
   LocalDate from,to;
   @BeforeEach void setup() {
-    db.execute("TRUNCATE hotel_email_delivery,hotel_notification,hotel_outbox,hotel_booking,hotel_inventory,hotel_room_type,hotel_property,hotel_request_lock CASCADE");
-    owner=user("USER");customer=user("USER");other=user("USER");admin=user("ADMIN");
+    db.execute("TRUNCATE hotel_payos_receipt,hotel_payos_payment,hotel_demo_ledger,hotel_demo_command,hotel_demo_payment,hotel_email_delivery,hotel_notification,hotel_outbox,hotel_booking,hotel_inventory,hotel_room_type,hotel_property,hotel_request_lock CASCADE");
+    owner=user("USER");customer=user("USER");other=user("USER");admin=user("ROLE_ADMIN");
     from=LocalDate.now().plusDays(5);to=from.plusDays(2);
-    pid=(UUID)service.saveProperty(owner,null,new PropertyInput("Hotel","Da Nang","Address","Asia/Ho_Chi_Minh","14:00","11:00")).get("id");
+    businessId=UUID.randomUUID();
+    db.update("INSERT INTO partner_business(id,kind,owner_user_id,display_name,approval_validity,publication_state,accepting_new) VALUES (?,'HOTEL',?,'Hotel','VALID','PUBLISHED',true)",businessId,owner.id());
+    UUID applicationId=UUID.randomUUID();
+    db.update("INSERT INTO partner_application(id,business_id,revision,profile_snapshot,requested_capabilities,state) VALUES (?,?,1,'{\"destination\":\"Da Nang\",\"address\":\"Address\"}'::jsonb,'[\"HOTEL_INVENTORY\",\"HOTEL_BOOKING\"]'::jsonb,'APPROVED')",applicationId,businessId);
+    db.update("UPDATE partner_business SET approved_revision_id=? WHERE id=?",applicationId,businessId);
+    db.update("INSERT INTO partner_business_member(business_id,user_id,role,state) VALUES (?,?,'OWNER','ACTIVE')",businessId,owner.id());
+    for(String cap:List.of("HOTEL_INVENTORY","HOTEL_BOOKING")) db.update("INSERT INTO partner_business_capability(business_id,capability,granted_by) VALUES (?,?,?)",businessId,cap,admin.id());
+    pid=(UUID)service.saveProperty(owner,null,new PropertyInput("Hotel","Da Nang","Address","Asia/Ho_Chi_Minh","14:00","11:00",businessId)).get("id");
     rid=(UUID)service.createRoom(owner,pid,new RoomInput("Double",2)).get("id");
     service.setInventory(owner,pid,rid,new InventoryInput(from,to,1,new BigDecimal("500000.00"),false));
-    service.status(admin,pid,"ACTIVE");
   }
   private static AuthenticatedUser user(String role) { var id=UUID.randomUUID();return new AuthenticatedUser(id,id+"@example.test",role); }
   private HoldInput input() { return new HoldInput(rid,from,to,1,2); }
-  private UUID hold() { return (UUID)service.hold(customer,"request-123",input()).get("id"); }
+  private UUID demoHold() { return (UUID)service.hold(customer,"request-123",input()).get("id"); }
+  private UUID hold() { UUID id=demoHold(); db.update("UPDATE hotel_booking SET payment_method='PAY_AT_PROPERTY' WHERE id=?",id); return id; }
   private int inventory(String field) { return db.queryForObject("SELECT sum("+field+") FROM hotel_inventory",Integer.class); }
+
+  @Test void demoCaptureRefundAndIdempotencyKeepMoneyAndInventoryConsistent() {
+    UUID id=demoHold();
+    assertEquals("DEMO_ONLINE",service.bookingDetail(customer,id).get("payment_method"));
+    assertThrows(TripServiceException.class,()->service.transition(customer,id,true));
+    var first=service.demoPayment(customer,id,"payment-key-123","SUCCESS");
+    assertEquals("CAPTURED",first.get("outcome"));
+    assertEquals("CONFIRMED",service.bookingDetail(customer,id).get("status"));
+    assertEquals("CAPTURED",service.demoPayment(customer,id,"payment-key-123","SUCCESS").get("outcome"));
+    assertThrows(TripServiceException.class,()->service.demoPayment(customer,id,"payment-key-123","FAILURE"));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='CAPTURE'",Integer.class,id));
+    assertEquals(0,new BigDecimal("100000").compareTo(db.queryForObject("SELECT commission_amount FROM hotel_demo_payment WHERE booking_id=?",BigDecimal.class,id)));
+    service.transition(customer,id,false);
+    assertEquals("REFUNDED",db.queryForObject("SELECT state FROM hotel_demo_payment WHERE booking_id=?",String.class,id));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='REFUND'",Integer.class,id));
+  }
+
+  @Test void demoSettlementRequiresCheckoutAndPaysOnce() {
+    UUID id=demoHold();service.demoPayment(customer,id,"payment-key-123","SUCCESS");
+    assertThrows(TripServiceException.class,()->service.demoSettlement(admin,id,"settle-key-123"));
+    service.checkIn(owner,id,null);service.checkOut(owner,id,null);
+    assertEquals("PAID_OUT",service.demoSettlement(admin,id,"settle-key-123").get("outcome"));
+    assertEquals("PAID_OUT",service.demoSettlement(admin,id,"settle-key-123").get("outcome"));
+    assertEquals(1,db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='PAYOUT'",Integer.class,id));
+  }
+
+  @Test void demoFailureCanRetryAndExpiredSuccessIsImmediatelyRefunded() {
+    UUID id=demoHold();
+    assertEquals("FAILED",service.demoPayment(customer,id,"payment-fail-123","FAILURE").get("outcome"));
+    assertEquals(0,db.queryForObject("SELECT count(*) FROM hotel_demo_payment WHERE booking_id=?",Integer.class,id));
+    assertEquals("REFUNDED_EXPIRED",service.demoPayment(customer,id,"payment-late-123","EXPIRED").get("outcome"));
+    assertEquals("EXPIRED",service.bookingDetail(customer,id).get("status"));
+    assertEquals("REFUNDED",db.queryForObject("SELECT state FROM hotel_demo_payment WHERE booking_id=?",String.class,id));
+    assertEquals(0,inventory("held"));
+  }
+
+  @Test void pausedBusinessCannotSellButExistingHoldCanBeCancelled() {
+    UUID id=hold();
+    db.update("UPDATE partner_business SET accepting_new=false WHERE id=?",businessId);
+    assertTrue(service.search("Da Nang",from,to,2,1).isEmpty());
+    assertThrows(TripServiceException.class,()->service.hold(other,"other-hold-123",input()));
+    assertEquals("CANCELLED",service.transition(customer,id,false).get("status"));
+  }
+
+  @Test void approvedProfileChangeBlocksSalesUntilPropertyIsSynced() {
+    db.update("UPDATE partner_application SET profile_snapshot=jsonb_set(profile_snapshot,'{address}','\"New Address\"'::jsonb) WHERE id=(SELECT approved_revision_id FROM partner_business WHERE id=?)",businessId);
+    assertTrue(service.search("Da Nang",from,to,2,1).isEmpty());
+    assertThrows(TripServiceException.class,()->service.hold(customer,"new-hold-123",input()));
+    assertThrows(TripServiceException.class,()->service.saveProperty(owner,pid,new PropertyInput("Hotel","Da Nang","Address","Asia/Ho_Chi_Minh","14:00","11:00",businessId)));
+    service.saveProperty(owner,pid,new PropertyInput("Hotel","Da Nang","New Address","Asia/Ho_Chi_Minh","14:00","11:00",businessId));
+    assertEquals(1,service.search("Da Nang",from,to,2,1).size());
+  }
 
   @Test void lastRoomConcurrentCustomersOnlyOneSucceeds() throws Exception {
     try(var pool=Executors.newFixedThreadPool(2)) {
@@ -101,7 +161,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     assertEquals(2,inventory("allocation"));
   }
   @Test void suspendedPropertyCannotConfirmButCancellationStillWorks() {
-    var id=hold();service.status(admin,pid,"SUSPENDED");
+    var id=hold();db.update("UPDATE partner_business SET operation_state='SUSPENDED' WHERE id=?",businessId);
     assertThrows(TripServiceException.class,()->service.transition(customer,id,true));
     service.transition(customer,id,false);assertEquals(0,inventory("held"));
   }
@@ -118,7 +178,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     assertEquals("CONFIRMED",db.queryForObject("SELECT status FROM hotel_booking",String.class));
   }
   @Test void oldAmbiguousDeliveryIsDeadLetteredWithoutSending() throws Exception {
-    jobs.dispatch();db.update("UPDATE hotel_email_delivery SET first_attempt=clock_timestamp()-interval '24 hours'");jobs.deliver();
+    service.transition(customer,hold(),true);jobs.dispatch();db.update("UPDATE hotel_email_delivery SET first_attempt=clock_timestamp()-interval '24 hours'");jobs.deliver();
     verifyNoInteractions(mail);
     assertFalse(service.deliveries(admin).isEmpty());
     assertThrows(TripServiceException.class,()->service.deliveries(customer));
@@ -228,16 +288,10 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
   }
 
   @Test void dutyOfServiceContinuesUnderSuspension() {
-    UUID bizId = UUID.randomUUID();
-    db.update("INSERT INTO partner_business(id, owner_user_id, kind, display_name, operation_state, publication_state, accepting_new, approval_validity, version) VALUES (?,?,'HOTEL','Test Biz','ACTIVE','PUBLISHED',true,'VALID',1)", bizId, owner.id());
-    db.update("INSERT INTO partner_business_member(business_id, user_id, role, state) VALUES (?,?,'OWNER','ACTIVE')", bizId, owner.id());
-    db.update("INSERT INTO partner_business_capability(business_id, capability, granted_by) VALUES (?,'HOTEL_BOOKING',?)", bizId, admin.id());
-    db.update("UPDATE hotel_property SET business_id=? WHERE id=?", bizId, pid);
-
     var id = hold();
     service.transition(customer, id, true);
 
-    db.update("UPDATE partner_business SET operation_state='SUSPENDED' WHERE id=?", bizId);
+    db.update("UPDATE partner_business SET operation_state='SUSPENDED' WHERE id=?", businessId);
 
     var checkedIn = service.checkIn(owner, id, 0L);
     assertEquals("CHECKED_IN", checkedIn.get("status"));

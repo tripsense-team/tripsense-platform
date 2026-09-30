@@ -96,7 +96,8 @@ class GuideIntegrationTest extends RealInfrastructureTest {
         {
           "expectedVersion": 0,
           "requestedCapabilities": ["GUIDE_LISTING", "GUIDE_PROMOTION"],
-          "checklistVersion": "2026-Q3-V1",
+          "checklistId": "CHK-GUIDE-V1",
+          "checklistVersion": "1.0",
           "documentIds": []
         }
         """;
@@ -121,7 +122,9 @@ class GuideIntegrationTest extends RealInfrastructureTest {
           "expectedApplicationVersion": 0,
           "decision": "APPROVE",
           "checklistResults": [
-            {"code": "PROFILE_COMPLETENESS", "result": "PASS"}
+            {"code": "PROFILE", "result": "PASS"},
+            {"code": "CONTACT", "result": "PASS"},
+            {"code": "OWNERSHIP", "result": "PASS"}
           ],
           "capabilityDecisions": [
             {"capability": "GUIDE_LISTING", "grant": true},

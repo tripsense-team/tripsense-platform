@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Slf4j
 public class PartnerBusinessService {
+  private final PartnerChecklistService checklistService;
 
   private final PartnerBusinessRepository businessRepository;
   private final PartnerBusinessMemberRepository memberRepository;
@@ -111,6 +112,7 @@ public class PartnerBusinessService {
     }
 
     validateRequestedCapabilities(business.getKind(), request.requestedCapabilities());
+    checklistService.load(request.checklistId(),request.checklistVersion(),business.getKind().name());
 
     Integer nextRevision =
         applicationRepository
