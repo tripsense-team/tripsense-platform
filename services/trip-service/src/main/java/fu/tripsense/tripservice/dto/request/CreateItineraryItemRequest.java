@@ -12,4 +12,16 @@ public record CreateItineraryItemRequest(
     LocalTime startTime,
     LocalTime endTime,
     @Min(1) @Max(1440) Integer durationMinutes,
-    @Size(max = 5000) String notes) {}
+    @Size(max = 5000) String notes,
+    Long expectedTripRevision) {
+  public CreateItineraryItemRequest(
+      UUID placeId,
+      ItineraryItemType type,
+      String title,
+      LocalTime startTime,
+      LocalTime endTime,
+      Integer durationMinutes,
+      String notes) {
+    this(placeId, type, title, startTime, endTime, durationMinutes, notes, null);
+  }
+}

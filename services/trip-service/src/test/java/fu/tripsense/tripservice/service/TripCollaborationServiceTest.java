@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import fu.tripsense.tripservice.client.TripInvitationEmailClient;
 import fu.tripsense.tripservice.dto.request.InviteTripMemberRequest;
 import fu.tripsense.tripservice.dto.request.UpdateMemberRoleRequest;
 import fu.tripsense.tripservice.dto.response.TripCollaborationSummaryResponse;
@@ -16,7 +17,6 @@ import fu.tripsense.tripservice.entity.TripMember;
 import fu.tripsense.tripservice.enums.TripInvitationStatus;
 import fu.tripsense.tripservice.enums.TripMemberRole;
 import fu.tripsense.tripservice.enums.TripStatus;
-import fu.tripsense.tripservice.exception.ConflictException;
 import fu.tripsense.tripservice.exception.ForbiddenException;
 import fu.tripsense.tripservice.exception.ValidationException;
 import fu.tripsense.tripservice.repository.TripInvitationRepository;
@@ -42,6 +42,8 @@ class TripCollaborationServiceTest {
   private TripRepository tripRepository;
   private TripMemberRepository tripMemberRepository;
   private TripInvitationRepository tripInvitationRepository;
+  private CollaborationChangeService collaborationChangeService;
+  private TripInvitationEmailClient invitationEmailClient;
   private TripCollaborationService collaborationService;
 
   private Trip sampleTrip;
@@ -51,10 +53,16 @@ class TripCollaborationServiceTest {
     tripRepository = mock(TripRepository.class);
     tripMemberRepository = mock(TripMemberRepository.class);
     tripInvitationRepository = mock(TripInvitationRepository.class);
+    collaborationChangeService = mock(CollaborationChangeService.class);
+    invitationEmailClient = mock(TripInvitationEmailClient.class);
 
     collaborationService =
         new TripCollaborationServiceImpl(
-            tripRepository, tripMemberRepository, tripInvitationRepository);
+            tripRepository,
+            tripMemberRepository,
+            tripInvitationRepository,
+            collaborationChangeService,
+            invitationEmailClient);
 
     sampleTrip =
         Trip.builder()
@@ -100,6 +108,7 @@ class TripCollaborationServiceTest {
     assertThat(response.role()).isEqualTo(TripMemberRole.EDITOR);
     assertThat(response.status()).isEqualTo(TripInvitationStatus.PENDING);
     assertThat(response.invitationToken()).isNotEmpty();
+    verify(invitationEmailClient).sendInvitation(eq(sampleTrip), any(TripInvitation.class));
   }
 
   @Test
@@ -116,7 +125,7 @@ class TripCollaborationServiceTest {
   }
 
   @Test
-  void inviteMember_whenPendingInvitationExists_throwsConflict_TF76() {
+  void inviteMember_whenPendingInvitationExists_resendsEmail_TF76() {
     InviteTripMemberRequest request =
         InviteTripMemberRequest.builder()
             .email("friend@example.com")
@@ -128,7 +137,10 @@ class TripCollaborationServiceTest {
             .id(UUID.randomUUID())
             .trip(sampleTrip)
             .inviteeEmail("friend@example.com")
+            .role(TripMemberRole.EDITOR)
             .status(TripInvitationStatus.PENDING)
+            .invitationToken("existing-token")
+            .createdAt(Instant.now().minus(2, ChronoUnit.DAYS))
             .expiresAt(Instant.now().plus(5, ChronoUnit.DAYS))
             .build();
 
@@ -136,9 +148,33 @@ class TripCollaborationServiceTest {
             tripId, "friend@example.com", TripInvitationStatus.PENDING))
         .thenReturn(Optional.of(existing));
 
-    assertThatThrownBy(() -> collaborationService.inviteMember(ownerId, tripId, request))
-        .isInstanceOf(ConflictException.class)
-        .hasMessageContaining("already been sent");
+    TripInvitationResponse response = collaborationService.inviteMember(ownerId, tripId, request);
+
+    assertThat(response.id()).isEqualTo(existing.getId());
+    assertThat(response.invitationToken()).isEqualTo("existing-token");
+    verify(invitationEmailClient).sendInvitation(sampleTrip, existing);
+    verify(tripInvitationRepository, never()).save(any());
+  }
+
+  @Test
+  void previewInvitation_returnsInviteeAndTripWithoutAuthentication() {
+    TripInvitation invitation =
+        TripInvitation.builder()
+            .trip(sampleTrip)
+            .inviteeEmail("friend@example.com")
+            .role(TripMemberRole.EDITOR)
+            .status(TripInvitationStatus.PENDING)
+            .invitationToken("preview-token")
+            .expiresAt(Instant.now().plus(5, ChronoUnit.DAYS))
+            .build();
+    when(tripInvitationRepository.findByInvitationToken("preview-token"))
+        .thenReturn(Optional.of(invitation));
+
+    var preview = collaborationService.previewInvitation("preview-token");
+
+    assertThat(preview.tripName()).isEqualTo(sampleTrip.getName());
+    assertThat(preview.inviteeEmail()).isEqualTo("friend@example.com");
+    assertThat(preview.status()).isEqualTo(TripInvitationStatus.PENDING);
   }
 
   @Test

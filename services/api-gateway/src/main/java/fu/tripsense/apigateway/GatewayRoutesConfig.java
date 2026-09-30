@@ -34,6 +34,8 @@ class GatewayRoutesConfig {
   static final String TRIP_SERVICE_ROUTE_ID = "trip-service";
   static final String TRIP_SERVICE_PATH = "/api/trips/**";
   static final String TRIP_SERVICE_URI = "lb://trip-service";
+  static final String TRIP_COLLABORATION_STREAM_PATH =
+      "/api/trips/*/collaboration/events";
 
   static final String SOCIAL_SERVICE_ROUTE_ID = "social-service";
   static final String SOCIAL_SERVICE_PATH = "/api/social/**";
@@ -106,6 +108,19 @@ class GatewayRoutesConfig {
             route ->
                 route.path(USER_SERVICE_AUTH_PATH, USER_SERVICE_USERS_PATH).uri(USER_SERVICE_URI))
         .route(MAIL_SERVICE_ROUTE_ID, route -> route.path(MAIL_SERVICE_PATH).uri(MAIL_SERVICE_URI))
+        .route(
+            "trip-collaboration-stream",
+            route ->
+                route
+                    .path(TRIP_COLLABORATION_STREAM_PATH)
+                    .and()
+                    .method(HttpMethod.GET)
+                    .filters(
+                        filters ->
+                            filters
+                                .setResponseHeader("Cache-Control", "no-store")
+                                .setResponseHeader("X-Accel-Buffering", "no"))
+                    .uri(TRIP_SERVICE_URI))
         .route(TRIP_SERVICE_ROUTE_ID, route -> route.path(TRIP_SERVICE_PATH).uri(TRIP_SERVICE_URI))
         .route(
             RECOMMENDATION_SERVICE_ROUTE_ID,

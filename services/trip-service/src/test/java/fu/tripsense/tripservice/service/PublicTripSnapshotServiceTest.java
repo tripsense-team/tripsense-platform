@@ -53,7 +53,8 @@ class PublicTripSnapshotServiceTest {
             tripMembers,
             mock(PlaceClient.class),
             Clock.fixed(Instant.parse("2026-09-22T00:00:00Z"), ZoneOffset.UTC),
-            new ObjectMapper().findAndRegisterModules());
+            new ObjectMapper().findAndRegisterModules(),
+            mock(CollaborationChangeService.class));
   }
 
   @Test

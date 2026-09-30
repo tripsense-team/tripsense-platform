@@ -7,10 +7,13 @@ import static org.mockito.Mockito.verify;
 
 import fu.tripsense.emailservice.dto.request.SendPasswordResetEmailRequest;
 import fu.tripsense.emailservice.dto.request.SendTemplateEmailRequest;
+import fu.tripsense.emailservice.dto.request.SendTripInvitationEmailRequest;
 import fu.tripsense.emailservice.dto.request.SendVerificationEmailRequest;
 import fu.tripsense.emailservice.dto.response.ApiResponse;
 import fu.tripsense.emailservice.dto.response.EmailResponse;
+import fu.tripsense.emailservice.security.InternalApiKeyValidator;
 import fu.tripsense.emailservice.service.EmailService;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +26,7 @@ import org.springframework.http.ResponseEntity;
 class EmailControllerTest {
 
   @Mock private EmailService emailService;
+  @Mock private InternalApiKeyValidator internalApiKeyValidator;
 
   @InjectMocks private EmailController emailController;
 
@@ -81,5 +85,32 @@ class EmailControllerTest {
             "Order Confirmation",
             "order-confirmation",
             Map.of("PRODUCT", "Vintage Macintosh", "PRICE", 499));
+  }
+
+  @Test
+  void testSendTripInvitationEmail() {
+    Instant expiresAt = Instant.parse("2026-10-07T08:00:00Z");
+    SendTripInvitationEmailRequest request =
+        new SendTripInvitationEmailRequest(
+            "friend@example.com",
+            "Da Nang",
+            "EDITOR",
+            "Join us",
+            "http://localhost:3000/trips/join?token=token123",
+            expiresAt);
+
+    ResponseEntity<ApiResponse<EmailResponse>> response =
+        emailController.sendTripInvitationEmail("test-internal-key", request);
+
+    assertEquals(200, response.getStatusCode().value());
+    verify(internalApiKeyValidator).requireValid("test-internal-key");
+    verify(emailService)
+        .sendTripInvitation(
+            "friend@example.com",
+            "Da Nang",
+            "EDITOR",
+            "Join us",
+            "http://localhost:3000/trips/join?token=token123",
+            expiresAt);
   }
 }

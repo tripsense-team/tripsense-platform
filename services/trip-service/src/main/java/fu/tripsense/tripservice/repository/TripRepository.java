@@ -29,4 +29,8 @@ public interface TripRepository extends JpaRepository<Trip, UUID>, JpaSpecificat
   @Query(
       "select t from Trip t where t.id = :id and t.ownerUserId = :owner and t.archivedAt is null")
   Optional<Trip> findOwnedForUpdate(@Param("id") UUID id, @Param("owner") UUID ownerUserId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select t from Trip t where t.id = :id and t.archivedAt is null")
+  Optional<Trip> findActiveByIdForUpdate(@Param("id") UUID id);
 }

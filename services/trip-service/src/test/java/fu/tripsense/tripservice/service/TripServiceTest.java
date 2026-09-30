@@ -346,6 +346,51 @@ class TripServiceTest extends RealInfrastructureTest {
   }
 
   @Test
+  void collaborativeMutationAdvancesRevisionAndRejectsStaleAggregate() {
+    TripResponse trip =
+        tripService.createTrip(
+            USER_ID,
+            createTripRequest("Da Nang", LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 13)));
+    ItineraryResponse initial = tripService.getItinerary(USER_ID, trip.id());
+    ItineraryDayResponse day = initial.days().getFirst();
+
+    tripService.createItem(
+        USER_ID,
+        trip.id(),
+        day.id(),
+        new CreateItineraryItemRequest(
+            null,
+            ItineraryItemType.ACTIVITY,
+            "Dragon Bridge",
+            LocalTime.of(19, 0),
+            LocalTime.of(20, 0),
+            60,
+            null,
+            initial.revision()));
+
+    ItineraryResponse refreshed = tripService.getItinerary(USER_ID, trip.id());
+    assertThat(refreshed.revision()).isEqualTo(initial.revision() + 1);
+
+    assertThatThrownBy(
+            () ->
+                tripService.createItem(
+                    USER_ID,
+                    trip.id(),
+                    day.id(),
+                    new CreateItineraryItemRequest(
+                        null,
+                        ItineraryItemType.MEAL,
+                        "Stale change",
+                        LocalTime.of(20, 0),
+                        LocalTime.of(21, 0),
+                        60,
+                        null,
+                        initial.revision())))
+        .isInstanceOf(ConflictException.class)
+        .hasMessageContaining("another trip member");
+  }
+
+  @Test
   void deleteItemIsIdempotentWhenItemWasAlreadyRemoved() {
     TripResponse trip =
         tripService.createTrip(

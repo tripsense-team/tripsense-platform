@@ -12,7 +12,7 @@ import {
   LandingFeaturesGrid,
   LandingTestimonials,
 } from "@/features/explore";
-import { AuthModal, useAuth } from "@/features/auth";
+import { AuthModal, safeInternalReturnUrl, useAuth } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
 
 function LandingContent() {
@@ -22,6 +22,8 @@ function LandingContent() {
 
   const signinParam = searchParams.get("signin");
   const signupParam = searchParams.get("signup");
+  const returnUrl = safeInternalReturnUrl(searchParams.get("returnUrl"));
+  const initialEmail = searchParams.get("email");
 
   const [authModalDismissed, setAuthModalDismissed] = React.useState(false);
   const [activeMode, setActiveMode] = React.useState<
@@ -37,9 +39,9 @@ function LandingContent() {
   // If user is authenticated, immediately redirect to Home (/explore)
   React.useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace("/explore");
+      router.replace(returnUrl ?? "/explore");
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, returnUrl, router]);
 
   const handleOpenAuthModal = (mode: "signin" | "signup") => {
     setAuthModalDismissed(false);
@@ -77,6 +79,8 @@ function LandingContent() {
         open={authModalOpen}
         onOpenChange={handleOpenChange}
         initialMode={authMode}
+        returnUrl={returnUrl}
+        initialEmail={initialEmail}
       />
     </div>
   );
