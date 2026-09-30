@@ -11,4 +11,10 @@ export {
   type HotelRoomData,
   type HotelOTAOption,
   type HotelFAQ,
+  type HotelReview,
 } from "./data/mock-hotels";
+export {
+  placeToMindtripHotel,
+  searchRealHotels,
+  executeDirectBooking,
+} from "./services/hotel-service-adapter";

@@ -15,10 +15,8 @@ import {
   MapPin,
   ChevronRight,
   Phone,
-  Sparkles,
   Bell,
   BellRing,
-  Mic,
   Navigation,
   ExternalLink,
   Compass,
@@ -40,6 +38,9 @@ export interface MindtripHotelDetailOverlayProps {
   isPanelCollapsed?: boolean;
   onTogglePanel?: () => void;
   className?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  guestCount?: number;
 }
 
 export function MindtripHotelDetailOverlay({
@@ -52,6 +53,9 @@ export function MindtripHotelDetailOverlay({
   isPanelCollapsed = false,
   onTogglePanel,
   className,
+  checkInDate: propCheckIn,
+  checkOutDate: propCheckOut,
+  guestCount: propGuestCount,
 }: MindtripHotelDetailOverlayProps) {
   const { t, locale } = useTranslation();
 
@@ -62,20 +66,31 @@ export function MindtripHotelDetailOverlay({
   const [favState, setFavState] = React.useState(isFavorite);
   const [addedState, setAddedState] = React.useState(isAddedToTrip);
 
-  // Conversational AI state
-  const [aiQuestion, setAiQuestion] = React.useState("");
-  const [aiAnswer, setAiAnswer] = React.useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = React.useState(false);
-
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
   const amenitiesRef = React.useRef<HTMLDivElement | null>(null);
   const reviewsRef = React.useRef<HTMLDivElement | null>(null);
   const locationRef = React.useRef<HTMLDivElement | null>(null);
 
-  const checkInDate = "14 thg 10";
-  const checkOutDate = "15 thg 10";
-  const guestCount = 1;
+  // Dynamic default dates (tomorrow and day-after)
+  const { dynamicCheckIn, dynamicCheckOut } = React.useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
+    const formatter = new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
+      day: "numeric",
+      month: "short",
+    });
+    return {
+      dynamicCheckIn: formatter.format(tomorrow),
+      dynamicCheckOut: formatter.format(dayAfter),
+    };
+  }, [locale]);
+
+  const activeCheckIn = propCheckIn || dynamicCheckIn;
+  const activeCheckOut = propCheckOut || dynamicCheckOut;
+  const activeGuests = propGuestCount ?? 1;
 
   const displayLocation = [hotel.district, hotel.city].filter(Boolean).join(", ") || hotel.address;
 
@@ -109,27 +124,6 @@ export function MindtripHotelDetailOverlay({
     }
   };
 
-  const handleAskQuestion = (q: string) => {
-    setAiQuestion(q);
-    setIsAiLoading(true);
-    setAiAnswer(null);
-
-    setTimeout(() => {
-      const match = hotel.faqs?.find((f) =>
-        f.question.toLowerCase().includes(q.toLowerCase()) || q.toLowerCase().includes(f.question.toLowerCase().slice(0, 15))
-      );
-      if (match) {
-        setAiAnswer(match.answer);
-      } else {
-        setAiAnswer(
-          locale === "vi"
-            ? `${hotel.name} tại ${displayLocation} luôn sẵn sàng chào đón du khách. Bạn có thể liên hệ lễ tân theo số ${hotel.phone || "hotline"} để được hỗ trợ tốt nhất.`
-            : `${hotel.name} in ${displayLocation} is delighted to assist guests. You may contact the front desk at ${hotel.phone || "the hotel hotline"} for personalized travel requests.`
-        );
-      }
-      setIsAiLoading(false);
-    }, 350);
-  };
 
   const handleTabClick = (tab: "overview" | "amenities" | "reviews" | "location") => {
     setActiveTab(tab);
@@ -160,9 +154,9 @@ export function MindtripHotelDetailOverlay({
         <MindtripAvailableRoomsView
           hotel={hotel}
           onBack={() => setIsAvailableRoomsViewOpen(false)}
-          checkInDate={checkInDate}
-          checkOutDate={checkOutDate}
-          guestCount={guestCount}
+          checkInDate={activeCheckIn}
+          checkOutDate={activeCheckOut}
+          guestCount={activeGuests}
         />
       </div>
     );
@@ -277,7 +271,7 @@ export function MindtripHotelDetailOverlay({
       </div>
 
       {/* 2. Main Content Body */}
-      <div className="px-5 sm:px-6 py-5 flex-1 pb-44 space-y-6">
+      <div className="px-5 sm:px-6 py-5 flex-1 pb-12 space-y-6">
         <div className="w-full max-w-5xl mx-auto space-y-6">
           {/* Hotel Title */}
           <div>
@@ -427,16 +421,16 @@ export function MindtripHotelDetailOverlay({
                     <div className="grid grid-cols-2 gap-px rounded-2xl border border-border bg-muted/30 overflow-hidden text-xs">
                       <div className="bg-card p-3 space-y-0.5">
                         <span className="text-[11px] text-muted-foreground block font-medium">Check in</span>
-                        <span className="font-semibold text-foreground block text-sm">{checkInDate}</span>
+                        <span className="font-semibold text-foreground block text-sm">{activeCheckIn}</span>
                       </div>
                       <div className="bg-card p-3 space-y-0.5">
                         <span className="text-[11px] text-muted-foreground block font-medium">Check out</span>
-                        <span className="font-semibold text-foreground block text-sm">{checkOutDate}</span>
+                        <span className="font-semibold text-foreground block text-sm">{activeCheckOut}</span>
                       </div>
                       <div className="col-span-2 bg-card p-3 space-y-0.5 border-t border-border">
                         <span className="text-[11px] text-muted-foreground block font-medium">Guests</span>
                         <span className="font-semibold text-foreground block text-sm">
-                          {guestCount} {guestCount === 1 ? (locale === "vi" ? "khách" : "adult") : (locale === "vi" ? "khách" : "adults")}
+                          {activeGuests} {activeGuests === 1 ? (locale === "vi" ? "khách" : "adult") : (locale === "vi" ? "khách" : "adults")}
                         </span>
                       </div>
                     </div>
@@ -601,49 +595,46 @@ export function MindtripHotelDetailOverlay({
             </div>
 
             {/* Review Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                      TV
+            {hotel.reviews && hotel.reviews.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {hotel.reviews.map((rev, idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                          {rev.authorName ? rev.authorName.slice(0, 2).toUpperCase() : "TS"}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-sm text-foreground block">{rev.authorName}</span>
+                          <span className="text-[11px] text-muted-foreground block">
+                            {rev.stayDuration || rev.date || (locale === "vi" ? "Khách đã lưu trú" : "Verified guest")}
+                          </span>
+                        </div>
+                      </div>
+                      {typeof rev.rating === "number" && (
+                        <div className="flex items-center gap-1 text-xs font-bold text-foreground bg-card border border-border px-2 py-0.5 rounded-md">
+                          <Star className="h-3 w-3 fill-foreground text-foreground" />
+                          <span>{rev.rating.toFixed(1)}</span>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <span className="font-semibold text-sm text-foreground block">Tri Van</span>
-                      <span className="text-[11px] text-muted-foreground block">Stayed 2 nights · Verified guest</span>
-                    </div>
+                    {rev.text && (
+                      <p className="text-xs text-foreground/85 leading-relaxed">
+                        "{rev.text}"
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 text-xs font-bold text-foreground bg-card border border-border px-2 py-0.5 rounded-md">
-                    <Star className="h-3 w-3 fill-foreground text-foreground" />
-                    <span>5.0</span>
-                  </div>
-                </div>
-                <p className="text-xs text-foreground/85 leading-relaxed">
-                  "Incredible location right on the coastline! The bungalows are clean, stylish, and have stunning sunset views. The breakfast was fantastic."
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-muted/20 border border-border text-center space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  {locale === "vi"
+                    ? "Chưa có bài đánh giá chi tiết cho cơ sở này."
+                    : "No detailed reviews available for this property yet."}
                 </p>
               </div>
-
-              <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
-                      AL
-                    </div>
-                    <div>
-                      <span className="font-semibold text-sm text-foreground block">Alexandre L.</span>
-                      <span className="text-[11px] text-muted-foreground block">Stayed 3 nights · Verified guest</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs font-bold text-foreground bg-card border border-border px-2 py-0.5 rounded-md">
-                    <Star className="h-3 w-3 fill-foreground text-foreground" />
-                    <span>4.5</span>
-                  </div>
-                </div>
-                <p className="text-xs text-foreground/85 leading-relaxed">
-                  "The infinity pool overlooking the ocean is magnificent. Staff went above and beyond to arrange island tours and motorcycle rentals."
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Section 4: Location Tab Content */}
@@ -679,81 +670,6 @@ export function MindtripHotelDetailOverlay({
         </div>
       </div>
 
-      {/* 3. Persistent Bottom Conversational AI Bar ("Ask TripSense") */}
-      <div className="fixed bottom-0 left-0 right-0 lg:left-auto lg:right-0 lg:w-[calc(100%-var(--sidebar-width,0px))] max-w-5xl mx-auto p-4 z-40 bg-gradient-to-t from-background via-background/95 to-transparent backdrop-blur-md">
-        <div className="rounded-3xl border border-border bg-card/90 text-card-foreground p-3 sm:p-4 shadow-xl space-y-3">
-          {/* AI Response Card if active */}
-          {aiAnswer && (
-            <div className="p-3.5 rounded-2xl bg-muted/50 border border-border text-xs text-foreground/90 space-y-1 animate-in fade-in-0 duration-150">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="font-semibold flex items-center gap-1.5 text-foreground">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  TripSense AI
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setAiAnswer(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="leading-relaxed">{aiAnswer}</p>
-            </div>
-          )}
-
-          {/* Input Box: "Ask TripSense..." with microphone icon */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (aiQuestion.trim()) handleAskQuestion(aiQuestion.trim());
-            }}
-            className="flex items-center gap-2 rounded-2xl bg-muted/40 border border-border px-4 py-2.5"
-          >
-            <input
-              type="text"
-              value={aiQuestion}
-              onChange={(e) => setAiQuestion(e.target.value)}
-              placeholder="Ask TripSense..."
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-hidden"
-            />
-            {isAiLoading ? (
-              <span className="text-xs text-muted-foreground animate-pulse">Thinking...</span>
-            ) : (
-              <button
-                type="button"
-                aria-label="Voice input"
-                className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <Mic className="h-4 w-4" />
-              </button>
-            )}
-          </form>
-
-          {/* "You might want to ask" Prompts Carousel */}
-          {hotel.faqs && hotel.faqs.length > 0 && (
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                You might want to ask
-              </span>
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
-                {hotel.faqs.map((faq) => (
-                  <button
-                    key={faq.question}
-                    type="button"
-                    onClick={() => handleAskQuestion(faq.question)}
-                    className="shrink-0 px-3.5 py-1.5 rounded-full bg-muted/60 hover:bg-muted border border-border text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5 text-left max-w-[340px] truncate"
-                  >
-                    <span className="truncate">{faq.question}</span>
-                    <ChevronRight className="h-3 w-3 shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Book Your Stay Popover Modal */}
       <MindtripBookStayModal
         hotel={hotel}
@@ -763,9 +679,9 @@ export function MindtripHotelDetailOverlay({
           setIsBookModalOpen(false);
           setIsAvailableRoomsViewOpen(true);
         }}
-        checkInDate={checkInDate}
-        checkOutDate={checkOutDate}
-        guestCount={guestCount}
+        checkInDate={activeCheckIn}
+        checkOutDate={activeCheckOut}
+        guestCount={activeGuests}
       />
     </div>
   );

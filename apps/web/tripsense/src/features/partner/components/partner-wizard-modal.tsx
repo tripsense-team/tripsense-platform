@@ -16,6 +16,7 @@ import {
   AlertCircle,
   X,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,8 +30,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { searchPlaces } from "@/features/places/services/places-api";
-import type { Place } from "@/features/places/types";
+import { cn } from "@/lib/utils";
+import { getAutocomplete, getPlaceDetails } from "@/features/places/services/places-api";
+import type { AutocompleteSuggestion, Place } from "@/features/places/types";
+import { useTranslation } from "@/i18n";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import {
   createBusinessDraft,
   submitBusinessApplication,
@@ -69,7 +73,15 @@ export function PartnerWizardModal({
 
   // --- Place / Location Search state ---
   const [placeQuery, setPlaceQuery] = React.useState("");
-  const [placeResults, setPlaceResults] = React.useState<Place[]>([]);
+  const { t } = useTranslation();
+  const placeInputId = React.useId();
+  const [placeResults, setPlaceResults] = React.useState<AutocompleteSuggestion[]>([]);
+  const [placeError, setPlaceError] = React.useState<string | null>(null);
+  const [searchAttempt, setSearchAttempt] = React.useState(0);
+  const [selectedIndex, setSelectedIndex] = React.useState(-1);
+  const [isResolvingPlace, setIsResolvingPlace] = React.useState(false);
+  const searchRequest = React.useRef<AbortController | null>(null);
+  const detailsRequest = React.useRef<AbortController | null>(null);
   const [isSearchingPlaces, setIsSearchingPlaces] = React.useState(false);
   const [selectedPlace, setSelectedPlace] = React.useState<Place | null>(null);
   const [customAddress, setCustomAddress] = React.useState("");
@@ -104,65 +116,75 @@ export function PartnerWizardModal({
     }
   }, [kind]);
 
-  // Debounced Place Search
   React.useEffect(() => {
-    if (!placeQuery.trim() || placeQuery.trim().length < 2) {
-      setPlaceResults([]);
-      setIsSearchingPlaces(false);
-      return;
-    }
+    setIsResolvingPlace(false);
+    return () => { detailsRequest.current?.abort(); };
+  }, [open, kind, step, isClaimMode]);
 
-    if (selectedPlace && selectedPlace.name === placeQuery.trim()) {
-      return;
-    }
+  React.useEffect(() => {
+    setSelectedPlace(null);
+    setPlaceQuery("");
+    setCustomAddress("");
+  }, [kind]);
 
+  // Debounced autocomplete; abort guards also protect against stale responses.
+  React.useEffect(() => {
+    setPlaceResults([]);
+    setPlaceError(null);
+    setIsSearchingPlaces(false);
+    if (!open || step !== 2 || isClaimMode || kind === "TOUR_GUIDE" ||
+        selectedPlace || placeQuery.trim().length < 2) return;
+
+    const controller = new AbortController();
+    searchRequest.current = controller;
+    setIsSearchingPlaces(true);
     const timer = setTimeout(async () => {
       try {
-        setIsSearchingPlaces(true);
-        const res = await searchPlaces({ q: placeQuery.trim(), limit: 6 });
-        if (res.success && Array.isArray(res.data)) {
-          setPlaceResults(res.data);
+        const res = await getAutocomplete(placeQuery.trim(), undefined, undefined, 10, controller.signal);
+        if (controller.signal.aborted) return;
+        if (!res.success || !Array.isArray(res.data)) throw new Error();
+        setPlaceResults(res.data.filter((item) => item.id && item.title));
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setPlaceError(getSafeErrorMessage(err, t("partner.location.searchError")));
         }
-      } catch {
-        setPlaceResults([]);
       } finally {
-        setIsSearchingPlaces(false);
+        if (!controller.signal.aborted) setIsSearchingPlaces(false);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
-  }, [placeQuery, selectedPlace]);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [placeQuery, selectedPlace, open, step, kind, isClaimMode, searchAttempt, t]);
 
-  // Debounced check if manually entered display name conflicts with an existing partner
+  // Use one guarded conflict check for both selected places and manual names.
   React.useEffect(() => {
-    if (selectedPlace) return;
-    if (!displayName.trim() || displayName.trim().length < 3) {
-      setConflictCandidate(null);
-      return;
-    }
+    let active = true;
+    const name = selectedPlace?.name || displayName.trim();
+    setConflictCandidate(null);
+    setIsCheckingConflict(false);
+    if (!open || isClaimMode || isResolvingPlace || name.length < 3) return;
 
     const timer = setTimeout(async () => {
+      setIsCheckingConflict(true);
       try {
-        setIsCheckingConflict(true);
-        const candidates = await searchBusinessCandidates(kind, displayName.trim());
-        if (Array.isArray(candidates) && candidates.length > 0) {
-          const match =
-            candidates.find(
-              (c) => c.displayName.toLowerCase() === displayName.trim().toLowerCase(),
-            ) || candidates[0];
-          setConflictCandidate(match);
-        } else {
-          setConflictCandidate(null);
+        const candidates = await searchBusinessCandidates(kind, name);
+        if (active) {
+          setConflictCandidate(candidates?.find(
+            (c) => c.displayName.toLowerCase() === name.toLowerCase(),
+          ) || candidates?.[0] || null);
         }
       } catch {
-        setConflictCandidate(null);
+        // Candidate lookup remains advisory; submission is validated server-side.
       } finally {
-        setIsCheckingConflict(false);
+        if (active) setIsCheckingConflict(false);
       }
     }, 500);
 
-    return () => clearTimeout(timer);
-  }, [displayName, kind, selectedPlace]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [displayName, kind, selectedPlace, open, isClaimMode, isResolvingPlace]);
 
   // Debounced Business Candidate Search (for Claim / Appeal)
   React.useEffect(() => {
@@ -189,6 +211,10 @@ export function PartnerWizardModal({
   }, [claimSearchQuery, isClaimMode, kind]);
 
   const resetForm = () => {
+    searchRequest.current?.abort();
+    detailsRequest.current?.abort();
+    setIsResolvingPlace(false);
+    setPlaceError(null);
     setStep(1);
     setDisplayName("");
     setDescription("");
@@ -219,33 +245,72 @@ export function PartnerWizardModal({
     );
   };
 
-  const handleSelectPlace = async (place: Place) => {
-    setSelectedPlace(place);
-    setPlaceQuery("");
+  const changePlaceQuery = (query: string) => {
+    searchRequest.current?.abort();
+    detailsRequest.current?.abort();
+    setIsResolvingPlace(false);
+    setIsSearchingPlaces(false);
+    setPlaceError(null);
     setPlaceResults([]);
-    if (place.name) {
-      setDisplayName(place.name);
-    }
-    if (place.address) {
-      setCustomAddress(place.address);
-    }
+    setSelectedIndex(-1);
+    setPlaceQuery(query);
+  };
 
-    // Check if another partner already registered / published a business with this name or place
-    try {
-      setIsCheckingConflict(true);
-      setConflictCandidate(null);
-      const candidates = await searchBusinessCandidates(kind, place.name);
-      if (Array.isArray(candidates) && candidates.length > 0) {
-        setConflictCandidate(candidates[0]);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (placeResults.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev < placeResults.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : placeResults.length - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < placeResults.length) {
+        void handleSelectPlace(placeResults[selectedIndex]);
       }
-    } catch {
-      // Ignore background candidate check error
+    } else if (e.key === "Escape") {
+      setPlaceResults([]);
+      setSelectedIndex(-1);
+    }
+  };
+
+  const handleSelectPlace = async (suggestion: AutocompleteSuggestion) => {
+    searchRequest.current?.abort();
+    detailsRequest.current?.abort();
+    setSelectedIndex(-1);
+    const controller = new AbortController();
+    detailsRequest.current = controller;
+    setIsSearchingPlaces(false);
+    setIsResolvingPlace(true);
+    setPlaceError(null);
+    try {
+      const res = await getPlaceDetails(suggestion.id, undefined, undefined, undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      const place = res.data;
+      if (!res.success || !place?.id || !place.name || !place.location ||
+          !Number.isFinite(place.location.lat) || !Number.isFinite(place.location.lng) ||
+          Math.abs(place.location.lat) > 90 || Math.abs(place.location.lng) > 180 ||
+          (place.id !== suggestion.id && place.providerPlaceId !== suggestion.id)) {
+        throw new Error();
+      }
+      setSelectedPlace(place);
+      setDisplayName(place.name);
+      setCustomAddress(place.address || suggestion.subtitle || "");
+      setPlaceQuery("");
+      setPlaceResults([]);
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        setPlaceError(getSafeErrorMessage(err, t("partner.location.detailsError")));
+      }
     } finally {
-      setIsCheckingConflict(false);
+      if (!controller.signal.aborted) setIsResolvingPlace(false);
     }
   };
 
   const handleSubmit = async () => {
+    if (isResolvingPlace) return;
     if (!displayName.trim()) {
       setError("Vui lòng nhập tên cơ sở hoặc tên hiển thị.");
       return;
@@ -669,12 +734,12 @@ export function PartnerWizardModal({
                 {(kind === "HOTEL" || kind === "RESTAURANT") && (
                   <div className="space-y-2.5 p-3.5 rounded-xl border border-border/80 bg-muted/20">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-primary" /> Tìm kiếm vị trí & cơ sở trên bản đồ
+                      <label htmlFor={placeInputId} className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-primary" /> {t("partner.location.label")}
                       </label>
                       {selectedPlace && (
                         <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                          <Check className="h-3 w-3" /> Đã khớp địa điểm
+                          <Check className="h-3 w-3" /> {t("partner.location.matched")}
                         </span>
                       )}
                     </div>
@@ -683,23 +748,24 @@ export function PartnerWizardModal({
                       <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
-                          placeholder={
-                            kind === "HOTEL"
-                              ? "Tìm tên khách sạn, homestay, resort, địa chỉ..."
-                              : "Tìm tên nhà hàng, quán ăn, quán café, địa chỉ..."
-                          }
+                          id={placeInputId}
+                          maxLength={200}
+                          autoComplete="off"
+                          placeholder={t(kind === "HOTEL" ? "partner.location.hotelPlaceholder" : "partner.location.restaurantPlaceholder")}
                           value={placeQuery}
-                          onChange={(e) => setPlaceQuery(e.target.value)}
-                          className="pl-9 pr-8 text-xs"
+                          onChange={(e) => changePlaceQuery(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          className="pl-9 pr-14 text-xs"
                         />
+                        {(isSearchingPlaces || isResolvingPlace) && (
+                          <Loader2 className="absolute right-8 top-2.5 h-4 w-4 text-muted-foreground animate-spin shrink-0" />
+                        )}
                         {placeQuery && (
                           <button
                             type="button"
-                            onClick={() => {
-                              setPlaceQuery("");
-                              setPlaceResults([]);
-                            }}
-                            className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                            aria-label={t("common.clear")}
+                            onClick={() => changePlaceQuery("")}
+                            className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -715,7 +781,7 @@ export function PartnerWizardModal({
                           <span className="text-[11px] text-muted-foreground block truncate">
                             {selectedPlace.address ||
                               (selectedPlace.location
-                                ? `Tọa độ: ${selectedPlace.location.lat.toFixed(5)}, ${selectedPlace.location.lng.toFixed(5)}`
+                                ? t("partner.location.coordinates", { lat: selectedPlace.location.lat.toFixed(5), lng: selectedPlace.location.lng.toFixed(5) })
                                 : "")}
                           </span>
                         </div>
@@ -723,59 +789,75 @@ export function PartnerWizardModal({
                           type="button"
                           variant="ghost"
                           size="sm"
+                          aria-label={t("common.clear")}
                           onClick={() => {
                             setSelectedPlace(null);
                             setConflictCandidate(null);
-                            setPlaceQuery("");
-                            setPlaceResults([]);
+                            changePlaceQuery("");
                           }}
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     )}
 
-                    {isSearchingPlaces && (
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 animate-pulse">
-                        <Search className="h-3 w-3 animate-spin text-primary" />
-                        Đang tra cứu dữ liệu địa điểm...
+                    {isResolvingPlace && (
+                      <p role="status" className="text-[11px] text-muted-foreground flex items-center gap-1.5 animate-pulse">
+                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        {t("partner.location.resolving")}
                       </p>
+                    )}
+                    {placeError && (
+                      <div role="alert" className="text-xs text-destructive">
+                        {placeError}
+                        {!placeResults.length && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setSearchAttempt((n) => n + 1)}>
+                            {t("common.retry")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    {!selectedPlace && placeQuery.trim().length >= 2 && !isSearchingPlaces && !isResolvingPlace && !placeError && !placeResults.length && (
+                      <p role="status" className="text-xs text-muted-foreground">{t("partner.location.empty")}</p>
                     )}
 
                     {isCheckingConflict && (
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 animate-pulse">
-                        Đang kiểm tra tình trạng quản lý cơ sở...
+                        {t("partner.location.checkingConflict")}
                       </p>
                     )}
 
-                    {/* Place Dropdown suggestions */}
+                    {/* Place Dropdown suggestions (aligned with search-bar on dev) */}
                     {placeResults.length > 0 && !selectedPlace && (
-                      <div className="rounded-lg border border-border bg-card shadow-lg max-h-52 overflow-y-auto divide-y divide-border/60">
-                        {placeResults.map((p) => (
-                          <div
-                            key={p.id}
-                            onClick={() => handleSelectPlace(p)}
-                            className="p-2.5 hover:bg-muted/60 cursor-pointer text-xs transition-colors flex items-start gap-2.5"
-                          >
-                            <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-foreground block truncate">
-                                {p.name}
-                              </span>
-                              {p.address && (
-                                <span className="text-[11px] text-muted-foreground block truncate">
-                                  {p.address}
-                                </span>
+                      <div className="rounded-xl border border-border bg-card p-1.5 shadow-lg max-h-52 overflow-y-auto backdrop-blur-md animate-in fade-in-0 zoom-in-95">
+                        <div className="text-micro font-semibold text-muted-foreground uppercase tracking-wider px-3 py-1.5">
+                          {t("places.suggestionsTitle", { defaultValue: "Gợi ý địa điểm" })}
+                        </div>
+                        <ul className="space-y-0.5">
+                          {placeResults.map((p, index) => (
+                            <li
+                              key={p.id || index}
+                              onClick={() => void handleSelectPlace(p)}
+                              className={cn(
+                                "flex items-center gap-2.5 px-3 py-2 text-xs rounded-lg cursor-pointer transition-colors",
+                                selectedIndex === index
+                                  ? "bg-accent text-accent-foreground font-medium"
+                                  : "hover:bg-muted text-foreground"
                               )}
-                            </div>
-                            {p.rating && (
-                              <span className="text-[11px] text-amber-500 font-medium shrink-0">
-                                ★ {p.rating}
-                              </span>
-                            )}
-                          </div>
-                        ))}
+                            >
+                              <MapPin className="h-4 w-4 text-primary shrink-0" />
+                              <div className="flex flex-col overflow-hidden">
+                                <span className="truncate font-medium">{p.title}</span>
+                                {p.subtitle && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {p.subtitle}
+                                  </span>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 
@@ -828,6 +910,7 @@ export function PartnerWizardModal({
                         : "VD: Khách sạn Riverside Heritage"
                     }
                     value={displayName}
+                    disabled={isResolvingPlace}
                     onChange={(e) => setDisplayName(e.target.value)}
                     className="text-xs"
                   />
@@ -842,6 +925,7 @@ export function PartnerWizardModal({
                     <Input
                       placeholder="VD: Số 123 Đường Trần Phú, Phường Minh An, TP. Hội An"
                       value={customAddress}
+                      disabled={isResolvingPlace}
                       onChange={(e) => setCustomAddress(e.target.value)}
                       className="text-xs"
                     />
@@ -1095,6 +1179,7 @@ export function PartnerWizardModal({
                 <Button
                   type="button"
                   size="sm"
+                  disabled={isResolvingPlace}
                   onClick={() => {
                     if (step === 2) {
                       if (!displayName.trim()) {
@@ -1117,7 +1202,7 @@ export function PartnerWizardModal({
                   type="button"
                   size="sm"
                   onClick={handleSubmit}
-                  disabled={loading || selectedCapabilities.length === 0}
+                  disabled={loading || isResolvingPlace || selectedCapabilities.length === 0}
                 >
                   {loading ? "Đang gửi hồ sơ..." : "Nộp hồ sơ xét duyệt"}
                 </Button>

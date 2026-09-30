@@ -6,12 +6,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  FileText,
-  Building2,
-  Utensils,
-  Compass,
   RefreshCw,
-  Eye,
   Columns,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +22,6 @@ import type {
   AdminReviewDecisionRequest,
   ApplicationDetailDto,
   ManagementClaimDto,
-  PartnerCapability,
 } from "../types";
 
 export function AdminPartnersView() {
@@ -64,15 +58,25 @@ export function AdminPartnersView() {
     loadData();
   }, [loadData]);
 
-  const handleDecision = async (decision: "APPROVED" | "CHANGES_REQUIRED" | "REJECTED") => {
+  const handleDecision = async (decision: "APPROVE" | "REQUEST_CHANGES" | "REJECT") => {
     if (!selectedApp) return;
+
+    if (decision !== "APPROVE" && !reviewReason.trim()) {
+      setActionError(
+        decision === "REQUEST_CHANGES"
+          ? "Vui lòng nhập lý do khi yêu cầu bổ sung thông tin."
+          : "Vui lòng nhập lý do khi từ chối hồ sơ.",
+      );
+      return;
+    }
+
     try {
       setSubmittingReview(true);
       setActionError(null);
 
       const capabilityDecisions = (selectedApp.requestedCapabilities || []).map((cap) => ({
         capability: cap,
-        grant: decision === "APPROVED",
+        grant: decision === "APPROVE",
         reason: reviewReason.trim() || undefined,
       }));
 
@@ -86,7 +90,8 @@ export function AdminPartnersView() {
 
       await adminReviewApplication(selectedApp.id, req);
       setReviewReason("");
-      loadData();
+      setSelectedApp(null);
+      await loadData();
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : "Lỗi khi xử lý thẩm định");
     } finally {
@@ -97,17 +102,23 @@ export function AdminPartnersView() {
   const handleClaimDecision = async (
     claimId: string,
     version: number,
-    decision: "APPROVED" | "REJECTED",
+    outcome: "APPROVED" | "REJECTED",
   ) => {
+    if (!reviewReason.trim()) {
+      setActionError("Vui lòng nhập lý do giải quyết tranh chấp.");
+      return;
+    }
+
     try {
       setSubmittingReview(true);
       setActionError(null);
       await adminReviewManagementClaim(claimId, {
         expectedVersion: version,
-        decision,
-        reason: reviewReason.trim() || undefined,
+        outcome,
+        reason: reviewReason.trim(),
       });
-      loadData();
+      setReviewReason("");
+      await loadData();
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : "Lỗi khi xử lý kháng cáo");
     } finally {
@@ -173,7 +184,7 @@ export function AdminPartnersView() {
                         Hồ sơ #{app.id.slice(0, 8)}
                       </span>
                       <span className="text-[11px] text-muted-foreground">
-                        Phiên bản {app.revisionNumber} • Gửi ngày {new Date(app.submittedAt).toLocaleDateString("vi-VN")}
+                        Phiên bản {app.revision ?? app.revisionNumber ?? 1} • Gửi ngày {new Date(app.submittedAt).toLocaleDateString("vi-VN")}
                       </span>
                     </div>
 
@@ -259,7 +270,7 @@ export function AdminPartnersView() {
                   <Button
                     size="sm"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => handleDecision("APPROVED")}
+                    onClick={() => handleDecision("APPROVE")}
                     disabled={submittingReview}
                   >
                     <CheckCircle className="mr-1.5 h-4 w-4" /> Phê duyệt hồ sơ
@@ -269,7 +280,7 @@ export function AdminPartnersView() {
                     variant="outline"
                     size="sm"
                     className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
-                    onClick={() => handleDecision("CHANGES_REQUIRED")}
+                    onClick={() => handleDecision("REQUEST_CHANGES")}
                     disabled={submittingReview}
                   >
                     <AlertTriangle className="mr-1.5 h-4 w-4" /> Yêu cầu bổ sung
@@ -278,7 +289,7 @@ export function AdminPartnersView() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDecision("REJECTED")}
+                    onClick={() => handleDecision("REJECT")}
                     disabled={submittingReview}
                   >
                     <XCircle className="mr-1.5 h-4 w-4" /> Từ chối

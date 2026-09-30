@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LandingHeader, LandingFooter } from "@/components/layout/landing";
 import {
   LandingHero,
@@ -12,15 +12,32 @@ import {
   LandingFeaturesGrid,
   LandingTestimonials,
 } from "@/features/explore";
-import { AuthModal, useAuth } from "@/features/auth";
+import { AuthModal, useAuth, isUserAdmin } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
+import { isSafeInternalUrl, sanitizeReturnUrl } from "@/lib/url-utils";
 
 function LandingContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const { status, isLoading } = useAuth();
+  const { status, isLoading, isAuthenticated, user } = useAuth();
+
+  const isChecking =
+    isLoading || status === "checking" || status === "initializing";
 
   const signinParam = searchParams.get("signin");
   const signupParam = searchParams.get("signup");
+  const rawReturnUrl = searchParams.get("returnUrl");
+  const returnUrl = sanitizeReturnUrl(rawReturnUrl, undefined);
+
+  // Authenticated User Route Rule:
+  // If user is already authenticated, NEVER show landing page -> redirect to destination
+  React.useEffect(() => {
+    if (!isChecking && isAuthenticated) {
+      const destination =
+        returnUrl || (isUserAdmin(user) ? "/admin" : "/explore");
+      router.replace(destination);
+    }
+  }, [isChecking, isAuthenticated, user, returnUrl, router]);
 
   const [authModalDismissed, setAuthModalDismissed] = React.useState(false);
   const [activeMode, setActiveMode] = React.useState<
@@ -44,8 +61,9 @@ function LandingContent() {
     }
   };
 
-  // While checking auth status:
-  if (isLoading || status === "checking") {
+  // While checking auth status OR if already authenticated (redirecting):
+  // Render AuthLoadingScreen. DO NOT render Landing Page!
+  if (isChecking || isAuthenticated) {
     return <AuthLoadingScreen />;
   }
 
@@ -67,6 +85,7 @@ function LandingContent() {
         open={authModalOpen}
         onOpenChange={handleOpenChange}
         initialMode={authMode}
+        returnUrl={returnUrl}
       />
     </div>
   );

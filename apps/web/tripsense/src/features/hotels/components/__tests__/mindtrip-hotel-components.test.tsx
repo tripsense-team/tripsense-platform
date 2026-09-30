@@ -38,6 +38,8 @@ describe("Mindtrip Hotel Components", () => {
           isOpen={true}
           onClose={() => {}}
           onChooseRoom={() => {}}
+          checkInDate="14 thg 10"
+          checkOutDate="15 thg 10"
         />
       </I18nProvider>
     );
@@ -76,6 +78,8 @@ describe("Mindtrip Hotel Components", () => {
         <MindtripAvailableRoomsView
           hotel={testHotel}
           onBack={() => {}}
+          checkInDate="14 thg 10"
+          checkOutDate="15 thg 10"
         />
       </I18nProvider>
     );
@@ -107,6 +111,8 @@ describe("Mindtrip Hotel Components", () => {
         <MindtripHotelDetailOverlay
           hotel={testHotel}
           onClose={() => {}}
+          checkInDate="14 thg 10"
+          checkOutDate="15 thg 10"
         />
       </I18nProvider>
     );
@@ -136,9 +142,7 @@ describe("Mindtrip Hotel Components", () => {
     expect(html).toContain("Check availability");
     expect(html).toContain("Set price alert");
 
-    // Conversational AI bar
-    expect(html).toContain("Ask TripSense...");
-    expect(html).toContain("You might want to ask");
-    expect(html).toContain("What types of bungalow views are available");
+    // Conversational AI bar removed per UX design
+    expect(html).not.toContain("Ask TripSense...");
   });
 });

@@ -29,7 +29,7 @@ import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collapse-button";
-import { MindtripHotelDetailOverlay, findMindtripHotel, type MindtripHotel } from "@/features/hotels";
+import { MindtripHotelDetailOverlay, placeToMindtripHotel, type MindtripHotel } from "@/features/hotels";
 import type { Place } from "../types";
 import { approvedPhotoGallery } from "../utils/approved-photo";
 import { OpeningHoursDisplay } from "./opening-hours-display";
@@ -134,48 +134,16 @@ export function PlaceDetailOverlay({
       cat.includes("stay") ||
       cat.includes("lodging") ||
       cat.includes("hotel") ||
+      cat.includes("resort") ||
       cat.includes("khách sạn") ||
-      name.includes("crown retreat") ||
-      name.includes("fusion quy nhon") ||
-      name.includes("ohana village") ||
-      name.includes("la cactus") ||
-      name.includes("maia resort") ||
-      name.includes("flamingo linh truong")
+      cat.includes("nhà nghỉ") ||
+      cat.includes("homestay") ||
+      name.includes("hotel") ||
+      name.includes("khách sạn") ||
+      name.includes("resort") ||
+      name.includes("homestay")
     );
   }, [place.categories, place.name]);
-
-  if (isHotel) {
-    const matched = findMindtripHotel(place.name);
-    const hotelData: MindtripHotel = {
-      ...matched,
-      id: place.id || matched.id,
-      name: place.name || matched.name,
-      rating: place.rating || matched.rating,
-      reviewCount: place.userRatingCount || matched.reviewCount,
-      address: place.address || matched.address,
-      phone: place.phone || matched.phone,
-      website: place.website || matched.website,
-      description: place.description || matched.description,
-      photos:
-        displayPhotos.length >= 2
-          ? displayPhotos.map((p) => p.url)
-          : matched.photos,
-    };
-
-    return (
-      <MindtripHotelDetailOverlay
-        hotel={hotelData}
-        isFavorite={isFavorite}
-        isAddedToTrip={isAddedToTrip}
-        onClose={onClose}
-        onToggleFavorite={onToggleFavorite}
-        onAddToTrip={() => onAddToTrip?.(place)}
-        isPanelCollapsed={isPanelCollapsed}
-        onTogglePanel={onTogglePanel}
-        className={className}
-      />
-    );
-  }
 
   const handleShare = () => {
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -200,6 +168,7 @@ export function PlaceDetailOverlay({
 
   // Scrollspy: update active tab indicator when scrolling through sections
   React.useEffect(() => {
+    if (isHotel) return;
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -237,7 +206,7 @@ export function PlaceDetailOverlay({
 
     container.addEventListener("scroll", handleScroll, { passive: true });
     return () => container.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [isHotel]);
 
   const handleTabClick = (tab: "overview" | "reviews" | "location") => {
     setActiveTab(tab);
@@ -264,6 +233,34 @@ export function PlaceDetailOverlay({
       }, 500);
     }
   };
+
+  if (isHotel) {
+    const baseHotel = placeToMindtripHotel(place);
+    const hotelPhotos =
+      displayPhotos.length > 0
+        ? displayPhotos.map((p) => p.url)
+        : baseHotel.photos;
+
+    const hotelData: MindtripHotel = {
+      ...baseHotel,
+      photos: hotelPhotos,
+      description: place.description || undefined,
+    };
+
+    return (
+      <MindtripHotelDetailOverlay
+        hotel={hotelData}
+        isFavorite={isFavorite}
+        isAddedToTrip={isAddedToTrip}
+        onClose={onClose}
+        onToggleFavorite={onToggleFavorite}
+        onAddToTrip={() => onAddToTrip?.(place)}
+        isPanelCollapsed={isPanelCollapsed}
+        onTogglePanel={onTogglePanel}
+        className={className}
+      />
+    );
+  }
 
   return (
     <div

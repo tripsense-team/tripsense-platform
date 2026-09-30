@@ -269,7 +269,7 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
 
   private PlaceDto refreshIfNeeded(Place place, Double fallbackLat, Double fallbackLng) {
     PlaceDto current = persistence.toDto(place);
-    if (!isStale(place)) {
+    if (!isStale(place) && hasDeepDetails(place)) {
       cacheDetails(place.getId(), current);
       return current;
     }
@@ -288,7 +288,12 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
             cacheDetails(place.getId(), refreshed);
             return refreshed;
           }
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
+          log.warn(
+              "Provider place details lookup failed for place '{}' ({}): {}",
+              place.getId(),
+              place.getProviderPlaceId(),
+              ex.getMessage());
         }
       }
       Optional<PlaceDto> enrichment = enrichmentProvider.enrichPlace(place.getName(), lat, lng);
@@ -304,6 +309,17 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
 
     cacheDetails(place.getId(), current);
     return current;
+  }
+
+  private boolean hasDeepDetails(Place place) {
+    if (place.getReviews() != null && !place.getReviews().isEmpty()) {
+      return true;
+    }
+    if (place.getSourceData() != null
+        && Boolean.TRUE.equals(place.getSourceData().get("deepDetailsFetched"))) {
+      return true;
+    }
+    return false;
   }
 
   private boolean hasCompleteDetails(PlaceDto place) {

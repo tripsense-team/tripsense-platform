@@ -15,11 +15,12 @@ import { Button } from "@/components/ui/button";
 import { OtpInput } from "./otp-input";
 import { siteConfig } from "@/config/site";
 import { useAuth } from "../context/auth-context";
-import { UserRole, type AuthModalStep } from "../types";
+import { type AuthModalStep } from "../types";
 import { getAuthErrorMessage } from "../utils/auth-error-helper";
 import { isUserAdmin } from "../utils/role-helpers";
 import { GoogleLogin } from "@react-oauth/google";
 import { cn } from "@/lib/utils";
+import { isSafeInternalUrl } from "@/lib/url-utils";
 import { ApiError } from "@/services/api-client";
 import { useTranslation } from "@/i18n";
 
@@ -27,12 +28,14 @@ interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialMode?: "signin" | "signup";
+  returnUrl?: string;
 }
 
 export function AuthModal({
   open,
   onOpenChange,
   initialMode = "signin",
+  returnUrl,
 }: AuthModalProps) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -122,15 +125,18 @@ export function AuthModal({
       const response = await loginWithGoogle(idToken);
       setSuccessMsg("Logged in with Google successfully!");
 
+      const rawParam =
+        returnUrl ||
+        (typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null);
+      const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
       const isAdmin = isUserAdmin(response.data?.user);
+      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+
       setTimeout(() => {
         onOpenChange(false);
-        // Role-Based Navigation: ADMIN to /admin, USER to /explore
-        if (isAdmin) {
-          router.replace("/admin");
-        } else {
-          router.replace("/explore");
-        }
+        router.replace(destination);
       }, 800);
     } catch (err: unknown) {
       const errorText = getAuthErrorMessage(
@@ -166,15 +172,18 @@ export function AuthModal({
       const response = await login({ email, password });
       setSuccessMsg("Đăng nhập thành công!");
 
+      const rawParam =
+        returnUrl ||
+        (typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null);
+      const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
       const isAdmin = isUserAdmin(response.data?.user);
+      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+
       setTimeout(() => {
         onOpenChange(false);
-        // Role-Based Navigation: ADMIN to /admin, USER to /explore
-        if (isAdmin) {
-          router.replace("/admin");
-        } else {
-          router.replace("/explore");
-        }
+        router.replace(destination);
       }, 800);
     } catch (err: unknown) {
       setErrorMsg(

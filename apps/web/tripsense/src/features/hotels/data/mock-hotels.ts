@@ -2,10 +2,11 @@ import type {
   HotelRoomData,
   HotelOTAOption,
   HotelFAQ,
+  HotelReview,
   MindtripHotel,
 } from "../types";
 
-export type { HotelRoomData, HotelOTAOption, HotelFAQ, MindtripHotel };
+export type { HotelRoomData, HotelOTAOption, HotelFAQ, HotelReview, MindtripHotel };
 
 const RAW_MINDTRIP_HOTELS: MindtripHotel[] = [
   {
@@ -480,12 +481,10 @@ export const MINDTRIP_HOTELS: MindtripHotel[] = RAW_MINDTRIP_HOTELS.map((h) => (
   hasDirectBooking: true,
 }));
 
-export function findMindtripHotel(identifier: string): MindtripHotel {
+export function findMindtripHotel(identifier: string): MindtripHotel | undefined {
   const norm = identifier.toLowerCase().trim();
   return (
     MINDTRIP_HOTELS.find((h) => h.id.toLowerCase() === norm) ||
-    MINDTRIP_HOTELS.find((h) => h.name.toLowerCase().includes(norm) || norm.includes(h.name.toLowerCase())) ||
-    MINDTRIP_HOTELS.find((h) => norm.includes("crown") || norm.includes("retreat")) ||
-    MINDTRIP_HOTELS[0]
+    MINDTRIP_HOTELS.find((h) => h.name.toLowerCase().includes(norm) || norm.includes(h.name.toLowerCase()))
   );
 }

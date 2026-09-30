@@ -113,4 +113,60 @@ describe("Partner Frontend API Service", () => {
       }),
     );
   });
+
+  it("submits admin application review decision with APPROVE / REQUEST_CHANGES / REJECT enum format", async () => {
+    const { adminReviewApplication } = await import("../services/partner-api");
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: { id: "app-123", state: "APPROVED" },
+    } as any);
+
+    await adminReviewApplication("app-123", {
+      expectedBusinessVersion: 1,
+      expectedApplicationVersion: 2,
+      decision: "APPROVE",
+      reason: "Hồ sơ đầy đủ tính hợp lệ",
+      capabilityDecisions: [{ capability: "HOTEL_LISTING", grant: true }],
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/admin/partner-applications/app-123/decision",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          expectedBusinessVersion: 1,
+          expectedApplicationVersion: 2,
+          decision: "APPROVE",
+          reason: "Hồ sơ đầy đủ tính hợp lệ",
+          capabilityDecisions: [{ capability: "HOTEL_LISTING", grant: true }],
+        }),
+      }),
+    );
+  });
+
+  it("submits admin management claim decision with outcome and reason", async () => {
+    const { adminReviewManagementClaim } = await import("../services/partner-api");
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: { id: "claim-123", state: "APPROVED" },
+    } as any);
+
+    await adminReviewManagementClaim("claim-123", {
+      expectedVersion: 1,
+      outcome: "APPROVED",
+      reason: "Đủ bằng chứng pháp lý",
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/admin/management-claims/claim-123/decision",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          expectedVersion: 1,
+          outcome: "APPROVED",
+          reason: "Đủ bằng chứng pháp lý",
+        }),
+      }),
+    );
+  });
 });

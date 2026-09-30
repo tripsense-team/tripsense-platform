@@ -36,12 +36,12 @@ const DESTINATIONS = [
 ];
 
 const CATEGORIES = [
-  { id: "for-you", label: "For you" },
-  { id: "experiences", label: "Experiences" },
-  { id: "restaurants", label: "Restaurants" },
-  { id: "stays", label: "Stays" },
-  { id: "locations", label: "Locations" },
-  { id: "guides", label: "Guides" },
+  { id: "stays", label: "Stays", active: true },
+  { id: "for-you", label: "For you", active: false },
+  { id: "experiences", label: "Experiences", active: false },
+  { id: "restaurants", label: "Restaurants", active: false },
+  { id: "locations", label: "Locations", active: false },
+  { id: "guides", label: "Guides", active: false },
 ];
 
 export function MindtripStaysDiscovery({
@@ -233,15 +233,24 @@ export function MindtripStaysDiscovery({
               <button
                 key={cat.id}
                 type="button"
-                onClick={() => setActiveCategory(cat.id)}
+                disabled={!cat.active}
+                onClick={() => cat.active && setActiveCategory(cat.id)}
                 className={cn(
-                  "px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs",
+                  "px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-2xs",
                   activeCategory === cat.id
-                    ? "bg-foreground text-background"
-                    : "bg-muted/40 text-muted-foreground hover:text-foreground border border-border hover:bg-muted"
+                    ? "bg-foreground text-background cursor-pointer"
+                    : cat.active
+                    ? "bg-muted/40 text-muted-foreground hover:text-foreground border border-border hover:bg-muted cursor-pointer"
+                    : "opacity-45 bg-muted/20 text-muted-foreground border border-border/40 cursor-not-allowed"
                 )}
+                title={!cat.active ? (locale === "vi" ? "Tính năng đang được phát triển" : "Coming soon") : undefined}
               >
                 {cat.label}
+                {!cat.active && (
+                  <span className="ml-1 text-micro font-normal opacity-70">
+                    ({locale === "vi" ? "Sắp ra mắt" : "Soon"})
+                  </span>
+                )}
               </button>
             ))}
           </div>

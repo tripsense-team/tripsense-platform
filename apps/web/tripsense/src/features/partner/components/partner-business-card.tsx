@@ -16,6 +16,8 @@ import {
   MessageSquare,
   ChevronRight,
   ShieldAlert,
+  BedDouble,
+  BookOpen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,6 +95,8 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
   const isApproved = business.approvalValidity === "VALID";
   const isSuspended = business.operationState === "SUSPENDED";
   const isPublished = business.publicationState === "PUBLISHED";
+  const isOwner = business.myRole === "OWNER";
+  const canManageControls = isApproved && !business.requiresReverification && !isSuspended && isOwner;
 
   return (
     <Card className="flex flex-col overflow-hidden border-border/80 transition-all hover:border-primary/40 hover:shadow-md">
@@ -177,8 +181,8 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
           </div>
         </div>
 
-        {/* Operational Controls if Approved */}
-        {isApproved && !business.requiresReverification && !isSuspended && (
+        {/* Operational Controls if Approved & Owner */}
+        {canManageControls && (
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
             <Button
               variant="outline"
@@ -217,33 +221,71 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
             </Button>
           </div>
         )}
+
+        {isApproved && !isOwner && (
+          <div className="mt-2 text-center text-[11px] text-muted-foreground italic">
+            (Chỉ Owner mới có quyền thay đổi trạng thái công khai và tiếp nhận)
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="flex flex-col gap-2 border-t border-border/40 p-4 pt-3">
         <div className="flex w-full items-center gap-2">
           {business.kind === "TOUR_GUIDE" && (
-            <Button
-              asChild
-              variant="secondary"
-              size="sm"
-              className="h-8 text-xs flex-1"
-            >
-              <Link href={`/partner/businesses/${business.id}/guide-promotions`}>
-                <FileText className="mr-1.5 h-3.5 w-3.5" /> Bài quảng bá
-              </Link>
-            </Button>
+            <>
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs flex-1"
+              >
+                <Link href={`/partner/businesses/${business.id}/guide-promotions`}>
+                  <FileText className="mr-1.5 h-3.5 w-3.5" /> Bài quảng bá
+                </Link>
+              </Button>
+
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs flex-1"
+              >
+                <Link href={`/partner/businesses/${business.id}/guide-inquiries`}>
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Nhu cầu tư vấn
+                </Link>
+              </Button>
+            </>
           )}
 
-          <Button
-            asChild
-            variant="secondary"
-            size="sm"
-            className="h-8 text-xs flex-1"
-          >
-            <Link href={`/partner/businesses/${business.id}/guide-inquiries`}>
-              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Nhu cầu tư vấn
-            </Link>
-          </Button>
+          {business.kind === "HOTEL" && (
+            <>
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs flex-1"
+              >
+                <Link href="/hotels">
+                  <BedDouble className="mr-1.5 h-3.5 w-3.5" /> Quản lý phòng & lưu trú
+                </Link>
+              </Button>
+            </>
+          )}
+
+          {business.kind === "RESTAURANT" && (
+            <>
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs flex-1"
+              >
+                <Link href={`/partner/businesses/${business.id}/restaurant-menu`}>
+                  <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn & dịch vụ
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
       </CardFooter>
     </Card>

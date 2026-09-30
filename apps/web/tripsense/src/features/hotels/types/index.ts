@@ -101,6 +101,15 @@ export interface HotelFAQ {
   answer: string;
 }
 
+export interface HotelReview {
+  authorName: string;
+  avatarUrl?: string;
+  rating?: number;
+  text?: string;
+  stayDuration?: string;
+  date?: string;
+}
+
 export interface MindtripHotel {
   id: string;
   name: string;
@@ -134,4 +143,5 @@ export interface MindtripHotel {
   rooms?: HotelRoomData[];
   otaOptions?: HotelOTAOption[];
   faqs?: HotelFAQ[];
+  reviews?: HotelReview[];
 }

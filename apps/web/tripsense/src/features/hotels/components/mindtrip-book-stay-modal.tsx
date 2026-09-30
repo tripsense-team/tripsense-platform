@@ -22,11 +22,30 @@ export function MindtripBookStayModal({
   isOpen,
   onClose,
   onChooseRoom,
-  checkInDate = "14 thg 10",
-  checkOutDate = "15 thg 10",
-  guestCount = 1,
+  checkInDate: propCheckIn,
+  checkOutDate: propCheckOut,
+  guestCount: propGuests,
 }: MindtripBookStayModalProps) {
   const { t, locale } = useTranslation();
+
+  const { dynamicCheckIn, dynamicCheckOut } = React.useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
+    const formatter = new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
+      day: "numeric",
+      month: "short",
+    });
+    return {
+      dynamicCheckIn: formatter.format(tomorrow),
+      dynamicCheckOut: formatter.format(dayAfter),
+    };
+  }, [locale]);
+
+  const checkInDate = propCheckIn || dynamicCheckIn;
+  const checkOutDate = propCheckOut || dynamicCheckOut;
+  const guestCount = propGuests ?? 1;
 
   // Close on Escape key
   React.useEffect(() => {

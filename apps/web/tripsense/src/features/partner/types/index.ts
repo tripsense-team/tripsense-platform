@@ -72,8 +72,9 @@ export interface SubmitApplicationRequest {
 export interface ApplicationDetailDto {
   id: string;
   businessId: string;
-  submittedByUserId: string;
-  revisionNumber: number;
+  submittedByUserId?: string;
+  revisionNumber?: number;
+  revision?: number;
   state: ApplicationState;
   requestedCapabilities: PartnerCapability[];
   grantedCapabilities?: PartnerCapability[];
@@ -377,7 +378,7 @@ export interface RevokeConsentRequest {
 export interface AdminReviewDecisionRequest {
   expectedBusinessVersion: number;
   expectedApplicationVersion: number;
-  decision: "APPROVED" | "CHANGES_REQUIRED" | "REJECTED";
+  decision: "APPROVE" | "REQUEST_CHANGES" | "REJECT";
   checklistResults?: { code: string; result: string; reason?: string }[];
   capabilityDecisions?: { capability: PartnerCapability; grant: boolean; reason?: string }[];
   reason?: string;
@@ -410,8 +411,9 @@ export interface CreateManagementClaimRequest {
 
 export interface ManagementClaimDecisionRequest {
   expectedVersion: number;
-  decision: "APPROVED" | "REJECTED";
-  reason?: string;
+  outcome: "APPROVED" | "REJECTED";
+  linkedBusinessIds?: string[];
+  reason: string;
 }
 
 export interface TaxonomyItem {

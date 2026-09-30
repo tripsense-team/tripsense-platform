@@ -389,6 +389,21 @@
       "title": "Who do you usually travel with?"
     }
   },
+  "partner": {
+    "location": {
+      "checkingConflict": "Checking business management status...",
+      "coordinates": "Coordinates: {{lat}}, {{lng}}",
+      "detailsError": "Could not load this location. Select it again to retry, choose another result, or enter the address manually.",
+      "empty": "No suggestions found. Try a more specific name or address.",
+      "hotelPlaceholder": "Search hotels, homestays, resorts, or addresses...",
+      "label": "Find a business location on the map",
+      "matched": "Location matched",
+      "resolving": "Loading location details...",
+      "restaurantPlaceholder": "Search restaurants, cafés, or addresses...",
+      "searchError": "Could not search locations. Please try again.",
+      "searching": "Searching locations..."
+    }
+  },
   "places": {
     "addedToTrip": "Added to trip",
     "address": "Address",

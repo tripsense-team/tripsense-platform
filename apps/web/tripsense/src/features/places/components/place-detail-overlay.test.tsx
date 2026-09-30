@@ -166,5 +166,37 @@ describe("PlaceDetailOverlay", () => {
     expect(html).toContain("Chưa có ảnh được cấp phép");
     expect(html).not.toContain("images.unsplash.com");
   });
+
+  it("renders hotel places truthfully without Crown Retreat mock data or chat bar", () => {
+    const hotelPlace: Place = {
+      id: "place-hotel-4-mua",
+      name: "Khách Sạn 4 Mùa",
+      categories: ["hotel", "stay"],
+      address: "Hòa Cường, Đà Nẵng",
+      phone: "+84 236 123 456",
+      rating: 2.7,
+      userRatingCount: 45,
+      photos: ["https://lh3.googleusercontent.com/p/hotel1.jpg"],
+    };
+
+    const html = renderToStaticMarkup(
+      <I18nProvider initialLocale="vi">
+        <PlaceDetailOverlay place={hotelPlace} onClose={() => {}} />
+      </I18nProvider>
+    );
+
+    // Truthful hotel name & address
+    expect(html).toContain("Khách Sạn 4 Mùa");
+    expect(html).toContain("Hòa Cường, Đà Nẵng");
+    // Does NOT contain mock Crown Retreat Quy Nhon or fake bungalow text
+    expect(html).not.toContain("Crown Retreat Quy Nhon");
+    expect(html).not.toContain("luxury resort located on Trung Luong Beach");
+    expect(html).not.toContain("66 US$");
+    // Conversational AI bar removed
+    expect(html).not.toContain("Ask TripSense...");
+    // Truthful online booking not yet enabled
+    expect(html).toContain("Chưa kích hoạt đặt phòng online");
+    expect(html).toContain("Gọi đặt phòng: +84 236 123 456");
+  });
 });
 

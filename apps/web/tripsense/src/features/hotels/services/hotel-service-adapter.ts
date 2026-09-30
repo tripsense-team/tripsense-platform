@@ -7,7 +7,6 @@ import type {
   HotelRoomData,
   HotelBooking,
 } from "../types";
-import { MINDTRIP_HOTELS } from "../data/mock-hotels";
 
 /**
  * Converts a Place from place-service into a MindtripHotel.
@@ -16,35 +15,44 @@ import { MINDTRIP_HOTELS } from "../data/mock-hotels";
  */
 export function placeToMindtripHotel(
   place: Place,
-  directOffers: HotelOffer[] = []
+  directOffers: HotelOffer[] = [],
+  stayNights: number = 1
 ): MindtripHotel {
-  // Check if any direct offers match this hotel name
-  const matchingOffers = directOffers.filter((o) =>
-    o.name.toLowerCase().includes(place.name.toLowerCase()) ||
-    place.name.toLowerCase().includes(o.name.toLowerCase())
-  );
+  const normalizedPlaceName = place.name.trim().toLowerCase();
 
+  // Strict match: Either exact matching canonical place ID or exact equal name
+  // Prevents substring cross-contamination (e.g. "Sun Hotel" matching "Sun Hotel Riverside")
+  const matchingOffers = directOffers.filter((o) => {
+    const offerName = o.name.trim().toLowerCase();
+    return offerName === normalizedPlaceName;
+  });
+
+  const nights = Math.max(stayNights, 1);
   const hasDirect = matchingOffers.length > 0;
-  const minPrice = hasDirect
+  const minTotalPrice = hasDirect
     ? Math.min(...matchingOffers.map((o) => o.total))
     : undefined;
+  const minNightlyPrice = minTotalPrice ? Math.round(minTotalPrice / nights) : undefined;
   const currency = hasDirect ? matchingOffers[0].currency : undefined;
 
-  const realRooms: HotelRoomData[] = matchingOffers.map((offer) => ({
-    id: offer.room_type_id,
-    name: offer.room_name,
-    roomsLeft: offer.available_rooms,
-    sleeps: offer.available_rooms > 0 ? 2 : 1,
-    refundable: false,
-    refundPolicyText: "Non-refundable",
-    pricePerNight: offer.total,
-    currency: offer.currency,
-    totalForStay: offer.total,
-    totalWithTax: Math.round(offer.total * 1.15),
-    photos: place.photos || [],
-    amenities: ["Free WiFi", "Air Conditioning"],
-    description: `Room type ${offer.room_name} offered directly by ${place.name}.`,
-  }));
+  const realRooms: HotelRoomData[] = matchingOffers.map((offer) => {
+    const pricePerNight = Math.round(offer.total / nights);
+    return {
+      id: offer.room_type_id,
+      name: offer.room_name,
+      roomsLeft: offer.available_rooms,
+      sleeps: offer.available_rooms > 0 ? 2 : 1,
+      refundable: false,
+      refundPolicyText: "Non-refundable",
+      pricePerNight,
+      currency: offer.currency,
+      totalForStay: offer.total,
+      totalWithTax: offer.total, // Truthful to backend total (no arbitrary +15% synthetic tax)
+      photos: place.photos || [],
+      amenities: ["Free WiFi", "Air Conditioning"],
+      description: `Room type ${offer.room_name} offered directly by ${place.name}.`,
+    };
+  });
 
   const photos =
     place.photos && place.photos.length > 0
@@ -60,16 +68,17 @@ export function placeToMindtripHotel(
     rating: place.rating,
     reviewCount: place.userRatingCount,
     category: "Hotel",
-    destination: place.city || "Quy Nhơn",
+    destination: place.city || "Việt Nam",
     district: place.district,
     city: place.city,
     address: place.address,
     phone: place.phone,
     website: place.website,
-    description: place.description || `${place.name} is located at ${place.address || place.city}.`,
+    description: place.description || `${place.name} is located at ${place.address || place.city || ""}.`,
     photos,
     hasDirectBooking: hasDirect,
-    minPrice,
+    minPrice: minNightlyPrice,
+    pricePerNight: minNightlyPrice,
     currency,
     rooms: hasDirect ? realRooms : undefined,
     otaOptions: [
@@ -80,6 +89,13 @@ export function placeToMindtripHotel(
         bookUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " " + (place.address || ""))}`,
       },
     ],
+    reviews: place.reviews?.map((r) => ({
+      authorName: r.authorName,
+      avatarUrl: r.profilePhotoUrl,
+      rating: r.rating,
+      text: r.text,
+      stayDuration: r.relativeTimeDescription,
+    })),
     faqs: [
       {
         question: "How can I contact the hotel directly?",
@@ -101,19 +117,36 @@ export function placeToMindtripHotel(
  */
 export async function searchRealHotels(
   destination: string,
-  checkIn: string = "2026-10-14",
-  checkOut: string = "2026-10-15",
+  checkIn?: string,
+  checkOut?: string,
   guests: number = 2,
   quantity: number = 1
 ): Promise<MindtripHotel[]> {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date();
+  dayAfter.setDate(dayAfter.getDate() + 2);
+  const toIsoDate = (d: Date) => d.toISOString().split("T")[0];
+
+  const effectiveCheckIn = checkIn || toIsoDate(tomorrow);
+  const effectiveCheckOut = checkOut || toIsoDate(dayAfter);
+
+  const nights = Math.max(
+    Math.round(
+      (new Date(effectiveCheckOut).getTime() - new Date(effectiveCheckIn).getTime()) /
+        (1000 * 60 * 60 * 24)
+    ),
+    1
+  );
+
   let directOffers: HotelOffer[] = [];
 
   // 1. Attempt to query real direct offers from trip-service
   try {
     const query = new URLSearchParams({
       destination,
-      checkIn,
-      checkOut,
+      checkIn: effectiveCheckIn,
+      checkOut: effectiveCheckOut,
       guests: String(guests),
       quantity: String(quantity),
     });
@@ -122,14 +155,6 @@ export async function searchRealHotels(
     // If trip-service has no direct inventory for this destination, continue with place search
     directOffers = [];
   }
-
-  const norm = destination.toLowerCase().trim();
-  const partnerMatches = MINDTRIP_HOTELS.filter(
-    (h) =>
-      h.destination.toLowerCase().includes(norm) ||
-      norm.includes(h.destination.toLowerCase()) ||
-      (h.city && h.city.toLowerCase().includes(norm))
-  );
 
   let placeHotels: MindtripHotel[] = [];
 
@@ -142,31 +167,26 @@ export async function searchRealHotels(
     });
 
     if (placesRes.success && Array.isArray(placesRes.data) && placesRes.data.length > 0) {
-      placeHotels = placesRes.data.map((place) => placeToMindtripHotel(place, directOffers));
+      placeHotels = placesRes.data.map((place) =>
+        placeToMindtripHotel(place, directOffers, nights)
+      );
     }
   } catch {
-    // Fallback if place-service network error
+    // Handled gracefully, returns empty if unavailable
   }
 
-  // 3. Merge partner hotels (with direct booking inventory) and place-service stays
-  const seenNames = new Set<string>();
+  // 3. Deduplicate by hotel ID and preserve real places
+  const seenIds = new Set<string>();
   const combined: MindtripHotel[] = [];
 
-  // Prioritize direct booking partner hotels first
-  for (const h of partnerMatches) {
-    seenNames.add(h.name.toLowerCase().trim());
-    combined.push(h);
-  }
-
   for (const h of placeHotels) {
-    const n = h.name.toLowerCase().trim();
-    if (!seenNames.has(n)) {
-      seenNames.add(n);
+    if (!seenIds.has(h.id)) {
+      seenIds.add(h.id);
       combined.push(h);
     }
   }
 
-  return combined.length > 0 ? combined : MINDTRIP_HOTELS;
+  return combined;
 }
 
 /**

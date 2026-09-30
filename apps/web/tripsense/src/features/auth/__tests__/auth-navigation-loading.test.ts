@@ -183,4 +183,37 @@ describe("Auth Store & Navigation Lifecycle", () => {
     expect(state.onboardingCompleted).toBe(true);
     expect(state.isAuthenticated).toBe(true);
   });
+
+  it("12. resolves post-login destination safely to returnUrl or role fallback", async () => {
+    const { isUserAdmin } = await import("../utils/role-helpers");
+    const { isSafeInternalUrl } = await import("@/lib/url-utils");
+
+    const resolveDestination = (
+      user: any,
+      rawReturnUrl?: string | null,
+    ): string => {
+      const safeReturn = isSafeInternalUrl(rawReturnUrl) ? rawReturnUrl : null;
+      if (safeReturn) return safeReturn;
+      return isUserAdmin(user) ? "/admin" : "/explore";
+    };
+
+    const regularUser = { id: "u1", role: UserRole.USER };
+    const adminUser = { id: "a1", role: UserRole.ADMIN };
+
+    // Default routes (never landing page /)
+    expect(resolveDestination(regularUser)).toBe("/explore");
+    expect(resolveDestination(adminUser)).toBe("/admin");
+
+    // Safe returnUrl routes
+    expect(resolveDestination(regularUser, "/trips")).toBe("/trips");
+    expect(resolveDestination(regularUser, "/saved")).toBe("/saved");
+    expect(resolveDestination(adminUser, "/admin/places")).toBe("/admin/places");
+
+    // Unsafe or external returnUrls are rejected and fall back safely
+    expect(resolveDestination(regularUser, "//malicious.com")).toBe("/explore");
+    expect(resolveDestination(regularUser, "/\\malicious.com")).toBe("/explore");
+    expect(resolveDestination(regularUser, "https://malicious.com")).toBe("/explore");
+    expect(resolveDestination(adminUser, "//malicious.com")).toBe("/admin");
+    expect(resolveDestination(adminUser, "/\\malicious.com")).toBe("/admin");
+  });
 });

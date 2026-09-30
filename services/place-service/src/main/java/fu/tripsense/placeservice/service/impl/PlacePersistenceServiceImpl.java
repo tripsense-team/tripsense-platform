@@ -14,8 +14,10 @@ import fu.tripsense.placeservice.service.PlacePersistenceService;
 import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.stereotype.Service;
@@ -117,6 +119,12 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
 
     try {
       applyProviderData(entity, enrichment);
+      Map<String, Object> sourceData =
+          entity.getSourceData() != null
+              ? new HashMap<>(entity.getSourceData())
+              : new HashMap<>();
+      sourceData.put("deepDetailsFetched", true);
+      entity.setSourceData(sourceData);
       return toDto(repository.save(entity));
     } catch (Exception ex) {
       lastFailureTime = System.currentTimeMillis();

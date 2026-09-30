@@ -7,6 +7,7 @@ import { Compass } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { useAuth, isUserAdmin } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
+import { isSafeInternalUrl } from "@/lib/url-utils";
 
 export default function AuthLayout({
   children,
@@ -20,14 +21,17 @@ export default function AuthLayout({
     isLoading || status === "checking" || status === "initializing";
 
   // Authenticated User Route Rule:
-  // If user is already authenticated, redirect to /admin if admin, otherwise /explore
+  // If user is already authenticated, redirect to /admin if admin, otherwise /explore or returnUrl
   React.useEffect(() => {
     if (!isChecking && isAuthenticated) {
-      if (isUserAdmin(user)) {
-        router.replace("/admin");
-      } else {
-        router.replace("/explore");
-      }
+      const rawParam =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null;
+      const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
+      const destination =
+        safeReturn || (isUserAdmin(user) ? "/admin" : "/explore");
+      router.replace(destination);
     }
   }, [isChecking, isAuthenticated, user, router]);
 

@@ -389,6 +389,21 @@
       "title": "Bạn thường đi du lịch cùng ai?"
     }
   },
+  "partner": {
+    "location": {
+      "checkingConflict": "Đang kiểm tra tình trạng quản lý cơ sở...",
+      "coordinates": "Tọa độ: {{lat}}, {{lng}}",
+      "detailsError": "Không thể tải địa điểm. Chọn lại để thử, chọn kết quả khác hoặc nhập địa chỉ thủ công.",
+      "empty": "Không có gợi ý. Hãy nhập tên hoặc địa chỉ cụ thể hơn.",
+      "hotelPlaceholder": "Tìm tên khách sạn, homestay, resort, địa chỉ...",
+      "label": "Tìm kiếm vị trí & cơ sở trên bản đồ",
+      "matched": "Đã khớp địa điểm",
+      "resolving": "Đang tải chi tiết địa điểm...",
+      "restaurantPlaceholder": "Tìm tên nhà hàng, quán ăn, quán café, địa chỉ...",
+      "searchError": "Không thể tìm địa điểm. Vui lòng thử lại.",
+      "searching": "Đang tra cứu dữ liệu địa điểm..."
+    }
+  },
   "places": {
     "addedToTrip": "Đã thêm vào chuyến đi",
     "address": "Địa chỉ",

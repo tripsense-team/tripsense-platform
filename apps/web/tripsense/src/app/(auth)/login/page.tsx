@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
-import { useAuth, UserRole, getAuthErrorMessage, isUserAdmin } from "@/features/auth";
+import { useAuth, getAuthErrorMessage, isUserAdmin } from "@/features/auth";
+import { sanitizeReturnUrl } from "@/lib/url-utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,12 +36,14 @@ export default function LoginPage() {
 
     try {
       const response = await login({ email: email.trim(), password });
+      const rawParam =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null;
+      const safeReturn = sanitizeReturnUrl(rawParam, "");
       const isAdmin = isUserAdmin(response.data?.user);
-      if (isAdmin) {
-        router.replace("/admin");
-      } else {
-        router.replace("/explore");
-      }
+      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+      router.replace(destination);
     } catch (err: unknown) {
       setErrorMsg(
         getAuthErrorMessage(

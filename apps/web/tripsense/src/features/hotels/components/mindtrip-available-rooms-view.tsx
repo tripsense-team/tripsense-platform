@@ -15,10 +15,14 @@ import {
   Sparkles,
   Phone,
   Info,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
-import type { MindtripHotel, HotelRoomData } from "../types";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
+import { executeDirectBooking } from "../services/hotel-service-adapter";
+import type { MindtripHotel, HotelRoomData, HotelBooking } from "../types";
 
 export interface MindtripAvailableRoomsViewProps {
   hotel: MindtripHotel;
@@ -32,15 +36,39 @@ export interface MindtripAvailableRoomsViewProps {
 export function MindtripAvailableRoomsView({
   hotel,
   onBack,
-  checkInDate = "14 thg 10",
-  checkOutDate = "15 thg 10",
-  guestCount = 1,
+  checkInDate: propCheckIn,
+  checkOutDate: propCheckOut,
+  guestCount: propGuests,
   onBookRoom,
 }: MindtripAvailableRoomsViewProps) {
   const { t, locale } = useTranslation();
+
+  const { dynamicCheckIn, dynamicCheckOut } = React.useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date();
+    dayAfter.setDate(dayAfter.getDate() + 2);
+    const formatter = new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
+      day: "numeric",
+      month: "short",
+    });
+    return {
+      dynamicCheckIn: formatter.format(tomorrow),
+      dynamicCheckOut: formatter.format(dayAfter),
+    };
+  }, [locale]);
+
+  const checkInDate = propCheckIn || dynamicCheckIn;
+  const checkOutDate = propCheckOut || dynamicCheckOut;
+  const guestCount = propGuests ?? 1;
   const [showTotalPriceWithTax, setShowTotalPriceWithTax] = React.useState(false);
   const [selectedRoomForDetails, setSelectedRoomForDetails] = React.useState<HotelRoomData | null>(null);
-  const [bookedRoom, setBookedRoom] = React.useState<HotelRoomData | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = React.useState<{
+    booking: HotelBooking;
+    room: HotelRoomData;
+  } | null>(null);
+  const [isBooking, setIsBooking] = React.useState(false);
+  const [bookingError, setBookingError] = React.useState<string | null>(null);
   const [priceAlerts, setPriceAlerts] = React.useState<Set<string>>(new Set());
 
   const thumbnail = hotel.photos?.[0] || "/placeholder-hotel.jpg";
@@ -55,11 +83,33 @@ export function MindtripAvailableRoomsView({
     });
   };
 
-  const handleBook = (room: HotelRoomData) => {
-    if (onBookRoom) {
-      onBookRoom(room);
+  const handleBook = async (room: HotelRoomData) => {
+    if (isBooking) return;
+    setIsBooking(true);
+    setBookingError(null);
+    try {
+      if (onBookRoom) {
+        onBookRoom(room);
+      }
+      const booking = await executeDirectBooking({
+        roomTypeId: room.id,
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        guests: guestCount,
+        quantity: 1,
+      });
+      setConfirmedBooking({ booking, room });
+    } catch (err: unknown) {
+      const safeMsg = getSafeErrorMessage(
+        err,
+        locale === "vi"
+          ? "Không thể hoàn tất đặt phòng. Vui lòng kiểm tra lại phòng trống hoặc liên hệ khách sạn."
+          : "Unable to complete booking. Please verify room availability or contact the hotel directly."
+      );
+      setBookingError(safeMsg);
+    } finally {
+      setIsBooking(false);
     }
-    setBookedRoom(room);
   };
 
   const hasRooms = Array.isArray(hotel.rooms) && hotel.rooms.length > 0;
@@ -165,6 +215,13 @@ export function MindtripAvailableRoomsView({
           </div>
         )}
       </div>
+
+      {bookingError && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-xs sm:text-sm text-destructive flex items-start gap-2.5">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{bookingError}</span>
+        </div>
+      )}
 
       {/* 3. Rooms Display (Truthful state when no rooms vs Grid of rooms) */}
       {!hasRooms ? (
@@ -308,10 +365,18 @@ export function MindtripAvailableRoomsView({
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         type="button"
+                        disabled={isBooking}
                         onClick={() => handleBook(room)}
-                        className="flex-1 py-2.5 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm tracking-wide transition-all shadow-xs active:scale-[0.98] cursor-pointer text-center"
+                        className="flex-1 py-2.5 px-4 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold text-sm tracking-wide transition-all shadow-xs active:scale-[0.98] cursor-pointer text-center flex items-center justify-center gap-2"
                       >
-                        {locale === "vi" ? "Đặt ngay" : "Book"}
+                        {isBooking ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>{locale === "vi" ? "Đang xử lý..." : "Booking..."}</span>
+                          </>
+                        ) : (
+                          <span>{locale === "vi" ? "Đặt ngay" : "Book"}</span>
+                        )}
                       </button>
                       <button
                         type="button"
@@ -436,12 +501,12 @@ export function MindtripAvailableRoomsView({
       )}
 
       {/* Booking Instant Confirmation Modal */}
-      {bookedRoom && (
+      {confirmedBooking && (
         <div
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-0 duration-200"
-          onClick={() => setBookedRoom(null)}
+          onClick={() => setConfirmedBooking(null)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -457,19 +522,25 @@ export function MindtripAvailableRoomsView({
               </h3>
               <p className="text-xs text-muted-foreground">
                 {locale === "vi"
-                  ? "Kỳ nghỉ của bạn đã được xác nhận và thêm vào kế hoạch du lịch."
-                  : "Your stay has been confirmed and seamlessly added to your trip plan."}
+                  ? "Kỳ nghỉ của bạn đã được xác nhận trực tiếp qua hệ thống TripSense."
+                  : "Your reservation has been confirmed directly with TripSense."}
               </p>
             </div>
 
             <div className="p-4 rounded-2xl bg-muted/40 border border-border text-left space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Mã đặt phòng:</span>
+                <span className="font-mono font-semibold text-foreground text-[11px]">
+                  {confirmedBooking.booking.id}
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Hotel:</span>
                 <span className="font-semibold text-foreground">{hotel.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Room:</span>
-                <span className="font-semibold text-foreground">{bookedRoom.name}</span>
+                <span className="font-semibold text-foreground">{confirmedBooking.room.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dates:</span>
@@ -478,14 +549,14 @@ export function MindtripAvailableRoomsView({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total:</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                  {bookedRoom.totalWithTax} {bookedRoom.currency}
+                  {confirmedBooking.booking.total || confirmedBooking.room.totalForStay} {confirmedBooking.booking.currency || confirmedBooking.room.currency}
                 </span>
               </div>
             </div>
 
             <button
               type="button"
-              onClick={() => setBookedRoom(null)}
+              onClick={() => setConfirmedBooking(null)}
               className="w-full py-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm transition-colors cursor-pointer"
             >
               {locale === "vi" ? "Hoàn tất" : "Done"}

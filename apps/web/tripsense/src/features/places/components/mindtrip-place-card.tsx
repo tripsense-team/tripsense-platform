@@ -104,12 +104,13 @@ function MindtripPlaceCardComponent({
       cat.includes("hotel") ||
       cat.includes("resort") ||
       cat.includes("lodging") ||
-      name.includes("crown retreat") ||
-      name.includes("fusion quy nhon") ||
-      name.includes("ohana village") ||
-      name.includes("la cactus") ||
-      name.includes("maia resort") ||
-      name.includes("flamingo linh truong")
+      cat.includes("khách sạn") ||
+      cat.includes("nhà nghỉ") ||
+      cat.includes("homestay") ||
+      name.includes("hotel") ||
+      name.includes("khách sạn") ||
+      name.includes("resort") ||
+      name.includes("homestay")
     );
   }, [place.categories, place.name]);
 
@@ -332,7 +333,7 @@ function MindtripPlaceCardComponent({
 
         {/* Row 4: Price Level / Nightly Rate */}
         <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
-          {isStay ? "66 US$ night" : "$$"}
+          {isStay ? (locale === "vi" ? "Liên hệ đặt phòng" : "Contact for rates") : "$$"}
         </p>
       </div>
     </div>
