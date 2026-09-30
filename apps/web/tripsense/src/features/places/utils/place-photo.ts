@@ -5,6 +5,9 @@ import type { Place } from "../types";
  * If the place has no photo provided by the API, returns null (no mock photos).
  */
 export function getPlacePhotoUrl(place: Partial<Place>): string | null {
+  if (place.primaryPhoto?.url) {
+    return place.primaryPhoto.url;
+  }
   if (place.photos && place.photos.length > 0) {
     const first = place.photos[0];
     if (
@@ -12,6 +15,12 @@ export function getPlacePhotoUrl(place: Partial<Place>): string | null {
       (first.startsWith("http://") || first.startsWith("https://"))
     ) {
       return first;
+    }
+  }
+  if (place.photoGallery && place.photoGallery.length > 0) {
+    const first = place.photoGallery[0];
+    if (first?.url) {
+      return first.url;
     }
   }
   return null;

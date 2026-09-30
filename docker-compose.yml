@@ -387,6 +387,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
       PLACE_SERVICE_URL: http://place-service:8082
       EMAIL_SERVICE_URL: http://mail-service:8082
       WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3000}
@@ -454,7 +456,7 @@ services:
     restart: unless-stopped
 
   # =========================
-  # AI SERVICE
+  # AI SERVICE (Hono + Vercel AI SDK)
   # =========================
 
   ai-service:
@@ -466,18 +468,16 @@ services:
       - path: ./env/.env
         required: false
     environment:
-      AI_DATABASE_URL: ${AI_DATABASE_URL:-postgresql+psycopg://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+      PORT: "8089"
+      NODE_ENV: "production"
+      DATABASE_URL: ${AI_DATABASE_URL:-${AI_V2_DATABASE_URL:-postgresql://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-${OPENAI_MODEL:-gpt-4o-mini}}
-      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
       PLACE_SERVICE_URL: http://place-service:8082
-      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       TRIP_SERVICE_URL: http://trip-service:8084
-      WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
-      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
-      EUREKA_SERVER: http://discovery-server:8761/eureka/
-      AI_SERVICE_PORT: 8085
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3001,http://localhost:8080"
     depends_on:
       ai-db:
         condition: service_started
@@ -487,12 +487,8 @@ services:
         condition: service_started
       trip-service:
         condition: service_started
-      recommendation-service:
-        condition: service_healthy
     ports:
-      - "8085:8085"
-    volumes:
-      - ./services/ai-service/app:/app/app
+      - "8089:8089"
     restart: unless-stopped
 
   # =========================

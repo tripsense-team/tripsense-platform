@@ -34,6 +34,15 @@ public class ItineraryItem {
   @Column(name = "place_ref", length = 200)
   private String placeRef;
 
+  @Column(name = "source_kind", length = 30)
+  private String sourceKind;
+
+  @Column(name = "source_proposal_id")
+  private UUID sourceProposalId;
+
+  @Column(name = "source_item_key")
+  private UUID sourceItemKey;
+
   @Column(nullable = false, length = 200)
   private String title;
 

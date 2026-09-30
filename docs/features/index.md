@@ -4,6 +4,13 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `ai-service-dynamic-gemini-key-pool` | DONE | `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-dynamic-gemini-key-pool.md) |
+| `ai-conversational-trip-intake-auto-commit` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/trip-service`, `services/place-service` | [Docs](./ai-conversational-trip-intake-auto-commit.md) |
+| `ai-chat-mindtrip-experience-enhancement` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-chat-mindtrip-experience-enhancement.md) |
+| `ai-chat-trip-aware-rich-itinerary` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2`, `services/trip-service`, `services/api-gateway` | [Docs](./ai-chat-trip-aware-rich-itinerary.md) |
+| `ai-planner-trip-detail-panel` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/ai-service-v2`, `services/api-gateway` | [Docs](./ai-planner-trip-detail-panel.md) |
+| `ai-v2-mindtrip-sidebar-drawer` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2` | [Docs](./ai-v2-mindtrip-sidebar-drawer.md) |
+| `ai-service-v2` | DONE | `services/ai-service-v2`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-v2.md) |
 | `save-add-place-and-community-reviews` | APPROVED; IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/trip-service`, `services/social-service`, `services/user-service` | [Docs](./save-add-place-and-community-reviews.md) |
 | `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |
 | `explore-category-discovery-and-pagination` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./explore-category-discovery-and-pagination.md) |

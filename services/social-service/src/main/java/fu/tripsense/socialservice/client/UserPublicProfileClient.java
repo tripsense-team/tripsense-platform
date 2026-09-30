@@ -42,7 +42,12 @@ public class UserPublicProfileClient {
               .build()
               .get()
               .uri(userServiceUrl + "/api/users/public-profiles/" + userId)
-              .headers(headers -> headers.setBearerAuth(bearerToken))
+              .headers(
+                  headers -> {
+                    if (bearerToken != null && !bearerToken.isBlank()) {
+                      headers.setBearerAuth(bearerToken);
+                    }
+                  })
               .retrieve()
               .body(
                   new ParameterizedTypeReference<
@@ -80,7 +85,12 @@ public class UserPublicProfileClient {
               .build()
               .get()
               .uri(uri)
-              .headers(headers -> headers.setBearerAuth(bearerToken))
+              .headers(
+                  headers -> {
+                    if (bearerToken != null && !bearerToken.isBlank()) {
+                      headers.setBearerAuth(bearerToken);
+                    }
+                  })
               .retrieve()
               .body(
                   new ParameterizedTypeReference<

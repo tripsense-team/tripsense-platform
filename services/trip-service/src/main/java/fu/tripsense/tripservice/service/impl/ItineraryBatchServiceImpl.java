@@ -57,7 +57,8 @@ public class ItineraryBatchServiceImpl implements ItineraryBatchService {
       throw new ConflictException("TRIP_VERSION_CONFLICT", "Trip aggregate revision changed");
     }
     validateOperations(trip, request.operations());
-    for (ItineraryBatchOperation operation : request.operations()) applyOperation(trip, operation);
+    for (ItineraryBatchOperation operation : request.operations())
+      applyOperation(trip, operation, request.proposalId());
     trip.setAggregateRevision(revision + 1);
     tripRepository.save(trip);
 
@@ -119,9 +120,9 @@ public class ItineraryBatchServiceImpl implements ItineraryBatchService {
     }
   }
 
-  private void applyOperation(Trip trip, ItineraryBatchOperation operation) {
+  private void applyOperation(Trip trip, ItineraryBatchOperation operation, String proposalId) {
     switch (operation.type()) {
-      case "ADD" -> add(trip, operation);
+      case "ADD" -> add(trip, operation, proposalId);
       case "UPDATE" -> update(trip, operation);
       case "DELETE" -> delete(trip, operation);
       case "REORDER" -> reorder(trip, operation);
@@ -130,7 +131,7 @@ public class ItineraryBatchServiceImpl implements ItineraryBatchService {
     }
   }
 
-  private void add(Trip trip, ItineraryBatchOperation operation) {
+  private void add(Trip trip, ItineraryBatchOperation operation, String proposalId) {
     if (operation.dayId() == null
         || operation.itemType() == null
         || operation.title() == null
@@ -151,6 +152,10 @@ public class ItineraryBatchServiceImpl implements ItineraryBatchService {
             .tripId(trip.getId())
             .dayId(operation.dayId())
             .placeRef(operation.placeRef())
+            .sourceKind(operation.sourceItemKey() == null ? null : "AI_PROPOSAL")
+            .sourceProposalId(
+                operation.sourceItemKey() == null ? null : UUID.fromString(proposalId))
+            .sourceItemKey(operation.sourceItemKey())
             .title(operation.title().trim())
             .type(operation.itemType())
             .startTime(operation.startTime())

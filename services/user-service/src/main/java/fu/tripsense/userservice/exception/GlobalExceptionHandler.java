@@ -17,6 +17,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 @Slf4j
@@ -164,6 +165,19 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
                 errorMessage,
+                request.getRequestURI()));
+  }
+
+  @ExceptionHandler(ResponseStatusException.class)
+  public ResponseEntity<ErrorResponse> handleResponseStatusException(
+      ResponseStatusException ex, HttpServletRequest request) {
+    log.warn("Response status exception on [{}]: {}", request.getRequestURI(), ex.getMessage());
+    return ResponseEntity.status(ex.getStatusCode())
+        .body(
+            ErrorResponse.of(
+                ex.getStatusCode().value(),
+                ex.getReason() != null ? ex.getReason() : ex.getStatusCode().toString(),
+                ex.getReason() != null ? ex.getReason() : "Resource not found",
                 request.getRequestURI()));
   }
 

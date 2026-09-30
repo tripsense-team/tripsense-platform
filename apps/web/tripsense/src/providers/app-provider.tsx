@@ -7,6 +7,7 @@ import { getQueryClient } from "@/lib/react-query";
 import { AuthProvider } from "@/features/auth";
 import { I18nProvider } from "@/i18n";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "sonner";
 
 interface AppProviderProps {
   children: React.ReactNode;
@@ -23,6 +24,7 @@ export function AppProvider({ children }: AppProviderProps) {
           <AuthProvider>
             <TooltipProvider delayDuration={150}>
               {children}
+              <Toaster position="bottom-right" closeButton richColors />
             </TooltipProvider>
           </AuthProvider>
         </I18nProvider>

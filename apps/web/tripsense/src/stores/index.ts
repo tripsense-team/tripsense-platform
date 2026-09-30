@@ -1,2 +1,1 @@
-// Truly global application stores (cross-feature) will be exported here.
-export {};
+export * from "./use-ai-drawer-store";
