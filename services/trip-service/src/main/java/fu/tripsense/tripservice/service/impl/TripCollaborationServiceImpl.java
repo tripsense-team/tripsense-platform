@@ -1,13 +1,16 @@
 package fu.tripsense.tripservice.service.impl;
 
+import fu.tripsense.tripservice.client.TripInvitationEmailClient;
 import fu.tripsense.tripservice.dto.request.InviteTripMemberRequest;
 import fu.tripsense.tripservice.dto.request.UpdateMemberRoleRequest;
 import fu.tripsense.tripservice.dto.response.TripCollaborationSummaryResponse;
+import fu.tripsense.tripservice.dto.response.TripInvitationPreviewResponse;
 import fu.tripsense.tripservice.dto.response.TripInvitationResponse;
 import fu.tripsense.tripservice.dto.response.TripMemberResponse;
 import fu.tripsense.tripservice.entity.Trip;
 import fu.tripsense.tripservice.entity.TripInvitation;
 import fu.tripsense.tripservice.entity.TripMember;
+import fu.tripsense.tripservice.enums.CollaborationChangeType;
 import fu.tripsense.tripservice.enums.TripInvitationStatus;
 import fu.tripsense.tripservice.enums.TripMemberRole;
 import fu.tripsense.tripservice.enums.TripStatus;
@@ -18,6 +21,7 @@ import fu.tripsense.tripservice.exception.ValidationException;
 import fu.tripsense.tripservice.repository.TripInvitationRepository;
 import fu.tripsense.tripservice.repository.TripMemberRepository;
 import fu.tripsense.tripservice.repository.TripRepository;
+import fu.tripsense.tripservice.service.CollaborationChangeService;
 import fu.tripsense.tripservice.service.TripCollaborationService;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -38,6 +42,29 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
   private final TripRepository tripRepository;
   private final TripMemberRepository tripMemberRepository;
   private final TripInvitationRepository tripInvitationRepository;
+  private final CollaborationChangeService collaborationChangeService;
+  private final TripInvitationEmailClient invitationEmailClient;
+
+  @Override
+  @Transactional(readOnly = true)
+  public TripInvitationPreviewResponse previewInvitation(String token) {
+    TripInvitation invitation =
+        tripInvitationRepository
+            .findByInvitationToken(token)
+            .orElseThrow(
+                () -> new NotFoundException("INVITATION_NOT_FOUND", "Invitation not found"));
+    TripInvitationStatus status = invitation.getStatus();
+    if (status == TripInvitationStatus.PENDING
+        && invitation.getExpiresAt().isBefore(Instant.now())) {
+      status = TripInvitationStatus.EXPIRED;
+    }
+    return new TripInvitationPreviewResponse(
+        invitation.getTrip().getName(),
+        invitation.getInviteeEmail(),
+        invitation.getRole(),
+        status,
+        invitation.getExpiresAt());
+  }
 
   @Override
   @Transactional
@@ -58,8 +85,14 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
             tripId, email, TripInvitationStatus.PENDING);
     if (existingInvite.isPresent()) {
       if (existingInvite.get().getExpiresAt().isAfter(Instant.now())) {
-        throw new ConflictException(
-            "INVITATION_ALREADY_PENDING", "An active invitation has already been sent to " + email);
+        TripInvitation pendingInvitation = existingInvite.get();
+        invitationEmailClient.sendInvitation(trip, pendingInvitation);
+        log.info(
+            "Resent trip invitation {} for email {} to trip {}",
+            pendingInvitation.getId(),
+            email,
+            tripId);
+        return toInvitationResponse(pendingInvitation, trip);
       } else {
         // Expire previous invite
         existingInvite.get().setStatus(TripInvitationStatus.EXPIRED);
@@ -80,6 +113,7 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
             .build();
 
     TripInvitation saved = tripInvitationRepository.save(invitation);
+    invitationEmailClient.sendInvitation(trip, saved);
     log.info("Created trip invitation {} for email {} to trip {}", saved.getId(), email, tripId);
 
     return toInvitationResponse(saved, trip);
@@ -214,6 +248,9 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
 
   @Override
   @Transactional
+  @CacheEvict(
+      cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
+      allEntries = true)
   public TripMemberResponse updateMemberRole(
       UUID userId, UUID tripId, UUID memberId, UpdateMemberRoleRequest request) {
     if (request.role() == TripMemberRole.OWNER) {
@@ -239,6 +276,14 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
 
     member.setRole(request.role());
     TripMember updated = tripMemberRepository.save(member);
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.MEMBER_ROLE_CHANGED,
+        Map.of(
+            "memberId", updated.getId().toString(),
+            "userId", updated.getUserId().toString(),
+            "role", updated.getRole().name()));
     return toMemberResponse(updated);
   }
 
@@ -265,6 +310,13 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
     }
 
     tripMemberRepository.delete(member);
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.MEMBER_REMOVED,
+        Map.of(
+            "memberId", member.getId().toString(),
+            "userId", member.getUserId().toString()));
     log.info("Removed member {} from trip {}", memberId, tripId);
   }
 
@@ -290,6 +342,13 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
                     new NotFoundException("MEMBER_NOT_FOUND", "You are not a member of this trip"));
 
     tripMemberRepository.delete(member);
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.MEMBER_LEFT,
+        Map.of(
+            "memberId", member.getId().toString(),
+            "userId", member.getUserId().toString()));
     log.info("User {} left trip {}", userId, tripId);
   }
 
@@ -372,6 +431,15 @@ public class TripCollaborationServiceImpl implements TripCollaborationService {
     invitation.setStatus(TripInvitationStatus.ACCEPTED);
     invitation.setInviteeUserId(userId);
     tripInvitationRepository.save(invitation);
+
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.MEMBER_JOINED,
+        Map.of(
+            "memberId", member.getId().toString(),
+            "userId", userId.toString(),
+            "role", member.getRole().name()));
 
     log.info("User {} accepted invitation {} to trip {}", userId, invitation.getId(), trip.getId());
     return toMemberResponse(member);

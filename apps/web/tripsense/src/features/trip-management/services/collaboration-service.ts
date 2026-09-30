@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   TripCollaborationSummary,
   TripInvitation,
+  TripInvitationPreview,
   TripMember,
   InviteTripMemberRequest,
   UpdateMemberRoleRequest,
@@ -13,6 +14,15 @@ async function unwrap<T>(request: Promise<ApiResponse<T>>): Promise<T> {
 }
 
 export const tripCollaborationService = {
+  previewInvitation(token: string): Promise<TripInvitationPreview> {
+    return unwrap(
+      apiClient<ApiResponse<TripInvitationPreview>>(
+        `/api/trips/invitations/token/${encodeURIComponent(token)}`,
+        { skipAuth: true },
+      ),
+    );
+  },
+
   // TF-76: Send trip invitation
   inviteMember(
     tripId: string,

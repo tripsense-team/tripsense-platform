@@ -32,6 +32,14 @@ export interface TripInvitation {
   createdAt: string;
 }
 
+export interface TripInvitationPreview {
+  tripName: string;
+  inviteeEmail: string;
+  role: TripMemberRole;
+  status: TripInvitationStatus;
+  expiresAt: string;
+}
+
 export interface TripCollaborationSummary {
   members: TripMember[];
   pendingInvitations: TripInvitation[];

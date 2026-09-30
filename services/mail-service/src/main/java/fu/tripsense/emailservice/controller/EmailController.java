@@ -2,9 +2,11 @@ package fu.tripsense.emailservice.controller;
 
 import fu.tripsense.emailservice.dto.request.SendPasswordResetEmailRequest;
 import fu.tripsense.emailservice.dto.request.SendTemplateEmailRequest;
+import fu.tripsense.emailservice.dto.request.SendTripInvitationEmailRequest;
 import fu.tripsense.emailservice.dto.request.SendVerificationEmailRequest;
 import fu.tripsense.emailservice.dto.response.ApiResponse;
 import fu.tripsense.emailservice.dto.response.EmailResponse;
+import fu.tripsense.emailservice.security.InternalApiKeyValidator;
 import fu.tripsense.emailservice.service.EmailService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmailController {
 
   private final EmailService emailService;
+  private final InternalApiKeyValidator internalApiKeyValidator;
 
   @PostMapping("/verification")
   public ResponseEntity<ApiResponse<EmailResponse>> sendVerificationEmail(
@@ -58,5 +62,23 @@ public class EmailController {
         ApiResponse.success(
             "Template email request processed successfully",
             new EmailResponse(true, "Template email request processed successfully")));
+  }
+
+  @PostMapping("/trip-invitation")
+  public ResponseEntity<ApiResponse<EmailResponse>> sendTripInvitationEmail(
+      @RequestHeader(value = "X-Internal-Api-Key", required = false) String internalApiKey,
+      @Valid @RequestBody SendTripInvitationEmailRequest request) {
+    internalApiKeyValidator.requireValid(internalApiKey);
+    log.info("Received request to send a trip invitation email to {}", request.toEmail());
+    emailService.sendTripInvitation(
+        request.toEmail(),
+        request.tripName(),
+        request.role(),
+        request.message(),
+        request.joinUrl(),
+        request.expiresAt());
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            "Trip invitation email sent", new EmailResponse(true, "Trip invitation email sent")));
   }
 }

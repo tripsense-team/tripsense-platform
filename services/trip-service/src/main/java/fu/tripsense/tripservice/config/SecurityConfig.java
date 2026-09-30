@@ -52,6 +52,8 @@ public class SecurityConfig implements WebMvcConfigurer {
             auth ->
                 auth.requestMatchers("/actuator/**")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/trips/invitations/token/*")
+                    .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
                     .anyRequest()

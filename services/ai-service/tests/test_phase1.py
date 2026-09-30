@@ -110,8 +110,11 @@ def test_raw_search_cannot_ground_prose_after_authoritative_recommendation():
     raw_places = [{"id": "raw-1", "name": "Unranked cafe"}]
 
     assert grounding_data_after_authoritative_recommendation(
-        "search_places", "PLACE_LIST", True, raw_places
+        "search_places", "PLACE_LIST", True, raw_places, has_sufficient_recommendations=True
     ) == []
+    assert grounding_data_after_authoritative_recommendation(
+        "search_places", "PLACE_LIST", True, raw_places, has_sufficient_recommendations=False
+    ) == raw_places
     assert grounding_data_after_authoritative_recommendation(
         "search_places", "PLACE_LIST", False, raw_places
     ) == raw_places
@@ -127,13 +130,19 @@ def test_recommendation_removes_raw_search_that_completed_first():
     ]
 
     retained = remove_prior_raw_place_grounding(
-        prior, ActionType.PLACE_SEARCH, authoritative_recommendation=True
+        prior, ActionType.PLACE_SEARCH, authoritative_recommendation=True, has_sufficient_recommendations=True
     )
-
     assert [item["tool"] for item in retained] == ["get_preferences"]
+
+    retained_insufficient = remove_prior_raw_place_grounding(
+        prior, ActionType.PLACE_SEARCH, authoritative_recommendation=True, has_sufficient_recommendations=False
+    )
+    assert [item["tool"] for item in retained_insufficient] == ["search_places", "get_preferences"]
+
     assert remove_prior_raw_place_grounding(
         prior, ActionType.PLAN_ITINERARY, authoritative_recommendation=True
     ) == prior
+
 
 
 def test_conversation_is_owner_scoped():

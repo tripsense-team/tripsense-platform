@@ -15,4 +15,18 @@ public record UpdateItineraryItemRequest(
     @Min(1) @Max(1440) Integer durationMinutes,
     ItineraryItemStatus status,
     @Size(max = 5000) String notes,
-    Long version) {}
+    Long version,
+    Long expectedTripRevision) {
+  public UpdateItineraryItemRequest(
+      UUID placeId,
+      ItineraryItemType type,
+      String title,
+      LocalTime startTime,
+      LocalTime endTime,
+      Integer durationMinutes,
+      ItineraryItemStatus status,
+      String notes,
+      Long version) {
+    this(placeId, type, title, startTime, endTime, durationMinutes, status, notes, version, null);
+  }
+}

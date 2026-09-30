@@ -1,6 +1,7 @@
 package fu.tripsense.tripservice.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.tripsense.tripservice.client.PlaceClient;
@@ -20,6 +21,7 @@ import fu.tripsense.tripservice.repository.ItineraryDayRepository;
 import fu.tripsense.tripservice.repository.ItineraryItemRepository;
 import fu.tripsense.tripservice.repository.TripMemberRepository;
 import fu.tripsense.tripservice.repository.TripRepository;
+import fu.tripsense.tripservice.service.CollaborationChangeService;
 import fu.tripsense.tripservice.service.TripService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -67,6 +69,7 @@ public class TripServiceImpl implements TripService {
   private final PlaceClient placeClient;
   private final Clock clock;
   private final ObjectMapper objectMapper;
+  private final CollaborationChangeService collaborationChangeService;
 
   @Transactional
   @CacheEvict(
@@ -233,13 +236,14 @@ public class TripServiceImpl implements TripService {
   }
 
   @Transactional(readOnly = true)
-  @Cacheable(cacheNames = "trip-itinerary", key = "#userId + ':' + #tripId")
   @Override
   public ItineraryResponse getItinerary(UUID userId, UUID tripId) {
     Trip trip = getReadableTrip(userId, tripId);
     List<ItineraryDay> days = dayRepository.findByTripIdOrderByDayNumberAsc(trip.getId());
     return new ItineraryResponse(
         trip.getId(),
+        Optional.ofNullable(trip.getAggregateRevision()).orElse(0L),
+        itineraryCapabilities(userId, trip),
         days.stream()
             .map(
                 day ->
@@ -268,6 +272,7 @@ public class TripServiceImpl implements TripService {
       UUID userId, UUID tripId, UUID dayId, CreateItineraryItemRequest request) {
     Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
+    validateAggregateRevision(request.expectedTripRevision(), trip);
     ItineraryDay day = getTripDay(trip.getId(), dayId);
     validateTimeRange(request.startTime(), request.endTime());
 
@@ -302,7 +307,13 @@ public class TripServiceImpl implements TripService {
     tripRepository.save(trip);
     List<ItineraryItem> dayItems =
         itemRepository.findByTripIdAndDayIdOrderBySortOrderAsc(trip.getId(), day.getId());
-    return toItemResponse(saved, overlapWarnings(saved, dayItems));
+    ItineraryItemResponse response = toItemResponse(saved, overlapWarnings(saved, dayItems));
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.ITEM_ADDED,
+        Map.of("item", responsePayload(response)));
+    return response;
   }
 
   @Transactional
@@ -314,6 +325,7 @@ public class TripServiceImpl implements TripService {
       UUID userId, UUID tripId, UUID itemId, UpdateItineraryItemRequest request) {
     Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
+    validateAggregateRevision(request.expectedTripRevision(), trip);
     ItineraryItem item =
         itemRepository
             .findByIdAndTripId(itemId, trip.getId())
@@ -356,7 +368,13 @@ public class TripServiceImpl implements TripService {
     tripRepository.save(trip);
     List<ItineraryItem> dayItems =
         itemRepository.findByTripIdAndDayIdOrderBySortOrderAsc(trip.getId(), saved.getDayId());
-    return toItemResponse(saved, overlapWarnings(saved, dayItems));
+    ItineraryItemResponse response = toItemResponse(saved, overlapWarnings(saved, dayItems));
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.ITEM_UPDATED,
+        Map.of("item", responsePayload(response)));
+    return response;
   }
 
   @Transactional
@@ -365,15 +383,35 @@ public class TripServiceImpl implements TripService {
       allEntries = true)
   @Override
   public void deleteItem(UUID userId, UUID tripId, UUID itemId) {
+    deleteItem(userId, tripId, itemId, null, null);
+  }
+
+  @Transactional
+  @CacheEvict(
+      cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
+      allEntries = true)
+  @Override
+  public void deleteItem(
+      UUID userId, UUID tripId, UUID itemId, Long expectedTripRevision, Long expectedItemVersion) {
     Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
+    validateAggregateRevision(expectedTripRevision, trip);
     itemRepository
         .findByIdAndTripId(itemId, trip.getId())
         .ifPresent(
             item -> {
+              validateVersion(
+                  expectedItemVersion,
+                  item.getVersion(),
+                  "Itinerary item was modified concurrently");
               itemRepository.delete(item);
               incrementPublicationRevision(trip);
               tripRepository.save(trip);
+              collaborationChangeService.record(
+                  trip,
+                  userId,
+                  CollaborationChangeType.ITEM_DELETED,
+                  Map.of("itemId", item.getId().toString(), "dayId", item.getDayId().toString()));
             });
   }
 
@@ -386,6 +424,7 @@ public class TripServiceImpl implements TripService {
       UUID userId, UUID tripId, UUID dayId, ReorderItemsRequest request) {
     Trip trip = getEditableTrip(userId, tripId);
     ensureNotArchived(trip);
+    validateAggregateRevision(request.expectedTripRevision(), trip);
     ItineraryDay day =
         dayRepository
             .findByIdAndTripIdForUpdate(dayId, trip.getId())
@@ -428,9 +467,15 @@ public class TripServiceImpl implements TripService {
     dayRepository.save(day);
     incrementPublicationRevision(trip);
     tripRepository.save(trip);
-
-    return toDayResponse(
-        day, saved.stream().sorted(Comparator.comparing(ItineraryItem::getSortOrder)).toList());
+    ItineraryDayResponse response =
+        toDayResponse(
+            day, saved.stream().sorted(Comparator.comparing(ItineraryItem::getSortOrder)).toList());
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.ITEM_REORDERED,
+        Map.of("day", responsePayload(response)));
+    return response;
   }
 
   @Transactional(readOnly = true)
@@ -669,20 +714,37 @@ public class TripServiceImpl implements TripService {
   private Trip getEditableTrip(UUID userId, UUID tripId) {
     Trip trip =
         tripRepository
-            .findById(tripId)
+            .findActiveByIdForUpdate(tripId)
             .orElseThrow(() -> new NotFoundException("TRIP_NOT_FOUND", "Trip not found"));
     ensureNotArchived(trip);
     if (trip.getOwnerUserId().equals(userId)) {
       return trip;
     }
     Optional<TripMember> member = tripMemberRepository.findByTripIdAndUserId(tripId, userId);
-    if (member.isPresent()
-        && (member.get().getRole() == TripMemberRole.OWNER
-            || member.get().getRole() == TripMemberRole.EDITOR)) {
+    if (member.isEmpty()) {
+      throw new NotFoundException("TRIP_NOT_FOUND", "Trip not found");
+    }
+    if (member.get().getRole() == TripMemberRole.OWNER
+        || member.get().getRole() == TripMemberRole.EDITOR) {
       return trip;
     }
     throw new ForbiddenException(
         "PERMISSION_DENIED", "You do not have permission to edit this trip");
+  }
+
+  private ItineraryCapabilitiesResponse itineraryCapabilities(UUID userId, Trip trip) {
+    if (trip.getOwnerUserId().equals(userId)) {
+      return new ItineraryCapabilitiesResponse(true, true, true);
+    }
+    Optional<TripMember> member = tripMemberRepository.findByTripIdAndUserId(trip.getId(), userId);
+    boolean canEdit =
+        member
+            .map(
+                value ->
+                    value.getRole() == TripMemberRole.OWNER
+                        || value.getRole() == TripMemberRole.EDITOR)
+            .orElse(false);
+    return new ItineraryCapabilitiesResponse(member.isPresent(), canEdit, false);
   }
 
   private ItineraryDay getTripDay(UUID tripId, UUID dayId) {
@@ -711,6 +773,19 @@ public class TripServiceImpl implements TripService {
     if (startTime != null && endTime != null && !startTime.isBefore(endTime)) {
       throw new ValidationException("INVALID_ITEM_TIME_RANGE", "startTime must be before endTime");
     }
+  }
+
+  private void validateAggregateRevision(Long expectedRevision, Trip trip) {
+    if (expectedRevision == null) return;
+    long currentRevision = Optional.ofNullable(trip.getAggregateRevision()).orElse(0L);
+    if (expectedRevision != currentRevision) {
+      throw new ConflictException(
+          "CONFLICTING_UPDATE", "The itinerary was changed by another trip member");
+    }
+  }
+
+  private Map<String, Object> responsePayload(Object response) {
+    return objectMapper.convertValue(response, new TypeReference<Map<String, Object>>() {});
   }
 
   private LocalTime resolveItemEndTime(ItineraryItem item) {

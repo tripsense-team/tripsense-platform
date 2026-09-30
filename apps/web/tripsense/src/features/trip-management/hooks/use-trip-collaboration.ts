@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tripCollaborationService } from '../services/collaboration-service';
 import type {
@@ -27,6 +28,19 @@ export function useTripCollaboration(tripId: string) {
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey });
   };
+
+  React.useEffect(() => {
+    const handleChange = (event: Event) => {
+      const tripEvent = event as CustomEvent<{ tripId?: string }>;
+      if (!tripEvent.detail?.tripId || tripEvent.detail.tripId === tripId) {
+        void queryClient.invalidateQueries({
+          queryKey: ['trip-collaboration', tripId],
+        });
+      }
+    };
+    window.addEventListener('trip-collaboration:changed', handleChange);
+    return () => window.removeEventListener('trip-collaboration:changed', handleChange);
+  }, [tripId, queryClient]);
 
   // TF-76: Invite member mutation
   const inviteMutation = useMutation({
@@ -162,4 +176,3 @@ export function useMyPendingInvitations(enabled: boolean = true) {
     isDeclining: declineMutation.isPending,
   };
 }
-

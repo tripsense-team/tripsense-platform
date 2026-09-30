@@ -388,6 +388,8 @@ services:
       REDIS_PORT: "6379"
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       PLACE_SERVICE_URL: http://place-service:8082
+      EMAIL_SERVICE_URL: http://mail-service:8082
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3000}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -399,6 +401,8 @@ services:
         condition: service_started
       discovery-server:
         condition: service_healthy
+      mail-service:
+        condition: service_started
     ports:
       - "8084:8084"
     restart: unless-stopped
