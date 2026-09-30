@@ -77,6 +77,7 @@ REQUIRED_VARS=(
   "CLOUDINARY_API_KEY:API Key Cloudinary cho social-service"
   "CLOUDINARY_API_SECRET:API Secret Cloudinary cho social-service"
   "CONTEXT_ENCRYPTION_SECRET:Khóa mã hóa bảo mật dữ liệu cho context-service"
+  "AI_TRIP_COMMIT_SECRET:Khóa bí mật HMAC ký kết lưu lịch trình giữa ai-service và trip-service"
   "OPENAI_API_KEY:API Key OpenAI cho ai-service (tính năng gợi ý & chat AI)"
 )
 
