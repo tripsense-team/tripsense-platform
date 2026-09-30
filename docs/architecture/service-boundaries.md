@@ -18,7 +18,8 @@ Service ownership is the primary design constraint for TripSense feature plannin
 - `place-service`: place data, location metadata, place lookup.
 - `context-service`: contextual signals used for planning or recommendations.
 - `itinerary-service`: itinerary structure, schedule, generated or curated plan items.
-- `review-service`: reviews, ratings, moderation state.
+- `social-service`: community-generated content, including TripSense place reviews and their moderation state.
+- `review-service`: optional future extraction boundary for reviews when independent scale or operations justify a dedicated service; provider reviews remain in `place-service`.
 - `recommendation-service`: recommendation orchestration, candidate fusion, feature engineering, personalized ranking, diversity, impressions, feedback, and derived observed profiles.
 - `notification-service`: notification preferences, delivery requests, delivery state.
 - `ai-service`: AI orchestration, prompts, model calls, AI-specific evaluation.

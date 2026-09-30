@@ -3,10 +3,13 @@ import Image from "next/image";
 import {
   Check,
   ChevronDown,
+  Clock3,
   Loader2,
+  Pencil,
   Plus,
   Search,
   SlidersHorizontal,
+  Sparkles,
   Star,
   Utensils,
   Upload,
@@ -22,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type {
   CreateItineraryItemRequest,
@@ -596,6 +600,7 @@ export function EditTripDialog({
 export function EditItemDialog({
   item,
   draft,
+  error,
   submitting,
   onOpenChange,
   onDraftChange,
@@ -603,6 +608,7 @@ export function EditItemDialog({
 }: {
   item: ItineraryItemResponse | null;
   draft: UpdateItineraryItemRequest | null;
+  error?: string | null;
   submitting: boolean;
   onOpenChange: (open: boolean) => void;
   onDraftChange: React.Dispatch<
@@ -610,6 +616,7 @@ export function EditItemDialog({
   >;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
+  const { t } = useTranslation();
   const open = !!item && !!draft;
 
   function updateDraft(patch: UpdateItineraryItemRequest) {
@@ -644,17 +651,53 @@ export function EditItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-2xl border-border bg-popover p-8 text-popover-foreground shadow-md">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold tracking-normal">
-            Edit itinerary item
-          </DialogTitle>
-          <DialogDescription>Update this saved manual item.</DialogDescription>
+      <DialogContent className="max-w-lg overflow-hidden rounded-3xl border-border bg-popover p-0 text-popover-foreground shadow-xl">
+        <DialogHeader className="border-b border-border bg-muted/30 px-6 py-5 pr-12">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xs">
+              <Pencil className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <DialogTitle className="text-xl font-bold tracking-normal">
+                {t("trip.editItemTitle")}
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-sm text-muted-foreground">
+                {t("trip.editItemDescription")}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
+
         {draft && (
-          <form className="mt-4 grid gap-4" onSubmit={onSubmit}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Type">
+          <form className="space-y-5 px-6 py-5" onSubmit={onSubmit}>
+            {item && (
+              <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-card p-3.5 shadow-2xs">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Clock3 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-foreground truncate">{item.title}</p>
+                  {item.placeNameSnapshot && item.placeNameSnapshot !== item.title && (
+                    <p className="text-xs text-muted-foreground truncate">{item.placeNameSnapshot}</p>
+                  )}
+                </div>
+                <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase shrink-0 text-muted-foreground">
+                  {item.type}
+                </span>
+              </div>
+            )}
+
+            <Field label={t("trip.title")}>
+              <Input
+                required
+                value={draft.title || ""}
+                onChange={(event) => updateDraft({ title: event.target.value })}
+                className="h-11 rounded-xl bg-background shadow-2xs"
+              />
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("trip.type")}>
                 <select
                   value={draft.type || "ACTIVITY"}
                   onChange={(event) =>
@@ -662,7 +705,7 @@ export function EditItemDialog({
                       type: event.target.value as ItineraryItemType,
                     })
                   }
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm shadow-2xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {[
                     "PLACE",
@@ -679,7 +722,8 @@ export function EditItemDialog({
                   ))}
                 </select>
               </Field>
-              <Field label="Status">
+
+              <Field label={t("trip.status")}>
                 <select
                   value={draft.status || "PLANNED"}
                   onChange={(event) =>
@@ -687,7 +731,7 @@ export function EditItemDialog({
                       status: event.target.value as ItineraryItemStatus,
                     })
                   }
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm shadow-2xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {["PLANNED", "DONE", "SKIPPED", "CANCELLED"].map((status) => (
                     <option key={status} value={status}>
@@ -696,36 +740,17 @@ export function EditItemDialog({
                   ))}
                 </select>
               </Field>
-              <Field label="Title">
-                <Input
-                  required
-                  value={draft.title || ""}
-                  onChange={(event) =>
-                    updateDraft({ title: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Duration minutes">
-                <Input
-                  type="number"
-                  min={1}
-                  max={1440}
-                  value={draft.durationMinutes ?? ""}
-                  onChange={(event) =>
-                    updateDurationDraft(
-                      event.target.value ? Number(event.target.value) : null,
-                    )
-                  }
-                />
-              </Field>
-              <Field label="Start">
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("trip.startTime")}>
                 <TimeInput24h
                   id="edit-start"
                   value={draft.startTime || null}
                   onChange={(val) => updateTimeDraft({ startTime: val })}
                 />
               </Field>
-              <Field label="End">
+              <Field label={t("trip.endTime")}>
                 <TimeInput24h
                   id="edit-end"
                   value={draft.endTime || null}
@@ -733,28 +758,66 @@ export function EditItemDialog({
                 />
               </Field>
             </div>
-            <Field label="Notes">
+
+            {/* Quick duration presets */}
+            <div className="space-y-2">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                {t("trip.durationMinutes")}
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {[30, 45, 60, 90, 120].map((mins) => {
+                  const isSelected = draft.durationMinutes === mins;
+                  return (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => updateDurationDraft(mins)}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-all border ${
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground shadow-2xs"
+                          : "border-border bg-muted/50 hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      {mins}m
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Field label={t("trip.notes")}>
               <Textarea
                 value={draft.notes || ""}
                 onChange={(event) => updateDraft({ notes: event.target.value })}
+                placeholder={t("trip.notesPlaceholder")}
+                className="min-h-24 rounded-xl"
               />
             </Field>
-            <div className="flex justify-end gap-2">
+
+            {error && (
+              <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
+                {error}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4 -mx-6 -mb-5 mt-6">
               <Button
                 type="button"
                 variant="outline"
+                className="rounded-full"
                 onClick={() => onOpenChange(false)}
                 disabled={submitting}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" className="rounded-full gap-1.5 font-bold" disabled={submitting}>
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Check className="h-4 w-4" />
                 )}
-                Save item
+                {t("common.save")}
               </Button>
             </div>
           </form>

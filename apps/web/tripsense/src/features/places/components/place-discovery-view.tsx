@@ -31,6 +31,11 @@ import { prefetchUserTrips } from "@/features/trip-management";
 import { approvedPhotoGallery, hasFreshPhotoLookup } from "../utils/approved-photo";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
+import {
+  AddToTripDialog,
+  SaveToCollectionDialog,
+  usePlaceActions,
+} from "@/features/place-actions";
 
 const PLACES_PER_PAGE = 16;
 
@@ -780,8 +785,8 @@ export function PlaceDiscoveryView() {
     ]
   );
 
-  const [favoriteIds, setFavoriteIds] = React.useState<Set<string>>(() => new Set());
-  const [addedPlaceIds, setAddedPlaceIds] = React.useState<Set<string>>(() => new Set());
+  const [saveDialogPlace, setSaveDialogPlace] = React.useState<Place | null>(null);
+  const [tripDialogPlace, setTripDialogPlace] = React.useState<Place | null>(null);
 
   const emitFeedback = React.useCallback(
     async (
@@ -819,33 +824,21 @@ export function PlaceDiscoveryView() {
   );
 
   const handleToggleFavorite = React.useCallback(
-    (placeId: string, isFav: boolean) => {
-      setFavoriteIds((prev) => {
-        const next = new Set(prev);
-        if (isFav) next.add(placeId);
-        else next.delete(placeId);
-        return next;
-      });
-      void emitFeedback(placeId, isFav ? "SAVE" : "UNSAVE");
+    (placeId: string) => {
+      const place =
+        (detailPlace?.id === placeId ? detailPlace : null) ??
+        places.find((candidate) => candidate.id === placeId) ??
+        null;
+      setSaveDialogPlace(place);
     },
-    [emitFeedback],
+    [detailPlace, places],
   );
 
   const handleAddToTrip = React.useCallback(
     (place: Place) => {
-      const isRemoving = addedPlaceIds.has(place.id);
-      setAddedPlaceIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(place.id)) next.delete(place.id);
-        else next.add(place.id);
-        return next;
-      });
-      void emitFeedback(
-        place.id,
-        isRemoving ? "REMOVE_FROM_TRIP" : "ADD_TO_TRIP",
-      );
+      setTripDialogPlace(place);
     },
-    [addedPlaceIds, emitFeedback],
+    [],
   );
 
   const handleSelectCard = React.useCallback(
@@ -900,6 +893,11 @@ export function PlaceDiscoveryView() {
       ),
     [displayedPage, places],
   );
+  const visiblePlaceRefs = React.useMemo(
+    () => [...pagePlaces.map((place) => place.id), ...(detailPlace ? [detailPlace.id] : [])],
+    [detailPlace, pagePlaces],
+  );
+  const { savedByPlace, tripsByPlace } = usePlaceActions(visiblePlaceRefs);
 
   React.useEffect(() => {
     if (!isAuthenticated || !recommendationId || pagePlaces.length === 0) return;
@@ -1085,8 +1083,8 @@ export function PlaceDiscoveryView() {
                 key={place.id}
                 place={place}
                 isSelected={selectedPlaceId === place.id}
-                isFavorite={favoriteIds.has(place.id)}
-                isAddedToTrip={addedPlaceIds.has(place.id)}
+                isFavorite={savedByPlace.get(place.id)?.saved ?? false}
+                isAddedToTrip={tripsByPlace.get(place.id)?.added ?? false}
                 onToggleFavorite={handleToggleFavorite}
                 onAddToTrip={handleAddToTrip}
                 onClick={() => handleSelectCard(place)}
@@ -1160,8 +1158,8 @@ export function PlaceDiscoveryView() {
           <PlaceDetailOverlay
             place={detailPlace}
             isLoadingDetails={isLoadingDetails}
-            isFavorite={favoriteIds.has(detailPlace.id)}
-            isAddedToTrip={addedPlaceIds.has(detailPlace.id)}
+            isFavorite={savedByPlace.get(detailPlace.id)?.saved ?? false}
+            isAddedToTrip={tripsByPlace.get(detailPlace.id)?.added ?? false}
             onClose={() => {
               setIsDetailOpen(false);
               setIsLoadingDetails(false);
@@ -1173,6 +1171,33 @@ export function PlaceDiscoveryView() {
           />
         )}
       </div>
+
+      <SaveToCollectionDialog
+        key={saveDialogPlace?.id ?? "closed-save-dialog"}
+        place={saveDialogPlace}
+        open={saveDialogPlace !== null}
+        selectedCollectionIds={
+          saveDialogPlace
+            ? savedByPlace.get(saveDialogPlace.id)?.collectionIds ?? []
+            : []
+        }
+        onOpenChange={(open) => !open && setSaveDialogPlace(null)}
+        onSaved={(saved) => {
+          if (saveDialogPlace) void emitFeedback(saveDialogPlace.id, saved ? "SAVE" : "UNSAVE");
+        }}
+      />
+      <AddToTripDialog
+        key={tripDialogPlace?.id ?? "closed-trip-dialog"}
+        place={tripDialogPlace}
+        open={tripDialogPlace !== null}
+        selectedTripIds={
+          tripDialogPlace ? tripsByPlace.get(tripDialogPlace.id)?.tripIds ?? [] : []
+        }
+        onOpenChange={(open) => !open && setTripDialogPlace(null)}
+        onAdded={(added) => {
+          if (tripDialogPlace) void emitFeedback(tripDialogPlace.id, added ? "ADD_TO_TRIP" : "REMOVE_FROM_TRIP");
+        }}
+      />
     </div>
   );
 }

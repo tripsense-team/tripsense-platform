@@ -276,8 +276,9 @@ public class TripServiceImpl implements TripService {
     ItineraryDay day = getTripDay(trip.getId(), dayId);
     validateTimeRange(request.startTime(), request.endTime());
 
+    String placeRef = request.effectivePlaceRef();
     PlaceSnapshot snapshot =
-        request.placeId() == null ? null : placeClient.validatePlace(request.placeId());
+        placeRef == null ? null : placeClient.validatePlace(placeRef);
     int sortOrder =
         itemRepository.maxSortOrderByTripIdAndDayId(trip.getId(), day.getId()) + SORT_ORDER_STEP;
 
@@ -286,6 +287,7 @@ public class TripServiceImpl implements TripService {
             .tripId(trip.getId())
             .dayId(day.getId())
             .placeId(request.placeId())
+            .placeRef(placeRef)
             .type(request.type())
             .title(request.title().trim())
             .startTime(request.startTime())
@@ -339,13 +341,17 @@ public class TripServiceImpl implements TripService {
     LocalTime nextEnd = request.endTime() != null ? request.endTime() : item.getEndTime();
     validateTimeRange(nextStart, nextEnd);
 
-    if (request.placeId() != null && !request.placeId().equals(item.getPlaceId())) {
-      PlaceSnapshot snapshot = placeClient.validatePlace(request.placeId());
-      item.setPlaceId(request.placeId());
-      item.setPlaceNameSnapshot(snapshot.name());
-      item.setPlaceAddressSnapshot(snapshot.address());
-      item.setLatSnapshot(snapshot.latitude());
-      item.setLngSnapshot(snapshot.longitude());
+    String nextPlaceRef = request.effectivePlaceRef();
+    if (nextPlaceRef != null && !nextPlaceRef.equals(item.getPlaceRef())) {
+      PlaceSnapshot snapshot = placeClient.validatePlace(nextPlaceRef);
+      item.setPlaceRef(nextPlaceRef);
+      if (request.placeId() != null) {
+        item.setPlaceId(request.placeId());
+      }
+      item.setPlaceNameSnapshot(snapshot == null ? null : snapshot.name());
+      item.setPlaceAddressSnapshot(snapshot == null ? null : snapshot.address());
+      item.setLatSnapshot(snapshot == null ? null : snapshot.latitude());
+      item.setLngSnapshot(snapshot == null ? null : snapshot.longitude());
     }
     if (request.type() != null) {
       item.setType(request.type());

@@ -1,6 +1,7 @@
 package fu.tripsense.placeservice.config;
 
 import java.util.concurrent.TimeUnit;
+import org.bson.UuidRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +20,7 @@ public class MongoConfig {
   public MongoClientSettingsBuilderCustomizer mongoClientSettingsCustomizer() {
     return builder ->
         builder
+            .uuidRepresentation(UuidRepresentation.STANDARD)
             .applyToClusterSettings(
                 settings ->
                     settings.serverSelectionTimeout(
