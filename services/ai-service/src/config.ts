@@ -62,12 +62,14 @@ function getDatabaseUrl(): string {
 export const config = {
   port: Number(process.env.AI_SERVICE_PORT || process.env.AI_SERVICE_V2_PORT || 8089),
   databaseUrl: getDatabaseUrl(),
-  googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY!,
+  googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || "",
   openaiApiKey: process.env.OPENAI_API_KEY || "",
   openaiBaseUrl: process.env.AI_MODEL_BASE_URL || "",
   placeServiceUrl: process.env.PLACE_SERVICE_URL || "http://localhost:8083",
   tripServiceUrl: process.env.TRIP_SERVICE_URL || "http://localhost:8084",
   aiTripCommitSecret: process.env.AI_TRIP_COMMIT_SECRET || "",
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || "",
-  allowedOrigins: (process.env.AI_ALLOWED_ORIGINS || "http://localhost:3000,http://127.0.0.1:3000").split(","),
+  allowedOrigins: (process.env.AI_ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://127.0.0.1:3000")
+    .split(",")
+    .map((s) => s.trim()),
 };

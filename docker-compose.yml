@@ -160,6 +160,7 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SOCIAL_RATE_LIMIT_ENABLED: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      AI_SERVICE_V2_URL: ${AI_SERVICE_V2_URL:-http://ai-service:8089}
     depends_on:
       discovery-server:
         condition: service_healthy

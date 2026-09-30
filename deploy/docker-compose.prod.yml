@@ -293,13 +293,14 @@ services:
       PORT: "8089"
       NODE_ENV: "production"
       DATABASE_URL: ${AI_DATABASE_URL:-${AI_V2_DATABASE_URL}}
-      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
       TRIP_SERVICE_URL: http://trip-service:8084
-      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3001,http://localhost:8080"
+      AI_ALLOWED_ORIGINS: ${AI_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -327,6 +328,7 @@ services:
       <<: *java-small
       REDIS_URL: ${REDIS_URL}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      AI_SERVICE_V2_URL: http://ai-service:8089
     depends_on:
       discovery-server:
         condition: service_healthy
