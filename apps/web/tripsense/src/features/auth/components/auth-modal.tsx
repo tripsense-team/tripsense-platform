@@ -26,12 +26,16 @@ interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialMode?: "signin" | "signup";
+  returnUrl?: string | null;
+  initialEmail?: string | null;
 }
 
 export function AuthModal({
   open,
   onOpenChange,
   initialMode = "signin",
+  returnUrl,
+  initialEmail,
 }: AuthModalProps) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -42,7 +46,7 @@ export function AuthModal({
   const [step, setStep] = React.useState<AuthModalStep>("email");
 
   // Form states
-  const [email, setEmail] = React.useState("");
+  const [email, setEmail] = React.useState(initialEmail ?? "");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [otpCode, setOtpCode] = React.useState("");
@@ -84,9 +88,10 @@ export function AuthModal({
       setOtpCode("");
       setPassword("");
       setConfirmPassword("");
+      setEmail(initialEmail ?? "");
     }
     prevOpenRef.current = open;
-  }, [open, initialMode]);
+  }, [open, initialMode, initialEmail]);
 
   // OTP Countdown timer effect
   React.useEffect(() => {
@@ -128,7 +133,7 @@ export function AuthModal({
         if (loggedInRole === UserRole.ADMIN) {
           router.replace("/admin");
         } else {
-          router.replace("/explore");
+          router.replace(returnUrl ?? "/explore");
         }
       }, 800);
     } catch (err: unknown) {
@@ -172,7 +177,7 @@ export function AuthModal({
         if (loggedInRole === UserRole.ADMIN) {
           router.replace("/admin");
         } else {
-          router.replace("/explore");
+          router.replace(returnUrl ?? "/explore");
         }
       }, 800);
     } catch (err: unknown) {

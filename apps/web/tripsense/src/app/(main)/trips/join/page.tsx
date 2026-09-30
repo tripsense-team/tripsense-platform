@@ -6,19 +6,72 @@ import { Users, CheckCircle2, XCircle, ArrowRight, Loader2, Sparkles, LogIn } fr
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/shared/loading-state';
 import { tripCollaborationService } from '@/features/trip-management/services/collaboration-service';
-import { useAuthStore } from '@/features/auth';
+import type { TripInvitationPreview } from '@/features/trip-management/types';
+import { useAuth } from '@/features/auth';
 
 function JoinTripContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
 
   const [loading, setLoading] = React.useState(false);
+  const [previewLoading, setPreviewLoading] = React.useState(true);
+  const [preview, setPreview] = React.useState<TripInvitationPreview | null>(null);
   const [success, setSuccess] = React.useState(false);
   const [joinedTripId, setJoinedTripId] = React.useState<string | null>(null);
   const [declined, setDeclined] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!token) {
+      setPreviewLoading(false);
+      return;
+    }
+    let active = true;
+    tripCollaborationService
+      .previewInvitation(token)
+      .then((data) => {
+        if (active) setPreview(data);
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setError(err instanceof Error ? err.message : 'Invitation is invalid or expired.');
+        }
+      })
+      .finally(() => {
+        if (active) setPreviewLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  const returnUrl = token ? `/trips/join?token=${token}` : '/trips/join';
+  const authUrl = (mode: 'signin' | 'signup') => {
+    const params = new URLSearchParams({
+      [mode]: 'true',
+      returnUrl,
+    });
+    if (preview?.inviteeEmail) params.set('email', preview.inviteeEmail);
+    return `/?${params.toString()}`;
+  };
+  const accountMismatch = Boolean(
+    isAuthenticated &&
+      user?.email &&
+      preview?.inviteeEmail &&
+      user.email.toLowerCase() !== preview.inviteeEmail.toLowerCase(),
+  );
+
+  const switchToInvitedAccount = async (mode: 'signin' | 'signup') => {
+    setLoading(true);
+    try {
+      await logout();
+      router.replace(authUrl(mode));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAccept = async () => {
     if (!token) return;
@@ -84,6 +137,10 @@ function JoinTripContent() {
     );
   }
 
+  if (previewLoading || authLoading) {
+    return <LoadingState className="min-h-[60vh]" text="Checking invitation..." />;
+  }
+
   if (success && joinedTripId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-4">
@@ -141,7 +198,7 @@ function JoinTripContent() {
             <Sparkles className="h-3.5 w-3.5" /> Collaboration Invitation
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            You&apos;re invited to collaborate on a trip!
+            You&apos;re invited to collaborate{preview?.tripName ? ` on ${preview.tripName}` : ' on a trip'}!
           </h1>
           <p className="text-sm text-muted-foreground">
             Join this trip to co-plan itinerary items, places, and schedules together in real-time.
@@ -155,13 +212,38 @@ function JoinTripContent() {
         )}
 
         <div className="pt-2 space-y-2.5">
-          {!isAuthenticated ? (
-            <Button
-              onClick={() => router.push('/')}
-              className="w-full rounded-2xl font-bold h-11 bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-all"
-            >
-              <LogIn className="mr-2 h-4 w-4" /> Log In to Join Trip
-            </Button>
+          {accountMismatch ? (
+            <div className="space-y-3">
+              <div className="rounded-2xl bg-amber-500/10 p-3 text-left text-sm text-amber-800 dark:text-amber-300">
+                This invitation is for <strong>{preview?.inviteeEmail}</strong>, but you are signed in as <strong>{user?.email}</strong>.
+              </div>
+              <Button
+                disabled={loading}
+                onClick={() => switchToInvitedAccount('signup')}
+                className="w-full rounded-2xl font-bold h-11"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign out & create invited account'}
+              </Button>
+              <Button variant="outline" disabled={loading} onClick={() => switchToInvitedAccount('signin')} className="w-full rounded-2xl font-bold h-11">
+                Log in with {preview?.inviteeEmail}
+              </Button>
+            </div>
+          ) : !isAuthenticated ? (
+            <div className="space-y-2.5">
+              <Button
+                onClick={() => router.push(authUrl('signup'))}
+                className="w-full rounded-2xl font-bold h-11 bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-all"
+              >
+                Create account for {preview?.inviteeEmail ?? 'invited email'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(authUrl('signin'))}
+                className="w-full rounded-2xl font-bold h-11"
+              >
+                <LogIn className="mr-2 h-4 w-4" /> Already have an account? Log in
+              </Button>
+            </div>
           ) : (
             <Button
               disabled={loading}
@@ -176,14 +258,16 @@ function JoinTripContent() {
             </Button>
           )}
 
-          <Button
-            variant="ghost"
-            disabled={loading}
-            onClick={handleDecline}
-            className="w-full rounded-2xl font-bold h-10 text-muted-foreground hover:text-destructive"
-          >
-            Decline Invitation
-          </Button>
+          {!accountMismatch && isAuthenticated && (
+            <Button
+              variant="ghost"
+              disabled={loading}
+              onClick={handleDecline}
+              className="w-full rounded-2xl font-bold h-10 text-muted-foreground hover:text-destructive"
+            >
+              Decline Invitation
+            </Button>
+          )}
         </div>
       </div>
     </div>

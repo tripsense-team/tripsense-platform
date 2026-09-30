@@ -3,12 +3,14 @@ package fu.tripsense.tripservice.service;
 import fu.tripsense.tripservice.dto.request.InviteTripMemberRequest;
 import fu.tripsense.tripservice.dto.request.UpdateMemberRoleRequest;
 import fu.tripsense.tripservice.dto.response.TripCollaborationSummaryResponse;
+import fu.tripsense.tripservice.dto.response.TripInvitationPreviewResponse;
 import fu.tripsense.tripservice.dto.response.TripInvitationResponse;
 import fu.tripsense.tripservice.dto.response.TripMemberResponse;
 import java.util.List;
 import java.util.UUID;
 
 public interface TripCollaborationService {
+  TripInvitationPreviewResponse previewInvitation(String token);
 
   // TF-76: Invite a user to a trip
   TripInvitationResponse inviteMember(UUID userId, UUID tripId, InviteTripMemberRequest request);

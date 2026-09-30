@@ -11,6 +11,7 @@ Track every feature that enters the multi-agent workflow.
 | `ai-planner-trip-detail-panel` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/ai-service-v2`, `services/api-gateway` | [Docs](./ai-planner-trip-detail-panel.md) |
 | `ai-v2-mindtrip-sidebar-drawer` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2` | [Docs](./ai-v2-mindtrip-sidebar-drawer.md) |
 | `ai-service-v2` | DONE | `services/ai-service-v2`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-v2.md) |
+| `save-add-place-and-community-reviews` | APPROVED; IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/trip-service`, `services/social-service`, `services/user-service` | [Docs](./save-add-place-and-community-reviews.md) |
 | `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |
 | `explore-category-discovery-and-pagination` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./explore-category-discovery-and-pagination.md) |
 | `place-batch-enrichment-and-ziomap-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./place-batch-enrichment-and-ziomap-settings.md) |
@@ -36,6 +37,7 @@ Track every feature that enters the multi-agent workflow.
 | `social-post-management` | DONE | `apps/web/tripsense`, `services/social-service`, `services/api-gateway`, `services/user-service` (profile snapshot) | [Docs](./social-post-management/index.md) |
 | `trip-sharing` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/social-service`, `services/trip-service` | [Docs](./trip-sharing/index.md) |
 | `trip-collaboration` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./trip-collaboration.md) |
+| `collaborative-itinerary-editing` | APPROVED | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./collaborative-itinerary-editing.md) |
 | `community-experience-redesign` | IMPLEMENTING | `apps/web/tripsense`, `services/social-service`, `services/trip-service`, `services/api-gateway` | [Docs](./community-experience-redesign/index.md) |
 | `community-discovery-rail` | APPROVED | `apps/web/tripsense`, `services/social-service`, `services/user-service`, `services/trip-service`, `services/api-gateway`; future `context-service` | [Docs](./community-discovery-rail/index.md) |
 | `google-oauth-login` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/user-service` | [Docs](./google-oauth-login/index.md) |

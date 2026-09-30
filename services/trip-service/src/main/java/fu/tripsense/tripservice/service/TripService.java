@@ -41,6 +41,9 @@ public interface TripService {
 
   void deleteItem(UUID userId, UUID tripId, UUID itemId);
 
+  void deleteItem(
+      UUID userId, UUID tripId, UUID itemId, Long expectedTripRevision, Long expectedItemVersion);
+
   ItineraryDayResponse reorderItems(
       UUID userId, UUID tripId, UUID dayId, ReorderItemsRequest request);
 

@@ -32,6 +32,7 @@ import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collap
 import type { Place } from "../types";
 import { approvedPhotoGallery } from "../utils/approved-photo";
 import { OpeningHoursDisplay } from "./opening-hours-display";
+import { CommunityReviewsSection } from "@/features/community-reviews";
 
 export interface PlaceDetailOverlayProps {
   place: Place;
@@ -732,27 +733,8 @@ export function PlaceDetailOverlay({
               </div>
             ) : null}
 
-            {/* Community Reviews Section */}
-            <div className="space-y-3 pt-3 border-t border-border/50">
-              <h4 className="text-sm font-bold text-foreground">From our community</h4>
-              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/40">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-sky-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  TS
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-foreground/90 font-medium">
-                    {locale === "vi"
-                      ? `Hãy là người đầu tiên chia sẻ cảm nhận về ${place.name} trên TripSense.`
-                      : `Be the first to add a review for ${place.name} on TripSense.`}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="px-3.5 py-1 rounded-full border border-border/80 text-xs font-semibold hover:bg-muted text-foreground transition-colors cursor-pointer shrink-0"
-                >
-                  + {locale === "vi" ? "Viết đánh giá" : "Add review"}
-                </button>
-              </div>
+            <div className="pt-3 border-t border-border/50">
+              <CommunityReviewsSection placeRef={place.id} placeName={place.name} />
             </div>
           </div>
 

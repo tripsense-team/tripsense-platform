@@ -5,4 +5,9 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
 
-public record ReorderItemsRequest(@NotEmpty List<UUID> orderedItemIds, @NotNull Long version) {}
+public record ReorderItemsRequest(
+    @NotEmpty List<UUID> orderedItemIds, @NotNull Long version, Long expectedTripRevision) {
+  public ReorderItemsRequest(List<UUID> orderedItemIds, Long version) {
+    this(orderedItemIds, version, null);
+  }
+}

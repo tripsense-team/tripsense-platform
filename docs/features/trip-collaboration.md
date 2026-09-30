@@ -8,6 +8,8 @@
 - **Affected Components**: `apps/web/tripsense`, `services/api-gateway`, `services/trip-service`, `services/user-service` (profile lookups), `services/mail-service` (invitation emails)
 - **Target Branch**: `feature/trip-collaboration`
 - **Created Date**: 2026-09-24
+- **Approved Date**: 2026-09-30
+- **Approval Note**: Complete invitation email delivery and preserve the join token across registration/login for invitees who do not yet have an account.
 
 ---
 
@@ -261,7 +263,7 @@ CREATE INDEX IF NOT EXISTS idx_trip_invitations_trip_id ON trip_invitations(trip
 ## Human Approval Gate
 
 ```text
-STATUS: WAITING_FOR_HUMAN_APPROVAL
+STATUS: APPROVED
 ```
-> Kế hoạch kỹ thuật chi tiết cho 6 task **TF-76 đến TF-81** đã hoàn thành và sẵn sàng được kiểm tra. 
-> Phản hồi **`Approved`**, **`Implement`** hoặc **`Tiến hành code`** để bắt đầu triển khai các giai đoạn trên nhánh `feature/trip-collaboration`.
+The user explicitly approved completing invitation email delivery and the
+registration/login return flow on 2026-09-30.

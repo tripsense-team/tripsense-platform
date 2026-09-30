@@ -126,9 +126,19 @@ export function updateItineraryItem(
 export async function deleteItineraryItem(
   tripId: string,
   itemId: string,
+  expectedTripRevision?: number,
+  expectedItemVersion?: number,
 ): Promise<void> {
+  const params = new URLSearchParams();
+  if (expectedTripRevision !== undefined) {
+    params.set("expectedTripRevision", String(expectedTripRevision));
+  }
+  if (expectedItemVersion !== undefined) {
+    params.set("expectedItemVersion", String(expectedItemVersion));
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   await apiClient<ApiResponse<void>>(
-    `/api/trips/${tripId}/itinerary/items/${itemId}`,
+    `/api/trips/${tripId}/itinerary/items/${itemId}${query}`,
     { method: "DELETE" },
   );
 }

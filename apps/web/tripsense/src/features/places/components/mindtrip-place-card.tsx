@@ -77,18 +77,6 @@ function MindtripPlaceCardComponent({
 }: MindtripPlaceCardProps) {
   const { t, locale } = useTranslation();
   const [photoIndex, setPhotoIndex] = React.useState(0);
-  const [favoriteState, setFavoriteState] = React.useState(() => ({
-    source: isFavorite,
-    value: isFavorite,
-  }));
-  const [addedState, setAddedState] = React.useState(() => ({
-    source: isAddedToTrip,
-    value: isAddedToTrip,
-  }));
-  const isFavLocal =
-    favoriteState.source === isFavorite ? favoriteState.value : isFavorite;
-  const isAddedLocal =
-    addedState.source === isAddedToTrip ? addedState.value : isAddedToTrip;
 
   const primaryCategory =
     place.categories?.[0] || t("places.defaultCategory", { defaultValue: "Place" });
@@ -122,15 +110,11 @@ function MindtripPlaceCardComponent({
 
   const handleToggleFav = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const next = !isFavLocal;
-    setFavoriteState({ source: isFavorite, value: next });
-    onToggleFavorite?.(place.id, next);
+    onToggleFavorite?.(place.id, !isFavorite);
   };
 
   const handleAddTrip = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const next = !isAddedLocal;
-    setAddedState({ source: isAddedToTrip, value: next });
     onAddToTrip?.(place);
   };
 
@@ -210,13 +194,13 @@ function MindtripPlaceCardComponent({
           <button
             type="button"
             onClick={handleToggleFav}
-            aria-label={isFavLocal ? t("places.unsavePlace") : t("places.savePlace")}
+            aria-label={isFavorite ? t("places.unsavePlace") : t("places.savePlace")}
             className="p-1 text-white hover:scale-110 active:scale-90 transition-transform cursor-pointer"
           >
             <Heart
               className={cn(
                 "h-6 w-6 transition-colors drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]",
-                isFavLocal
+                isFavorite
                   ? "fill-rose-500 text-rose-500 stroke-rose-500"
                   : "text-white fill-none stroke-[2]"
               )}
@@ -227,10 +211,10 @@ function MindtripPlaceCardComponent({
           <button
             type="button"
             onClick={handleAddTrip}
-            aria-label={isAddedLocal ? t("places.addedToTrip") : t("places.addToTrip")}
+            aria-label={isAddedToTrip ? t("places.addedToTrip") : t("places.addToTrip")}
             className="p-1 text-white hover:scale-110 active:scale-90 transition-transform cursor-pointer"
           >
-            {isAddedLocal ? (
+            {isAddedToTrip ? (
               <CheckCircle2 className="h-6 w-6 text-primary fill-background drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] stroke-[2]" />
             ) : (
               <PlusCircle className="h-6 w-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] stroke-[2]" />
@@ -336,4 +320,3 @@ export const MindtripPlaceCard = React.memo(
     );
   }
 );
-

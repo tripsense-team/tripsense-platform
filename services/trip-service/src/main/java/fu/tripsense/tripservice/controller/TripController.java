@@ -119,8 +119,13 @@ public class TripController {
 
   @DeleteMapping("/{tripId}/itinerary/items/{itemId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void deleteItem(@PathVariable UUID tripId, @PathVariable UUID itemId) {
-    tripService.deleteItem(currentUserProvider.userId(), tripId, itemId);
+  public void deleteItem(
+      @PathVariable UUID tripId,
+      @PathVariable UUID itemId,
+      @RequestParam(required = false) Long expectedTripRevision,
+      @RequestParam(required = false) Long expectedItemVersion) {
+    tripService.deleteItem(
+        currentUserProvider.userId(), tripId, itemId, expectedTripRevision, expectedItemVersion);
   }
 
   @PutMapping("/{tripId}/itinerary/days/{dayId}/items/reorder")
