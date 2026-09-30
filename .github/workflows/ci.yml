@@ -203,6 +203,7 @@ jobs:
       JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
       RESEND_API_KEY: ci-placeholder
       EMAIL_SERVICE_URL: http://localhost:8082
+      MAIL_INTERNAL_API_KEY: ${{ secrets.MAIL_INTERNAL_API_KEY }}
       ZIOMAP_API_KEY: ci-placeholder
 
     steps:
