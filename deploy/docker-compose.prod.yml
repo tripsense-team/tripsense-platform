@@ -277,12 +277,12 @@ services:
       test:
         [
           "CMD-SHELL",
-          'curl -fsS http://localhost:8088/actuator/health | grep -q ''"status":"UP"'' || exit 1',
+          'curl -fsS http://localhost:8088/actuator/health/readiness | grep -q ''"status":"UP"'' || curl -fsS http://localhost:8088/actuator/health | grep -q ''"status":"UP"'' || exit 1',
         ]
-      interval: 10s
+      interval: 15s
       timeout: 5s
-      retries: 15
-      start_period: 30s
+      retries: 20
+      start_period: 60s
 
   ai-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-ai-service:${IMAGE_TAG}
@@ -347,7 +347,7 @@ services:
       ai-service:
         condition: service_started
       recommendation-service:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test:
         [

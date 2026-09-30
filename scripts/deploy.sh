@@ -178,7 +178,7 @@ done
 if [ "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]; then
   echo "❌ Error: Timed out waiting for core services to become healthy after ${MAX_WAIT_SECONDS}s!"
   echo "=== Container logs snapshot for debugging ==="
-  docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" logs --tail=50 web api-gateway || true
+  docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" logs --tail=50 web api-gateway recommendation-service || true
   exit 1
 fi
 

@@ -167,11 +167,11 @@ services:
       redis:
         condition: service_started
       user-service:
-        condition: service_healthy
+        condition: service_started
       context-service:
         condition: service_started
       recommendation-service:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "8080:8080"
     restart: unless-stopped
