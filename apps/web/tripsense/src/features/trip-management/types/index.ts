@@ -136,6 +136,7 @@ export interface UpdateTripRequest extends Partial<CreateTripRequest> {
 
 export interface CreateItineraryItemRequest {
   placeId?: string | null;
+  placeRef?: string | null;
   type: ItineraryItemType;
   title: string;
   startTime?: string | null;
