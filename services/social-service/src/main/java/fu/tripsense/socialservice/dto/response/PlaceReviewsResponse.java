@@ -9,4 +9,5 @@ public record PlaceReviewsResponse(
     int size,
     long totalElements,
     int totalPages,
-    List<PlaceReviewItemResponse> items) {}
+    List<PlaceReviewItemResponse> items,
+    PlaceReviewItemResponse currentUserReview) {}

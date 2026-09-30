@@ -1173,7 +1173,11 @@ export function PlaceDiscoveryView() {
       </div>
 
       <SaveToCollectionDialog
-        key={saveDialogPlace?.id ?? "closed-save-dialog"}
+        key={
+          saveDialogPlace
+            ? `${saveDialogPlace.id}:${[...(savedByPlace.get(saveDialogPlace.id)?.collectionIds ?? [])].sort().join(",")}`
+            : "closed-save-dialog"
+        }
         place={saveDialogPlace}
         open={saveDialogPlace !== null}
         selectedCollectionIds={
@@ -1187,7 +1191,11 @@ export function PlaceDiscoveryView() {
         }}
       />
       <AddToTripDialog
-        key={tripDialogPlace?.id ?? "closed-trip-dialog"}
+        key={
+          tripDialogPlace
+            ? `${tripDialogPlace.id}:${[...(tripsByPlace.get(tripDialogPlace.id)?.tripIds ?? [])].sort().join(",")}`
+            : "closed-trip-dialog"
+        }
         place={tripDialogPlace}
         open={tripDialogPlace !== null}
         selectedTripIds={

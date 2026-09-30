@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class PlaceClient {
   private final RestClient.Builder restClientBuilder;
 
-  @Value("${place-service.url:http://localhost:8083}")
+  @Value("${place-service.url:http://localhost:8082}")
   private String placeServiceUrl;
 
   @JsonIgnoreProperties(ignoreUnknown = true)

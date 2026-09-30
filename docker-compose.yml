@@ -430,6 +430,8 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       USER_SERVICE_URL: http://user-service:8081
       TRIP_SERVICE_URL: http://trip-service:8084
+      PLACE_SERVICE_URL: http://place-service:8082
+      COMMUNITY_REVIEWS_WRITE_ENABLED: ${COMMUNITY_REVIEWS_WRITE_ENABLED:-false}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
@@ -442,6 +444,8 @@ services:
       user-service:
         condition: service_started
       trip-service:
+        condition: service_started
+      place-service:
         condition: service_started
       discovery-server:
         condition: service_healthy

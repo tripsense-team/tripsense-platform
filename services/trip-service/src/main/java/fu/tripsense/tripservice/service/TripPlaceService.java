@@ -13,7 +13,6 @@ import fu.tripsense.tripservice.repository.TripRepository;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +26,9 @@ public class TripPlaceService {
 
   @Transactional
   public TripPlaceResponse add(UUID ownerId, UUID tripId, String placeRef) {
-    Trip trip = requireOwnedTrip(ownerId, tripId);
+    // Serialize membership changes for one trip so concurrent idempotent PUTs
+    // cannot both pass the existence check and race on the unique constraint.
+    Trip trip = requireOwnedTripForUpdate(ownerId, tripId);
     if (trip.getStatus() == TripStatus.ARCHIVED || trip.getStatus() == TripStatus.CANCELLED) {
       throw new ValidationException("TRIP_NOT_EDITABLE", "Trip cannot be changed");
     }
@@ -45,14 +46,7 @@ public class TripPlaceService {
             .lngSnapshot(place.longitude())
             .addedByUserId(ownerId)
             .build();
-    try {
-      return toResponse(tripPlaces.saveAndFlush(candidate));
-    } catch (DataIntegrityViolationException exception) {
-      return tripPlaces
-          .findByTripIdAndPlaceRef(tripId, placeRef)
-          .map(this::toResponse)
-          .orElseThrow(() -> exception);
-    }
+    return toResponse(tripPlaces.saveAndFlush(candidate));
   }
 
   @Transactional
@@ -64,10 +58,17 @@ public class TripPlaceService {
   @Transactional(readOnly = true)
   public TripPlaceMembershipBatchResponse memberships(UUID ownerId, List<String> requestedRefs) {
     List<String> refs =
-        requestedRefs.stream().map(String::trim).filter(value -> !value.isEmpty()).distinct().toList();
+        requestedRefs.stream()
+            .map(String::trim)
+            .filter(value -> !value.isEmpty())
+            .distinct()
+            .toList();
     List<UUID> tripIds =
         trips.findAllByOwnerUserIdAndArchivedAtIsNull(ownerId).stream()
-            .filter(trip -> trip.getStatus() != TripStatus.CANCELLED && trip.getStatus() != TripStatus.ARCHIVED)
+            .filter(
+                trip ->
+                    trip.getStatus() != TripStatus.CANCELLED
+                        && trip.getStatus() != TripStatus.ARCHIVED)
             .map(Trip::getId)
             .toList();
     Map<String, List<UUID>> memberships =
@@ -80,7 +81,12 @@ public class TripPlaceService {
                         Collectors.mapping(TripPlace::getTripId, Collectors.toList())));
     return new TripPlaceMembershipBatchResponse(
         refs.stream()
-            .map(ref -> new TripPlaceMembershipResponse(ref, memberships.containsKey(ref), memberships.getOrDefault(ref, List.of())))
+            .map(
+                ref ->
+                    new TripPlaceMembershipResponse(
+                        ref,
+                        memberships.containsKey(ref),
+                        memberships.getOrDefault(ref, List.of())))
             .toList());
   }
 
@@ -102,6 +108,12 @@ public class TripPlaceService {
   private Trip requireOwnedTrip(UUID ownerId, UUID tripId) {
     return trips
         .findByIdAndOwnerUserIdAndArchivedAtIsNull(tripId, ownerId)
+        .orElseThrow(() -> new NotFoundException("TRIP_NOT_FOUND", "Trip not found"));
+  }
+
+  private Trip requireOwnedTripForUpdate(UUID ownerId, UUID tripId) {
+    return trips
+        .findOwnedForUpdate(tripId, ownerId)
         .orElseThrow(() -> new NotFoundException("TRIP_NOT_FOUND", "Trip not found"));
   }
 

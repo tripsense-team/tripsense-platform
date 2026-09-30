@@ -23,6 +23,7 @@ export interface CommunityReviewsPage {
   totalElements: number;
   totalPages: number;
   items: CommunityReview[];
+  currentUserReview: CommunityReview | null;
 }
 
 export interface CommunityReviewInput {

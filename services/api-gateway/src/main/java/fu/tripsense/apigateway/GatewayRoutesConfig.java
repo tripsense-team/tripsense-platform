@@ -1,6 +1,11 @@
 package fu.tripsense.apigateway;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
@@ -17,6 +22,11 @@ import org.springframework.http.HttpStatus;
 class GatewayRoutesConfig {
 
   static final String BLOCK_INTERNAL_ROUTE_ID = "block-internal-endpoints";
+  static final String COLLECTION_WRITES_ROUTE_ID = "place-collection-writes";
+  static final String SAVED_MEMBERSHIP_WRITES_ROUTE_ID = "saved-membership-writes";
+  static final String TRIP_PLACE_WRITES_ROUTE_ID = "trip-place-writes";
+  static final String REVIEW_WRITES_ROUTE_ID = "community-review-writes";
+  static final String REVIEW_READS_ROUTE_ID = "community-review-reads";
 
   static final String PLACE_SERVICE_ROUTE_ID = "place-service";
   static final String PLACE_SERVICE_PATH = "/api/places/**";
@@ -34,8 +44,7 @@ class GatewayRoutesConfig {
   static final String TRIP_SERVICE_ROUTE_ID = "trip-service";
   static final String TRIP_SERVICE_PATH = "/api/trips/**";
   static final String TRIP_SERVICE_URI = "lb://trip-service";
-  static final String TRIP_COLLABORATION_STREAM_PATH =
-      "/api/trips/*/collaboration/events";
+  static final String TRIP_COLLABORATION_STREAM_PATH = "/api/trips/*/collaboration/events";
 
   static final String SOCIAL_SERVICE_ROUTE_ID = "social-service";
   static final String SOCIAL_SERVICE_PATH = "/api/social/**";
@@ -56,11 +65,18 @@ class GatewayRoutesConfig {
   @Bean
   RouteLocator tripSenseRoutes(
       RouteLocatorBuilder routes,
-      RedisRateLimiter placeRedisRateLimiter,
-      RedisRateLimiter socialRedisRateLimiter,
-      RedisRateLimiter chatRedisRateLimiter,
-      RedisRateLimiter recommendationRedisRateLimiter,
-      KeyResolver clientIpKeyResolver,
+      @Qualifier("placeRedisRateLimiter") RedisRateLimiter placeRedisRateLimiter,
+      @Qualifier("socialRedisRateLimiter") RedisRateLimiter socialRedisRateLimiter,
+      @Qualifier("chatRedisRateLimiter") RedisRateLimiter chatRedisRateLimiter,
+      @Qualifier("recommendationRedisRateLimiter") RedisRateLimiter recommendationRedisRateLimiter,
+      @Qualifier("collectionWriteRateLimiter") RedisRateLimiter collectionWriteRateLimiter,
+      @Qualifier("savedMembershipWriteRateLimiter")
+          RedisRateLimiter savedMembershipWriteRateLimiter,
+      @Qualifier("tripPlaceWriteRateLimiter") RedisRateLimiter tripPlaceWriteRateLimiter,
+      @Qualifier("reviewWriteRateLimiter") RedisRateLimiter reviewWriteRateLimiter,
+      @Qualifier("reviewReadRateLimiter") RedisRateLimiter reviewReadRateLimiter,
+      @Qualifier("clientIpKeyResolver") KeyResolver clientIpKeyResolver,
+      @Qualifier("authenticatedActorKeyResolver") KeyResolver authenticatedActorKeyResolver,
       @Value("${tripsense.gateway.places-rate-limit.enabled:false}")
           boolean placeRateLimitingEnabled,
       @Value("${tripsense.gateway.social-rate-limit.enabled:false}")
@@ -87,6 +103,38 @@ class GatewayRoutesConfig {
                                   return exchange.getResponse().setComplete();
                                 }))
                     .uri("no://op"))
+        .route(
+            SAVED_MEMBERSHIP_WRITES_ROUTE_ID,
+            route ->
+                route
+                    .path("/api/places/me/collections/*/places/**")
+                    .and()
+                    .method(HttpMethod.PUT, HttpMethod.DELETE)
+                    .filters(
+                        filters ->
+                            filters.requestRateLimiter(
+                                config -> {
+                                  config.setRateLimiter(savedMembershipWriteRateLimiter);
+                                  config.setKeyResolver(authenticatedActorKeyResolver);
+                                  config.setDenyEmptyKey(true);
+                                }))
+                    .uri(PLACE_SERVICE_URI))
+        .route(
+            COLLECTION_WRITES_ROUTE_ID,
+            route ->
+                route
+                    .path("/api/places/me/collections", "/api/places/me/collections/*")
+                    .and()
+                    .method(HttpMethod.POST, HttpMethod.PATCH, HttpMethod.DELETE)
+                    .filters(
+                        filters ->
+                            filters.requestRateLimiter(
+                                config -> {
+                                  config.setRateLimiter(collectionWriteRateLimiter);
+                                  config.setKeyResolver(authenticatedActorKeyResolver);
+                                  config.setDenyEmptyKey(true);
+                                }))
+                    .uri(PLACE_SERVICE_URI))
         .route(
             PLACE_SERVICE_ROUTE_ID,
             route -> {
@@ -120,6 +168,22 @@ class GatewayRoutesConfig {
                             filters
                                 .setResponseHeader("Cache-Control", "no-store")
                                 .setResponseHeader("X-Accel-Buffering", "no"))
+                    .uri(TRIP_SERVICE_URI))
+        .route(
+            TRIP_PLACE_WRITES_ROUTE_ID,
+            route ->
+                route
+                    .path("/api/trips/*/places/**")
+                    .and()
+                    .method(HttpMethod.PUT, HttpMethod.DELETE)
+                    .filters(
+                        filters ->
+                            filters.requestRateLimiter(
+                                config -> {
+                                  config.setRateLimiter(tripPlaceWriteRateLimiter);
+                                  config.setKeyResolver(authenticatedActorKeyResolver);
+                                  config.setDenyEmptyKey(true);
+                                }))
                     .uri(TRIP_SERVICE_URI))
         .route(TRIP_SERVICE_ROUTE_ID, route -> route.path(TRIP_SERVICE_PATH).uri(TRIP_SERVICE_URI))
         .route(
@@ -198,6 +262,40 @@ class GatewayRoutesConfig {
               return r.uri(SOCIAL_SERVICE_URI);
             })
         .route(
+            REVIEW_WRITES_ROUTE_ID,
+            route ->
+                route
+                    .path("/api/social/places/*/reviews", "/api/social/place-reviews/*")
+                    .and()
+                    .method(HttpMethod.POST, HttpMethod.PATCH, HttpMethod.DELETE)
+                    .filters(
+                        filters ->
+                            filters.requestRateLimiter(
+                                config -> {
+                                  config.setRateLimiter(reviewWriteRateLimiter);
+                                  config.setKeyResolver(authenticatedActorKeyResolver);
+                                  config.setDenyEmptyKey(true);
+                                }))
+                    .uri(SOCIAL_SERVICE_URI))
+        .route(
+            REVIEW_READS_ROUTE_ID,
+            route ->
+                route
+                    .path("/api/social/places/*/reviews")
+                    .and()
+                    .method(HttpMethod.GET)
+                    .filters(
+                        filters ->
+                            filters
+                                .setResponseHeader("Cache-Control", "private, no-store")
+                                .requestRateLimiter(
+                                    config -> {
+                                      config.setRateLimiter(reviewReadRateLimiter);
+                                      config.setKeyResolver(clientIpKeyResolver);
+                                      config.setDenyEmptyKey(true);
+                                    }))
+                    .uri(SOCIAL_SERVICE_URI))
+        .route(
             SOCIAL_SERVICE_ROUTE_ID,
             route -> {
               var r = route.path(SOCIAL_SERVICE_PATH);
@@ -250,6 +348,31 @@ class GatewayRoutesConfig {
   }
 
   @Bean
+  RedisRateLimiter collectionWriteRateLimiter() {
+    return perMinuteRateLimiter(10);
+  }
+
+  @Bean
+  RedisRateLimiter savedMembershipWriteRateLimiter() {
+    return perMinuteRateLimiter(60);
+  }
+
+  @Bean
+  RedisRateLimiter tripPlaceWriteRateLimiter() {
+    return perMinuteRateLimiter(30);
+  }
+
+  @Bean
+  RedisRateLimiter reviewWriteRateLimiter() {
+    return perMinuteRateLimiter(5);
+  }
+
+  @Bean
+  RedisRateLimiter reviewReadRateLimiter() {
+    return new RedisRateLimiter(10, 20);
+  }
+
+  @Bean
   TrustedProxyClientIpResolver trustedProxyClientIpResolver(
       @Value("${tripsense.gateway.client-ip.trusted-proxies:127.0.0.1/32,::1/128}")
           List<String> trustedProxyCidrs) {
@@ -257,7 +380,35 @@ class GatewayRoutesConfig {
   }
 
   @Bean
+  @Primary
   KeyResolver clientIpKeyResolver(TrustedProxyClientIpResolver clientIpResolver) {
     return exchange -> reactor.core.publisher.Mono.just(clientIpResolver.resolve(exchange));
+  }
+
+  @Bean
+  KeyResolver authenticatedActorKeyResolver(TrustedProxyClientIpResolver clientIpResolver) {
+    return exchange -> {
+      String authorization = exchange.getRequest().getHeaders().getFirst("Authorization");
+      String key =
+          authorization == null || authorization.isBlank()
+              ? "ip:" + clientIpResolver.resolve(exchange)
+              : "token:" + sha256(authorization);
+      return reactor.core.publisher.Mono.just(key);
+    };
+  }
+
+  private static RedisRateLimiter perMinuteRateLimiter(int requestsPerMinute) {
+    int requestedTokens = 60 / requestsPerMinute;
+    return new RedisRateLimiter(1, 60, requestedTokens);
+  }
+
+  private static String sha256(String value) {
+    try {
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is unavailable", exception);
+    }
   }
 }

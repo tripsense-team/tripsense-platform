@@ -13,9 +13,9 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -43,9 +43,22 @@ public class PlaceReviewService {
     var result =
         reviews.findByPlaceRefAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
             placeRef, PUBLISHED, PageRequest.of(page, size));
-    Map<UUID, PublicProfileClientResponse> profileMap =
-        profiles.fetchPublicProfiles(
-            result.getContent().stream().map(PlaceReview::getAuthorUserId).distinct().toList());
+    PlaceReview currentUserReview =
+        currentUserId == null
+            ? null
+            : reviews
+                .findByAuthorUserIdAndPlaceRefAndDeletedAtIsNull(currentUserId, placeRef)
+                .filter(review -> PUBLISHED.equals(review.getStatus()))
+                .orElse(null);
+    List<UUID> authorIds =
+        java.util.stream.Stream.concat(
+                result.getContent().stream().map(PlaceReview::getAuthorUserId),
+                currentUserReview == null
+                    ? java.util.stream.Stream.empty()
+                    : java.util.stream.Stream.of(currentUserReview.getAuthorUserId()))
+            .distinct()
+            .toList();
+    Map<UUID, PublicProfileClientResponse> profileMap = profiles.fetchPublicProfiles(authorIds);
     Object[] aggregate = reviews.summarize(placeRef);
     long count = ((Number) aggregate[0]).longValue();
     double average =
@@ -60,8 +73,16 @@ public class PlaceReviewService {
         result.getTotalElements(),
         result.getTotalPages(),
         result.getContent().stream()
-            .map(review -> toResponse(review, profileMap.get(review.getAuthorUserId()), currentUserId))
-            .toList());
+            .map(
+                review ->
+                    toResponse(review, profileMap.get(review.getAuthorUserId()), currentUserId))
+            .toList(),
+        currentUserReview == null
+            ? null
+            : toResponse(
+                currentUserReview,
+                profileMap.get(currentUserReview.getAuthorUserId()),
+                currentUserId));
   }
 
   @Transactional
@@ -94,8 +115,7 @@ public class PlaceReviewService {
   }
 
   @Transactional
-  public PlaceReviewItemResponse update(
-      UUID authorId, UUID reviewId, PlaceReviewRequest request) {
+  public PlaceReviewItemResponse update(UUID authorId, UUID reviewId, PlaceReviewRequest request) {
     requireWritesEnabled();
     PlaceReview review = requireOwned(authorId, reviewId);
     if (request.version() == null || !Objects.equals(request.version(), review.getVersion())) {

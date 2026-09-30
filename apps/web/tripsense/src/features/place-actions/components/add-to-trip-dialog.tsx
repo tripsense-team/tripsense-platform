@@ -12,6 +12,7 @@ import type { Place } from "@/features/places/types";
 import { useUserTrips } from "@/features/trip-management";
 import { addPlaceToTrip, removePlaceFromTrip } from "../services/place-actions-api";
 import { placeActionKeys } from "../hooks/use-place-actions";
+import { reconcileMemberships } from "../utils/reconcile-memberships";
 
 interface Props {
   place: Place | null;
@@ -24,7 +25,7 @@ interface Props {
 export function AddToTripDialog({ place, open, selectedTripIds, onOpenChange, onAdded }: Props) {
   const { t, locale } = useTranslation();
   const queryClient = useQueryClient();
-  const { trips, isLoading } = useUserTrips();
+  const { trips, isLoading, isError, error, refetchTrips } = useUserTrips();
   const selectableTrips = trips.filter((trip) => trip.status !== "ARCHIVED" && trip.status !== "CANCELLED");
   const [selected, setSelected] = React.useState<Set<string>>(
     () => new Set(selectedTripIds),
@@ -34,18 +35,19 @@ export function AddToTripDialog({ place, open, selectedTripIds, onOpenChange, on
   const mutation = useMutation({
     mutationFn: async () => {
       if (!place) return;
-      const before = new Set(selectedTripIds);
-      await Promise.all([
-        ...[...selected].filter((id) => !before.has(id)).map((id) => addPlaceToTrip(id, place.id)),
-        ...[...before].filter((id) => !selected.has(id)).map((id) => removePlaceFromTrip(id, place.id)),
-      ]);
+      await reconcileMemberships(
+        selectedTripIds,
+        selected,
+        (id) => addPlaceToTrip(id, place.id),
+        (id) => removePlaceFromTrip(id, place.id),
+      );
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: placeActionKeys.all });
+    onSuccess: () => {
       onAdded?.(selected.size > 0);
       onOpenChange(false);
     },
     onError: (error) => setMessage(getSafeErrorMessage(error, t("errors.generic"))),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: placeActionKeys.all }),
   });
 
   return (
@@ -53,6 +55,12 @@ export function AddToTripDialog({ place, open, selectedTripIds, onOpenChange, on
       <div className="space-y-4" aria-live="polite">
         {isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : isError ? (
+          <EmptyState
+            icon={CalendarDays}
+            title={getSafeErrorMessage(error, t("errors.generic"))}
+            action={<Button variant="outline" onClick={() => void refetchTrips()}>{t("common.retry")}</Button>}
+          />
         ) : selectableTrips.length === 0 ? (
           <EmptyState
             icon={CalendarDays}

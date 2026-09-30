@@ -16,6 +16,7 @@ import {
   SaveToCollectionDialog,
 } from "@/features/place-actions";
 import { useTranslation } from "@/i18n";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 
 export function SavedPlacesView({ lockedCollectionId }: { lockedCollectionId?: string }) {
   const { t } = useTranslation();
@@ -51,6 +52,12 @@ export function SavedPlacesView({ lockedCollectionId }: { lockedCollectionId?: s
 
       {saved.isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div>
+      ) : saved.isError ? (
+        <EmptyState
+          icon={Bookmark}
+          title={getSafeErrorMessage(saved.error, t("errors.generic"))}
+          action={<Button variant="outline" onClick={() => void saved.refetch()}>{t("common.retry")}</Button>}
+        />
       ) : (saved.data?.content.length ?? 0) === 0 ? (
         <EmptyState icon={Bookmark} title={t("places.noSavedPlaces")} description={t("places.noSavedPlacesDescription")} />
       ) : (
@@ -79,7 +86,11 @@ export function SavedPlacesView({ lockedCollectionId }: { lockedCollectionId?: s
 
       <PlaceDetailModal place={selectedPlace} isOpen={selectedPlace !== null} onClose={() => setSelectedPlace(null)} />
       <SaveToCollectionDialog
-        key={savePlace?.id ?? "closed-save-dialog"}
+        key={
+          savePlace
+            ? `${savePlace.id}:${[...(saved.data?.content.find((item) => item.placeRef === savePlace.id)?.collectionIds ?? [])].sort().join(",")}`
+            : "closed-save-dialog"
+        }
         place={savePlace}
         open={savePlace !== null}
         selectedCollectionIds={

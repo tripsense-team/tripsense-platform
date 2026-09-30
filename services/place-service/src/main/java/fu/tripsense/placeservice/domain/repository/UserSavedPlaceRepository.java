@@ -1,6 +1,7 @@
 package fu.tripsense.placeservice.domain.repository;
 
 import fu.tripsense.placeservice.domain.model.UserSavedPlace;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,10 +15,15 @@ public interface UserSavedPlaceRepository extends MongoRepository<UserSavedPlace
 
   List<UserSavedPlace> findByOwnerUserIdAndPlaceRef(UUID ownerUserId, String placeRef);
 
+  List<UserSavedPlace> findByOwnerUserIdAndPlaceRefIn(
+      UUID ownerUserId, Collection<String> placeRefs);
+
   Optional<UserSavedPlace> findByOwnerUserIdAndCollectionIdAndPlaceRef(
       UUID ownerUserId, UUID collectionId, String placeRef);
 
   long countByOwnerUserIdAndCollectionId(UUID ownerUserId, UUID collectionId);
+
+  boolean existsByOwnerUserIdAndCollectionId(UUID ownerUserId, UUID collectionId);
 
   void deleteByOwnerUserIdAndCollectionId(UUID ownerUserId, UUID collectionId);
 

@@ -29,7 +29,11 @@ public class UserSavedPlaceService {
 
   public List<PlaceCollectionDto> listCollections(UUID ownerId) {
     return collections.findByOwnerUserIdOrderByUpdatedAtDesc(ownerId).stream()
-        .map(collection -> toDto(collection, savedPlaces.countByOwnerUserIdAndCollectionId(ownerId, collection.getId())))
+        .map(
+            collection ->
+                toDto(
+                    collection,
+                    savedPlaces.countByOwnerUserIdAndCollectionId(ownerId, collection.getId())))
         .toList();
   }
 
@@ -60,7 +64,8 @@ public class UserSavedPlaceService {
     }
   }
 
-  public PlaceCollectionDto renameCollection(UUID ownerId, UUID collectionId, String requestedName) {
+  public PlaceCollectionDto renameCollection(
+      UUID ownerId, UUID collectionId, String requestedName) {
     UserPlaceCollection collection = requireOwnedCollection(ownerId, collectionId);
     String name = normalizeDisplayName(requestedName);
     String normalized = name.toLowerCase(Locale.ROOT);
@@ -80,9 +85,18 @@ public class UserSavedPlaceService {
   }
 
   public void deleteCollection(UUID ownerId, UUID collectionId) {
-    UserPlaceCollection collection = requireOwnedCollection(ownerId, collectionId);
+    Optional<UserPlaceCollection> ownedCollection =
+        collections.findByIdAndOwnerUserId(collectionId, ownerId);
+    if (ownedCollection.isPresent()) {
+      // Delete the owner-validated collection first so a cleanup failure never
+      // leaves a visible collection with only part of its memberships removed.
+      collections.delete(ownedCollection.get());
+    } else if (!savedPlaces.existsByOwnerUserIdAndCollectionId(ownerId, collectionId)) {
+      throw new PlaceActionException(
+          HttpStatus.NOT_FOUND, "COLLECTION_NOT_FOUND", "Collection not found");
+    }
+    // A repeated request can finish cleanup after a prior standalone-Mongo failure.
     savedPlaces.deleteByOwnerUserIdAndCollectionId(ownerId, collectionId);
-    collections.delete(collection);
   }
 
   public SavedStatusDto savePlace(UUID ownerId, UUID collectionId, String placeRef) {
@@ -119,12 +133,28 @@ public class UserSavedPlaceService {
   }
 
   public SavedStatusBatchResponse statuses(UUID ownerId, List<String> refs) {
-    List<String> distinct = refs.stream().map(String::trim).filter(value -> !value.isEmpty()).distinct().toList();
-    return new SavedStatusBatchResponse(distinct.stream().map(ref -> status(ownerId, ref)).toList());
+    List<String> distinct =
+        refs.stream().map(String::trim).filter(value -> !value.isEmpty()).distinct().toList();
+    Map<String, List<UUID>> collectionIdsByPlace =
+        savedPlaces.findByOwnerUserIdAndPlaceRefIn(ownerId, distinct).stream()
+            .collect(
+                Collectors.groupingBy(
+                    UserSavedPlace::getPlaceRef,
+                    Collectors.mapping(
+                        UserSavedPlace::getCollectionId,
+                        Collectors.collectingAndThen(
+                            Collectors.toList(), values -> values.stream().distinct().toList()))));
+    return new SavedStatusBatchResponse(
+        distinct.stream()
+            .map(
+                ref -> {
+                  List<UUID> collectionIds = collectionIdsByPlace.getOrDefault(ref, List.of());
+                  return new SavedStatusDto(ref, !collectionIds.isEmpty(), collectionIds);
+                })
+            .toList());
   }
 
-  public SavedPlacesPage listSaved(
-      UUID ownerId, UUID collectionId, int page, int size) {
+  public SavedPlacesPage listSaved(UUID ownerId, UUID collectionId, int page, int size) {
     if (page < 0 || size < 1 || size > 50) {
       throw new PlaceActionException(HttpStatus.BAD_REQUEST, "INVALID_PAGE", "Invalid pagination");
     }
@@ -138,9 +168,7 @@ public class UserSavedPlaceService {
         memberships.stream()
             .collect(
                 Collectors.groupingBy(
-                    UserSavedPlace::getPlaceRef,
-                    LinkedHashMap::new,
-                    Collectors.toList()));
+                    UserSavedPlace::getPlaceRef, LinkedHashMap::new, Collectors.toList()));
     List<String> refs = new ArrayList<>(grouped.keySet());
     int from = Math.min(page * size, refs.size());
     int to = Math.min(from + size, refs.size());
@@ -153,7 +181,11 @@ public class UserSavedPlaceService {
             .map(
                 ref -> {
                   List<UserSavedPlace> values = grouped.get(ref);
-                  Instant savedAt = values.stream().map(UserSavedPlace::getSavedAt).max(Comparator.naturalOrder()).orElse(null);
+                  Instant savedAt =
+                      values.stream()
+                          .map(UserSavedPlace::getSavedAt)
+                          .max(Comparator.naturalOrder())
+                          .orElse(null);
                   return new SavedPlaceDto(
                       ref,
                       placeById.get(ref),
@@ -188,9 +220,7 @@ public class UserSavedPlaceService {
         || !placeRef.matches("[A-Za-z0-9._:-]{1,200}")
         || !places.existsById(placeRef)) {
       throw new PlaceActionException(
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          "PLACE_NOT_CANONICAL",
-          "Place could not be resolved");
+          HttpStatus.UNPROCESSABLE_ENTITY, "PLACE_NOT_CANONICAL", "Place could not be resolved");
     }
   }
 

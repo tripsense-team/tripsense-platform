@@ -16,6 +16,7 @@ import {
   removePlaceFromCollection,
 } from "../services/place-actions-api";
 import { placeActionKeys } from "../hooks/use-place-actions";
+import { reconcileMemberships } from "../utils/reconcile-memberships";
 
 interface Props {
   place: Place | null;
@@ -61,20 +62,19 @@ export function SaveToCollectionDialog({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!place) return;
-      const before = new Set(selectedCollectionIds);
-      const additions = [...selected].filter((id) => !before.has(id));
-      const removals = [...before].filter((id) => !selected.has(id));
-      await Promise.all([
-        ...additions.map((id) => addPlaceToCollection(id, place.id)),
-        ...removals.map((id) => removePlaceFromCollection(id, place.id)),
-      ]);
+      await reconcileMemberships(
+        selectedCollectionIds,
+        selected,
+        (id) => addPlaceToCollection(id, place.id),
+        (id) => removePlaceFromCollection(id, place.id),
+      );
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: placeActionKeys.all });
+    onSuccess: () => {
       onSaved?.(selected.size > 0);
       onOpenChange(false);
     },
     onError: (error) => setMessage(getSafeErrorMessage(error, t("errors.generic"))),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: placeActionKeys.all }),
   });
 
   return (
@@ -105,6 +105,12 @@ export function SaveToCollectionDialog({
 
         {collections.isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : collections.isError ? (
+          <EmptyState
+            title={t("places.noCollections")}
+            description={getSafeErrorMessage(collections.error, t("errors.generic"))}
+            action={<Button variant="outline" onClick={() => void collections.refetch()}>{t("common.retry")}</Button>}
+          />
         ) : (collections.data?.length ?? 0) === 0 ? (
           <EmptyState title={t("places.noCollections")} description={t("places.noCollectionsDescription")} />
         ) : (

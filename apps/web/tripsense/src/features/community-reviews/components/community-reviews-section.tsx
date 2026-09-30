@@ -38,7 +38,7 @@ export function CommunityReviewsSection({ placeRef, placeName }: { placeRef: str
     queryKey: [...reviewKey(placeRef), pageSize],
     queryFn: () => getCommunityReviews(placeRef, 0, pageSize),
   });
-  const ownReview = query.data?.items.find((review) => review.ownedByCurrentUser);
+  const ownReview = query.data?.currentUserReview ?? query.data?.items.find((review) => review.ownedByCurrentUser);
 
   const openEditor = (review?: CommunityReview) => {
     setEditing(review ?? null);

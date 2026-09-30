@@ -46,6 +46,7 @@ export function CollectionsView() {
       setDeleting(null);
       await queryClient.invalidateQueries({ queryKey: placeActionKeys.all });
     },
+    onError: (value) => setError(getSafeErrorMessage(value, t("errors.generic"))),
   });
 
   const openEditor = (collection?: PlaceCollection) => {
@@ -67,6 +68,12 @@ export function CollectionsView() {
 
       {query.isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div>
+      ) : query.isError ? (
+        <EmptyState
+          icon={Folder}
+          title={t("errors.generic")}
+          action={<Button variant="outline" onClick={() => void query.refetch()}>{t("common.retry")}</Button>}
+        />
       ) : (query.data?.length ?? 0) === 0 ? (
         <EmptyState icon={Folder} title={t("places.noCollections")} description={t("places.noCollectionsDescription")} action={<Button onClick={() => openEditor()}>{t("places.createCollection")}</Button>} />
       ) : (
@@ -86,6 +93,8 @@ export function CollectionsView() {
           ))}
         </div>
       )}
+
+      {error && !dialogOpen && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       {selectedId && <div className="border-t border-border pt-2"><SavedPlacesView key={selectedId} lockedCollectionId={selectedId} /></div>}
 
