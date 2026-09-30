@@ -19,6 +19,9 @@ public interface ItineraryItemRepository extends JpaRepository<ItineraryItem, UU
 
   Optional<ItineraryItem> findByIdAndTripId(UUID id, UUID tripId);
 
+  Optional<ItineraryItem> findByTripIdAndSourceProposalIdAndSourceItemKey(
+      UUID tripId, UUID sourceProposalId, UUID sourceItemKey);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select i from ItineraryItem i where i.id = :id and i.tripId = :tripId")
   Optional<ItineraryItem> findByIdAndTripIdForUpdate(

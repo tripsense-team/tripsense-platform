@@ -4,15 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Compass,
-  MapPin,
+  Search,
   Heart,
   FolderBookmark,
   Sparkles,
-  Plus,
   Settings,
   Database,
-  HelpCircle,
   LucideIcon,
   MessageSquareQuote,
   MessageSquare,
@@ -36,13 +33,12 @@ import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collap
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useAuthStore } from "@/features/auth/store/use-auth-store";
-import { UserRole, LogoutModal } from "@/features/auth";
+import { UserRole, LogoutModal, useAuthStore } from "@/features/auth";
 import { useChatUnreadCount } from "@/features/chat";
 import { useTranslation } from "@/i18n";
+import { toggleAiDrawer, useAiDrawerStore } from "@/stores/use-ai-drawer-store";
 
 export interface NavItemDef {
   key: string;
@@ -54,12 +50,6 @@ export interface NavItemDef {
 }
 
 const mainNavDefs: NavItemDef[] = [
-  {
-    key: "nav.explore",
-    fallbackTitle: "Explore",
-    href: "/explore",
-    icon: Compass,
-  },
   {
     key: "nav.community",
     fallbackTitle: "Community",
@@ -76,7 +66,7 @@ const mainNavDefs: NavItemDef[] = [
     key: "nav.places",
     fallbackTitle: "Places & Map",
     href: "/places",
-    icon: MapPin,
+    icon: Search,
   },
   {
     key: "nav.trips",
@@ -89,12 +79,6 @@ const mainNavDefs: NavItemDef[] = [
     fallbackTitle: "Saved Places",
     href: "/saved",
     icon: Heart,
-  },
-  {
-    key: "nav.collections",
-    fallbackTitle: "Collections",
-    href: "/collections",
-    icon: FolderBookmark,
   },
   {
     key: "nav.aiPlanner",
@@ -112,12 +96,6 @@ const secondaryNavDefs: NavItemDef[] = [
     href: "/admin/settings",
     icon: Database,
     adminOnly: true,
-  },
-  {
-    key: "nav.support",
-    fallbackTitle: "Help & Support",
-    href: "/support",
-    icon: HelpCircle,
   },
 ];
 
@@ -147,6 +125,8 @@ export function UserSidebar({
   const [tripCount, setTripCount] = React.useState<number | null>(null);
   const { unreadConversationsCount } = useChatUnreadCount();
   const [logoutModalOpen, setLogoutModalOpen] = React.useState(false);
+  const isDrawerOpen = useAiDrawerStore((state) => state.isOpen);
+  const showTooltips = collapsed && !isDrawerOpen;
 
   React.useEffect(() => {
     function handleTripCountChanged(event: Event) {
@@ -170,10 +150,10 @@ export function UserSidebar({
   }, []);
 
   return (
-    <TooltipProvider delayDuration={150}>
+    <>
       <aside
         className={cn(
-          "relative flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shrink-0 hidden md:flex h-full overflow-hidden",
+          "relative z-50 flex flex-col border-r border-border bg-sidebar text-sidebar-foreground shrink-0 hidden md:flex h-full overflow-hidden select-none",
           disableTransition
             ? "transition-none"
             : "transition-[width] duration-300 ease-in-out will-change-[width]",
@@ -181,56 +161,23 @@ export function UserSidebar({
           className,
         )}
       >
-        {/* Sidebar Header / Quick Action */}
-        <div className={cn("shrink-0", collapsed ? "p-3 flex justify-center" : "p-3")}>
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  asChild
-                  className="w-9 h-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-xs transition-all p-0 flex items-center justify-center mx-auto shrink-0"
-                >
-                  <Link href="/trips/new">
-                    <Plus className="h-4 w-4 shrink-0" />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={12}>
-                {t("nav.createTrip")}
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Button
-              asChild
-              className="w-full h-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[13px] shadow-xs transition-all justify-center gap-2"
-            >
-              <Link href="/trips/new">
-                <Plus className="h-4 w-4 shrink-0" />
-                <span>{t("nav.createTrip")}</span>
-              </Link>
-            </Button>
-          )}
-        </div>
-
         {/* Main Navigation Items */}
         <div
           className={cn(
-            "flex-1 overflow-y-auto py-2 space-y-6 min-h-0",
+            "flex-1 overflow-y-auto py-5 space-y-6 min-h-0 scrollbar-none",
             collapsed ? "px-0" : "px-3",
           )}
         >
           <div>
-            {!collapsed && (
-              <h4 className="px-3.5 text-overline text-muted-foreground uppercase mb-2 font-bold tracking-wider">
-                {t("nav.menu")}
-              </h4>
-            )}
-            <nav className={cn("space-y-0.5 w-full", collapsed && "flex flex-col items-center")}>
+            <nav className="w-full space-y-2.5">
               {mainNavDefs.map((item) => {
                 const Icon = item.icon;
+                const isAi = item.href === "/ai-planner";
+                const isAiActive = isAi && isDrawerOpen;
                 const isActive =
                   pathname === item.href ||
-                  pathname?.startsWith(`${item.href}/`);
+                  pathname?.startsWith(`${item.href}/`) ||
+                  isAiActive;
                 const isChat = item.href === "/chat";
                 const badge =
                   item.href === "/trips" &&
@@ -238,68 +185,86 @@ export function UserSidebar({
                   tripCount !== null
                     ? String(tripCount)
                     : item.badge;
-                const title = t(item.key) || item.fallbackTitle;
+                const rawTitle = t(item.key);
+                const title =
+                  rawTitle && rawTitle !== item.key
+                    ? rawTitle
+                    : item.fallbackTitle;
 
                 const linkElement = (
                   <Link
                     key={item.href}
                     href={item.href}
+                    data-ai-trigger={isAi ? "true" : undefined}
+                    data-ai-v2-trigger={isAi ? "true" : undefined}
+                    onClick={
+                      isAi
+                        ? (e) => {
+                            e.preventDefault();
+                            toggleAiDrawer();
+                          }
+                        : undefined
+                    }
                     className={cn(
-                      "flex min-h-[38px] items-center gap-3 rounded-full px-3 py-2 text-[13px] transition-all duration-150 group relative",
+                      "flex items-center rounded-full text-[14px] transition-colors duration-150 group relative overflow-hidden",
                       isActive
-                        ? "bg-neutral-200/90 text-foreground font-semibold shadow-2xs dark:bg-neutral-800 dark:text-foreground"
-                        : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
-                      collapsed &&
-                        "justify-center p-0 w-9 h-9 min-h-9 mx-auto shrink-0 relative",
+                        ? "bg-neutral-200/90 text-neutral-950 font-semibold shadow-2xs dark:bg-neutral-800 dark:text-neutral-100"
+                        : "text-neutral-900 hover:bg-neutral-200/70 hover:text-black dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:text-white font-medium",
+                      collapsed
+                        ? "h-10 w-10 justify-center p-0 mx-auto"
+                        : "h-10 w-full px-0",
                     )}
                   >
-                    <div className="relative flex items-center justify-center">
+                    <div className="relative flex items-center justify-center shrink-0 w-10 h-10">
                       <Icon
                         className={cn(
-                          "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-105",
+                          "h-5 w-5 shrink-0 transition-transform group-hover:scale-105",
                           isActive
-                            ? "text-foreground"
-                            : "text-sidebar-foreground/75 group-hover:text-foreground",
+                            ? "text-neutral-950 dark:text-neutral-100"
+                            : "text-neutral-900 group-hover:text-black dark:text-neutral-100 dark:group-hover:text-white",
                         )}
                       />
                       {collapsed && isChat && unreadConversationsCount > 0 && (
                         <span
                           aria-label={`${unreadConversationsCount} unread`}
-                          className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
+                          className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
                         >
                           {unreadConversationsCount > 9 ? "9+" : unreadConversationsCount}
                         </span>
                       )}
                     </div>
+
                     {!collapsed && (
-                      <span className="flex-1 truncate">{title}</span>
+                      <div className="flex-1 flex items-center justify-between min-w-0 overflow-hidden whitespace-nowrap pr-3">
+                        <span className="truncate">{title}</span>
+                        {isChat && unreadConversationsCount > 0 ? (
+                          <span
+                            aria-label={`${unreadConversationsCount} unread`}
+                            className="ml-auto inline-flex items-center justify-center min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
+                          >
+                            {unreadConversationsCount > 99 ? "99+" : unreadConversationsCount}
+                          </span>
+                        ) : badge ? (
+                          <span
+                            className={cn(
+                              "text-micro px-1.5 py-0.5 rounded-full font-bold shrink-0 ml-auto",
+                              badge === "AI"
+                                ? "bg-primary/10 text-primary border border-primary/20"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {badge}
+                          </span>
+                        ) : null}
+                      </div>
                     )}
-                    {!collapsed && isChat && unreadConversationsCount > 0 ? (
-                      <span
-                        aria-label={`${unreadConversationsCount} unread`}
-                        className="ml-auto inline-flex items-center justify-center min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
-                      >
-                        {unreadConversationsCount > 99 ? "99+" : unreadConversationsCount}
-                      </span>
-                    ) : !collapsed && badge ? (
-                      <span
-                        className={cn(
-                          "text-micro px-1.5 py-0.5 rounded-full font-bold shrink-0",
-                          badge === "AI"
-                            ? "bg-primary/10 text-primary border border-primary/20"
-                            : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {badge}
-                      </span>
-                    ) : null}
                   </Link>
                 );
 
-                if (collapsed) {
-                  return (
-                    <Tooltip key={item.href}>
-                      <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+                return (
+                  <Tooltip key={item.href} open={showTooltips ? undefined : false}>
+                    <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+                    {showTooltips && (
                       <TooltipContent side="right" sideOffset={12}>
                         <div className="flex items-center gap-1.5">
                           <span>{title}</span>
@@ -316,99 +281,90 @@ export function UserSidebar({
                           )}
                         </div>
                       </TooltipContent>
-                    </Tooltip>
-                  );
-                }
-
-                return linkElement;
+                    )}
+                  </Tooltip>
+                );
               })}
             </nav>
 
-            {/* Mindtrip-style New Chat Secondary Pill Action */}
-            <div className={cn("pt-2", collapsed ? "flex justify-center w-full px-0" : "px-1")}>
-              {collapsed ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      asChild
-                      variant="secondary"
-                      className="w-9 h-9 rounded-full font-semibold text-sm bg-neutral-100 hover:bg-neutral-200/90 text-foreground border border-border/50 shadow-2xs transition-all p-0 flex items-center justify-center mx-auto shrink-0 dark:bg-neutral-800 dark:hover:bg-neutral-700"
-                    >
-                      <Link href="/chat">
-                        <MessageSquare className="h-3.5 w-3.5 shrink-0" />
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={12}>
-                    {t("chat.dialogs.newChat.title") || "New conversation"}
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <Button
-                  asChild
-                  variant="secondary"
-                  className="w-full h-9 rounded-full font-semibold text-[13px] bg-neutral-100 hover:bg-neutral-200/90 text-foreground border border-border/50 shadow-2xs transition-all justify-center gap-2 dark:bg-neutral-800 dark:hover:bg-neutral-700"
-                >
-                  <Link href="/chat">
-                    <MessageSquare className="h-3.5 w-3.5 shrink-0" />
-                    <span>
-                      {t("chat.dialogs.newChat.title") || "New conversation"}
-                    </span>
-                  </Link>
-                </Button>
+            {/* Create Trip Action */}
+            <div
+              className={cn(
+                "h-20 pt-6 pb-2 transition-all duration-300 ease-in-out",
+                collapsed
+                  ? "overflow-hidden opacity-0 pointer-events-none h-0 p-0"
+                  : "overflow-visible opacity-100",
               )}
+            >
+              <Button
+                asChild
+                variant="secondary"
+                className="h-10 w-full rounded-full border border-border/50 bg-secondary text-secondary-foreground shadow-2xs hover:bg-accent font-semibold text-[13px]"
+              >
+                <Link
+                  href="/trips/new"
+                  className="flex h-full w-full items-center justify-center text-center"
+                >
+                  {t("nav.createTrip")}
+                </Link>
+              </Button>
             </div>
           </div>
 
           <div>
-            {!collapsed && (
-              <h4 className="px-3.5 text-overline text-muted-foreground uppercase mb-2 font-bold tracking-wider">
-                {t("nav.account")}
-              </h4>
-            )}
-            <nav className={cn("space-y-0.5 w-full", collapsed && "flex flex-col items-center")}>
+            <nav className="w-full space-y-2.5">
               {secondaryNavDefs
                 .filter(
                   (item) => !item.adminOnly || user?.role === UserRole.ADMIN,
                 )
                 .map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                const title = t(item.key) || item.fallbackTitle;
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  const title = t(item.key) || item.fallbackTitle;
 
-                const linkElement = (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex min-h-[38px] items-center gap-3 rounded-full px-3 py-2 text-[13px] transition-all duration-150 group",
-                      isActive
-                        ? "bg-neutral-200/90 text-foreground font-semibold shadow-2xs dark:bg-neutral-800 dark:text-foreground"
-                        : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
-                      collapsed &&
-                        "justify-center p-0 w-9 h-9 min-h-9 mx-auto shrink-0",
-                    )}
-                  >
-                    <Icon className="h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-105" />
-                    {!collapsed && (
-                      <span className="flex-1 truncate">{title}</span>
-                    )}
-                  </Link>
-                );
+                  const linkElement = (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center rounded-full text-[14px] transition-colors duration-150 group overflow-hidden",
+                        isActive
+                          ? "bg-neutral-200/90 text-neutral-950 font-semibold shadow-2xs dark:bg-neutral-800 dark:text-neutral-100"
+                          : "text-neutral-900 hover:bg-neutral-200/70 hover:text-black dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:text-white font-medium",
+                        collapsed
+                          ? "h-10 w-10 justify-center p-0 mx-auto"
+                          : "h-10 w-full px-0",
+                      )}
+                    >
+                      <div className="relative flex items-center justify-center shrink-0 w-10 h-10">
+                        <Icon
+                          className={cn(
+                            "h-5 w-5 shrink-0 transition-transform group-hover:scale-105",
+                            isActive
+                              ? "text-neutral-950 dark:text-neutral-100"
+                              : "text-neutral-900 group-hover:text-black dark:text-neutral-100 dark:group-hover:text-white",
+                          )}
+                        />
+                      </div>
+                      {!collapsed && (
+                        <span className="truncate pr-3 overflow-hidden whitespace-nowrap">
+                          {title}
+                        </span>
+                      )}
+                    </Link>
+                  );
 
-                if (collapsed) {
                   return (
-                    <Tooltip key={item.href}>
+                    <Tooltip key={item.href} open={showTooltips ? undefined : false}>
                       <TooltipTrigger asChild>{linkElement}</TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={12}>
-                        {title}
-                      </TooltipContent>
+                      {showTooltips && (
+                        <TooltipContent side="right" sideOffset={12}>
+                          {title}
+                        </TooltipContent>
+                      )}
                     </Tooltip>
                   );
-                }
-
-                return linkElement;
-              })}
+                })}
             </nav>
           </div>
         </div>
@@ -429,7 +385,7 @@ export function UserSidebar({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="w-9 h-9 flex items-center justify-center hover:opacity-80 transition-opacity mx-auto shrink-0 outline-none rounded-full cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                      className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity mx-auto shrink-0 outline-none rounded-full cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                       title={user.name || user.email || "User menu"}
                     >
                       <Avatar className="h-8 w-8 shrink-0 ring-1 ring-border">
@@ -615,7 +571,6 @@ export function UserSidebar({
       </aside>
 
       <LogoutModal open={logoutModalOpen} onOpenChange={setLogoutModalOpen} />
-    </TooltipProvider>
+    </>
   );
-
 }

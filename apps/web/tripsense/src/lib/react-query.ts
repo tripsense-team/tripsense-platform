@@ -32,3 +32,9 @@ export const tripQueryKeys = {
   userTrips: () => [...tripQueryKeys.all, "user"] as const,
   detail: (tripId: string) => [...tripQueryKeys.all, "detail", tripId] as const,
 };
+
+export const aiChatQueryKeys = {
+  all: ["ai-v2", "chats"] as const,
+  detail: (chatId: string) => ["ai-v2", "chats", chatId, "messages"] as const,
+};
+

@@ -166,6 +166,7 @@ services:
       TRIP_DB_PASS: ${TRIP_DB_PASS}
       REDIS_URL: ${REDIS_URL}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET}
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY}
       RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
@@ -282,21 +283,19 @@ services:
   ai-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-ai-service:${IMAGE_TAG}
     restart: unless-stopped
-    mem_limit: 512m
-    cpus: "0.75"
+    mem_limit: 384m
+    cpus: "0.50"
     environment:
-      AI_DATABASE_URL: ${AI_DATABASE_URL}
+      PORT: "8089"
+      NODE_ENV: "production"
+      DATABASE_URL: ${AI_DATABASE_URL:-${AI_V2_DATABASE_URL}}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
-      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
-      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       TRIP_SERVICE_URL: http://trip-service:8084
-      WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
-      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
-      EUREKA_SERVER: http://discovery-server:8761/eureka/
-      AI_SERVICE_PORT: 8085
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3001,http://localhost:8080"
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -304,8 +303,16 @@ services:
         condition: service_started
       trip-service:
         condition: service_started
-      recommendation-service:
-        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8089/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}

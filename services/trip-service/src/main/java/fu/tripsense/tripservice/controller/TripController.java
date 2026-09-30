@@ -5,6 +5,7 @@ import fu.tripsense.tripservice.dto.response.*;
 import fu.tripsense.tripservice.enums.TripStatus;
 import fu.tripsense.tripservice.security.CurrentUserProvider;
 import fu.tripsense.tripservice.service.ItineraryBatchService;
+import fu.tripsense.tripservice.service.TripCollaborationService;
 import fu.tripsense.tripservice.service.TripService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -23,6 +24,7 @@ public class TripController {
   private final TripService tripService;
   private final CurrentUserProvider currentUserProvider;
   private final ItineraryBatchService itineraryBatchService;
+  private final TripCollaborationService tripCollaborationService;
 
   @PostMapping
   public ResponseEntity<ApiResponse<TripResponse>> createTrip(
@@ -46,6 +48,15 @@ public class TripController {
   @GetMapping("/{tripId}")
   public ApiResponse<TripResponse> getTrip(@PathVariable UUID tripId) {
     return ApiResponse.success(tripService.getTrip(currentUserProvider.userId(), tripId));
+  }
+
+  @GetMapping("/{tripId}/edit-access")
+  public ApiResponse<Boolean> getEditAccess(@PathVariable UUID tripId) {
+    boolean editable = tripCollaborationService.hasEditAccess(currentUserProvider.userId(), tripId);
+    if (!editable) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Trip edit access is required");
+    }
+    return ApiResponse.success(true);
   }
 
   @GetMapping("/{tripId}/share-snapshot")

@@ -50,6 +50,7 @@ export interface TripResponse {
   notes: string | null;
   coverImageUrl: string | null;
   version: number;
+  aggregateRevision?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,6 +72,9 @@ export interface ItineraryItemResponse {
   latSnapshot: number | null;
   lngSnapshot: number | null;
   version: number;
+  sourceKind?: string | null;
+  sourceProposalId?: string | null;
+  sourceItemKey?: string | null;
   warnings: string[];
 }
 
@@ -127,4 +131,3 @@ export interface ReorderItemsRequest {
 }
 
 export * from './collaboration';
-

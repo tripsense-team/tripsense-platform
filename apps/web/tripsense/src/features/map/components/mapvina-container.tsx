@@ -18,10 +18,14 @@ const MAPVINA_STYLE_URL = MAPVINA_API_KEY
   : null;
 
 function isBenignMapAbort(event: unknown): boolean {
-  const candidate =
-    event && typeof event === "object" && "error" in event
-      ? (event as { error?: unknown }).error
-      : event;
+  let candidate = event;
+  if (event && typeof event === "object") {
+    if ("reason" in event) {
+      candidate = (event as { reason?: unknown }).reason;
+    } else if ("error" in event) {
+      candidate = (event as { error?: unknown }).error;
+    }
+  }
   if (!candidate || typeof candidate !== "object") return false;
   const name = "name" in candidate ? String(candidate.name || "") : "";
   const message =
@@ -507,6 +511,11 @@ export function MapVinaContainer({
   React.useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    const handleUnhandledMapAbort = (event: PromiseRejectionEvent) => {
+      if (isBenignMapAbort(event.reason)) event.preventDefault();
+    };
+    window.addEventListener("unhandledrejection", handleUnhandledMapAbort);
+
     let mapInstance: mapvinagl.Map;
     try {
       mapInstance = new mapvinagl.Map({
@@ -781,16 +790,36 @@ export function MapVinaContainer({
     });
 
     return () => {
-      mapInstance.remove();
+      try {
+        mapInstance.remove();
+      } catch (err: any) {
+        // Suppress expected tile fetch abort errors when component unmounts
+        if (err?.name !== "AbortError" && !err?.message?.includes("aborted")) {
+          console.warn("Map instance cleanup:", err);
+        }
+      }
       mapRef.current = null;
       markerRenderKeysRef.current = {};
       popupSignatureRef.current = "";
+      // MapVina rejects in-flight sprite/tile promises after remove(). Keep the
+      // scoped handler through the current task so expected aborts do not reach
+      // the browser error overlay.
+      window.setTimeout(() => {
+        window.removeEventListener("unhandledrejection", handleUnhandledMapAbort);
+      }, 0);
     };
   }, []);
 
-  // Coalesced single-flight resize executor: ensures map.resize() runs exactly ONCE per frame
-  // and never repeatedly wipes WebGL buffers (preventing map reload / flashing effect)
+  // Coalesce all known layout changes into one resize on the next frame. Map
+  // workspaces switch sidebar width instantly, so the WebGL canvas only ever
+  // renders at the final container size instead of following intermediate
+  // width-transition frames.
   const resizeRafRef = React.useRef<number | null>(null);
+  const sidebarResizeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isSidebarTransitioningRef = React.useRef(false);
+
   const triggerMapResize = React.useCallback(() => {
     if (!mapRef.current) return;
     if (resizeRafRef.current) {
@@ -804,19 +833,46 @@ export function MapVinaContainer({
     });
   }, []);
 
-  // 1. Trigger resize when isPanelCollapsed changes
-  React.useEffect(() => {
+  // The feed panel is removed from layout immediately. Resize once after the
+  // browser has committed that final layout.
+  React.useLayoutEffect(() => {
     triggerMapResize();
   }, [isPanelCollapsed, triggerMapResize]);
 
-  // 2. Trigger resize when sidebar toggles
+  // Map workspaces report a zero-duration sidebar change and resize next frame.
+  // Embedded maps on animated workspaces wait until that transition completes.
   React.useEffect(() => {
-    const handleSidebarToggle = () => {
-      triggerMapResize();
+    const handleSidebarToggle = (event: Event) => {
+      const durationMs = Math.max(
+        0,
+        (event as CustomEvent<{ durationMs?: number }>).detail?.durationMs ?? 0,
+      );
+
+      if (sidebarResizeTimerRef.current) {
+        clearTimeout(sidebarResizeTimerRef.current);
+        sidebarResizeTimerRef.current = null;
+      }
+
+      isSidebarTransitioningRef.current = durationMs > 0;
+      if (durationMs === 0) {
+        triggerMapResize();
+        return;
+      }
+
+      sidebarResizeTimerRef.current = setTimeout(() => {
+        sidebarResizeTimerRef.current = null;
+        isSidebarTransitioningRef.current = false;
+        triggerMapResize();
+      }, durationMs);
     };
+
     window.addEventListener("tripsense:sidebar-toggle", handleSidebarToggle);
     return () => {
       window.removeEventListener("tripsense:sidebar-toggle", handleSidebarToggle);
+      if (sidebarResizeTimerRef.current) {
+        clearTimeout(sidebarResizeTimerRef.current);
+        sidebarResizeTimerRef.current = null;
+      }
     };
   }, [triggerMapResize]);
 
@@ -837,6 +893,8 @@ export function MapVinaContainer({
       }
       prevW = width;
       prevH = height;
+
+      if (isSidebarTransitioningRef.current) return;
       triggerMapResize();
     });
 

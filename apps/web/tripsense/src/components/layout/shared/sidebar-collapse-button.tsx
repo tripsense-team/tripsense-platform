@@ -12,6 +12,7 @@ export interface SidebarCollapseButtonProps
   collapsed: boolean;
   onToggleCollapse: () => void;
   className?: string;
+  iconClassName?: string;
   collapseTitle?: string;
   expandTitle?: string;
   tooltipSide?: "top" | "right" | "bottom" | "left";
@@ -150,6 +151,7 @@ export const SidebarCollapseButton = React.forwardRef<
       collapsed,
       onToggleCollapse,
       className,
+      iconClassName,
       collapseTitle = "Collapse Sidebar",
       expandTitle = "Expand Sidebar",
       tooltipSide = "right",
@@ -176,9 +178,9 @@ export const SidebarCollapseButton = React.forwardRef<
               {...props}
             >
               {collapsed ? (
-                <SidebarExpandIcon className="h-5 w-5" />
+                <SidebarExpandIcon className={cn("h-5 w-5", iconClassName)} />
               ) : (
-                <SidebarCollapseIcon className="h-5 w-5" />
+                <SidebarCollapseIcon className={cn("h-5 w-5", iconClassName)} />
               )}
             </button>
           </TooltipTrigger>

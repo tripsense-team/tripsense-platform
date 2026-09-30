@@ -45,7 +45,8 @@ class GatewayRoutesConfig {
 
   static final String AI_SERVICE_ROUTE_ID = "ai-service";
   static final String AI_SERVICE_PATH = "/api/ai/**";
-  static final String AI_SERVICE_URI = "lb://ai-service";
+  static final String AI_SERVICE_LEGACY_PATH_1 = "/api/v2/ai/**";
+  static final String AI_SERVICE_LEGACY_PATH_2 = "/api/ai/v2/**";
 
   static final String RECOMMENDATION_SERVICE_ROUTE_ID = "recommendation-service";
   static final String RECOMMENDATION_SERVICE_PATH = "/api/recommendations/**";
@@ -65,7 +66,9 @@ class GatewayRoutesConfig {
           boolean socialRateLimitingEnabled,
       @Value("${tripsense.gateway.chat-rate-limit.enabled:true}") boolean chatRateLimitingEnabled,
       @Value("${tripsense.gateway.recommendations-rate-limit.enabled:true}")
-          boolean recommendationRateLimitingEnabled) {
+          boolean recommendationRateLimitingEnabled,
+      @Value("${tripsense.gateway.ai.url:${tripsense.gateway.ai-v2.url:http://localhost:8089}}")
+          String aiServiceUrl) {
     return routes
         .routes()
         .route(
@@ -130,13 +133,25 @@ class GatewayRoutesConfig {
             AI_SERVICE_ROUTE_ID,
             route ->
                 route
-                    .path(AI_SERVICE_PATH)
+                    .order(Ordered.HIGHEST_PRECEDENCE + 50)
+                    .path(AI_SERVICE_PATH, AI_SERVICE_LEGACY_PATH_1, AI_SERVICE_LEGACY_PATH_2)
                     .filters(
-                        filters ->
-                            filters
-                                .setResponseHeader("Cache-Control", "no-store")
-                                .setResponseHeader("X-Accel-Buffering", "no"))
-                    .uri(AI_SERVICE_URI))
+                        filters -> {
+                          if (chatRateLimitingEnabled) {
+                            filters.requestRateLimiter(
+                                config -> {
+                                  config.setRateLimiter(chatRedisRateLimiter);
+                                  config.setKeyResolver(clientIpKeyResolver);
+                                  config.setDenyEmptyKey(true);
+                                });
+                          }
+                          return filters
+                              .rewritePath("/api/v2/ai/(?<segment>.*)", "/api/ai/${segment}")
+                              .rewritePath("/api/ai/v2/(?<segment>.*)", "/api/ai/${segment}")
+                              .setResponseHeader("Cache-Control", "no-store")
+                              .setResponseHeader("X-Accel-Buffering", "no");
+                        })
+                    .uri(aiServiceUrl))
         .route(
             "chat-stream",
             route ->
