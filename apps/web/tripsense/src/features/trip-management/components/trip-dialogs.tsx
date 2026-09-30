@@ -681,7 +681,7 @@ export function EditItemDialog({
                     <p className="text-xs text-muted-foreground truncate">{item.placeNameSnapshot}</p>
                   )}
                 </div>
-                <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase shrink-0 text-muted-foreground">
+                <span className="rounded-md bg-muted px-2 py-1 text-micro font-bold uppercase shrink-0 text-muted-foreground">
                   {item.type}
                 </span>
               </div>

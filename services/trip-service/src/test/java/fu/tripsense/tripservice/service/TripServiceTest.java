@@ -360,6 +360,7 @@ class TripServiceTest extends RealInfrastructureTest {
         day.id(),
         new CreateItineraryItemRequest(
             null,
+            null,
             ItineraryItemType.ACTIVITY,
             "Dragon Bridge",
             LocalTime.of(19, 0),
@@ -378,6 +379,7 @@ class TripServiceTest extends RealInfrastructureTest {
                     trip.id(),
                     day.id(),
                     new CreateItineraryItemRequest(
+                        null,
                         null,
                         ItineraryItemType.MEAL,
                         "Stale change",

@@ -156,7 +156,7 @@ export function ScheduleTripPlaceDialog({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-bold text-foreground truncate">{place.placeNameSnapshot}</p>
-                    <Badge variant="secondary" className="rounded-md text-[10px] uppercase font-bold shrink-0">
+                    <Badge variant="secondary" className="rounded-md text-micro uppercase font-bold shrink-0">
                       PLACE
                     </Badge>
                   </div>
