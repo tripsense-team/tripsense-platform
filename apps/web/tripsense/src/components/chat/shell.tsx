@@ -75,7 +75,9 @@ export function ChatShell() {
   const [isTripDetailOpen, setIsTripDetailOpen] = useState(false);
   const [isTripPanelCollapsed, setIsTripPanelCollapsed] = useState(false);
   const activeTripRef = useRef(activeTrip);
-  activeTripRef.current = activeTrip;
+  useEffect(() => {
+    activeTripRef.current = activeTrip;
+  }, [activeTrip]);
 
   // Tracks trip newly created from modal waiting for AI first response to name it
   const pendingTripTitleUpdateIdRef = useRef<string | null>(null);

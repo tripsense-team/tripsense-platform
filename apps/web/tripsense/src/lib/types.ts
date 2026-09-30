@@ -7,6 +7,7 @@ export const messageMetadataSchema = z.object({
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ChatTools = Record<string, any>;
 
 export type WaitingStatusData = {
