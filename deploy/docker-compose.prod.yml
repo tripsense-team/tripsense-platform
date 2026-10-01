@@ -320,10 +320,12 @@ services:
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
-    mem_limit: 512m
-    cpus: "0.75"
+    mem_limit: 768m
+    cpus: "1.5"
     environment:
-      <<: *java-small
+      JAVA_TOOL_OPTIONS: >-
+        -XX:InitialRAMPercentage=20
+        -XX:MaxRAMPercentage=65
       REDIS_URL: ${REDIS_URL}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       AI_SERVICE_V2_URL: http://ai-service:8089
@@ -350,9 +352,9 @@ services:
       test:
         [
           "CMD-SHELL",
-          'curl -fsS http://localhost:8080/actuator/health | grep -q ''"status":"UP"'' || exit 1',
+          'curl -fsS http://localhost:8080/actuator/health/readiness | grep -q ''"status":"UP"'' || curl -fsS http://localhost:8080/actuator/health | grep -q ''"status":"UP"'' || exit 1',
         ]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 45s
+      retries: 25
+      start_period: 60s
