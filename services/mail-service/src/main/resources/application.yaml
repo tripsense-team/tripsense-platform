@@ -16,8 +16,8 @@ resend:
   api-key: ${RESEND_API_KEY}
   from-email: "MindTrip <MindTrip@lanailsspa.com>"
   templates:
-    verification: fe57f2e7-61bb-457f-9ec7-9ec3709a1b98
-    password-reset: password-reset
+    verification: ${RESEND_VERIFICATION_TEMPLATE:fe57f2e7-61bb-457f-9ec7-9ec3709a1b98}
+    password-reset: ${RESEND_PASSWORD_RESET_TEMPLATE:password-reset}
 
 mail:
   internal-api-key: ${MAIL_INTERNAL_API_KEY}

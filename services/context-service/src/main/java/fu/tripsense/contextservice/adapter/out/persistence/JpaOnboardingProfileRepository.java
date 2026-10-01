@@ -87,51 +87,68 @@ public class JpaOnboardingProfileRepository implements OnboardingProfileReposito
     entity.updatedAt = profile.updatedAt();
     if (entity.createdAt == null) entity.createdAt = Instant.now();
 
-    entity.selections.clear();
-    profile
-        .selections()
-        .forEach(
-            (dimension, values) ->
-                values.forEach(
-                    value -> {
-                      OnboardingSelectionEntity row = new OnboardingSelectionEntity();
-                      row.id = new OnboardingSelectionId(entity.id, dimension, value);
-                      row.profile = entity;
-                      row.createdAt = Instant.now();
-                      entity.selections.add(row);
-                    }));
+    Set<OnboardingSelectionId> incomingSelectionIds = new HashSet<>();
+    profile.selections().forEach((dimension, values) -> {
+        values.forEach(value -> incomingSelectionIds.add(new OnboardingSelectionId(entity.id, dimension, value)));
+    });
+    entity.selections.removeIf(s -> !incomingSelectionIds.contains(s.id));
+    profile.selections().forEach((dimension, values) -> {
+        values.forEach(value -> {
+            OnboardingSelectionId id = new OnboardingSelectionId(entity.id, dimension, value);
+            if (entity.selections.stream().noneMatch(s -> s.id.equals(id))) {
+                OnboardingSelectionEntity row = new OnboardingSelectionEntity();
+                row.id = id;
+                row.profile = entity;
+                row.createdAt = Instant.now();
+                entity.selections.add(row);
+            }
+        });
+    });
 
-    entity.places.clear();
-    profile
-        .places()
-        .forEach(
-            (intent, refs) ->
-                refs.forEach(
-                    ref -> {
-                      OnboardingPlaceEntity row = new OnboardingPlaceEntity();
-                      row.id = new OnboardingPlaceId(entity.id, ref, intent);
-                      row.profile = entity;
-                      row.createdAt = Instant.now();
-                      entity.places.add(row);
-                    }));
+    Set<OnboardingPlaceId> incomingPlaceIds = new HashSet<>();
+    profile.places().forEach((intent, refs) -> {
+        refs.forEach(ref -> incomingPlaceIds.add(new OnboardingPlaceId(entity.id, ref, intent)));
+    });
+    entity.places.removeIf(p -> !incomingPlaceIds.contains(p.id));
+    profile.places().forEach((intent, refs) -> {
+        refs.forEach(ref -> {
+            OnboardingPlaceId id = new OnboardingPlaceId(entity.id, ref, intent);
+            if (entity.places.stream().noneMatch(p -> p.id.equals(id))) {
+                OnboardingPlaceEntity row = new OnboardingPlaceEntity();
+                row.id = id;
+                row.profile = entity;
+                row.createdAt = Instant.now();
+                entity.places.add(row);
+            }
+        });
+    });
 
-    entity.attributes.clear();
+    Set<OnboardingAttributeId> incomingAttributeIds = new HashSet<>();
     if (profile.attributes() != null) {
-      profile
-          .attributes()
-          .forEach(
-              (code, json) -> {
-                if (code != null && json != null) {
-                  OnboardingAttributeEntity attr = new OnboardingAttributeEntity();
-                  attr.id = new OnboardingAttributeId(entity.id, code);
-                  attr.profile = entity;
-                  attr.valueJson = json;
-                  attr.valueSchemaVersion = 1;
-                  attr.sensitivityClass = "STANDARD";
-                  attr.updatedAt = Instant.now();
-                  entity.attributes.add(attr);
+        profile.attributes().forEach((code, json) -> {
+            if (code != null && json != null) {
+                incomingAttributeIds.add(new OnboardingAttributeId(entity.id, code));
+            }
+        });
+    }
+    entity.attributes.removeIf(a -> !incomingAttributeIds.contains(a.id));
+    if (profile.attributes() != null) {
+        profile.attributes().forEach((code, json) -> {
+            if (code != null && json != null) {
+                OnboardingAttributeId id = new OnboardingAttributeId(entity.id, code);
+                OnboardingAttributeEntity attr = entity.attributes.stream().filter(a -> a.id.equals(id)).findFirst().orElse(null);
+                if (attr == null) {
+                    attr = new OnboardingAttributeEntity();
+                    attr.id = id;
+                    attr.profile = entity;
+                    attr.valueSchemaVersion = 1;
+                    attr.sensitivityClass = "STANDARD";
+                    entity.attributes.add(attr);
                 }
-              });
+                attr.valueJson = json;
+                attr.updatedAt = Instant.now();
+            }
+        });
     }
 
     String plainFreeText = profile.freeText();
