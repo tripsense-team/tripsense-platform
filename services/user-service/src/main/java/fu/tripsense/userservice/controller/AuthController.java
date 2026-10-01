@@ -1,8 +1,11 @@
 package fu.tripsense.userservice.controller;
 
+import fu.tripsense.userservice.dto.request.ChangePasswordRequest;
+import fu.tripsense.userservice.dto.request.ForgotPasswordRequest;
 import fu.tripsense.userservice.dto.request.GoogleLoginRequest;
 import fu.tripsense.userservice.dto.request.LoginRequest;
 import fu.tripsense.userservice.dto.request.RegisterRequest;
+import fu.tripsense.userservice.dto.request.ResetPasswordRequest;
 import fu.tripsense.userservice.dto.response.ApiResponse;
 import fu.tripsense.userservice.dto.response.LoginResponse;
 import fu.tripsense.userservice.dto.response.LoginResult;
@@ -20,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -90,5 +94,34 @@ public class AuthController {
     return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.toString())
         .body(ApiResponse.success("Logged out of all devices successfully", null));
+  }
+
+  @PutMapping("/password")
+  public ResponseEntity<ApiResponse<Void>> changePassword(
+      @Valid @RequestBody ChangePasswordRequest request,
+      @AuthenticationPrincipal User currentUser) {
+    if (currentUser == null) {
+      throw new org.springframework.security.authentication.InsufficientAuthenticationException(
+          "Full authentication is required to access this resource");
+    }
+    authService.changePassword(request, currentUser);
+    return ResponseEntity.ok()
+        .body(ApiResponse.success("Password changed successfully", null));
+  }
+
+  @PostMapping("/forgot-password")
+  public ResponseEntity<ApiResponse<Void>> forgotPassword(
+      @Valid @RequestBody ForgotPasswordRequest request) {
+    authService.forgotPassword(request);
+    return ResponseEntity.ok()
+        .body(ApiResponse.success("If your email is registered, a reset code has been sent", null));
+  }
+
+  @PostMapping("/reset-password")
+  public ResponseEntity<ApiResponse<Void>> resetPassword(
+      @Valid @RequestBody ResetPasswordRequest request) {
+    authService.resetPassword(request);
+    return ResponseEntity.ok()
+        .body(ApiResponse.success("Password has been reset successfully", null));
   }
 }

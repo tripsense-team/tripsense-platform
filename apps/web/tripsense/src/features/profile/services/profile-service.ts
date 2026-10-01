@@ -11,12 +11,13 @@ export const profileService = {
   getUserProfile: async (userId: string): Promise<UserProfile> => {
     try {
       return await unwrap(
-        apiClient<ApiResponse<UserProfile>>(`/api/users/profile/${userId}`),
+        apiClient<ApiResponse<UserProfile>>(`/api/users/profile/${userId}`, { cache: "no-store" }),
       );
     } catch {
       return await unwrap(
         apiClient<ApiResponse<UserProfile>>(`/api/users/public-profiles/${userId}`, {
           skipAuth: true,
+          cache: "no-store",
         }),
       );
     }

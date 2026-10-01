@@ -10,6 +10,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class EmailServiceImpl implements EmailService {
 
   private final ResendMailUtil resendMailUtil;
+  private final ResourceLoader resourceLoader;
 
   @Value("${resend.templates.verification:fe57f2e7-61bb-457f-9ec7-9ec3709a1b98}")
   private String verificationTemplate;
@@ -40,16 +45,21 @@ public class EmailServiceImpl implements EmailService {
 
   @Override
   public void sendPasswordResetCode(String toEmail, String code) {
-    log.info(
-        "Sending password reset code to {} using template [{}]", toEmail, passwordResetTemplate);
+    log.info("Sending password reset HTML email to {}", toEmail);
     String userName = toEmail.contains("@") ? toEmail.substring(0, toEmail.indexOf('@')) : toEmail;
-    Map<String, Object> variables =
-        Map.of(
-            "CODE", code,
-            "EXPIRE_MINUTES", "10",
-            "USER_NAME", userName);
-    resendMailUtil.sendTemplateEmail(
-        toEmail, "Yêu cầu đặt lại mật khẩu - TripSense", passwordResetTemplate, variables);
+    
+    try {
+      Resource resource = resourceLoader.getResource("classpath:templates/forgot-password.html");
+      String html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+      html = html.replace("{{userName}}", userName);
+      html = html.replace("{{otpCode}}", code);
+      
+      resendMailUtil.sendHtmlEmail(
+          toEmail, "Your TripSense password reset verification code", html);
+    } catch (Exception e) {
+      log.error("Failed to load or send password reset email template", e);
+      throw new fu.tripsense.emailservice.exception.EmailSendException("Could not send email", e);
+    }
   }
 
   @Override

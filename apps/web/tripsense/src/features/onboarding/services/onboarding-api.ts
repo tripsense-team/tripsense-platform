@@ -1,7 +1,7 @@
 import { apiClient } from "@/services/api-client";
 import type { OnboardingProfile, UpdateOnboardingRequest } from "../types";
 export const onboardingApi = {
-  get: () => apiClient<OnboardingProfile>("/api/context/onboarding"),
+  get: () => apiClient<OnboardingProfile>("/api/context/onboarding", { cache: "no-store" }),
   start: () =>
     apiClient<OnboardingProfile>("/api/context/onboarding/start", {
       method: "POST",

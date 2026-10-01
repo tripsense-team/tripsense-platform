@@ -20,7 +20,9 @@ export type AuthModalStep =
   | "email"
   | "login-password"
   | "register-details"
-  | "verify-otp";
+  | "verify-otp"
+  | "forgot-password"
+  | "reset-password";
 
 export interface User {
   id: string;
@@ -66,4 +68,19 @@ export interface LoginResponse {
 
 export interface RefreshResponse {
   accessToken: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  newPassword: string;
 }

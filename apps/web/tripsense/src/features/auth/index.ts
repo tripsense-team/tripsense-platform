@@ -8,3 +8,6 @@ export * from "./components/auth-guard";
 export * from "./components/otp-input";
 export * from "./utils/auth-error-helper";
 export * from "./utils/safe-return-url";
+export * from "./hooks/use-change-password";
+export * from "./hooks/use-forgot-password";
+export * from "./hooks/use-reset-password";

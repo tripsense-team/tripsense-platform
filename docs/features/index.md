@@ -48,6 +48,7 @@ Track every feature that enters the multi-agent workflow.
 | `auth-token-cleanup-cronjob` | DONE | `services/user-service` | [Docs](./auth-token-cleanup-cronjob.md) |
 | `community-destination-weather` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./community-destination-weather.md) |
 | `chat-notifications-and-unread-badge` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./chat-notifications-and-unread-badge.md) |
+| `profile-password-management` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/user-service`, `services/mail-service` | [Docs](./profile-password-management.md) |
 
 ## Statuses
 

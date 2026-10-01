@@ -37,7 +37,7 @@ public class EmailClientImpl implements EmailClient {
     } catch (Exception e) {
       log.error(
           "Failed to send verification email via EmailService to {}: {}", toEmail, e.getMessage());
-      log.warn("Fallback - Verification code for {}", toEmail);
+      log.warn("Fallback - Verification code for {} is: {}", toEmail, code);
     }
   }
 
@@ -61,7 +61,7 @@ public class EmailClientImpl implements EmailClient {
           "Failed to send password reset email via EmailService to {}: {}",
           toEmail,
           e.getMessage());
-      log.warn("Fallback - Password reset code for {}", toEmail);
+      log.warn("Fallback - Password reset code for {} is: {}", toEmail, code);
     }
   }
 
