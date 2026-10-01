@@ -140,7 +140,7 @@ echo "=== Start containers ==="
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --remove-orphans
 
 echo "=== Waiting for core services to become healthy (Zero-Downtime Guard) ==="
-MAX_WAIT_SECONDS=120
+MAX_WAIT_SECONDS=180
 WAIT_INTERVAL=5
 ELAPSED=0
 
