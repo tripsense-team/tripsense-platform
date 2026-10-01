@@ -101,6 +101,9 @@ tripsense:
         attraction: [attraction, tourist, temple, pagoda, chua, diem tham quan]
 
 management:
+  health:
+    redis:
+      enabled: false
   endpoint:
     health:
       probes:
