@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `shared-place-templates-and-partner-workspaces` | DONE | `apps/web/tripsense`, `services/trip-service`; existing Gateway routes | [Docs](./shared-place-templates-and-partner-workspaces.md) |
 | `hotel-payos-payment` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-payos-payment.md) |
 | `hotel-demo-commerce-and-pr66-remediation` | DONE | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-demo-commerce-and-pr66-remediation.md) |
 | `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |

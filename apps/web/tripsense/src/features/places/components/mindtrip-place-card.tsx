@@ -32,6 +32,8 @@ export interface MindtripPlaceCardProps {
   onViewDetails?: () => void;
   onToggleFavorite?: (placeId: string, isFav: boolean) => void;
   onAddToTrip?: (place: Place) => void;
+  /** Optional override for the price/status row (row 4). When provided, replaces default price text. */
+  priceLabel?: React.ReactNode;
   className?: string;
 }
 
@@ -76,6 +78,7 @@ function MindtripPlaceCardComponent({
   onViewDetails,
   onToggleFavorite,
   onAddToTrip,
+  priceLabel,
   className,
 }: MindtripPlaceCardProps) {
   const { t, locale } = useTranslation();
@@ -332,9 +335,13 @@ function MindtripPlaceCardComponent({
         </p>
 
         {/* Row 4: Price Level / Nightly Rate */}
-        <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
-          {isStay ? (locale === "vi" ? "Liên hệ đặt phòng" : "Contact for rates") : "$$"}
-        </p>
+        {priceLabel ? (
+          <div>{priceLabel}</div>
+        ) : (
+          <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
+            {isStay ? (locale === "vi" ? "Liên hệ đặt phòng" : "Contact for rates") : "$$"}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -347,6 +354,7 @@ export const MindtripPlaceCard = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isFavorite === nextProps.isFavorite &&
       prevProps.isAddedToTrip === nextProps.isAddedToTrip &&
+      prevProps.priceLabel === nextProps.priceLabel &&
       prevProps.place.id === nextProps.place.id &&
       prevProps.place.name === nextProps.place.name &&
       prevProps.place.rating === nextProps.place.rating &&

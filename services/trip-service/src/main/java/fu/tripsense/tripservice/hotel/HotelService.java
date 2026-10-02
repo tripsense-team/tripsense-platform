@@ -535,6 +535,35 @@ public class HotelService {
   }
 
   public List<Map<String,Object>> commerce(AuthenticatedUser u) {
+    return commerce(u, null);
+  }
+
+  public List<Map<String,Object>> commerce(AuthenticatedUser u, UUID businessId) {
+    if (businessId != null) {
+      if (u == null) throw error("UNAUTHORIZED", HttpStatus.UNAUTHORIZED);
+      Integer count = db.queryForObject(
+          "SELECT count(*) FROM partner_business_member WHERE business_id=? AND user_id=? AND state='ACTIVE' AND role IN ('OWNER','MANAGER')",
+          Integer.class, businessId, u.id());
+      if (count == null || count == 0) {
+        Integer exists = db.queryForObject("SELECT count(*) FROM partner_business WHERE id=?", Integer.class, businessId);
+        if (exists == null || exists == 0) {
+          throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
+        }
+        throw error("HOTEL_FORBIDDEN", HttpStatus.FORBIDDEN);
+      }
+      return db.queryForList("""
+          SELECT b.id AS booking_id,b.business_id,b.property_name,b.room_name,b.status AS booking_status,
+          p.amount,p.currency,p.commission_bps,p.commission_amount,p.partner_amount,p.state AS payment_state,
+          p.captured_at,p.refunded_at,
+          CASE WHEN p.state='REFUNDED' THEN 'REFUNDED'
+               WHEN EXISTS(SELECT 1 FROM hotel_demo_ledger l WHERE l.booking_id=b.id AND l.event='PAYOUT') THEN 'PAID_OUT'
+               WHEN EXISTS(SELECT 1 FROM partner_support_case c WHERE c.resource_type='HOTEL_BOOKING' AND c.resource_id=b.id AND c.state IN ('OPEN','IN_PROGRESS')) THEN 'DISPUTED'
+               WHEN b.status='CHECKED_OUT' THEN 'ELIGIBLE' ELSE 'PENDING' END AS settlement_state
+          FROM hotel_demo_payment p JOIN hotel_booking b ON b.id=p.booking_id
+          WHERE b.business_id=?
+          ORDER BY p.captured_at DESC LIMIT 200
+          """, businessId);
+    }
     return db.queryForList("""
         SELECT b.id AS booking_id,b.business_id,b.property_name,b.room_name,b.status AS booking_status,
         p.amount,p.currency,p.commission_bps,p.commission_amount,p.partner_amount,p.state AS payment_state,

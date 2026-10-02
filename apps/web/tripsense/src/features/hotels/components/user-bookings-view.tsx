@@ -425,7 +425,7 @@ export function UserBookingsView({ onExploreStays }: UserBookingsViewProps) {
 
                 {/* Footer Actions */}
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
-                  <span className="text-[10px] text-muted-foreground/80 font-mono truncate max-w-[120px]">
+                  <span className="text-micro text-muted-foreground/80 font-mono truncate max-w-[120px]">
                     #{b.id.slice(0, 8)}
                   </span>
 

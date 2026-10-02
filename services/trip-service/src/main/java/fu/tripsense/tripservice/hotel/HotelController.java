@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/hotels")
 public class HotelController {
   @GetMapping("/commerce/config") public Object commerceConfig() { return hotels.commerceConfig(); }
-  @GetMapping("/commerce") public Object commerce() { return hotels.commerce(users.get()); }
+  @GetMapping("/commerce") public Object commerce(@RequestParam(required = false) UUID businessId) { return hotels.commerce(users.get(), businessId); }
   @GetMapping("/bookings/{id}") public Object booking(@PathVariable UUID id) { return hotels.bookingDetail(users.get(),id); }
   @PostMapping("/bookings/{id}/demo-payment") public Object demoPayment(@PathVariable UUID id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody DemoPaymentInput input) { return hotels.demoPayment(users.get(),id,key,input.outcome()); }
   @PostMapping("/bookings/{id}/demo-settlement") public Object demoSettlement(@PathVariable UUID id,@RequestHeader("Idempotency-Key") String key) { return hotels.demoSettlement(users.get(),id,key); }

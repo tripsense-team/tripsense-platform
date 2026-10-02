@@ -155,6 +155,7 @@ export interface MindtripHotel {
    * and provide direct phone/direction/website actions.
    */
   hasDirectBooking?: boolean;
+  propertyId?: string;
   pricePerNight?: number;
   minPrice?: number;
   currency?: string;

@@ -14,15 +14,25 @@ interface Statement {
   payment_state: string; settlement_state: string;
 }
 
-export function HotelCommerce() {
+export function HotelCommerce({
+  businessId,
+  admin = false,
+}: {
+  businessId?: string;
+  admin?: boolean;
+} = {}) {
   const { t } = useTranslation();
-  const admin = useAuthStore(s => isUserAdmin(s.user));
   const [rows, setRows] = useState<Statement[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const keys = useRef(new Map<string, string>());
-  const refresh = useCallback(async () => setRows(await hotelApi<Statement[]>("/commerce")), []);
+  const refresh = useCallback(async () => {
+    const endpoint = businessId
+      ? `/commerce?businessId=${encodeURIComponent(businessId)}`
+      : "/commerce";
+    setRows(await hotelApi<Statement[]>(endpoint));
+  }, [businessId]);
   useEffect(() => { refresh().catch(e => setError(getSafeErrorMessage(e))); }, [refresh]);
   async function act(id?: string) {
     if (pending.current) return;

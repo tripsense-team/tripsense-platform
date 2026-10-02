@@ -265,8 +265,8 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
                 size="sm"
                 className="h-8 text-xs flex-1"
               >
-                <Link href="/hotels">
-                  <BedDouble className="mr-1.5 h-3.5 w-3.5" /> Quản lý phòng & lưu trú
+                <Link href={`/partner/businesses/${business.id}/hotel`}>
+                  <BedDouble className="mr-1.5 h-3.5 w-3.5" /> Quản lý khách sạn
                 </Link>
               </Button>
             </>

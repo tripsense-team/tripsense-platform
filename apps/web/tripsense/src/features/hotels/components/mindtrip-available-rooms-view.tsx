@@ -23,7 +23,7 @@ import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { HotelCheckoutReview } from "./hotel-checkout-review";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
-import { createDirectHold, bookingIntentKey, clearBookingIntent } from "../services/hotel-service-adapter";
+import { createDirectHold, bookingIntentKey, clearBookingIntent, searchRealHotels } from "../services/hotel-service-adapter";
 import type { MindtripHotel, HotelRoomData, HotelBooking } from "../types";
 
 export interface MindtripAvailableRoomsViewProps {
@@ -132,12 +132,16 @@ export function MindtripAvailableRoomsView({
         guestCount,
         quantity
       );
-      const found = hotels.find((h) => h.id === hotel.id);
+      const found = hotels.find(
+        (h) =>
+          h.id === hotel.id ||
+          (hotel.propertyId && (h.id === hotel.propertyId || h.propertyId === hotel.propertyId))
+      );
       if (found) setCurrentHotel(found);
     } catch {
       // Ignored
     }
-  }, [hotel.destination, hotel.id, checkInDate, checkOutDate, guestCount, quantity]);
+  }, [hotel.destination, hotel.id, hotel.propertyId, checkInDate, checkOutDate, guestCount, quantity]);
 
   const hasRooms = Array.isArray(currentHotel.rooms) && currentHotel.rooms.length > 0;
 
@@ -289,20 +293,43 @@ export function MindtripAvailableRoomsView({
           )}
         </div>
       ) : (
-        /* Room Cards Responsive Grid */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        /* Room Cards: Responsive Layout Adapts Dynamically to Number of Rooms */
+        <div
+          className={cn(
+            currentHotel.rooms!.length === 1
+              ? "max-w-4xl mx-auto w-full"
+              : currentHotel.rooms!.length === 2
+              ? "grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full"
+              : currentHotel.rooms!.length === 3
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full"
+              : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full"
+          )}
+        >
           {currentHotel.rooms!.map((room) => {
             const isAlertActive = priceAlerts.has(room.id);
             const priceToShow = showTotalPriceWithTax ? room.totalWithTax : room.pricePerNight;
             const currentPhoto = room.photos[0] || thumbnail;
+            const isSingleRoom = currentHotel.rooms!.length === 1;
 
             return (
               <article
                 key={room.id}
-                className="group flex flex-col rounded-3xl bg-card border border-border hover:border-foreground/30 overflow-hidden transition-all duration-200 shadow-xs hover:shadow-md"
+                className={cn(
+                  "group rounded-3xl bg-card border border-border hover:border-foreground/30 overflow-hidden transition-all duration-200 shadow-xs hover:shadow-md",
+                  isSingleRoom
+                    ? "flex flex-col md:flex-row"
+                    : "flex flex-col"
+                )}
               >
                 {/* Photo Frame with "X rooms left" badge */}
-                <div className="relative aspect-[16/11] w-full overflow-hidden bg-muted">
+                <div
+                  className={cn(
+                    "relative overflow-hidden bg-muted shrink-0",
+                    isSingleRoom
+                      ? "aspect-[16/11] md:aspect-auto md:w-[42%] md:min-w-[280px]"
+                      : "aspect-[16/11] w-full"
+                  )}
+                >
                   <Image
                     src={currentPhoto}
                     alt={room.name}
@@ -324,10 +351,15 @@ export function MindtripAvailableRoomsView({
                 </div>
 
                 {/* Room Card Body */}
-                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div
+                  className={cn(
+                    "flex-1 flex flex-col justify-between space-y-4",
+                    isSingleRoom ? "p-5 sm:p-6 md:p-8" : "p-4 sm:p-5"
+                  )}
+                >
                   <div className="space-y-3">
                     {/* Room Name */}
-                    <h3 className="font-bold text-base text-foreground leading-snug line-clamp-2">
+                    <h3 className={cn("font-bold text-foreground leading-snug line-clamp-2", isSingleRoom ? "text-lg sm:text-xl" : "text-base")}>
                       {room.name}
                     </h3>
 
@@ -380,7 +412,7 @@ export function MindtripAvailableRoomsView({
                   {/* Price & Action Section */}
                   <div className="pt-3 border-t border-border space-y-3">
                     <div>
-                      <div className="text-xl sm:text-2xl font-bold text-foreground leading-none">
+                      <div className={cn("font-bold text-foreground leading-none", isSingleRoom ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl")}>
                         {priceToShow} {room.currency}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">

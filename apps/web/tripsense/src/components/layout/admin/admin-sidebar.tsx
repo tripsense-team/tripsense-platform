@@ -16,6 +16,7 @@ import {
   Settings,
   ShieldCheck,
   Store,
+  Building2,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,11 @@ const adminNavGroups: AdminNavGroup[] = [
         href: "/admin/partners",
         icon: Store,
         badge: "New",
+      },
+      {
+        title: "Hotel Listings",
+        href: "/admin/hotels",
+        icon: Building2,
       },
     ],
   },

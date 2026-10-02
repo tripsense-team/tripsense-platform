@@ -55,7 +55,7 @@ export function MindtripStaysDiscovery({
 }: MindtripStaysDiscoveryProps) {
   const { t, locale } = useTranslation();
 
-  const [selectedDestination, setSelectedDestination] = React.useState("Quy Nhơn");
+  const [selectedDestination, setSelectedDestination] = React.useState("Đà Nẵng");
   const [isDestMenuOpen, setIsDestMenuOpen] = React.useState(false);
   const [activeCategory, setActiveCategory] = React.useState("stays");
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -153,85 +153,104 @@ export function MindtripStaysDiscovery({
         )}
       >
         <div className="p-4 sm:p-6 lg:p-7 space-y-5 max-w-5xl mx-auto w-full">
-          <div className="rounded-2xl border border-border bg-card p-3 sm:p-4 shadow-2xs space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground mr-1">
-                {t("trip.hotels.destination", { defaultValue: "Điểm đến" })}:
+          <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-5 shadow-2xs space-y-4">
+            {/* 1. Destination City Chips (Single horizontal scroll row, never wraps awkwardly) */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground shrink-0 flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 text-primary" />
+                <span>{t("trip.hotels.destination", { defaultValue: "Thành phố" })}:</span>
               </span>
-              {DESTINATIONS.map((dest) => (
-                <button
-                  key={dest}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDestination(dest);
-                    void loadHotels(dest);
-                  }}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer",
-                    selectedDestination === dest
-                      ? "bg-foreground text-background shadow-xs font-semibold"
-                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
-                  )}
-                >
-                  {dest}
-                </button>
-              ))}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
+                {DESTINATIONS.map((dest) => (
+                  <button
+                    key={dest}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDestination(dest);
+                      void loadHotels(dest);
+                    }}
+                    className={cn(
+                      "px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer shrink-0",
+                      selectedDestination === dest
+                        ? "bg-foreground text-background shadow-xs font-semibold"
+                        : "bg-muted/80 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    {dest}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 items-end">
-              <label className="space-y-1 text-xs font-medium">
-                <span>{t("trip.hotels.checkIn")}</span>
+            {/* 2. Criteria Fields: Check-in, Check-out, Guests, Rooms & Search button */}
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              {/* Check-in */}
+              <div className="col-span-1 lg:col-span-3 space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  {t("trip.hotels.checkIn", { defaultValue: "Ngày nhận phòng" })}
+                </label>
                 <Input
                   type="date"
                   value={criteria.checkIn}
                   onChange={(e) => setCriteria((prev) => ({ ...prev, checkIn: e.target.value }))}
-                  className="h-8.5 text-xs"
+                  className="h-10 text-xs sm:text-sm font-medium bg-background px-3 rounded-xl border-border w-full min-w-0"
                 />
-              </label>
+              </div>
 
-              <label className="space-y-1 text-xs font-medium">
-                <span>{t("trip.hotels.checkOut")}</span>
+              {/* Check-out */}
+              <div className="col-span-1 lg:col-span-3 space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  {t("trip.hotels.checkOut", { defaultValue: "Ngày trả phòng" })}
+                </label>
                 <Input
                   type="date"
                   value={criteria.checkOut}
                   onChange={(e) => setCriteria((prev) => ({ ...prev, checkOut: e.target.value }))}
-                  className="h-8.5 text-xs"
+                  className="h-10 text-xs sm:text-sm font-medium bg-background px-3 rounded-xl border-border w-full min-w-0"
                 />
-              </label>
+              </div>
 
-              <label className="space-y-1 text-xs font-medium">
-                <span>{t("trip.hotels.guests")}</span>
+              {/* Guests */}
+              <div className="col-span-1 lg:col-span-2 space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  {t("trip.hotels.guests", { defaultValue: "Số khách" })}
+                </label>
                 <Input
                   type="number"
                   min={1}
                   max={20}
                   value={criteria.guests}
-                  onChange={(e) => setCriteria((prev) => ({ ...prev, guests: Number(e.target.value) }))}
-                  className="h-8.5 text-xs"
+                  onChange={(e) => setCriteria((prev) => ({ ...prev, guests: Math.max(1, Number(e.target.value)) }))}
+                  className="h-10 text-xs sm:text-sm font-medium bg-background px-3 rounded-xl border-border text-center w-full min-w-0"
                 />
-              </label>
+              </div>
 
-              <label className="space-y-1 text-xs font-medium">
-                <span>{t("trip.hotels.quantity")}</span>
+              {/* Rooms */}
+              <div className="col-span-1 lg:col-span-2 space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  {t("trip.hotels.quantity", { defaultValue: "Số phòng" })}
+                </label>
                 <Input
                   type="number"
                   min={1}
                   max={10}
                   value={criteria.quantity}
-                  onChange={(e) => setCriteria((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
-                  className="h-8.5 text-xs"
+                  onChange={(e) => setCriteria((prev) => ({ ...prev, quantity: Math.max(1, Number(e.target.value)) }))}
+                  className="h-10 text-xs sm:text-sm font-medium bg-background px-3 rounded-xl border-border text-center w-full min-w-0"
                 />
-              </label>
+              </div>
 
-              <Button
-                onClick={() => void loadHotels(selectedDestination)}
-                disabled={isLoading || !criteria.checkIn || !criteria.checkOut}
-                size="sm"
-                className="h-8.5 text-xs font-semibold shadow-2xs gap-1.5"
-              >
-                <Search className="h-3.5 w-3.5" />
-                <span>{t("common.search")}</span>
-              </Button>
+              {/* Search Button */}
+              <div className="col-span-2 lg:col-span-2">
+                <Button
+                  onClick={() => void loadHotels(selectedDestination)}
+                  disabled={isLoading || !criteria.checkIn || !criteria.checkOut}
+                  className="h-10 w-full text-xs font-bold rounded-xl gap-2 shadow-xs cursor-pointer"
+                >
+                  <Search className="h-4 w-4" />
+                  <span>{t("common.search", { defaultValue: "Tìm kiếm" })}</span>
+                </Button>
+              </div>
             </div>
           </div>
           {searchError && <p role="alert" className="text-destructive">{searchError}</p>}
@@ -289,18 +308,6 @@ export function MindtripStaysDiscovery({
                   <Sun className="h-4 w-4 text-amber-400" />
                 )}
               </button>
-
-              {/* Switch to Management if available */}
-              {onSwitchToManagement && (
-                <button
-                  type="button"
-                  onClick={onSwitchToManagement}
-                  className="px-3.5 py-1.5 rounded-full border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground/80 hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                >
-                  <Building2 className="h-3.5 w-3.5" />
-                  <span>{isAdmin ? "Admin workspace" : "Partner workspace"}</span>
-                </button>
-              )}
             </div>
           </div>
 

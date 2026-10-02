@@ -1,6 +1,8 @@
 export { HotelWorkspace } from "./components/hotel-workspace";
 export { UserBookingsView } from "./components/user-bookings-view";
 export { PartnerHotelWorkspace } from "./components/partner-hotel-workspace";
+export { HotelManagement } from "./components/hotel-management";
+export { HotelCommerce } from "./components/hotel-commerce";
 export { MindtripStaysDiscovery } from "./components/mindtrip-stays-discovery";
 export { MindtripHotelCard } from "./components/mindtrip-hotel-card";
 export { MindtripHotelDetailOverlay } from "./components/mindtrip-hotel-detail-overlay";

@@ -293,7 +293,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
               <span>{tab.label}</span>
               {tab.badge !== undefined && tab.badge > 0 && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  className={`text-micro px-1.5 py-0.2 rounded-full ${
                     isActive ? "bg-background/20 text-background" : "bg-muted text-muted-foreground"
                   }`}
                 >
@@ -446,7 +446,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                             {r.capacity} {t("trip.hotels.guests", { defaultValue: "khách tối đa" })}
                           </p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground font-mono">#{r.id.slice(0, 6)}</span>
+                        <span className="text-micro text-muted-foreground font-mono">#{r.id.slice(0, 6)}</span>
                       </div>
                     ))}
                   </div>
@@ -632,7 +632,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase text-[10px]">
+                      <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase text-micro">
                         <tr>
                           <th className="p-3">Ngày</th>
                           <th className="p-3">Mở bán (Allocation)</th>
@@ -652,7 +652,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                             <td className="p-3 font-medium">{money(day.nightly_price, "VND")}</td>
                             <td className="p-3">
                               {day.stop_sell ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                                <span className="inline-flex items-center gap-1 text-micro text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
                                   <Ban className="h-3 w-3" /> Stop-sell
                                 </span>
                               ) : (
@@ -703,7 +703,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-sm text-foreground">{b.room_name}</span>
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                          className={`rounded-full px-2 py-0.5 text-micro font-semibold border ${
                             isConfirmed
                               ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                               : isCheckedIn
@@ -717,7 +717,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                       <p className="text-xs text-muted-foreground">
                         {b.check_in} → {b.check_out} · {b.quantity} phòng · {b.guests} khách · {money(b.total, b.currency)}
                       </p>
-                      <p className="text-[10px] text-muted-foreground font-mono">#{b.id}</p>
+                      <p className="text-micro text-muted-foreground font-mono">#{b.id}</p>
                     </div>
 
                     {/* Action buttons */}

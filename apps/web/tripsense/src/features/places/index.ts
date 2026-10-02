@@ -1,6 +1,7 @@
 export * from "./components/mindtrip-place-card";
 export * from "./components/explore-feed-header";
 export * from "./components/place-detail-overlay";
+export * from "./components/place-detail-content";
 export * from "./components/place-card";
 export * from "./components/place-card-compact";
 export * from "./components/place-list";
