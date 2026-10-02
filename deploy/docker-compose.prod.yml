@@ -101,6 +101,7 @@ services:
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_INTERNAL_API_KEY: ${MAIL_INTERNAL_API_KEY:-}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -169,6 +170,15 @@ services:
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY}
       RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
+      EMAIL_SERVICE_URL: http://mail-service:8082
+      MAIL_INTERNAL_API_KEY: ${MAIL_INTERNAL_API_KEY:-}
+      WEB_APP_URL: ${WEB_APP_URL:-https://tripsense.duckdns.org}
+      PAYOS_RETURN_BASE_URL: ${PAYOS_RETURN_BASE_URL:-https://tripsense.duckdns.org}
+      PAY_OS_CLIENT_ID: ${PAY_OS_CLIENT_ID:-}
+      PAY_OS_API_KEY: ${PAY_OS_API_KEY:-}
+      PAY_OS_CHECKSUM_KEY: ${PAY_OS_CHECKSUM_KEY:-}
+      PAYOS_ENABLED: ${PAYOS_ENABLED:-true}
+      HOTEL_DEMO_PAYMENTS_ENABLED: ${HOTEL_DEMO_PAYMENTS_ENABLED:-false}
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
@@ -328,6 +338,7 @@ services:
       REDIS_URL: ${REDIS_URL}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       AI_SERVICE_V2_URL: http://ai-service:8089
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,::1/128,172.16.0.0/12,10.0.0.0/8}
     depends_on:
       discovery-server:
         condition: service_healthy
