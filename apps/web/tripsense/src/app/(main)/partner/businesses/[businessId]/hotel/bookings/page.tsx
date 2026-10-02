@@ -12,14 +12,11 @@ import { hotelApi } from "@/features/hotels/services/hotels-api";
 import type { HotelBooking } from "@/features/hotels/types";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import {
-  Users,
-  Calendar,
   AlertCircle,
   RefreshCw,
   Clock,
   Ban,
   CheckCircle2,
-  DollarSign,
 } from "lucide-react";
 
 export default function PartnerHotelBookingsPage() {

@@ -1,5 +1,4 @@
 import puppeteer from "puppeteer-core";
-import fs from "fs";
 import path from "path";
 
 const EDGE_PATH = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";

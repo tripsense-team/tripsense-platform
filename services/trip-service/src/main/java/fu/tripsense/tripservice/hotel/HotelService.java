@@ -134,16 +134,17 @@ public class HotelService {
       if(bizId!=null) eligibleBusiness(bizId,"HOTEL_INVENTORY",false);
       UUID rid=UUID.randomUUID();
       db.update("INSERT INTO hotel_room_type(id,property_id,name,capacity) VALUES (?,?,?,?)",rid,id,in.name().strip(),in.capacity());
-      BigDecimal price = (in.nightlyPrice() != null && in.nightlyPrice().compareTo(BigDecimal.ZERO) > 0)
-          ? in.nightlyPrice() : new BigDecimal("500000.00");
-      int alloc = (in.allocation() != null && in.allocation() > 0) ? in.allocation() : 5;
-      LocalDate today = LocalDate.now();
-      for(int day = 0; day < 90; day++) {
-        LocalDate d = today.plusDays(day);
-        db.update("""
-            INSERT INTO hotel_inventory(room_type_id,stay_date,allocation,nightly_price,stop_sell)
-            VALUES (?,?,?,?,false) ON CONFLICT(room_type_id,stay_date) DO NOTHING
-            """, rid, d, alloc, price);
+      if(in.allocation() != null && in.allocation() > 0) {
+        BigDecimal price = (in.nightlyPrice() != null && in.nightlyPrice().compareTo(BigDecimal.ZERO) > 0)
+            ? in.nightlyPrice() : new BigDecimal("500000.00");
+        LocalDate today = LocalDate.now();
+        for(int day = 0; day < 90; day++) {
+          LocalDate d = today.plusDays(day);
+          db.update("""
+              INSERT INTO hotel_inventory(room_type_id,stay_date,allocation,nightly_price,stop_sell)
+              VALUES (?,?,?,?,false) ON CONFLICT(room_type_id,stay_date) DO NOTHING
+              """, rid, d, in.allocation(), price);
+        }
       }
       return one("SELECT * FROM hotel_room_type WHERE id=?",rid);
     });
@@ -199,7 +200,17 @@ public class HotelService {
             OR lower(p.destination) LIKE lower('%' || trim(?) || '%')
             OR lower(?) LIKE lower('%' || trim(p.destination) || '%'))
         AND r.capacity*?>=?
-        AND (b.id IS NULL OR (b.approval_validity='VALID' AND b.operation_state='ACTIVE' AND NOT b.requires_reverification))
+        AND (b.id IS NULL OR (
+            b.approval_validity='VALID'
+            AND b.operation_state='ACTIVE'
+            AND b.publication_state='PUBLISHED'
+            AND b.accepting_new=true
+            AND NOT b.requires_reverification
+            AND a.id IS NOT NULL
+            AND p.name=b.display_name
+            AND p.destination=(a.profile_snapshot->>'destination')
+            AND p.address=(a.profile_snapshot->>'address')
+        ))
         AND ? >= (clock_timestamp() AT TIME ZONE p.time_zone)::date
         GROUP BY p.id,r.id HAVING count(*)=? AND bool_and(NOT i.stop_sell) AND min(i.allocation-i.held-i.booked)>=?
         ORDER BY total,p.id,r.id LIMIT 50

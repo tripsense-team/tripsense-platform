@@ -220,7 +220,7 @@ export async function searchRealHotels(
   });
 
   // 1. Fetch direct booking offers from partner / trip-service
-  let directOffers = await hotelApi<HotelOffer[]>(`/search?${query}`).catch(() => []);
+  const directOffers = await hotelApi<HotelOffer[]>(`/search?${query}`).catch(() => []);
   let allOffers: HotelOffer[] = [];
   if (destination !== "all") {
     const allQuery = new URLSearchParams({

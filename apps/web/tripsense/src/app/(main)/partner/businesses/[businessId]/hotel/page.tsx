@@ -9,7 +9,7 @@ import { useTranslation } from "@/i18n";
 import { hotelApi } from "@/features/hotels/services/hotels-api";
 import { getBusinessApplications } from "@/features/partner/services/partner-api";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
-import { Building2, CheckCircle2, Clock, MapPin, RefreshCw, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Clock, MapPin, RefreshCw, AlertTriangle } from "lucide-react";
 
 export default function PartnerHotelPropertyPage() {
   const { t } = useTranslation();

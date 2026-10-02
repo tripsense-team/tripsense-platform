@@ -10,7 +10,6 @@ import {
   Sparkles,
   ChevronDown,
   ExternalLink,
-  ShieldCheck,
 } from "lucide-react";
 import {
   Card,

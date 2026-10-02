@@ -92,7 +92,7 @@ export function UserBookingsView({ onExploreStays }: UserBookingsViewProps) {
       if (booking.payment_method === "PAYOS") {
         const result = await hotelApi<PayOsPaymentResult>(`/bookings/${booking.id}/payos-payment`, "POST");
         if (result.payment?.checkoutUrl && result.payment.checkoutUrl.startsWith("https://")) {
-          window.location.href = result.payment.checkoutUrl;
+          window.location.assign(result.payment.checkoutUrl);
           return;
         }
       }
