@@ -1,10 +1,12 @@
 FROM node:22-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM node:22-alpine AS builder
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
