@@ -1,12 +1,16 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/i18n";
 import { MINDTRIP_HOTELS } from "../../data/mock-hotels";
 import { MindtripHotelCard } from "../mindtrip-hotel-card";
 import { MindtripBookStayModal } from "../mindtrip-book-stay-modal";
 import { MindtripAvailableRoomsView } from "../mindtrip-available-rooms-view";
 import { MindtripHotelDetailOverlay } from "../mindtrip-hotel-detail-overlay";
+
+vi.mock("@/features/community-reviews", () => ({
+  CommunityReviewsSection: () => <div>Community reviews</div>,
+}));
 
 const testHotel = MINDTRIP_HOTELS[0]; // Crown Retreat Quy Nhon
 

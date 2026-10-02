@@ -8,6 +8,8 @@ spring:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017}
       database: ${MONGODB_DATABASE:tripsense_place}
+      # Saved-place indexes are also installed explicitly by SavedPlaceMongoIndexMigration.
+      # Keep the legacy default until all existing Place/API-key indexes have migrations.
       auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:true}
     redis:
       url: ${REDIS_URL:redis://localhost:6379}

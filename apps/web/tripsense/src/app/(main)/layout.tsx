@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { UserLayout } from "@/components/layout";
 import { useAuth, useAuthStore, isUserAdmin } from "@/features/auth";
 import { onboardingApi } from "@/features/onboarding/services/onboarding-api";
@@ -14,24 +14,28 @@ export default function MainLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isAuthenticated, status, isLoading, user } = useAuth();
   const { onboardingCompleted, setOnboardingCompleted } = useAuthStore();
 
   const isChecking =
     isLoading || status === "checking" || status === "initializing";
   const isAdmin = isUserAdmin(user);
+  const isInvitationRoute = pathname === "/trips/join";
 
   // 1. Redirect unauthenticated users
   React.useEffect(() => {
-    if (!isChecking && !isAuthenticated) {
+    if (!isInvitationRoute && !isChecking && !isAuthenticated) {
+      const query = searchParams.toString();
+      const currentUrl = query ? `${pathname}?${query}` : pathname;
       const returnUrl =
-        pathname && pathname !== "/" ? encodeURIComponent(pathname) : "";
+        currentUrl && currentUrl !== "/" ? encodeURIComponent(currentUrl) : "";
       const target = returnUrl
         ? `/?signin=true&returnUrl=${returnUrl}`
         : "/?signin=true";
       router.replace(target);
     }
-  }, [isChecking, isAuthenticated, pathname, router]);
+  }, [isInvitationRoute, isChecking, isAuthenticated, pathname, router, searchParams]);
 
   // Safety watchdog: Prevent infinite hang on "checking" / "initializing" status
   React.useEffect(() => {
@@ -58,6 +62,12 @@ export default function MainLayout({
     }
 
     if (pathname === "/onboarding") {
+      return;
+    }
+
+    // Invitation acceptance must remain reachable immediately after a new user
+    // verifies their account. The normal onboarding gate resumes after joining.
+    if (isInvitationRoute) {
       return;
     }
 
@@ -116,6 +126,7 @@ export default function MainLayout({
     user?.id,
     isAdmin,
     onboardingCompleted,
+    isInvitationRoute,
     pathname,
     router,
     setOnboardingCompleted,
@@ -126,16 +137,21 @@ export default function MainLayout({
     return <>{children}</>;
   }
 
+  // Invitation links must be reachable before login so a new invitee can
+  // register or switch away from an account that does not own the invitation.
+  if (isInvitationRoute) {
+    return <>{children}</>;
+  }
+
   // While checking auth status OR actively verifying onboarding gate for incomplete user:
   // Render AuthLoadingScreen. DO NOT render protected UserLayout or children!
   if (
     isChecking ||
     !isAuthenticated ||
-    (!isAdmin && !onboardingCompleted)
+    (!isInvitationRoute && !isAdmin && !onboardingCompleted)
   ) {
     return <AuthLoadingScreen message="Đang kiểm tra quyền truy cập..." />;
   }
 
   return <UserLayout>{children}</UserLayout>;
 }
-

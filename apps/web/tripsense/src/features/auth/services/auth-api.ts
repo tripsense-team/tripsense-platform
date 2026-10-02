@@ -10,6 +10,9 @@ import type {
   VerifyEmailRequest,
   User,
   RefreshResponse,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
 } from "../types";
 
 export const authApi = {
@@ -171,5 +174,32 @@ export const authApi = {
       // 2. Clear frontend state after dispatching request
       useAuthStore.getState().clearAuth();
     }
+  },
+
+  async changePassword(
+    payload: ChangePasswordRequest,
+  ): Promise<ApiResponse<void>> {
+    return apiClient<ApiResponse<void>>("/api/auth/password", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async forgotPassword(
+    payload: ForgotPasswordRequest,
+  ): Promise<ApiResponse<void>> {
+    return apiClient<ApiResponse<void>>("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async resetPassword(
+    payload: ResetPasswordRequest,
+  ): Promise<ApiResponse<void>> {
+    return apiClient<ApiResponse<void>>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 };

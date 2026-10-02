@@ -8,6 +8,7 @@ import { ApiError } from "@/services/api-client";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { AuthModal } from "@/features/auth";
 import { useTripStore } from "../store/use-trip-store";
+import { useCollaborativeItinerarySync } from "../hooks";
 import { CreateTripDialog } from "./create-trip-dialog";
 import { CalendarScreen } from "./calendar-screen";
 import {
@@ -153,6 +154,27 @@ export function TripManagementView({
     }
   }, []);
 
+  const activeTripId = trip?.id ?? null;
+  const refreshCollaborativeItinerary = React.useCallback(async () => {
+    if (!activeTripId) return;
+    const nextItinerary = await getItinerary(activeTripId);
+    setItinerary(chainItineraryResponse(nextItinerary));
+    return nextItinerary.revision ?? 0;
+  }, [activeTripId]);
+
+  useCollaborativeItinerarySync({
+    tripId: activeTripId,
+    revision: itinerary?.revision ?? 0,
+    onRefresh: refreshCollaborativeItinerary,
+    onMemberChange: () => {
+      window.dispatchEvent(
+        new CustomEvent("trip-collaboration:changed", {
+          detail: { tripId: activeTripId },
+        }),
+      );
+    },
+  });
+
   React.useEffect(() => {
     if (isAuthenticated) {
       void loadTrips(false);
@@ -265,6 +287,7 @@ export function TripManagementView({
         startTime: itemDraft.startTime || null,
         endTime: itemDraft.endTime || null,
         durationMinutes: itemDurationMinutes(itemDraft),
+        expectedTripRevision: itinerary?.revision,
       });
       setAddItemDay(null);
       setItemDraft(newItemDraft());
@@ -287,6 +310,7 @@ export function TripManagementView({
         startTime: payload.startTime || null,
         endTime: payload.endTime || null,
         durationMinutes: itemDurationMinutes(payload),
+        expectedTripRevision: itinerary?.revision,
       });
       setAddItemDay(null);
       setItemDraft(newItemDraft());
@@ -341,7 +365,8 @@ export function TripManagementView({
         ...editItemDraft,
         title: editItemDraft.title?.trim() || editingItem.title,
         durationMinutes: itemDurationMinutes(editItemDraft),
-        version: undefined,
+        version: editingItem.version,
+        expectedTripRevision: itinerary?.revision,
       });
       setEditingItem(null);
       setEditItemDraft(null);
@@ -361,7 +386,7 @@ export function TripManagementView({
     setError(null);
     removeItemFromItinerary(item.id);
     try {
-      await deleteItineraryItem(trip.id, item.id);
+      await deleteItineraryItem(trip.id, item.id, itinerary?.revision, item.version);
       await loadDetail(trip.id);
       removeItemFromItinerary(item.id);
       if (editingItem?.id === item.id) {
@@ -553,6 +578,7 @@ export function TripManagementView({
       const nextDay = await reorderItineraryItems(trip.id, day.id, {
         orderedItemIds,
         version: day.version,
+        expectedTripRevision: itinerary?.revision,
       });
       const chainedDay = {
         ...nextDay,

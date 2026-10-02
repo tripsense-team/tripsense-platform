@@ -113,6 +113,11 @@ jobs:
           CLOUDINARY_API_KEY: ci-placeholder
           CLOUDINARY_API_SECRET: ci-placeholder
           CLOUDINARY_SOCIAL_FOLDER: tripsense/social
+          AI_TRIP_COMMIT_SECRET: ci-placeholder
+          RECOMMENDATION_INTERNAL_API_KEY: ci-placeholder-internal-key
+          RECOMMENDATION_CACHE_KEY_SECRET: ci-placeholder-cache-key-secret-32b
+          API_KEY_ENCRYPTION_SECRET: ci-placeholder-api-key-secret-32b
+          GOOGLE_GENERATIVE_AI_API_KEY: ci-placeholder
         run: docker compose -f deploy/docker-compose.prod.yml config
 
       - name: Login to Docker Hub
@@ -138,6 +143,7 @@ jobs:
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || '' }}
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_APP_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_APP_ID) || '' }}
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_VAPID_KEY={0}', secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_COMMUNITY_REVIEW_WRITES_ENABLED={0}', vars.NEXT_PUBLIC_COMMUNITY_REVIEW_WRITES_ENABLED || 'false') || '' }}
           tags: |
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:${{ github.event.workflow_run.head_sha || github.sha }}
             docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:latest

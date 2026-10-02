@@ -50,6 +50,7 @@ export interface TripResponse {
   notes: string | null;
   coverImageUrl: string | null;
   version: number;
+  aggregateRevision?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,6 +72,9 @@ export interface ItineraryItemResponse {
   latSnapshot: number | null;
   lngSnapshot: number | null;
   version: number;
+  sourceKind?: string | null;
+  sourceProposalId?: string | null;
+  sourceItemKey?: string | null;
   warnings: string[];
 }
 
@@ -84,7 +88,36 @@ export interface ItineraryDayResponse {
 
 export interface ItineraryResponse {
   tripId: string;
+  revision?: number;
+  capabilities?: ItineraryCapabilities;
   days: ItineraryDayResponse[];
+}
+
+export interface ItineraryCapabilities {
+  canView: boolean;
+  canEdit: boolean;
+  canManageMembers: boolean;
+}
+
+export type CollaborationChangeType =
+  | "ITEM_ADDED"
+  | "ITEM_UPDATED"
+  | "ITEM_DELETED"
+  | "ITEM_REORDERED"
+  | "MEMBER_JOINED"
+  | "MEMBER_LEFT"
+  | "MEMBER_REMOVED"
+  | "MEMBER_ROLE_CHANGED";
+
+export interface CollaborationChangeEvent {
+  eventId: string;
+  schemaVersion: number;
+  tripId: string;
+  revision: number;
+  type: CollaborationChangeType;
+  actorUserId: string;
+  occurredAt: string;
+  payload: Record<string, unknown>;
 }
 
 export interface CreateTripRequest {
@@ -107,12 +140,14 @@ export interface UpdateTripRequest extends Partial<CreateTripRequest> {
 
 export interface CreateItineraryItemRequest {
   placeId?: string | null;
+  placeRef?: string | null;
   type: ItineraryItemType;
   title: string;
   startTime?: string | null;
   endTime?: string | null;
   durationMinutes?: number | null;
   notes?: string | null;
+  expectedTripRevision?: number;
 }
 
 export interface UpdateItineraryItemRequest
@@ -124,7 +159,7 @@ export interface UpdateItineraryItemRequest
 export interface ReorderItemsRequest {
   orderedItemIds: string[];
   version: number;
+  expectedTripRevision?: number;
 }
 
 export * from './collaboration';
-

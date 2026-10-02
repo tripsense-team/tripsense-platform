@@ -22,14 +22,14 @@ const I18nContext = React.createContext<I18nContextValue | null>(null);
 /**
  * Resolves a dot-notated key path (e.g., 'auth.welcomeTitle') within a translation tree.
  */
-function resolvePath(obj: any, path: string): string | undefined {
+function resolvePath(obj: unknown, path: string): string | undefined {
   if (!obj || typeof obj !== "object") return undefined;
   const parts = path.split(".");
-  let current: any = obj;
+  let current: unknown = obj;
 
   for (const part of parts) {
     if (current == null || typeof current !== "object") return undefined;
-    current = current[part];
+    current = (current as Record<string, unknown>)[part];
   }
 
   return typeof current === "string" ? current : undefined;
@@ -63,6 +63,7 @@ export function I18nProvider({ children, initialLocale }: I18nProviderProps) {
     try {
       const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
       if (stored && LOCALES[stored]) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setLocaleState(stored);
       }
     } catch {

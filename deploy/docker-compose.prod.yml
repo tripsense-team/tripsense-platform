@@ -4,6 +4,7 @@ x-java-small: &java-small
     -XX:MaxRAMPercentage=55
     -XX:ActiveProcessorCount=1
     -XX:+UseSerialGC
+    -XX:TieredStopAtLevel=1
 
 services:
   nginx:
@@ -13,9 +14,9 @@ services:
     cpus: "0.25"
     depends_on:
       web:
-        condition: service_healthy
+        condition: service_started
       api-gateway:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "80:80"
       - "443:443"
@@ -57,15 +58,13 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1",
         ]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
+      retries: 15
+      start_period: 45s
 
   discovery-server:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-discovery-server:${IMAGE_TAG}
@@ -166,6 +165,7 @@ services:
       TRIP_DB_PASS: ${TRIP_DB_PASS}
       REDIS_URL: ${REDIS_URL}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET}
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY}
       RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
@@ -199,6 +199,8 @@ services:
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
       CLOUDINARY_SOCIAL_FOLDER: ${CLOUDINARY_SOCIAL_FOLDER:-tripsense/social}
       TRIP_SERVICE_URL: http://trip-service:8084
+      PLACE_SERVICE_URL: http://place-service:8082
+      COMMUNITY_REVIEWS_WRITE_ENABLED: ${COMMUNITY_REVIEWS_WRITE_ENABLED:-false}
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
@@ -207,6 +209,8 @@ services:
       user-service:
         condition: service_started
       trip-service:
+        condition: service_started
+      place-service:
         condition: service_started
       discovery-server:
         condition: service_healthy
@@ -272,31 +276,30 @@ services:
       test:
         [
           "CMD-SHELL",
-          'curl -fsS http://localhost:8088/actuator/health | grep -q ''"status":"UP"'' || exit 1',
+          'curl -fsS http://localhost:8088/actuator/health/readiness | grep -q ''"status":"UP"'' || curl -fsS http://localhost:8088/actuator/health | grep -q ''"status":"UP"'' || exit 1',
         ]
-      interval: 10s
+      interval: 15s
       timeout: 5s
-      retries: 15
-      start_period: 30s
+      retries: 20
+      start_period: 60s
 
   ai-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-ai-service:${IMAGE_TAG}
     restart: unless-stopped
-    mem_limit: 512m
-    cpus: "0.75"
+    mem_limit: 384m
+    cpus: "0.50"
     environment:
-      AI_DATABASE_URL: ${AI_DATABASE_URL}
+      PORT: "8089"
+      NODE_ENV: "production"
+      DATABASE_URL: ${AI_DATABASE_URL:-${AI_V2_DATABASE_URL}}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
-      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
-      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       TRIP_SERVICE_URL: http://trip-service:8084
-      WEATHER_PROVIDER: ${WEATHER_PROVIDER:-mock}
-      ROUTING_PROVIDER: ${ROUTING_PROVIDER:-mock}
-      EUREKA_SERVER: http://discovery-server:8761/eureka/
-      AI_SERVICE_PORT: 8085
+      AI_ALLOWED_ORIGINS: ${AI_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -304,18 +307,27 @@ services:
         condition: service_started
       trip-service:
         condition: service_started
-      recommendation-service:
-        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8089/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   api-gateway:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
-    mem_limit: 512m
-    cpus: "0.75"
+    mem_limit: 768m
+    cpus: "1.0"
     environment:
       <<: *java-small
       REDIS_URL: ${REDIS_URL}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      AI_SERVICE_V2_URL: http://ai-service:8089
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -334,14 +346,14 @@ services:
       ai-service:
         condition: service_started
       recommendation-service:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          'curl -fsS http://localhost:8080/actuator/health | grep -q ''"status":"UP"'' || exit 1',
+          'curl -fsS http://localhost:8080/actuator/health/readiness | grep -q ''"status":"UP"'' || curl -fsS http://localhost:8080/actuator/health | grep -q ''"status":"UP"'' || exit 1',
         ]
       interval: 10s
       timeout: 5s
-      retries: 15
-      start_period: 30s
+      retries: 25
+      start_period: 60s

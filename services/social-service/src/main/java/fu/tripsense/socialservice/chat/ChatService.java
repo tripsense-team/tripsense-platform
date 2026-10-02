@@ -875,7 +875,7 @@ public class ChatService {
 
   @Transactional
   public void registerFcmToken(RegisterFcmToken request) {
-    UUID user = me();
+    UUID user = current.requiredUser().id();
     if (request == null || request.fcmToken() == null || request.fcmToken().isBlank()) {
       throw error(HttpStatus.BAD_REQUEST, "INVALID_TOKEN", "FCM token is required");
     }
@@ -903,7 +903,7 @@ public class ChatService {
 
   @Transactional
   public void unregisterFcmToken(UnregisterFcmToken request) {
-    UUID user = me();
+    UUID user = current.requiredUser().id();
     if (request == null || request.fcmToken() == null || request.fcmToken().isBlank()) {
       return;
     }
@@ -914,7 +914,7 @@ public class ChatService {
   }
 
   public boolean sendTestPushNotification() {
-    UUID user = me();
+    UUID user = current.requiredUser().id();
     return pushNotificationService.sendTestPushNotification(user);
   }
 }

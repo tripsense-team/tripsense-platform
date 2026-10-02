@@ -36,8 +36,8 @@ describe("HotelCommerce Component", () => {
       </I18nProvider>
     );
 
-    expect(html).toContain("Đối soát doanh thu");
+    expect(html).toContain("Báo cáo doanh thu");
     // When admin is false, the settle action must never appear in partner view
-    expect(html).not.toContain("Quyết toán");
+    expect(html).not.toContain("Ghi nhận quyết toán");
   });
 });

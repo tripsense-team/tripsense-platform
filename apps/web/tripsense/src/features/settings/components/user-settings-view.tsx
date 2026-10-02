@@ -21,11 +21,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/features/auth";
+import { useAuth, useChangePassword } from "@/features/auth";
 import { useUserProfile, useUpdateProfile } from "@/features/profile";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { PersonalizationEditor } from "./personalization-editor";
+import { socialPostRepository } from "@/features/social-post/services";
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
 
 interface SettingsTabItem {
   id: string;
@@ -134,6 +136,8 @@ function ProfileSettingsPanel() {
   const [location, setLocation] = React.useState("");
   const [bio, setBio] = React.useState("");
   const [website, setWebsite] = React.useState("");
+  const [avatarUrl, setAvatarUrl] = React.useState("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
   const [savedSuccess, setSavedSuccess] = React.useState(false);
 
   React.useEffect(() => {
@@ -142,8 +146,43 @@ function ProfileSettingsPanel() {
       setLocation(profile.location || "");
       setBio(profile.bio || "");
       setWebsite(profile.socialPorts?.website || "");
+      setAvatarUrl(profile.avatarUrl || user?.avatar || "");
     }
-  }, [profile]);
+  }, [profile, user]);
+
+  const handleUploadImage = async (file: File) => {
+    try {
+      setIsUploadingAvatar(true);
+      const signature = await socialPostRepository.getUploadSignature();
+      const body = new FormData();
+      body.append("file", file);
+      body.append("api_key", signature.apiKey);
+      body.append("timestamp", signature.timestamp.toString());
+      body.append("signature", signature.signature);
+      if (signature.signature.length === 64) {
+        body.append("signature_algorithm", "sha256");
+      }
+      body.append("folder", signature.folder);
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`,
+        { method: "POST", body }
+      );
+      if (!response.ok) throw new Error("Upload failed");
+      const data = await response.json();
+      setAvatarUrl(data.secure_url);
+    } catch (err) {
+      console.error("Failed to upload image", err);
+      alert(t("settings.userSettings.profile.uploadError", { defaultValue: "Failed to upload image!" }));
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleUploadImage(file);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +191,12 @@ function ProfileSettingsPanel() {
         displayName: displayName.trim(),
         location: location.trim(),
         bio: bio.trim(),
+        avatarUrl,
+        socialPorts: website ? { website: website.trim() } : undefined,
+      });
+      useAuthStore.getState().updateUserProfile({
+        avatar: avatarUrl || undefined,
+        name: displayName.trim() || undefined,
       });
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
@@ -182,12 +227,30 @@ function ProfileSettingsPanel() {
       <form onSubmit={handleSave} className="space-y-5 rounded-2xl border border-border/50 bg-card p-6 shadow-xs">
         {/* Avatar section */}
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 ring-1 ring-border">
-            <AvatarImage src={profile?.avatarUrl || user?.avatar} alt={user?.name || "User"} />
-            <AvatarFallback className="font-bold text-base bg-primary/10 text-primary">
-              {(profile?.displayName || user?.name || "U").charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative w-16 h-16 group">
+            <Avatar className="h-16 w-16 ring-1 ring-border">
+              <AvatarImage src={avatarUrl || user?.avatar} alt={user?.name || "User"} />
+              <AvatarFallback className="font-bold text-base bg-primary/10 text-primary">
+                {(profile?.displayName || user?.name || "U").charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
+              <label className="cursor-pointer text-white">
+                {isUploadingAvatar ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={isUploadingAvatar || isSaving}
+                />
+              </label>
+            </div>
+          </div>
           <div>
             <p className="text-xs font-bold text-foreground">
               @{user?.email ? user.email.split("@")[0] : "user"}
@@ -254,7 +317,7 @@ function ProfileSettingsPanel() {
           )}
           <Button
             type="submit"
-            disabled={isSaving}
+            disabled={isSaving || isUploadingAvatar}
             className="rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 px-5 shadow-xs cursor-pointer"
           >
             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -270,6 +333,40 @@ function ProfileSettingsPanel() {
 function AccountSettingsPanel() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { mutateAsync: changePassword, isPending: isChangingPassword } = useChangePassword();
+
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [passwordError, setPasswordError] = React.useState("");
+  const [passwordSuccess, setPasswordSuccess] = React.useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess(false);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t("settings.userSettings.account.passwordMismatch", { defaultValue: "New passwords do not match" }));
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError(t("settings.userSettings.account.passwordTooShort", { defaultValue: "Password must be at least 6 characters" }));
+      return;
+    }
+
+    try {
+      await changePassword({ currentPassword, newPassword });
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (err: any) {
+      setPasswordError(err.message || t("settings.userSettings.account.passwordChangeError", { defaultValue: "Failed to change password" }));
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -297,6 +394,73 @@ function AccountSettingsPanel() {
           </span>
           <p className="text-xs font-bold text-foreground">{user?.role || "USER"}</p>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-border/50 bg-card p-6 space-y-4 shadow-xs mt-6">
+        <h2 className="text-sm font-bold text-foreground">
+          {t("settings.userSettings.account.changePasswordTitle", { defaultValue: "Change Password" })}
+        </h2>
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground">
+              {t("settings.userSettings.account.currentPassword", { defaultValue: "Current Password" })}
+            </label>
+            <Input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="text-xs bg-background h-9 rounded-xl border-border"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground">
+              {t("settings.userSettings.account.newPassword", { defaultValue: "New Password" })}
+            </label>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="text-xs bg-background h-9 rounded-xl border-border"
+              required
+              minLength={6}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground">
+              {t("settings.userSettings.account.confirmPassword", { defaultValue: "Confirm Password" })}
+            </label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="text-xs bg-background h-9 rounded-xl border-border"
+              required
+              minLength={6}
+            />
+          </div>
+
+          {passwordError && (
+            <p className="text-xs font-medium text-destructive">{passwordError}</p>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+            {passwordSuccess && (
+              <span className="text-micro font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <Check className="h-3.5 w-3.5" />
+                <span>{t("settings.userSettings.account.passwordChanged", { defaultValue: "Password changed successfully" })}</span>
+              </span>
+            )}
+            <Button
+              type="submit"
+              disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+              className="rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 px-5 shadow-xs cursor-pointer"
+            >
+              {isChangingPassword ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <span>{isChangingPassword ? t("settings.userSettings.account.changing", { defaultValue: "Saving..." }) : t("settings.userSettings.account.changePassword", { defaultValue: "Update Password" })}</span>
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -4,9 +4,13 @@ import fu.tripsense.tripservice.dto.request.InviteTripMemberRequest;
 import fu.tripsense.tripservice.dto.request.UpdateMemberRoleRequest;
 import fu.tripsense.tripservice.dto.response.ApiResponse;
 import fu.tripsense.tripservice.dto.response.TripCollaborationSummaryResponse;
+import fu.tripsense.tripservice.dto.response.TripInvitationPreviewResponse;
 import fu.tripsense.tripservice.dto.response.TripInvitationResponse;
 import fu.tripsense.tripservice.dto.response.TripMemberResponse;
+import fu.tripsense.tripservice.exception.NotFoundException;
+import fu.tripsense.tripservice.exception.ValidationException;
 import fu.tripsense.tripservice.security.CurrentUserProvider;
+import fu.tripsense.tripservice.service.CollaborationRealtime;
 import fu.tripsense.tripservice.service.TripCollaborationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -15,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/trips")
@@ -23,6 +28,34 @@ public class TripCollaborationController {
 
   private final TripCollaborationService collaborationService;
   private final CurrentUserProvider currentUserProvider;
+  private final CollaborationRealtime collaborationRealtime;
+
+  @GetMapping("/invitations/token/{token}")
+  public ApiResponse<TripInvitationPreviewResponse> previewInvitation(@PathVariable String token) {
+    return ApiResponse.success(collaborationService.previewInvitation(token));
+  }
+
+  @GetMapping(value = "/{tripId}/collaboration/events", produces = "text/event-stream")
+  public SseEmitter streamCollaborationEvents(
+      @PathVariable UUID tripId,
+      @RequestParam(defaultValue = "0") long afterRevision,
+      @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
+    UUID userId = currentUserProvider.userId();
+    if (!collaborationService.hasReadAccess(userId, tripId)) {
+      throw new NotFoundException("TRIP_NOT_FOUND", "Trip not found");
+    }
+    long cursor = Math.max(afterRevision, parseCursor(lastEventId));
+    return collaborationRealtime.connect(tripId, userId, cursor);
+  }
+
+  private long parseCursor(String value) {
+    if (value == null || value.isBlank()) return 0L;
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException exception) {
+      throw new ValidationException("INVALID_EVENT_CURSOR", "Event cursor must be a number");
+    }
+  }
 
   // TF-76: Invite a user to a trip
   @PostMapping("/{tripId}/invitations")

@@ -265,6 +265,17 @@ All existing backend API contracts remain unchanged:
   - Updated `mindtrip-place-card.test.tsx` for arrow button navigation, border-free container, Vietnamese and English review count & rating parity.
   - Verified TypeScript typecheck (`tsc --noEmit`), i18n check (`npm run i18n:check`), and all 20 places tests (`npm run test -- src/features/places`).
 
+### Phase 6: Map Sidebar Flicker Regression Fix
+- [x] **Task 6.1 (Final-Layout Sidebar Toggle)**:
+  - Disabled animated sidebar width changes on `/explore`, `/explore/**`, `/places`, and `/places/**` so the map container moves directly to its final layout width.
+  - Preserved the existing sidebar width animation on non-map workspaces.
+- [x] **Task 6.2 (Single-Frame Map Resize)**:
+  - Coalesced app-sidebar, feed-panel, and `ResizeObserver` layout notifications into one `map.resize()` call on the next animation frame.
+  - Removed the delayed 320ms second resize that could repaint the WebGL canvas after the layout had already settled.
+- [x] **Task 6.3 (Regression Verification)**:
+  - Added route classification tests covering map, chat, and ordinary workspaces.
+  - Verified 48 Vitest suites / 258 tests, TypeScript, i18n validation, ESLint (0 errors), and the production webpack build.
+
 ---
 
 ## Human Approval Gate & Completion

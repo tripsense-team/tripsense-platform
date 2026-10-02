@@ -7,6 +7,14 @@ Track every feature that enters the multi-agent workflow.
 | `shared-place-templates-and-partner-workspaces` | DONE | `apps/web/tripsense`, `services/trip-service`; existing Gateway routes | [Docs](./shared-place-templates-and-partner-workspaces.md) |
 | `hotel-payos-payment` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-payos-payment.md) |
 | `hotel-demo-commerce-and-pr66-remediation` | DONE | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-demo-commerce-and-pr66-remediation.md) |
+| `ai-service-dynamic-gemini-key-pool` | DONE | `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-dynamic-gemini-key-pool.md) |
+| `ai-conversational-trip-intake-auto-commit` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/trip-service`, `services/place-service` | [Docs](./ai-conversational-trip-intake-auto-commit.md) |
+| `ai-chat-mindtrip-experience-enhancement` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-chat-mindtrip-experience-enhancement.md) |
+| `ai-chat-trip-aware-rich-itinerary` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2`, `services/trip-service`, `services/api-gateway` | [Docs](./ai-chat-trip-aware-rich-itinerary.md) |
+| `ai-planner-trip-detail-panel` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/ai-service-v2`, `services/api-gateway` | [Docs](./ai-planner-trip-detail-panel.md) |
+| `ai-v2-mindtrip-sidebar-drawer` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2` | [Docs](./ai-v2-mindtrip-sidebar-drawer.md) |
+| `ai-service-v2` | DONE | `services/ai-service-v2`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-v2.md) |
+| `save-add-place-and-community-reviews` | APPROVED; IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/trip-service`, `services/social-service`, `services/user-service` | [Docs](./save-add-place-and-community-reviews.md) |
 | `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |
 | `explore-category-discovery-and-pagination` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./explore-category-discovery-and-pagination.md) |
 | `place-batch-enrichment-and-ziomap-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./place-batch-enrichment-and-ziomap-settings.md) |
@@ -36,6 +44,7 @@ Track every feature that enters the multi-agent workflow.
 | `social-post-management` | DONE | `apps/web/tripsense`, `services/social-service`, `services/api-gateway`, `services/user-service` (profile snapshot) | [Docs](./social-post-management/index.md) |
 | `trip-sharing` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/social-service`, `services/trip-service` | [Docs](./trip-sharing/index.md) |
 | `trip-collaboration` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./trip-collaboration.md) |
+| `collaborative-itinerary-editing` | APPROVED | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./collaborative-itinerary-editing.md) |
 | `community-experience-redesign` | IMPLEMENTING | `apps/web/tripsense`, `services/social-service`, `services/trip-service`, `services/api-gateway` | [Docs](./community-experience-redesign/index.md) |
 | `community-discovery-rail` | APPROVED | `apps/web/tripsense`, `services/social-service`, `services/user-service`, `services/trip-service`, `services/api-gateway`; future `context-service` | [Docs](./community-discovery-rail/index.md) |
 | `google-oauth-login` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/user-service` | [Docs](./google-oauth-login/index.md) |
@@ -46,6 +55,7 @@ Track every feature that enters the multi-agent workflow.
 | `auth-token-cleanup-cronjob` | DONE | `services/user-service` | [Docs](./auth-token-cleanup-cronjob.md) |
 | `community-destination-weather` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./community-destination-weather.md) |
 | `chat-notifications-and-unread-badge` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./chat-notifications-and-unread-badge.md) |
+| `profile-password-management` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/user-service`, `services/mail-service` | [Docs](./profile-password-management.md) |
 
 ## Statuses
 

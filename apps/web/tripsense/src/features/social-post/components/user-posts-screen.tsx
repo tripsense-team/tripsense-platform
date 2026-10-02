@@ -55,15 +55,16 @@ export function UserPostsScreen({ userId }: UserPostsScreenProps) {
   const standardPosts = posts.filter((post) => post.type !== "TRIP_SHARE");
   const tripPosts = posts.filter((post) => post.type === "TRIP_SHARE");
 
-  const authorName = author?.name || "Người dùng";
+  const authorName = profile?.displayName || author?.name || "Người dùng";
   const authorInitials = React.useMemo(() => {
-    if (!author?.name) return "U";
-    const parts = author.name.trim().split(" ");
+    const name = profile?.displayName || author?.name;
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
     }
-    return author.name.slice(0, 2).toUpperCase();
-  }, [author]);
+    return name.slice(0, 2).toUpperCase();
+  }, [profile?.displayName, author?.name]);
 
   React.useEffect(() => {
     if (author?.isFollowing !== undefined) {

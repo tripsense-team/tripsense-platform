@@ -20,6 +20,7 @@ import {
   Send,
   Share2,
   ShieldCheck,
+  Radio,
   Trash2,
   Pencil,
   Users,
@@ -33,6 +34,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { ApiError } from "@/services/api-client";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { useTranslation } from "@/i18n";
+import { useCollaborativeItinerarySync } from "@/features/trip-management/hooks";
 import { socialPostRepository } from "@/features/social-post/services";
 import { AddItemDialog, EditItemDialog } from "@/features/trip-management/components/trip-dialogs";
 import { TripMembersDialog } from "@/features/trip-management/components/trip-members-dialog";
@@ -44,6 +47,8 @@ import { chainItineraryItemsTimes, chainItineraryResponse, formatDisplayTimeRang
 import { getPlaceDetails, searchPlaces } from "@/features/places/services/places-api";
 import type { Place } from "@/features/places/types";
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
+import { ScheduleTripPlaceDialog, TripPlacePool } from "@/features/place-actions";
+import type { TripPlace } from "@/features/place-actions";
 import { cn } from "@/lib/utils";
 
 const MapVinaContainer = dynamic(
@@ -255,6 +260,7 @@ interface TripSharingWorkspaceProps {
 
 export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProps = {}) {
   const user = useAuthStore((state) => state.user);
+  const { t } = useTranslation();
   const [trips, setTrips] = React.useState<TripResponse[]>([]);
   const [trip, setTrip] = React.useState<TripResponse | null>(null);
   const [itinerary, setItinerary] = React.useState<ItineraryResponse | null>(null);
@@ -283,6 +289,8 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   const [editingItem, setEditingItem] = React.useState<ItineraryItemResponse | null>(null);
   const [editItemDraft, setEditItemDraft] = React.useState<UpdateItineraryItemRequest | null>(null);
   const [submittingEdit, setSubmittingEdit] = React.useState(false);
+  const [editItemError, setEditItemError] = React.useState<string | null>(null);
+  const [schedulingPlace, setSchedulingPlace] = React.useState<TripPlace | null>(null);
 
   const places = useResolvedTripPlaces(trip, itinerary);
   const itemPhotoUrls = useItineraryItemPhotoCache(trip, itinerary);
@@ -302,6 +310,29 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     const [freshTrip, freshItinerary] = await Promise.all([getTrip(tripId), getItinerary(tripId)]);
     return { trip: freshTrip, itinerary: chainItineraryResponse(freshItinerary) };
   }, []);
+
+  const activeTripId = trip?.id ?? null;
+  const refreshCollaborativeItinerary = React.useCallback(async () => {
+    if (!activeTripId) return;
+    const freshItinerary = await getItinerary(activeTripId);
+    setItinerary(chainItineraryResponse(freshItinerary));
+    return freshItinerary.revision ?? 0;
+  }, [activeTripId]);
+
+  const collaborationConnection = useCollaborativeItinerarySync({
+    tripId: activeTripId,
+    revision: itinerary?.revision ?? 0,
+    onRefresh: refreshCollaborativeItinerary,
+    onMemberChange: () => {
+      window.dispatchEvent(
+        new CustomEvent("trip-collaboration:changed", {
+          detail: { tripId: activeTripId },
+        }),
+      );
+    },
+  });
+
+  const canEditItinerary = itinerary?.capabilities?.canEdit ?? false;
 
   const applyWorkspaceData = React.useCallback(async () => {
     const page = await listTrips({ size: 20 });
@@ -425,7 +456,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
 
   async function handleAddItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!trip || !addItemDay) return;
+    if (!trip || !addItemDay || !canEditItinerary) return;
 
     setSubmittingItem(true);
     setItemError(null);
@@ -435,6 +466,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         startTime: itemDraft.startTime || null,
         endTime: itemDraft.endTime || null,
         durationMinutes: itemDurationMinutes(itemDraft),
+        expectedTripRevision: itinerary?.revision,
       });
       const freshItinerary = await getItinerary(trip.id);
       setItinerary(freshItinerary);
@@ -442,14 +474,19 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
       setAddItemDay(null);
       setItemDraft(newItemDraft());
     } catch (err) {
-      setItemError(err instanceof Error ? err.message : "Could not add place to this day");
+      if (err instanceof ApiError && err.status === 409) {
+        await refreshCollaborativeItinerary();
+        setItemError(t("trip.collaborationConflict"));
+      } else {
+        setItemError(err instanceof Error ? err.message : "Could not add place to this day");
+      }
     } finally {
       setSubmittingItem(false);
     }
   }
 
   async function handleQuickAddItem(payload: CreateItineraryItemRequest) {
-    if (!trip || !addItemDay) return;
+    if (!trip || !addItemDay || !canEditItinerary) return;
 
     setSubmittingItem(true);
     setItemError(null);
@@ -459,6 +496,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         startTime: payload.startTime || null,
         endTime: payload.endTime || null,
         durationMinutes: itemDurationMinutes(payload),
+        expectedTripRevision: itinerary?.revision,
       });
       const freshItinerary = await getItinerary(trip.id);
       setItinerary(freshItinerary);
@@ -466,14 +504,19 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
       setAddItemDay(null);
       setItemDraft(newItemDraft());
     } catch (err) {
-      setItemError(err instanceof Error ? err.message : "Could not add place to this day");
+      if (err instanceof ApiError && err.status === 409) {
+        await refreshCollaborativeItinerary();
+        setItemError(t("trip.collaborationConflict"));
+      } else {
+        setItemError(err instanceof Error ? err.message : "Could not add place to this day");
+      }
     } finally {
       setSubmittingItem(false);
     }
   }
 
   async function handleReorderItems(day: ItineraryDayResponse, orderedItemIds: string[], retryOnConflict = true) {
-    if (!trip) return;
+    if (!trip || !canEditItinerary) return;
 
     const currentOrder = day.items.map((candidate) => candidate.id).join("|");
     const nextOrder = orderedItemIds.join("|");
@@ -499,7 +542,11 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     setSubmittingReorder(true);
     setError(null);
     try {
-      const nextDay = await reorderItineraryItems(trip.id, day.id, { orderedItemIds, version: day.version });
+      const nextDay = await reorderItineraryItems(trip.id, day.id, {
+        orderedItemIds,
+        version: day.version,
+        expectedTripRevision: itinerary?.revision,
+      });
       const chainedDay = {
         ...nextDay,
         items: chainItineraryItemsTimes(nextDay.items),
@@ -535,7 +582,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   }
 
   async function handleDeleteItem(item: ItineraryItemResponse) {
-    if (!trip) return;
+    if (!trip || !canEditItinerary) return;
 
     setItinerary((current) => {
       if (!current) return null;
@@ -550,7 +597,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     });
 
     try {
-      await deleteItineraryItem(trip.id, item.id);
+      await deleteItineraryItem(trip.id, item.id, itinerary?.revision, item.version);
       const details = await loadTripDetails(trip.id);
       setItinerary(details.itinerary);
       setFeedbackMessage("Đã xóa địa điểm khỏi lịch trình.");
@@ -562,6 +609,8 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   }
 
   function handleStartEditItem(item: ItineraryItemResponse) {
+    if (!canEditItinerary) return;
+    setEditItemError(null);
     setEditingItem(item);
     setEditItemDraft({
       placeId: item.placeId,
@@ -578,15 +627,16 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
 
   async function handleUpdateItem(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!trip || !editingItem || !editItemDraft) return;
+    if (!trip || !editingItem || !editItemDraft || !canEditItinerary) return;
 
     setSubmittingEdit(true);
-    setError(null);
+    setEditItemError(null);
     try {
       const updatedPayload = {
         ...editItemDraft,
         title: editItemDraft.title?.trim() || editingItem.title,
         durationMinutes: itemDurationMinutes(editItemDraft),
+        expectedTripRevision: itinerary?.revision,
       };
 
       setItinerary((current) => {
@@ -607,11 +657,11 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
       setEditItemDraft(null);
       const details = await loadTripDetails(trip.id);
       setItinerary(details.itinerary);
-      setFeedbackMessage("Đã cập nhật thông tin địa điểm.");
+      setFeedbackMessage(t("trip.itemUpdatedSuccess"));
     } catch (err) {
       const details = await loadTripDetails(trip.id);
       setItinerary(details.itinerary);
-      setError(err instanceof Error ? err.message : "Could not update itinerary item");
+      setEditItemError(err instanceof Error ? err.message : t("trip.itemUpdateError"));
     } finally {
       setSubmittingEdit(false);
     }
@@ -729,6 +779,9 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         onShare={() => setShareOpen(true)}
         onAddPlace={() => setAddItemDay(itinerary?.days[0] ?? null)}
         onInvite={() => setMembersDialogOpen(true)}
+        canEdit={canEditItinerary}
+        collaborationConnection={collaborationConnection}
+        collaborationLabel={t(`trip.collaboration${collaborationConnection[0].toUpperCase()}${collaborationConnection.slice(1)}`)}
       />
 
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -742,6 +795,11 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
             ))}
             <Badge variant="secondary" className="ml-auto rounded-full">{itineraryItemCount(itinerary)} selected</Badge>
           </div>
+          <TripPlacePool
+            tripId={trip.id}
+            canEdit={canEditItinerary}
+            onSchedule={setSchedulingPlace}
+          />
           <ItineraryList
             trip={trip}
             itinerary={itinerary}
@@ -751,6 +809,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
             onReorderItems={handleReorderItems}
             onDeleteItem={handleDeleteItem}
             onEditItem={handleStartEditItem}
+            canEdit={canEditItinerary}
           />
         </div>
 
@@ -823,15 +882,29 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
       <EditItemDialog
         item={editingItem}
         draft={editItemDraft}
+        error={editItemError}
         submitting={submittingEdit}
         onOpenChange={(open) => {
           if (!open) {
             setEditingItem(null);
             setEditItemDraft(null);
+            setEditItemError(null);
           }
         }}
         onDraftChange={setEditItemDraft}
         onSubmit={handleUpdateItem}
+      />
+      <ScheduleTripPlaceDialog
+        tripId={trip.id}
+        place={schedulingPlace}
+        days={itinerary?.days ?? []}
+        expectedTripRevision={itinerary?.revision}
+        onOpenChange={(open) => setSchedulingPlace(open ? schedulingPlace : null)}
+        onScheduled={async () => {
+          const freshItinerary = await getItinerary(trip.id);
+          setItinerary(chainItineraryResponse(freshItinerary));
+          setFeedbackMessage(t("trip.scheduledPlaceSuccess"));
+        }}
       />
       <TripMembersDialog
         tripId={trip.id}
@@ -888,6 +961,9 @@ function TripHero({
   onShare,
   onAddPlace,
   onInvite,
+  canEdit,
+  collaborationConnection,
+  collaborationLabel,
 }: {
   trip: TripResponse;
   itinerary: ItineraryResponse | null;
@@ -896,6 +972,9 @@ function TripHero({
   onShare: () => void;
   onAddPlace: () => void;
   onInvite?: () => void;
+  canEdit: boolean;
+  collaborationConnection: "connecting" | "connected" | "reconnecting";
+  collaborationLabel: string;
 }) {
   return (
     <section className="relative isolate overflow-hidden">
@@ -914,6 +993,10 @@ function TripHero({
           <Badge className="rounded-full bg-primary text-primary-foreground">
             <Globe2 className="mr-1 h-3 w-3" />
             {visibilityLabel}
+          </Badge>
+          <Badge className="rounded-full bg-background/90 text-foreground hover:bg-background" role="status" aria-live="polite">
+            <Radio className={cn("mr-1 h-3 w-3", collaborationConnection !== "connected" && "animate-pulse")} />
+            {collaborationLabel}
           </Badge>
         </div>
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-normal">
@@ -935,7 +1018,7 @@ function TripHero({
               <Share2 className="h-4 w-4" />
               Share Trip
             </Button>
-            <Button type="button" variant="secondary" className="rounded-full font-bold" onClick={onAddPlace} disabled={!itinerary?.days.length}>
+            <Button type="button" variant="secondary" className="rounded-full font-bold" onClick={onAddPlace} disabled={!canEdit || !itinerary?.days.length}>
               <Plus className="h-4 w-4" />
               Add Place
             </Button>
@@ -1030,6 +1113,7 @@ function ItineraryList({
   onReorderItems,
   onDeleteItem,
   onEditItem,
+  canEdit,
 }: {
   trip: TripResponse;
   itinerary: ItineraryResponse | null;
@@ -1039,6 +1123,7 @@ function ItineraryList({
   onReorderItems: (day: ItineraryDayResponse, orderedItemIds: string[]) => Promise<void>;
   onDeleteItem?: (item: ItineraryItemResponse) => void;
   onEditItem?: (item: ItineraryItemResponse) => void;
+  canEdit: boolean;
 }) {
   const [draggingItemId, setDraggingItemId] = React.useState<string | null>(null);
   const [dropTarget, setDropTarget] = React.useState<{ itemId: string; position: "before" | "after" } | null>(null);
@@ -1102,7 +1187,7 @@ function ItineraryList({
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="rounded-full text-primary">{day.items.length} stops</Badge>
-              <Button type="button" size="sm" variant="outline" className="rounded-full" onClick={() => onAddItem(day)}>
+              <Button type="button" size="sm" variant="outline" className="rounded-full" onClick={() => onAddItem(day)} disabled={!canEdit}>
                 <Plus className="h-4 w-4" />
                 Add
               </Button>
@@ -1116,7 +1201,7 @@ function ItineraryList({
                 photoUrl={itemPhotoUrls[item.id] ?? fallbackImageForItineraryItem(item, trip)}
                 dragging={draggingItemId === item.id}
                 dropPosition={dropTarget?.itemId === item.id ? dropTarget.position : null}
-                draggable={!submitting}
+                draggable={canEdit && !submitting}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = "move";
                   event.dataTransfer.setData("text/plain", item.id);
@@ -1142,8 +1227,8 @@ function ItineraryList({
                   setDraggingItemId(null);
                   setDropTarget(null);
                 }}
-                onDelete={onDeleteItem}
-                onEdit={onEditItem}
+                onDelete={canEdit ? onDeleteItem : undefined}
+                onEdit={canEdit ? onEditItem : undefined}
               />
             ))}
           </div>

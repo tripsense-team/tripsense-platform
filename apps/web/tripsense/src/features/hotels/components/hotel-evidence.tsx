@@ -1,7 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useTranslation } from "@/i18n";
-import type { AiArtifact } from "@/features/ai-chat/types";
+export interface AiArtifact {
+  type?: string;
+  data: Record<string, unknown>;
+}
 
 export function HotelEvidence({ artifact }: { artifact: AiArtifact }) {
   const { t } = useTranslation();

@@ -71,4 +71,31 @@ public class ResendMailUtil {
       throw new EmailSendException("Unexpected email sending error: " + e.getMessage(), e);
     }
   }
+
+  public CreateEmailResponse sendHtmlEmail(String toEmail, String subject, String html) {
+    if (resendApiKey == null || resendApiKey.isBlank()) {
+      log.error(
+          "RESEND_API_KEY is not configured; invitation email to {} was not delivered", toEmail);
+      throw new EmailSendException("Email provider is not configured");
+    }
+
+    try {
+      CreateEmailOptions params =
+          CreateEmailOptions.builder()
+              .from(resendFromEmail)
+              .to(toEmail)
+              .subject(subject)
+              .html(html)
+              .build();
+      CreateEmailResponse response = new Resend(resendApiKey).emails().send(params);
+      log.info("HTML email sent successfully to {}. Resend ID: {}", toEmail, response.getId());
+      return response;
+    } catch (ResendException exception) {
+      log.error("Failed to send HTML email via Resend to {}", toEmail, exception);
+      throw new EmailSendException("Failed to send email via Resend", exception);
+    } catch (Exception exception) {
+      log.error("Unexpected error while sending HTML email to {}", toEmail, exception);
+      throw new EmailSendException("Unexpected email sending error", exception);
+    }
+  }
 }

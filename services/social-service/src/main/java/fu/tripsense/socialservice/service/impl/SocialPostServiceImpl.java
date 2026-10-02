@@ -71,7 +71,7 @@ public class SocialPostServiceImpl implements SocialPostService {
   @Value("${cloudinary.folder-prefix:tripsense/social}")
   private String folderPrefix;
 
-  @Value("${cloudinary.signature-algorithm:sha256}")
+  @Value("${cloudinary.signature-algorithm:sha1}")
   private String signatureAlgorithm;
 
   @Override

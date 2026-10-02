@@ -67,6 +67,20 @@ payos:
   checksum-key: ${PAY_OS_CHECKSUM_KEY:}
   return-base-url: ${PAYOS_RETURN_BASE_URL:http://localhost:3000}
 
+ai:
+  commit-secret: ${AI_TRIP_COMMIT_SECRET:}
+
+mail-service:
+  url: ${EMAIL_SERVICE_URL:http://localhost:${MAIL_SERVICE_PORT:8082}}
+  internal-api-key: ${MAIL_INTERNAL_API_KEY}
+
+web-app:
+  url: ${WEB_APP_URL:http://localhost:3000}
+
+trip-collaboration:
+  event-retention: ${TRIP_COLLABORATION_EVENT_RETENTION:24h}
+  cleanup-delay-ms: ${TRIP_COLLABORATION_CLEANUP_DELAY_MS:3600000}
+
 management:
   endpoint:
     health:

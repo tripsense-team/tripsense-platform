@@ -1,10 +1,13 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PlaceDetailOverlay } from "./place-detail-overlay";
 import { PlaceDetailContent } from "./place-detail-content";
 import { I18nProvider } from "@/i18n";
 import type { Place } from "../types";
+vi.mock("@/features/community-reviews", () => ({
+  CommunityReviewsSection: () => <div>Community reviews</div>,
+}));
 
 const mockPlace: Place = {
   id: "test-place-detail-1",
@@ -48,9 +51,9 @@ describe("PlaceDetailOverlay", () => {
     expect(html).toContain('aria-label="Nghe thuyết minh"');
     expect(html).toContain('aria-label="Chia sẻ"');
     // Navigation Tabs
-    expect(html).toContain("Overview");
-    expect(html).toContain("Reviews");
-    expect(html).toContain("Location");
+    expect(html).toContain("Tổng quan");
+    expect(html).toContain("Đánh giá");
+    expect(html).toContain("Vị trí");
     // Metadata
     expect(html).toContain("47 Đ. Ông Ích Khiêm, Phú Xuân, Huế 53000, Vietnam");
     expect(html).toContain("Get directions");
@@ -221,4 +224,3 @@ describe("PlaceDetailOverlay", () => {
     expect(html).toContain("Tiện ích hồ bơi và spa");
   });
 });
-

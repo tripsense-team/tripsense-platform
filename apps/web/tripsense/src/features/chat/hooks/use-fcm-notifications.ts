@@ -11,6 +11,8 @@ let globalSyncPromise: Promise<string | null> | null = null;
 export function useFcmNotifications() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const status = useAuthStore((s) => s.status);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const registeredTokenRef = useRef<string | null>(null);
 
   const [permission, setPermission] = useState<NotificationPermission>(() => {
@@ -21,6 +23,17 @@ export function useFcmNotifications() {
   });
 
   const syncToken = useCallback(async () => {
+    // Only attempt sync if user is genuinely authenticated with an active access token
+    const authState = useAuthStore.getState();
+    if (
+      !authState.isAuthenticated ||
+      !authState.user ||
+      !authState.accessToken ||
+      authState.status !== "authenticated"
+    ) {
+      return null;
+    }
+
     if (globalSyncPromise) {
       return globalSyncPromise;
     }
@@ -30,16 +43,20 @@ export function useFcmNotifications() {
         const token = await requestFcmToken();
         if (!token) return null;
 
+        const currentUserId = useAuthStore.getState().user?.id;
+        if (!currentUserId) return null;
+
+        const userStorageKey = `${FCM_TOKEN_STORAGE_KEY}_${currentUserId}`;
         const storedToken =
           typeof window !== "undefined"
-            ? localStorage.getItem(FCM_TOKEN_STORAGE_KEY)
+            ? localStorage.getItem(userStorageKey)
             : null;
 
         if (token !== storedToken || registeredTokenRef.current !== token) {
           await chatApi.registerFcmToken(token);
           console.info("[FCM] ✅ Đã lưu FCM Token lên cơ sở dữ liệu chat!");
           if (typeof window !== "undefined") {
-            localStorage.setItem(FCM_TOKEN_STORAGE_KEY, token);
+            localStorage.setItem(userStorageKey, token);
           }
           registeredTokenRef.current = token;
         }
@@ -112,7 +129,8 @@ export function useFcmNotifications() {
       setPermission(Notification.permission);
     }
 
-    if (!isAuthenticated || !user) {
+    // Guard: only initialize FCM when user is fully authenticated with token in RAM
+    if (!isAuthenticated || !user || !accessToken || status !== "authenticated") {
       return;
     }
 
@@ -121,7 +139,11 @@ export function useFcmNotifications() {
 
     async function initFcm() {
       // If permission is already granted, silently sync token & register listener
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
         const token = await syncToken();
         if (!isMounted || !token) return;
       }
@@ -142,7 +164,7 @@ export function useFcmNotifications() {
         unsubscribeForeground();
       }
     };
-  }, [isAuthenticated, user?.id, syncToken]);
+  }, [isAuthenticated, user?.id, accessToken, status, syncToken]);
 
   return {
     permission,
@@ -154,13 +176,19 @@ export function useFcmNotifications() {
 
 export async function revokeFcmTokenOnLogout(): Promise<void> {
   try {
+    const currentUserId = useAuthStore.getState().user?.id;
+    const userStorageKey = currentUserId
+      ? `${FCM_TOKEN_STORAGE_KEY}_${currentUserId}`
+      : FCM_TOKEN_STORAGE_KEY;
     const storedToken =
       typeof window !== "undefined"
-        ? localStorage.getItem(FCM_TOKEN_STORAGE_KEY)
+        ? localStorage.getItem(userStorageKey) ||
+          localStorage.getItem(FCM_TOKEN_STORAGE_KEY)
         : null;
     if (storedToken) {
       await chatApi.unregisterFcmToken(storedToken).catch(() => {});
       if (typeof window !== "undefined") {
+        localStorage.removeItem(userStorageKey);
         localStorage.removeItem(FCM_TOKEN_STORAGE_KEY);
       }
     }

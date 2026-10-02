@@ -23,12 +23,15 @@ import { cn } from "@/lib/utils";
 import { isSafeInternalUrl } from "@/lib/url-utils";
 import { ApiError } from "@/services/api-client";
 import { useTranslation } from "@/i18n";
+import { useForgotPassword } from "../hooks/use-forgot-password";
+import { useResetPassword } from "../hooks/use-reset-password";
 
 interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialMode?: "signin" | "signup";
-  returnUrl?: string;
+  returnUrl?: string | null;
+  initialEmail?: string | null;
 }
 
 export function AuthModal({
@@ -36,17 +39,20 @@ export function AuthModal({
   onOpenChange,
   initialMode = "signin",
   returnUrl,
+  initialEmail,
 }: AuthModalProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const { login, loginWithGoogle, register, verifyEmail, resendCode } =
     useAuth();
+  const { mutateAsync: forgotPasswordApi } = useForgotPassword();
+  const { mutateAsync: resetPasswordApi } = useResetPassword();
 
   const [mode, setMode] = React.useState<"signin" | "signup">(initialMode);
   const [step, setStep] = React.useState<AuthModalStep>("email");
 
   // Form states
-  const [email, setEmail] = React.useState("");
+  const [email, setEmail] = React.useState(initialEmail ?? "");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [otpCode, setOtpCode] = React.useState("");
@@ -88,14 +94,15 @@ export function AuthModal({
       setOtpCode("");
       setPassword("");
       setConfirmPassword("");
+      setEmail(initialEmail ?? "");
     }
     prevOpenRef.current = open;
-  }, [open, initialMode]);
+  }, [open, initialMode, initialEmail]);
 
   // OTP Countdown timer effect
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (step === "verify-otp" && timer > 0) {
+    if ((step === "verify-otp" || step === "reset-password") && timer > 0) {
       interval = setInterval(() => {
         setTimer((prev) => prev - 1);
       }, 1000);
@@ -259,7 +266,11 @@ export function AuthModal({
     setLoading(true);
     setErrorMsg("");
     try {
-      await resendCode({ email });
+      if (step === "reset-password") {
+        await forgotPasswordApi({ email });
+      } else {
+        await resendCode({ email });
+      }
       setTimer(60);
       setSuccessMsg("Mã xác thực mới đã được gửi!");
     } catch (err: unknown) {
@@ -267,6 +278,71 @@ export function AuthModal({
         getAuthErrorMessage(
           err,
           "Không thể gửi lại mã xác thực. Vui lòng thử lại sau.",
+          t,
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    if (!email.trim() || !email.includes("@")) {
+      setErrorMsg("Vui lòng nhập email hợp lệ.");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      await forgotPasswordApi({ email });
+      setStep("reset-password");
+      setTimer(60);
+      setSuccessMsg("Mã xác nhận đã được gửi đến email của bạn!");
+    } catch (err: unknown) {
+      setErrorMsg(
+        getAuthErrorMessage(
+          err,
+          "Có lỗi xảy ra. Vui lòng thử lại.",
+          t,
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    if (otpCode.length < 6) {
+      setErrorMsg("Vui lòng nhập mã OTP 6 số.");
+      return;
+    }
+    if (!password || password.length < 6) {
+      setErrorMsg("Mật khẩu mới phải có ít nhất 6 ký tự.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMsg("Mật khẩu xác nhận không khớp.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      await resetPasswordApi({ email, otp: otpCode, newPassword: password });
+      setSuccessMsg("Đổi mật khẩu thành công! Đang chuyển hướng...");
+      setTimeout(() => {
+        setMode("signin");
+        setStep("login-password");
+      }, 1500);
+    } catch (err: unknown) {
+      setErrorMsg(
+        getAuthErrorMessage(
+          err,
+          "Mã OTP không hợp lệ hoặc đã hết hạn.",
           t,
         ),
       );
@@ -496,6 +572,19 @@ export function AuthModal({
                 Đăng nhập
               </Button>
             </form>
+            <div className="text-xs pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorMsg("");
+                  setSuccessMsg("");
+                  setStep("forgot-password");
+                }}
+                className="font-medium text-muted-foreground hover:text-foreground underline transition-colors"
+              >
+                Quên mật khẩu?
+              </button>
+            </div>
           </div>
         )}
 
@@ -613,6 +702,129 @@ export function AuthModal({
                 )}
               >
                 {timer > 0 ? `Resend in ${timer}s` : "Resend Code"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Forgot Password */}
+        {step === "forgot-password" && (
+          <div className="flex flex-col items-center text-center space-y-6 pt-4">
+            <h3 className="text-xl font-bold text-foreground">
+              Khôi phục mật khẩu
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Nhập email liên kết với tài khoản của bạn để nhận mã khôi phục.
+            </p>
+
+            {errorMsg && (
+              <div
+                role="alert"
+                className="w-full flex items-start gap-2.5 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-2xl text-left break-words"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                <span className="flex-1 leading-relaxed">{errorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotPasswordSubmit} className="w-full space-y-4">
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                className="h-12 rounded-2xl px-4 text-sm"
+                required
+                autoFocus
+              />
+              <Button
+                type="submit"
+                disabled={loading || !email}
+                loading={loading}
+                loadingText="Đang gửi..."
+                className="w-full h-12 rounded-full font-semibold text-sm shadow-md"
+              >
+                Gửi mã OTP
+              </Button>
+            </form>
+          </div>
+        )}
+
+        {/* Step 5: Reset Password */}
+        {step === "reset-password" && (
+          <div className="flex flex-col items-center text-center space-y-6 pt-4">
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-foreground">
+                Đặt lại mật khẩu
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Nhập mã OTP gồm 6 chữ số được gửi tới email của bạn cùng với mật khẩu mới.
+              </p>
+            </div>
+
+            {errorMsg && (
+              <div
+                role="alert"
+                className="w-full flex items-start gap-2.5 text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-2xl text-left break-words"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-destructive" />
+                <span className="flex-1 leading-relaxed">{errorMsg}</span>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="w-full text-xs font-medium text-green-600 bg-green-500/10 border border-green-500/20 p-2.5 rounded-xl">
+                {successMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleResetPasswordSubmit} className="w-full space-y-4">
+              <OtpInput
+                value={otpCode}
+                onChange={setOtpCode}
+                disabled={loading}
+              />
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mật khẩu mới"
+                className="h-12 rounded-2xl px-4 text-sm mt-4"
+                required
+                minLength={6}
+              />
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Xác nhận mật khẩu mới"
+                className="h-12 rounded-2xl px-4 text-sm mt-3"
+                required
+                minLength={6}
+              />
+              <Button
+                type="submit"
+                disabled={loading || otpCode.length < 6 || !password || !confirmPassword}
+                loading={loading}
+                loadingText="Đang xử lý..."
+                className="w-full h-12 rounded-full font-semibold text-sm shadow-md mt-4"
+              >
+                Đặt lại mật khẩu
+              </Button>
+            </form>
+
+            <div className="text-xs text-muted-foreground pt-1">
+              Chưa nhận được mã?{" "}
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={timer > 0 || loading}
+                className={cn(
+                  "font-bold text-foreground underline hover:text-primary transition-colors",
+                  timer > 0 && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                {timer > 0 ? `Gửi lại sau ${timer}s` : "Gửi lại mã"}
               </button>
             </div>
           </div>

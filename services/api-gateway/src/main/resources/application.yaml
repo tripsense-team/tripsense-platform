@@ -70,5 +70,7 @@ tripsense:
       burst-capacity: ${CHAT_RATE_LIMIT_BURST_CAPACITY:10}
     ai:
       response-timeout: ${AI_RESPONSE_TIMEOUT:300s}
+    ai-v2:
+      url: ${AI_SERVICE_V2_URL:http://localhost:8089}
     client-ip:
       trusted-proxies: ${TRUSTED_PROXY_CIDRS:127.0.0.1/32,::1/128}

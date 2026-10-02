@@ -54,6 +54,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                     .permitAll()
                     .requestMatchers("/internal/**")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/trips/invitations/token/*")
+                    .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
                     .requestMatchers(

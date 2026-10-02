@@ -16,6 +16,7 @@ public record ItineraryBatchOperation(
     UUID itemId,
     Long expectedItemVersion,
     @Pattern(regexp = "^[A-Za-z0-9._:-]{1,200}$") String placeRef,
+    UUID sourceItemKey,
     @Size(max = 200) String title,
     ItineraryItemType itemType,
     LocalTime startTime,

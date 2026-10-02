@@ -79,7 +79,12 @@ describe("Frontend Error Sanitizer", () => {
       },
     };
 
-    const cleaned = sanitizeErrorData(rawPayload, 500) as Record<string, any>;
+    const cleaned = sanitizeErrorData(rawPayload, 500) as Record<string, unknown> & {
+      stackTrace?: unknown;
+      sql?: unknown;
+      meta: { trace?: unknown; serviceName?: string };
+      message?: string;
+    };
 
     expect(cleaned.stackTrace).toBeUndefined();
     expect(cleaned.sql).toBeUndefined();

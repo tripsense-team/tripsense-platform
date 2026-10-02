@@ -2,6 +2,10 @@ eureka:
   client:
     enabled: false
 
+tripsense:
+  saved-place-index-migration:
+    enabled: false
+
 spring:
   cloud:
     discovery:

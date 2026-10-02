@@ -12,9 +12,8 @@ import {
   LandingFeaturesGrid,
   LandingTestimonials,
 } from "@/features/explore";
-import { AuthModal, useAuth, isUserAdmin } from "@/features/auth";
+import { AuthModal, safeInternalReturnUrl, useAuth, isUserAdmin } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
-import { isSafeInternalUrl, sanitizeReturnUrl } from "@/lib/url-utils";
 
 function LandingContent() {
   const router = useRouter();
@@ -26,8 +25,8 @@ function LandingContent() {
 
   const signinParam = searchParams.get("signin");
   const signupParam = searchParams.get("signup");
-  const rawReturnUrl = searchParams.get("returnUrl");
-  const returnUrl = sanitizeReturnUrl(rawReturnUrl, undefined);
+  const returnUrl = safeInternalReturnUrl(searchParams.get("returnUrl"));
+  const initialEmail = searchParams.get("email");
 
   // Authenticated User Route Rule:
   // If user is already authenticated, NEVER show landing page -> redirect to destination
@@ -86,6 +85,7 @@ function LandingContent() {
         onOpenChange={handleOpenChange}
         initialMode={authMode}
         returnUrl={returnUrl}
+        initialEmail={initialEmail}
       />
     </div>
   );

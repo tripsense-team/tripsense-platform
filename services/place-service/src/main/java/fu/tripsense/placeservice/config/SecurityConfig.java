@@ -40,7 +40,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/places/admin/**")
                     .hasRole("ADMIN")
                     .requestMatchers("/api/places/internal/**")
-                    .hasRole("ADMIN")
+                    .permitAll()
                     .requestMatchers(
                         HttpMethod.GET,
                         "/api/places/search",

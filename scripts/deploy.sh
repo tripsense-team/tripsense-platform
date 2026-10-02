@@ -77,6 +77,7 @@ REQUIRED_VARS=(
   "CLOUDINARY_API_KEY:API Key Cloudinary cho social-service"
   "CLOUDINARY_API_SECRET:API Secret Cloudinary cho social-service"
   "CONTEXT_ENCRYPTION_SECRET:Khóa mã hóa bảo mật dữ liệu cho context-service"
+  "AI_TRIP_COMMIT_SECRET:Khóa bí mật HMAC ký kết lưu lịch trình giữa ai-service và trip-service"
   "OPENAI_API_KEY:API Key OpenAI cho ai-service (tính năng gợi ý & chat AI)"
 )
 
@@ -135,18 +136,38 @@ done
 echo "=== Pull Docker images ==="
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" pull
 
-echo "=== Start containers ==="
-docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --remove-orphans
+echo "=== Start containers in waves (Prevent CPU Starvation) ==="
+
+# Wave 1: Discovery Server, Certbot & Ingress
+echo "--> [Wave 1/3] Starting Discovery Server, Certbot & Ingress..."
+docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d discovery-server certbot nginx
+
+echo "Waiting 25s for Discovery Server to initialize..."
+sleep 25
+
+# Wave 2: Core Data Services
+echo "--> [Wave 2/3] Starting Core Backend & AI Services..."
+docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d \
+  place-service mail-service user-service context-service trip-service ai-service
+
+echo "Waiting 20s for Core Services to stabilize..."
+sleep 20
+
+# Wave 3: Composite Services, Recommendation, Gateway & Web
+echo "--> [Wave 3/3] Starting Social, Recommendation, Gateway & Web Frontend..."
+docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --remove-orphans \
+  social-service recommendation-service api-gateway web
 
 echo "=== Waiting for core services to become healthy (Zero-Downtime Guard) ==="
-MAX_WAIT_SECONDS=120
+MAX_WAIT_SECONDS=180
 WAIT_INTERVAL=5
 ELAPSED=0
 
 check_health() {
   local service_name="$1"
+  local container_name="${PROJECT_NAME}-${service_name}-1"
   local status
-  status=$(docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" ps "$service_name" --format json 2>/dev/null | grep -o '"Health":"[^"]*"' | head -n 1 | cut -d'"' -f4 || true)
+  status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_name" 2>/dev/null || true)
   if [ -z "$status" ]; then
     local cid
     cid=$(docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" ps -q "$service_name" 2>/dev/null || true)
@@ -177,7 +198,7 @@ done
 if [ "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]; then
   echo "❌ Error: Timed out waiting for core services to become healthy after ${MAX_WAIT_SECONDS}s!"
   echo "=== Container logs snapshot for debugging ==="
-  docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" logs --tail=50 web api-gateway || true
+  docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" logs --tail=50 web api-gateway recommendation-service || true
   exit 1
 fi
 

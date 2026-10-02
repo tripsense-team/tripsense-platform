@@ -47,6 +47,7 @@ export function EditProfileModal({
 
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
   const [isUploadingCover, setIsUploadingCover] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   const { mutateAsync, isLoading: isSaving, error } = useUpdateProfile();
 
@@ -73,8 +74,10 @@ export function EditProfileModal({
       body.append("api_key", signature.apiKey);
       body.append("timestamp", signature.timestamp.toString());
       body.append("signature", signature.signature);
+      if (signature.signature.length === 64) {
+        body.append("signature_algorithm", "sha256");
+      }
       body.append("folder", signature.folder);
-      body.append("allowed_formats", signature.allowedFormats.join(","));
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`,
@@ -106,8 +109,37 @@ export function EditProfileModal({
     if (file) handleUploadImage(file, isCover);
   };
 
+  const [validationError, setValidationError] = React.useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
+    setSuccessMessage(null);
+
+    if (!displayName.trim()) {
+      setValidationError("Tên hiển thị không được để trống");
+      return;
+    }
+
+    const isValidUrl = (url: string) => {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (facebook && !isValidUrl(facebook)) {
+      setValidationError("Đường dẫn Facebook không hợp lệ");
+      return;
+    }
+
+    if (instagram && !isValidUrl(instagram)) {
+      setValidationError("Đường dẫn Instagram không hợp lệ");
+      return;
+    }
+
     const socialPorts: Record<string, string> = {};
     if (facebook) socialPorts.facebook = facebook;
     if (instagram) socialPorts.instagram = instagram;
@@ -127,8 +159,12 @@ export function EditProfileModal({
         avatar: avatarUrl || undefined,
         name: displayName || undefined,
       });
+      setSuccessMessage("Cập nhật thông tin thành công!");
       onSuccess();
-      onClose();
+      setTimeout(() => {
+        onClose();
+        setSuccessMessage(null);
+      }, 1500);
     } catch {
       // Error is handled by hook
     }
@@ -262,6 +298,8 @@ export function EditProfileModal({
             </div>
           </div>
 
+          {successMessage && <div className="text-sm text-green-600 font-medium">{successMessage}</div>}
+          {validationError && <div className="text-sm text-red-500">{validationError}</div>}
           {error && <div className="text-sm text-red-500">{error.message}</div>}
 
           <DialogFooter>

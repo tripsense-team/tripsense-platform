@@ -334,7 +334,7 @@ export function ExploreFeedHeader({
       </div>
 
       {/* 2. Search & Filter Bar Row */}
-      <div className="relative flex items-center gap-2.5 z-40" ref={searchContainerRef}>
+      <div className="relative flex items-center gap-2.5 z-20" ref={searchContainerRef}>
         {/* Pill Search Input */}
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />

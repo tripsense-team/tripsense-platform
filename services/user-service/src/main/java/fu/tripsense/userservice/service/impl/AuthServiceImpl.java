@@ -1,24 +1,30 @@
 package fu.tripsense.userservice.service.impl;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import fu.tripsense.userservice.dto.request.ChangePasswordRequest;
+import fu.tripsense.userservice.dto.request.ForgotPasswordRequest;
 import fu.tripsense.userservice.dto.request.GoogleLoginRequest;
 import fu.tripsense.userservice.dto.request.LoginRequest;
 import fu.tripsense.userservice.dto.request.RegisterRequest;
+import fu.tripsense.userservice.dto.request.ResetPasswordRequest;
 import fu.tripsense.userservice.dto.response.LoginResponse;
 import fu.tripsense.userservice.dto.response.LoginResult;
 import fu.tripsense.userservice.dto.response.RefreshResponse;
 import fu.tripsense.userservice.dto.response.RefreshResult;
 import fu.tripsense.userservice.dto.response.UserDto;
+import fu.tripsense.userservice.entity.PasswordResetCode;
 import fu.tripsense.userservice.entity.RefreshToken;
 import fu.tripsense.userservice.entity.Session;
 import fu.tripsense.userservice.entity.User;
 import fu.tripsense.userservice.entity.UserProfile;
 import fu.tripsense.userservice.enums.UserStatus;
 import fu.tripsense.userservice.exception.OAuthAccountConflictException;
+import fu.tripsense.userservice.repository.PasswordResetCodeRepository;
 import fu.tripsense.userservice.repository.RefreshTokenRepository;
 import fu.tripsense.userservice.repository.SessionRepository;
 import fu.tripsense.userservice.repository.UserProfileRepository;
 import fu.tripsense.userservice.repository.UserRepository;
+import fu.tripsense.userservice.client.EmailClient;
 import fu.tripsense.userservice.service.AuthService;
 import fu.tripsense.userservice.service.GoogleTokenVerifier;
 import fu.tripsense.userservice.service.VerificationService;
@@ -32,7 +38,9 @@ import fu.tripsense.userservice.validator.UserValidator;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.security.SecureRandom;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +65,8 @@ public class AuthServiceImpl implements AuthService {
   private final UserProfileRepository userProfileRepository;
   private final SessionRepository sessionRepository;
   private final RefreshTokenRepository refreshTokenRepository;
+  private final PasswordResetCodeRepository passwordResetCodeRepository;
+  private final EmailClient emailClient;
   private final AuthenticationManager authenticationManager;
   private final PasswordEncoder passwordEncoder;
   private final JwtUtils jwtUtils;
@@ -395,5 +405,113 @@ public class AuthServiceImpl implements AuthService {
       UserProfile profile = UserProfile.builder().userId(userId).avatarUrl(pictureUrl).build();
       userProfileRepository.save(profile);
     }
+  }
+
+  @Override
+  @Transactional
+  public void changePassword(ChangePasswordRequest request, User currentUser) {
+    log.info("Processing change password request for user id: {}", currentUser.getId());
+
+    // Verify current password
+    if (currentUser.getPassword() == null) {
+      throw new BadCredentialsException("Your account does not have a password. Please use Google Login.");
+    }
+
+    if (!passwordEncoder.matches(request.currentPassword(), currentUser.getPassword())) {
+      throw new BadCredentialsException("Incorrect current password");
+    }
+
+    // Update to new password
+    currentUser.setPassword(passwordEncoder.encode(request.newPassword()));
+    userRepository.save(currentUser);
+
+    log.info("Password changed successfully for user id: {}", currentUser.getId());
+  }
+
+  @Override
+  @Transactional
+  public void forgotPassword(ForgotPasswordRequest request) {
+    log.info("Processing forgot password request for email: {}", request.email());
+    
+    // Validate if user exists to provide feedback to UI
+    User user =
+        userRepository
+            .findByEmail(request.email())
+            .orElseThrow(
+                () -> new BadCredentialsException("Email chưa được đăng ký trong hệ thống"));
+    
+    if (user.getPassword() == null) {
+      throw new BadCredentialsException("Tài khoản này được đăng ký qua Google, vui lòng đăng nhập bằng Google");
+    }
+
+    LocalDateTime now = LocalDateTime.now();
+    passwordResetCodeRepository
+        .findTopByUserIdOrderByCreatedAtDesc(user.getId())
+        .ifPresent(
+            existingCode -> {
+              if (existingCode.getExpiresAt().isAfter(now)) {
+                existingCode.setExpiresAt(now);
+                passwordResetCodeRepository.save(existingCode);
+              }
+            });
+
+    String rawCode = String.format("%06d", new SecureRandom().nextInt(1000000));
+    String codeHash = TokenHashUtils.hashToken(rawCode);
+
+    PasswordResetCode resetCode =
+        PasswordResetCode.builder()
+            .user(user)
+            .codeHash(codeHash)
+            .expiresAt(now.plusMinutes(10))
+            .attemptCount(0)
+            .build();
+
+    passwordResetCodeRepository.save(resetCode);
+    emailClient.sendPasswordResetCode(user.getEmail(), rawCode);
+  }
+
+  @Override
+  @Transactional
+  public void resetPassword(ResetPasswordRequest request) {
+    log.info("Processing reset password request for email: {}", request.email());
+
+    User user =
+        userRepository
+            .findByEmail(request.email())
+            .orElseThrow(() -> new BadCredentialsException("Invalid email or OTP code"));
+
+    PasswordResetCode resetCode =
+        passwordResetCodeRepository
+            .findTopByUserIdOrderByCreatedAtDesc(user.getId())
+            .orElseThrow(() -> new BadCredentialsException("Invalid email or OTP code"));
+
+    LocalDateTime now = LocalDateTime.now();
+    if (resetCode.getExpiresAt().isBefore(now)) {
+      throw new BadCredentialsException("OTP code has expired");
+    }
+
+    if (resetCode.getAttemptCount() >= 5) {
+      throw new BadCredentialsException("Too many failed attempts. Please request a new OTP.");
+    }
+
+    String inputHash = TokenHashUtils.hashToken(request.otp());
+    if (!resetCode.getCodeHash().equals(inputHash)) {
+      resetCode.setAttemptCount(resetCode.getAttemptCount() + 1);
+      passwordResetCodeRepository.save(resetCode);
+      throw new BadCredentialsException("Invalid OTP code");
+    }
+
+    // OTP matched! Mark as expired
+    resetCode.setExpiresAt(now);
+    passwordResetCodeRepository.save(resetCode);
+
+    // Update password
+    user.setPassword(passwordEncoder.encode(request.newPassword()));
+    userRepository.save(user);
+
+    // Revoke ALL sessions for this user to force re-login everywhere
+    sessionRepository.revokeAllByUserId(user.getId(), now);
+
+    log.info("Password reset successfully for user id: {}", user.getId());
   }
 }

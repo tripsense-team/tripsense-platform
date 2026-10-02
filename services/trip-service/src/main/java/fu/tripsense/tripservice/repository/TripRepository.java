@@ -4,6 +4,7 @@ import fu.tripsense.tripservice.entity.Trip;
 import fu.tripsense.tripservice.enums.TripStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +20,8 @@ public interface TripRepository extends JpaRepository<Trip, UUID>, JpaSpecificat
 
   Page<Trip> findByOwnerUserIdAndArchivedAtIsNull(UUID ownerUserId, Pageable pageable);
 
+  List<Trip> findAllByOwnerUserIdAndArchivedAtIsNull(UUID ownerUserId);
+
   Page<Trip> findByOwnerUserIdAndStatusAndArchivedAtIsNull(
       UUID ownerUserId, TripStatus status, Pageable pageable);
 
@@ -29,4 +32,8 @@ public interface TripRepository extends JpaRepository<Trip, UUID>, JpaSpecificat
   @Query(
       "select t from Trip t where t.id = :id and t.ownerUserId = :owner and t.archivedAt is null")
   Optional<Trip> findOwnedForUpdate(@Param("id") UUID id, @Param("owner") UUID ownerUserId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select t from Trip t where t.id = :id and t.archivedAt is null")
+  Optional<Trip> findActiveByIdForUpdate(@Param("id") UUID id);
 }

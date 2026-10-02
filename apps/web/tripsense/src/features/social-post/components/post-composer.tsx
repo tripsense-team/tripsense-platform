@@ -217,6 +217,9 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
         body.set("api_key", signature.apiKey);
         body.set("timestamp", String(signature.timestamp));
         body.set("signature", signature.signature);
+        if (signature.signature.length === 64) {
+          body.set("signature_algorithm", "sha256");
+        }
         body.set("folder", signature.folder);
         const response = await fetch(
           `https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`,

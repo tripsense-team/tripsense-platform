@@ -157,7 +157,22 @@ export async function authenticatedFetch(
   const requestUrl = endpoint.startsWith("http")
     ? endpoint
     : `${API_GATEWAY_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
-  const token = useAuthStore.getState().accessToken;
+
+  let token = useAuthStore.getState().accessToken;
+  const authStatus = useAuthStore.getState().status;
+  const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+  // If user is authenticated (e.g. from local cache on page reload/startup)
+  // but accessToken in memory is not yet available, wait for refresh to complete!
+  if (!token && isAuthenticated && (authStatus === "checking" || authStatus === "initializing")) {
+    try {
+      const refreshResult = await requestRefreshToken();
+      token = refreshResult?.data?.accessToken || null;
+    } catch {
+      // Refresh failed or network error; proceed with whatever state we have
+    }
+  }
+
   const headers = new Headers(options.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(requestUrl, {
