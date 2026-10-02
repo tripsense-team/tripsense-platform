@@ -16,6 +16,8 @@ import {
   MoreHorizontal,
   User,
   LogOut,
+  Store,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,7 +37,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { UserRole, LogoutModal, useAuthStore } from "@/features/auth";
+import { UserRole, LogoutModal, useAuthStore, isUserPartner } from "@/features/auth";
 import { useChatUnreadCount } from "@/features/chat";
 import { useTranslation } from "@/i18n";
 import { toggleAiDrawer, useAiDrawerStore } from "@/stores/use-ai-drawer-store";
@@ -50,6 +52,7 @@ export interface NavItemDef {
 }
 
 const mainNavDefs: NavItemDef[] = [
+  { key: "trip.hotels.title", fallbackTitle: "Hotels", href: "/hotels", icon: MapPin },
   {
     key: "nav.community",
     fallbackTitle: "Community",
@@ -310,6 +313,76 @@ export function UserSidebar({
               </Button>
             </div>
           </div>
+
+          {/* Dedicated Partner Section */}
+          {isAuthenticated && (
+            <div>
+              {!collapsed && (
+                <div className="px-3.5 flex items-center justify-between mb-2">
+                  <h4 className="text-overline text-muted-foreground uppercase font-bold tracking-wider">
+                    {isUserPartner(user) ? "Đối tác / Partner" : "Hợp tác"}
+                  </h4>
+                  {isUserPartner(user) && (
+                    <span className="text-micro uppercase font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      Partner
+                    </span>
+                  )}
+                </div>
+              )}
+              <nav className={cn("space-y-0.5 w-full", collapsed && "flex flex-col items-center")}>
+                {(() => {
+                  const partnerHref = "/partner";
+                  const isPartnerActive =
+                    pathname === partnerHref || pathname?.startsWith(`${partnerHref}/`);
+                  const partnerTitle = isUserPartner(user)
+                    ? "Trung tâm Đối tác"
+                    : "Trở thành đối tác";
+
+                  const partnerElement = (
+                    <Link
+                      href={partnerHref}
+                      className={cn(
+                        "flex min-h-[38px] items-center gap-3 rounded-full px-3 py-2 text-[13px] transition-all duration-150 group",
+                        isPartnerActive
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
+                          : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
+                        collapsed &&
+                          "justify-center p-0 w-9 h-9 min-h-9 mx-auto shrink-0",
+                      )}
+                    >
+                      <Store
+                        className={cn(
+                          "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-105",
+                          isPartnerActive
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-sidebar-foreground/75 group-hover:text-foreground",
+                        )}
+                      />
+                      {!collapsed && (
+                        <div className="flex-1 min-w-0">
+                          <span className="truncate block font-medium">
+                            {partnerTitle}
+                          </span>
+                        </div>
+                      )}
+                    </Link>
+                  );
+
+                  if (collapsed) {
+                    return (
+                      <Tooltip>
+                        <TooltipTrigger asChild>{partnerElement}</TooltipTrigger>
+                        <TooltipContent side="right" sideOffset={12}>
+                          <span>{partnerTitle}</span>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+                  return partnerElement;
+                })()}
+              </nav>
+            </div>
+          )}
 
           <div>
             <nav className="w-full space-y-2.5">

@@ -20,6 +20,10 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
                     SELECT s.postId FROM SocialTripShare s
                     WHERE s.visibility = 'PUBLIC' AND s.removedAt IS NULL
                 )
+                OR p.id IN (
+                    SELECT g.postId FROM SocialGuidePromotion g
+                    WHERE g.distributionEnabled = true AND g.removedAt IS NULL
+                )
             )
             """)
   Page<SocialPost> findPublicFeed(Pageable pageable);
@@ -33,6 +37,10 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
                 OR p.id IN (
                     SELECT s.postId FROM SocialTripShare s
                     WHERE s.visibility = 'PUBLIC' AND s.removedAt IS NULL
+                )
+                OR p.id IN (
+                    SELECT g.postId FROM SocialGuidePromotion g
+                    WHERE g.distributionEnabled = true AND g.removedAt IS NULL
                 )
             )
             """)
@@ -50,6 +58,10 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
                     SELECT s.postId FROM SocialTripShare s
                     WHERE s.visibility = 'PUBLIC' AND s.removedAt IS NULL
                 )
+                OR p.id IN (
+                    SELECT g.postId FROM SocialGuidePromotion g
+                    WHERE g.distributionEnabled = true AND g.removedAt IS NULL
+                )
             )
             """)
   Page<SocialPost> findPublicPostsByAuthorId(@Param("authorId") UUID authorId, Pageable pageable);
@@ -63,6 +75,10 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
                 OR p.id IN (
                     SELECT s.postId FROM SocialTripShare s
                     WHERE s.visibility = 'PUBLIC' AND s.removedAt IS NULL
+                )
+                OR p.id IN (
+                    SELECT g.postId FROM SocialGuidePromotion g
+                    WHERE g.distributionEnabled = true AND g.removedAt IS NULL
                 )
             )
             """)
@@ -112,6 +128,10 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, UUID> {
           OR p.id IN (
               SELECT s.postId FROM SocialTripShare s
               WHERE s.visibility = 'PUBLIC' AND s.removedAt IS NULL
+          )
+          OR p.id IN (
+              SELECT g.postId FROM SocialGuidePromotion g
+              WHERE g.distributionEnabled = true AND g.removedAt IS NULL
           )
       )
       AND (:viewerId IS NULL OR p.authorId != :viewerId)

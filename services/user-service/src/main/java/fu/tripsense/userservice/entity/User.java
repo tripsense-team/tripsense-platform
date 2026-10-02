@@ -50,6 +50,16 @@ public class User implements UserDetails {
   @Column(name = "provider_id")
   private String providerId;
 
+  @Column(name = "partner_enrolled", nullable = false)
+  @Builder.Default
+  private boolean partnerEnrolled = false;
+
+  @Column(name = "partner_enrolled_at")
+  private LocalDateTime partnerEnrolledAt;
+
+  @Column(name = "partner_terms_version", length = 50)
+  private String partnerTermsVersion;
+
   @UpdateTimestamp
   @Column(name = "updated_at", nullable = false)
   private LocalDateTime updatedAt;
@@ -58,13 +68,25 @@ public class User implements UserDetails {
   @Column(name = "created_at", nullable = false, updatable = false)
   private LocalDateTime createdAt;
 
+  public java.util.List<String> getRoles() {
+    java.util.List<String> roles = new java.util.ArrayList<>();
+    if (role != null) {
+      String mainRole = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+      roles.add(mainRole);
+    }
+    if (partnerEnrolled && !roles.contains("ROLE_PARTNER")) {
+      roles.add("ROLE_PARTNER");
+    }
+    return roles;
+  }
+
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
-    if (role == null) {
-      return Collections.emptyList();
+    java.util.List<GrantedAuthority> authorities = new java.util.ArrayList<>();
+    for (String r : getRoles()) {
+      authorities.add(new SimpleGrantedAuthority(r));
     }
-    String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-    return Collections.singletonList(new SimpleGrantedAuthority(authority));
+    return authorities;
   }
 
   @Override

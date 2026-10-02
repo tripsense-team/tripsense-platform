@@ -15,6 +15,8 @@ This knowledge base stores reusable planning, architecture, and review context f
 - [UX Feedback & Toast Guidelines](UX_FEEDBACK_GUIDELINES.md)
 - [Frontend i18n & Localization Standards](I18N_STANDARDS.md)
 - [Frontend Error Handling, Sanitization & Logging Standards](ERROR_HANDLING_AND_LOGGING_STANDARDS.md)
+- [Demo Guide: Smart Recommendation Engine](DEMO_SMART_RECOMMENDATION_ENGINE.md)
+- [Demo Guide: Intelligent AI Trip Planner](DEMO_INTELLIGENT_AI_TRIP_PLANNER.md)
 
 ## Canonical Rules
 

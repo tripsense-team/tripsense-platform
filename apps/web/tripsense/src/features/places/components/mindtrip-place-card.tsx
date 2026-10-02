@@ -16,6 +16,7 @@ import {
   ImageOff,
   ChevronLeft,
   ChevronRight,
+  Hotel,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,8 @@ export interface MindtripPlaceCardProps {
   onViewDetails?: () => void;
   onToggleFavorite?: (placeId: string, isFav: boolean) => void;
   onAddToTrip?: (place: Place) => void;
+  /** Optional override for the price/status row (row 4). When provided, replaces default price text. */
+  priceLabel?: React.ReactNode;
   className?: string;
 }
 
@@ -43,6 +46,8 @@ function CategoryIcon({ category = "" }: { category?: string }) {
   if (/biển|bãi|beach|sea|đảo|ocean/i.test(text)) return <Waves className={className} />;
   if (/chùa|temple|pagoda|linh ứng|tháp|nhà thờ|di tích|lăng|heritage|museum/i.test(text))
     return <Landmark className={className} />;
+  if (/stay|hotel|resort|khách sạn|khu nghỉ|bungalow|villa|lodging/i.test(text))
+    return <Hotel className={className} />;
   return <Compass className={className} />;
 }
 
@@ -73,6 +78,7 @@ function MindtripPlaceCardComponent({
   onViewDetails,
   onToggleFavorite,
   onAddToTrip,
+  priceLabel,
   className,
 }: MindtripPlaceCardProps) {
   const { t, locale } = useTranslation();
@@ -80,6 +86,24 @@ function MindtripPlaceCardComponent({
 
   const primaryCategory =
     place.categories?.[0] || t("places.defaultCategory", { defaultValue: "Place" });
+
+  const isStay = React.useMemo(() => {
+    const cat = (place.categories || []).join(" ").toLowerCase();
+    const name = (place.name || "").toLowerCase();
+    return (
+      cat.includes("stay") ||
+      cat.includes("hotel") ||
+      cat.includes("resort") ||
+      cat.includes("lodging") ||
+      cat.includes("khách sạn") ||
+      cat.includes("nhà nghỉ") ||
+      cat.includes("homestay") ||
+      name.includes("hotel") ||
+      name.includes("khách sạn") ||
+      name.includes("resort") ||
+      name.includes("homestay")
+    );
+  }, [place.categories, place.name]);
 
   const displayPhotos = React.useMemo(() => {
     return approvedPhotoGallery(
@@ -294,10 +318,14 @@ function MindtripPlaceCardComponent({
           {locationDisplay}
         </p>
 
-        {/* Row 4: Price Level */}
-        <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
-          $$
-        </p>
+        {/* Row 4: Price Level / Nightly Rate */}
+        {priceLabel ? (
+          <div>{priceLabel}</div>
+        ) : (
+          <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
+            {isStay ? (locale === "vi" ? "Liên hệ đặt phòng" : "Contact for rates") : "$$"}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -310,6 +338,7 @@ export const MindtripPlaceCard = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isFavorite === nextProps.isFavorite &&
       prevProps.isAddedToTrip === nextProps.isAddedToTrip &&
+      prevProps.priceLabel === nextProps.priceLabel &&
       prevProps.place.id === nextProps.place.id &&
       prevProps.place.name === nextProps.place.name &&
       prevProps.place.rating === nextProps.place.rating &&

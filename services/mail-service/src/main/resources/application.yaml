@@ -20,4 +20,4 @@ resend:
     password-reset: ${RESEND_PASSWORD_RESET_TEMPLATE:password-reset}
 
 mail:
-  internal-api-key: ${MAIL_INTERNAL_API_KEY}
+  internal-api-key: ${MAIL_INTERNAL_API_KEY:}

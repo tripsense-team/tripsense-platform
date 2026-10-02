@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Compass } from "lucide-react";
 import { siteConfig } from "@/config/site";
-import { useAuth } from "@/features/auth";
+import { useAuth, isUserAdmin } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
+import { isSafeInternalUrl } from "@/lib/url-utils";
 
 export default function AuthLayout({
   children,
@@ -14,18 +15,25 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, status, isLoading } = useAuth();
+  const { isAuthenticated, status, isLoading, user } = useAuth();
 
   const isChecking =
     isLoading || status === "checking" || status === "initializing";
 
   // Authenticated User Route Rule:
-  // If user is already authenticated, redirect to Home (/explore)
+  // If user is already authenticated, redirect to /admin if admin, otherwise /explore or returnUrl
   React.useEffect(() => {
     if (!isChecking && isAuthenticated) {
-      router.replace("/explore");
+      const rawParam =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null;
+      const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
+      const destination =
+        safeReturn || (isUserAdmin(user) ? "/admin" : "/explore");
+      router.replace(destination);
     }
-  }, [isChecking, isAuthenticated, router]);
+  }, [isChecking, isAuthenticated, user, router]);
 
   // While checking auth status OR if authenticated (redirecting):
   // Render AuthLoadingScreen. DO NOT render auth forms!

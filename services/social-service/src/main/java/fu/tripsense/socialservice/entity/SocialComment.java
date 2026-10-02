@@ -50,4 +50,7 @@ public class SocialComment {
 
   @Column(name = "reply_to_author_name")
   private String replyToAuthorName;
+
+  @Column(name = "submitted_under_revision")
+  private Integer submittedUnderRevision;
 }

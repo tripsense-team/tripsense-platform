@@ -159,4 +159,83 @@ class UserServiceImplTest {
         .isInstanceOf(ResponseStatusException.class)
         .hasMessageContaining("Invalid search query");
   }
+
+  @Test
+  @DisplayName("getMe returns UserDto with roles and partnerEnrolled")
+  void getMe_Success() {
+    UUID userId = UUID.randomUUID();
+    User user =
+        User.builder()
+            .id(userId)
+            .email("test@tripsense.app")
+            .role("ROLE_USER")
+            .status(UserStatus.ACTIVE)
+            .partnerEnrolled(true)
+            .build();
+
+    when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+    fu.tripsense.userservice.dto.response.UserDto me = userService.getMe(userId);
+
+    assertThat(me.id()).isEqualTo(userId);
+    assertThat(me.email()).isEqualTo("test@tripsense.app");
+    assertThat(me.role()).isEqualTo("ROLE_USER");
+    assertThat(me.roles()).containsExactly("ROLE_USER", "ROLE_PARTNER");
+    assertThat(me.partnerEnrolled()).isTrue();
+  }
+
+  @Test
+  @DisplayName("enrollPartner succeeds and idempotently enables partner role")
+  void enrollPartner_Success() {
+    UUID userId = UUID.randomUUID();
+    User user =
+        User.builder()
+            .id(userId)
+            .email("partner@tripsense.app")
+            .role("ROLE_USER")
+            .status(UserStatus.ACTIVE)
+            .partnerEnrolled(false)
+            .build();
+
+    when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+    when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var request = new fu.tripsense.userservice.dto.request.PartnerEnrollmentRequest("v1.0");
+    var result = userService.enrollPartner(userId, request);
+
+    assertThat(result.partnerEnrolled()).isTrue();
+    assertThat(result.roles()).containsExactly("ROLE_USER", "ROLE_PARTNER");
+    assertThat(user.isPartnerEnrolled()).isTrue();
+    assertThat(user.getPartnerTermsVersion()).isEqualTo("v1.0");
+    verify(userRepository, times(1)).save(user);
+
+    // Idempotent second call
+    var secondResult = userService.enrollPartner(userId, request);
+    assertThat(secondResult.partnerEnrolled()).isTrue();
+    verify(userRepository, times(1)).save(user); // not saved second time
+  }
+
+  @Test
+  @DisplayName("enrollPartner throws FORBIDDEN when user is not ACTIVE")
+  void enrollPartner_NonActiveThrowsForbidden() {
+    UUID userId = UUID.randomUUID();
+    User user =
+        User.builder()
+            .id(userId)
+            .email("unverified@tripsense.app")
+            .role("ROLE_USER")
+            .status(UserStatus.UNVERIFIED)
+            .build();
+
+    when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+    assertThatThrownBy(
+            () ->
+                userService.enrollPartner(
+                    userId, new fu.tripsense.userservice.dto.request.PartnerEnrollmentRequest("v1.0")))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("Only ACTIVE users can enroll as partner");
+
+    verify(userRepository, never()).save(any());
+  }
 }

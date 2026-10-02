@@ -45,6 +45,8 @@ public class JwtUtils {
         .setSubject(user.getId().toString())
         .claim("email", user.getEmail())
         .claim("role", user.getRole())
+        .claim("roles", user.getRoles())
+        .claim("partnerEnrolled", user.isPartnerEnrolled())
         .claim(TokenType.TYPE_CLAIM, TokenType.ACCESS.name())
         .setIssuedAt(now)
         .setExpiration(expiryDate)

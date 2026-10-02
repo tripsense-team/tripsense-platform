@@ -151,4 +151,69 @@ describe("Auth Store & Navigation Lifecycle", () => {
     useAuthStore.getState().clearAuth();
     expect(loadCachedUser()).toBeNull();
   });
+
+  it("10. normalizes backend role strings ('ADMIN' -> UserRole.ADMIN, 'USER' -> UserRole.USER)", async () => {
+    const { normalizeRole, isUserAdmin } = await import("../utils/role-helpers");
+    expect(normalizeRole("ADMIN")).toBe(UserRole.ADMIN);
+    expect(normalizeRole("ROLE_ADMIN")).toBe(UserRole.ADMIN);
+    expect(normalizeRole("USER")).toBe(UserRole.USER);
+    expect(normalizeRole("ROLE_USER")).toBe(UserRole.USER);
+    expect(normalizeRole("MODERATOR")).toBe(UserRole.MODERATOR);
+    expect(normalizeRole("PARTNER")).toBe(UserRole.PARTNER);
+    expect(normalizeRole(null)).toBe(UserRole.USER);
+
+    expect(isUserAdmin({ role: "ADMIN" as any })).toBe(true);
+    expect(isUserAdmin({ role: UserRole.ADMIN })).toBe(true);
+    expect(isUserAdmin({ roles: ["ROLE_ADMIN"] })).toBe(true);
+    expect(isUserAdmin({ role: "USER" as any })).toBe(false);
+  });
+
+  it("11. setAuth normalizes incoming backend 'ADMIN' role and marks onboardingCompleted true", () => {
+    const backendAdmin = {
+      id: "admin-ea20c072",
+      email: "admin@tripsense.app",
+      role: "ADMIN" as any,
+      roles: ["ROLE_ADMIN", "ROLE_PARTNER"],
+      status: UserStatus.ACTIVE,
+    };
+
+    useAuthStore.getState().setAuth(backendAdmin, "admin.jwt.token");
+    const state = useAuthStore.getState();
+    expect(state.user?.role).toBe(UserRole.ADMIN);
+    expect(state.onboardingCompleted).toBe(true);
+    expect(state.isAuthenticated).toBe(true);
+  });
+
+  it("12. resolves post-login destination safely to returnUrl or role fallback", async () => {
+    const { isUserAdmin } = await import("../utils/role-helpers");
+    const { isSafeInternalUrl } = await import("@/lib/url-utils");
+
+    const resolveDestination = (
+      user: any,
+      rawReturnUrl?: string | null,
+    ): string => {
+      const safeReturn = isSafeInternalUrl(rawReturnUrl) ? rawReturnUrl : null;
+      if (safeReturn) return safeReturn;
+      return isUserAdmin(user) ? "/admin" : "/explore";
+    };
+
+    const regularUser = { id: "u1", role: UserRole.USER };
+    const adminUser = { id: "a1", role: UserRole.ADMIN };
+
+    // Default routes (never landing page /)
+    expect(resolveDestination(regularUser)).toBe("/explore");
+    expect(resolveDestination(adminUser)).toBe("/admin");
+
+    // Safe returnUrl routes
+    expect(resolveDestination(regularUser, "/trips")).toBe("/trips");
+    expect(resolveDestination(regularUser, "/saved")).toBe("/saved");
+    expect(resolveDestination(adminUser, "/admin/places")).toBe("/admin/places");
+
+    // Unsafe or external returnUrls are rejected and fall back safely
+    expect(resolveDestination(regularUser, "//malicious.com")).toBe("/explore");
+    expect(resolveDestination(regularUser, "/\\malicious.com")).toBe("/explore");
+    expect(resolveDestination(regularUser, "https://malicious.com")).toBe("/explore");
+    expect(resolveDestination(adminUser, "//malicious.com")).toBe("/admin");
+    expect(resolveDestination(adminUser, "/\\malicious.com")).toBe("/admin");
+  });
 });

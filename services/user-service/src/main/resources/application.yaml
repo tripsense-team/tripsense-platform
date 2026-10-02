@@ -53,3 +53,11 @@ auth:
     enabled: ${AUTH_CLEANUP_ENABLED:true}
     on-startup: ${AUTH_CLEANUP_ON_STARTUP:true}
     cron: ${AUTH_CLEANUP_CRON:0 0 3 * * ?}
+
+tripsense:
+  bootstrap:
+    admin:
+      enabled: ${BOOTSTRAP_ADMIN_ENABLED:true}
+      email: ${BOOTSTRAP_ADMIN_EMAIL:admin@tripsense.app}
+      password: ${BOOTSTRAP_ADMIN_PASSWORD:Admin@123456}
+      display-name: ${BOOTSTRAP_ADMIN_NAME:System Administrator}

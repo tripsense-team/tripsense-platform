@@ -2,6 +2,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { PlaceDetailOverlay } from "./place-detail-overlay";
+import { PlaceDetailContent } from "./place-detail-content";
 import { I18nProvider } from "@/i18n";
 import type { Place } from "../types";
 vi.mock("@/features/community-reviews", () => ({
@@ -50,9 +51,9 @@ describe("PlaceDetailOverlay", () => {
     expect(html).toContain('aria-label="Nghe thuyết minh"');
     expect(html).toContain('aria-label="Chia sẻ"');
     // Navigation Tabs
-    expect(html).toContain("Overview");
-    expect(html).toContain("Reviews");
-    expect(html).toContain("Location");
+    expect(html).toContain("Tổng quan");
+    expect(html).toContain("Đánh giá");
+    expect(html).toContain("Vị trí");
     // Metadata
     expect(html).toContain("47 Đ. Ông Ích Khiêm, Phú Xuân, Huế 53000, Vietnam");
     expect(html).toContain("Get directions");
@@ -168,5 +169,58 @@ describe("PlaceDetailOverlay", () => {
 
     expect(html).toContain("Chưa có ảnh được cấp phép");
     expect(html).not.toContain("images.unsplash.com");
+  });
+
+  it("renders hotel places truthfully without Crown Retreat mock data or chat bar", () => {
+    const hotelPlace: Place = {
+      id: "place-hotel-4-mua",
+      name: "Khách Sạn 4 Mùa",
+      categories: ["hotel", "stay"],
+      address: "Hòa Cường, Đà Nẵng",
+      phone: "+84 236 123 456",
+      rating: 2.7,
+      userRatingCount: 45,
+      photos: ["https://lh3.googleusercontent.com/p/hotel1.jpg"],
+    };
+
+    const html = renderToStaticMarkup(
+      <I18nProvider initialLocale="vi">
+        <PlaceDetailOverlay place={hotelPlace} onClose={() => {}} />
+      </I18nProvider>
+    );
+
+    // Truthful hotel name & address
+    expect(html).toContain("Khách Sạn 4 Mùa");
+    expect(html).toContain("Hòa Cường, Đà Nẵng");
+    // Does NOT contain mock Crown Retreat Quy Nhon or fake bungalow text
+    expect(html).not.toContain("Crown Retreat Quy Nhon");
+    expect(html).not.toContain("luxury resort located on Trung Luong Beach");
+    expect(html).not.toContain("66 US$");
+    // Conversational AI bar removed
+    expect(html).not.toContain("Ask TripSense...");
+    // Truthful online booking not yet enabled
+    expect(html).toContain("Chưa kích hoạt đặt phòng online");
+    expect(html).toContain("Gọi đặt phòng: +84 236 123 456");
+  });
+
+  it("renders PlaceDetailContent with overviewAside and amenitiesSection slots", () => {
+    const html = renderToStaticMarkup(
+      <I18nProvider initialLocale="vi">
+        <PlaceDetailContent
+          place={mockPlace}
+          onClose={() => {}}
+          overviewAside={<div id="test-booking-aside">Khối đặt phòng trực tuyến</div>}
+          amenitiesSection={<div id="test-amenities">Tiện ích hồ bơi và spa</div>}
+        />
+      </I18nProvider>
+    );
+
+    // Main details
+    expect(html).toContain("BÁNH GÁNH 2 - Cơm Niêu &amp; Đặc Sản Huế");
+    // Aside slot
+    expect(html).toContain("Khối đặt phòng trực tuyến");
+    // Amenities slot and tab
+    expect(html).toContain("Tiện nghi");
+    expect(html).toContain("Tiện ích hồ bơi và spa");
   });
 });

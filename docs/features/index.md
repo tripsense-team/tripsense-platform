@@ -4,6 +4,9 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `shared-place-templates-and-partner-workspaces` | DONE | `apps/web/tripsense`, `services/trip-service`; existing Gateway routes | [Docs](./shared-place-templates-and-partner-workspaces.md) |
+| `hotel-payos-payment` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-payos-payment.md) |
+| `hotel-demo-commerce-and-pr66-remediation` | DONE | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-demo-commerce-and-pr66-remediation.md) |
 | `ai-service-dynamic-gemini-key-pool` | DONE | `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-dynamic-gemini-key-pool.md) |
 | `ai-conversational-trip-intake-auto-commit` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/trip-service`, `services/place-service` | [Docs](./ai-conversational-trip-intake-auto-commit.md) |
 | `ai-chat-mindtrip-experience-enhancement` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-chat-mindtrip-experience-enhancement.md) |
@@ -20,6 +23,10 @@ Track every feature that enters the multi-agent workflow.
 | `mindtrip-explore-experience-redesign` | DONE | `apps/web/tripsense` | [Docs](./mindtrip-explore-experience-redesign.md) |
 | `explore-search-autocomplete-dropdown` | DONE | `apps/web/tripsense` | [Docs](./explore-search-autocomplete-dropdown.md) |
 | `place-detail-map-overlay` | DONE | `apps/web/tripsense` | [Docs](./place-detail-map-overlay.md) |
+| `partner-location-autocomplete` | DONE | `apps/web/tripsense`; existing Gateway/Place APIs | [Docs](./partner-location-autocomplete.md) |
+| `partner-onboarding-and-business-approval` | DONE | `services/user-service`, `services/trip-service` (partner/hotel/guide), `services/social-service` (Community), `services/mail-service`, `services/api-gateway`, `services/ai-service`, `apps/web/tripsense` | [Docs — onboarding, Community guide promotion & inquiries](./partner-onboarding-and-business-approval.md) |
+| `hotel-management-and-booking` | SUPERSEDED; IMPLEMENTATION PAUSED | Inventory/hold invariants retained; Partner plan replaces onboarding/approval and extends fulfilment/support | [Docs](./hotel-management-and-booking.md) |
+| `hotel-availability-and-ota-redirect` | SUPERSEDED | External OTA integration deferred; first-party inventory is current direction | [Docs](./hotel-availability-and-ota-redirect.md) |
 | `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |
 | `web-typography-system` | DONE | `apps/web/tripsense` | [Docs](./web-typography-system.md) |
 | `place-search-embedding-sync` | DONE | `services/place-service`, `services/recommendation-service` | [Docs](./place-search-embedding-sync.md) |
@@ -57,6 +64,7 @@ Track every feature that enters the multi-agent workflow.
 - `APPROVED`: human approved the plan (`STATUS: APPROVED`).
 - `IMPLEMENTING`: approved implementation is in progress.
 - `DONE`: implementation, tests, review, and docs are complete.
+- `SUPERSEDED`: a newer feature plan replaces this scope; retained for reference, not authorization to implement.
 
 ## Template
 

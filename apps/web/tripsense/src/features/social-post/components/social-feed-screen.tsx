@@ -55,6 +55,7 @@ export function SocialFeedScreen() {
       icon: MessageCircle,
     },
     { value: "trips", label: t("social.postTypeTrip"), icon: Compass },
+    { value: "guides", label: t("social.postTypeGuide") || "Hướng dẫn viên", icon: ShieldCheck },
   ];
 
   function focusComposer() {

@@ -20,7 +20,7 @@ public class TripInvitationEmailClientImpl implements TripInvitationEmailClient 
   public TripInvitationEmailClientImpl(
       @Value("${mail-service.url:http://localhost:8082}") String mailServiceUrl,
       @Value("${web-app.url:http://localhost:3000}") String webAppUrl,
-      @Value("${MAIL_INTERNAL_API_KEY}") String internalApiKey) {
+      @Value("${MAIL_INTERNAL_API_KEY:}") String internalApiKey) {
     this.mailClient = RestClient.builder().baseUrl(mailServiceUrl).build();
     this.webAppUrl = webAppUrl;
     this.internalApiKey = internalApiKey;

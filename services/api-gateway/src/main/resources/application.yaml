@@ -6,6 +6,9 @@ spring:
       url: ${REDIS_URL:redis://localhost:6379}
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 10000
+        response-timeout: ${GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT:300s}
       globalcors:
         cors-configurations:
           "[/**]":
@@ -66,7 +69,7 @@ tripsense:
       replenish-rate: ${CHAT_RATE_LIMIT_REPLENISH_RATE:5}
       burst-capacity: ${CHAT_RATE_LIMIT_BURST_CAPACITY:10}
     ai:
-      response-timeout: ${AI_RESPONSE_TIMEOUT:120s}
+      response-timeout: ${AI_RESPONSE_TIMEOUT:300s}
     ai-v2:
       url: ${AI_SERVICE_V2_URL:http://localhost:8089}
     client-ip:

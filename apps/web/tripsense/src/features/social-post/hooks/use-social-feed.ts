@@ -4,12 +4,13 @@ import * as React from "react";
 import type { SocialPost } from "../types";
 import { socialPostRepository } from "../services";
 
-export type FeedFilterTab = "all" | "updates" | "trips";
+export type FeedFilterTab = "all" | "updates" | "trips" | "guides";
 
-const filterType: Record<FeedFilterTab, "ALL" | "STANDARD" | "TRIP_SHARE"> = {
+const filterType: Record<FeedFilterTab, "ALL" | "STANDARD" | "TRIP_SHARE" | "GUIDE_PROMOTION"> = {
   all: "ALL",
   updates: "STANDARD",
   trips: "TRIP_SHARE",
+  guides: "GUIDE_PROMOTION",
 };
 
 export function useSocialFeed() {

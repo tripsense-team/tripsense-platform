@@ -15,10 +15,12 @@ import { Button } from "@/components/ui/button";
 import { OtpInput } from "./otp-input";
 import { siteConfig } from "@/config/site";
 import { useAuth } from "../context/auth-context";
-import { UserRole, type AuthModalStep } from "../types";
+import { type AuthModalStep } from "../types";
 import { getAuthErrorMessage } from "../utils/auth-error-helper";
+import { isUserAdmin } from "../utils/role-helpers";
 import { GoogleLogin } from "@react-oauth/google";
 import { cn } from "@/lib/utils";
+import { isSafeInternalUrl } from "@/lib/url-utils";
 import { ApiError } from "@/services/api-client";
 import { useTranslation } from "@/i18n";
 import { useForgotPassword } from "../hooks/use-forgot-password";
@@ -130,15 +132,18 @@ export function AuthModal({
       const response = await loginWithGoogle(idToken);
       setSuccessMsg("Logged in with Google successfully!");
 
-      const loggedInRole = response.data?.user?.role;
+      const rawParam =
+        returnUrl ||
+        (typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null);
+      const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
+      const isAdmin = isUserAdmin(response.data?.user);
+      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+
       setTimeout(() => {
         onOpenChange(false);
-        // Role-Based Navigation: ADMIN to /admin, USER to /explore
-        if (loggedInRole === UserRole.ADMIN) {
-          router.replace("/admin");
-        } else {
-          router.replace(returnUrl ?? "/explore");
-        }
+        router.replace(destination);
       }, 800);
     } catch (err: unknown) {
       const errorText = getAuthErrorMessage(
@@ -174,15 +179,18 @@ export function AuthModal({
       const response = await login({ email, password });
       setSuccessMsg("Đăng nhập thành công!");
 
-      const loggedInRole = response.data?.user?.role;
+      const rawParam =
+        returnUrl ||
+        (typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null);
+      const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
+      const isAdmin = isUserAdmin(response.data?.user);
+      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+
       setTimeout(() => {
         onOpenChange(false);
-        // Role-Based Navigation: ADMIN to /admin, USER to /explore
-        if (loggedInRole === UserRole.ADMIN) {
-          router.replace("/admin");
-        } else {
-          router.replace(returnUrl ?? "/explore");
-        }
+        router.replace(destination);
       }, 800);
     } catch (err: unknown) {
       setErrorMsg(

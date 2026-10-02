@@ -91,14 +91,14 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     return properties.getApiKey();
   }
 
-  private boolean handleQuotaErrorAndRotate(Exception ex) {
+  private boolean handleQuotaErrorAndRotate(String failedKey, Exception ex) {
     if (isQuotaOrAuthError(ex)) {
       if (apiKeyPoolService != null) {
-        String failedKey = getEffectiveApiKey();
+        String keyToRotate = StringUtils.hasText(failedKey) ? failedKey : getEffectiveApiKey();
         ApiKeyStatus failureStatus = isAuthError(ex) ? ApiKeyStatus.INVALID : ApiKeyStatus.EXHAUSTED;
         java.util.Optional<ApiKeyPoolItem> nextKey =
             apiKeyPoolService.markExhaustedAndRotate(
-                ApiKeyProvider.ZIOMAP, failedKey, failureStatus, ex.getMessage());
+                ApiKeyProvider.ZIOMAP, keyToRotate, failureStatus, ex.getMessage());
         if (nextKey.isPresent()) {
           properties.setApiKey(nextKey.get().getRawKey());
           lastCallQuotaExceeded = false;
@@ -113,6 +113,10 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       log.error("ZioMap quota exceeded or all keys in pool exhausted: {}", ex.getMessage());
     }
     return false;
+  }
+
+  private boolean handleQuotaErrorAndRotate(Exception ex) {
+    return handleQuotaErrorAndRotate(null, ex);
   }
 
   private void recordSuccess() {
@@ -185,7 +189,8 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       recordSuccess();
       return results;
     } catch (Exception ex) {
-      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+      String keyUsed = getEffectiveApiKey();
+      if (retryCount < 2 && handleQuotaErrorAndRotate(keyUsed, ex)) {
         log.info(
             "[ZioMapProvider] Retrying textSearch for query '{}' with rotated key (attempt {})",
             query,
@@ -211,10 +216,10 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
     try {
       UriComponentsBuilder uriBuilder =
-          UriComponentsBuilder.fromPath("/api/place/autocomplete")
+          UriComponentsBuilder.fromPath("/api/autocomplete")
               .queryParam("input", query)
               .queryParam("language", "vi")
-              .queryParam("region", "vn");
+              .queryParam("components", "country:vn");
 
       if (lat != null && lng != null) {
         uriBuilder.queryParam("location", lat + "," + lng);
@@ -223,10 +228,14 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         uriBuilder.queryParam("radius", String.valueOf(radiusMeters));
       }
 
+      String effectiveKey = getEffectiveApiKey();
+      if (StringUtils.hasText(effectiveKey)) {
+        uriBuilder.queryParam("key", effectiveKey);
+      }
+
       RestClient.RequestHeadersSpec<?> requestSpec =
           restClient.get().uri(uriBuilder.build().toUriString());
 
-      String effectiveKey = getEffectiveApiKey();
       if (StringUtils.hasText(effectiveKey)) {
         requestSpec.header("x-api-key", effectiveKey);
       }
@@ -275,7 +284,8 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
       return suggestions;
     } catch (Exception ex) {
-      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+      String keyUsed = getEffectiveApiKey();
+      if (retryCount < 2 && handleQuotaErrorAndRotate(keyUsed, ex)) {
         log.info(
             "[ZioMapProvider] Retrying autocomplete for query '{}' with rotated key (attempt {})",
             query,
@@ -314,15 +324,19 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
   private Optional<PlaceDto> fetchPlaceDetailsWithRetry(String providerPlaceId, int retryCount) {
     try {
+      String apiKey = getEffectiveApiKey();
       UriComponentsBuilder uriBuilder =
           UriComponentsBuilder.fromPath("/api/place/details")
               .queryParam("place_id", providerPlaceId)
               .queryParam("language", "vi");
 
+      if (StringUtils.hasText(apiKey)) {
+        uriBuilder.queryParam("key", apiKey);
+      }
+
       RestClient.RequestHeadersSpec<?> requestSpec =
           restClient.get().uri(uriBuilder.build().toUriString());
 
-      String apiKey = getEffectiveApiKey();
       if (StringUtils.hasText(apiKey)) {
         requestSpec.header("x-api-key", apiKey);
       }
@@ -336,7 +350,8 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       recordSuccess();
       return Optional.ofNullable(mapPlaceResultToDto(response));
     } catch (Exception ex) {
-      if (retryCount < 2 && handleQuotaErrorAndRotate(ex)) {
+      String keyUsed = getEffectiveApiKey();
+      if (retryCount < 2 && handleQuotaErrorAndRotate(keyUsed, ex)) {
         log.info(
             "[ZioMapProvider] Retrying place details for '{}' with newly rotated key",
             providerPlaceId);
@@ -836,10 +851,11 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     String trimmed = newApiKey.trim();
     try {
       UriComponentsBuilder uriBuilder =
-          UriComponentsBuilder.fromPath("/api/place/autocomplete")
+          UriComponentsBuilder.fromPath("/api/autocomplete")
               .queryParam("input", "test")
               .queryParam("language", "vi")
-              .queryParam("region", "vn");
+              .queryParam("components", "country:vn")
+              .queryParam("key", trimmed);
 
       RestClient.RequestHeadersSpec<?> requestSpec =
           restClient.get().uri(uriBuilder.build().toUriString());
