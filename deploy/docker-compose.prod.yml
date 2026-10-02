@@ -4,6 +4,7 @@ x-java-small: &java-small
     -XX:MaxRAMPercentage=55
     -XX:ActiveProcessorCount=1
     -XX:+UseSerialGC
+    -XX:TieredStopAtLevel=1
 
 services:
   nginx:
@@ -321,11 +322,9 @@ services:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-api-gateway:${IMAGE_TAG}
     restart: unless-stopped
     mem_limit: 768m
-    cpus: "1.5"
+    cpus: "1.0"
     environment:
-      JAVA_TOOL_OPTIONS: >-
-        -XX:InitialRAMPercentage=20
-        -XX:MaxRAMPercentage=65
+      <<: *java-small
       REDIS_URL: ${REDIS_URL}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       AI_SERVICE_V2_URL: http://ai-service:8089
