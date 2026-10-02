@@ -153,13 +153,21 @@ docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d \
 echo "Waiting 20s for Core Services to stabilize..."
 sleep 20
 
-# Wave 3: Composite Services, Recommendation, Gateway & Web
-echo "--> [Wave 3/3] Starting Social, Recommendation, Gateway & Web Frontend..."
+# Wave 3: Heavy Composite Services (Recommendation & Social)
+echo "--> [Wave 3/4] Starting Social & Recommendation Services..."
+docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d \
+  social-service recommendation-service
+
+echo "Waiting 25s for Recommendation & Social to initialize..."
+sleep 25
+
+# Wave 4: API Gateway & Web Frontend
+echo "--> [Wave 4/4] Starting API Gateway & Web Frontend..."
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --remove-orphans \
-  social-service recommendation-service api-gateway web
+  api-gateway web
 
 echo "=== Waiting for core services to become healthy (Zero-Downtime Guard) ==="
-MAX_WAIT_SECONDS=180
+MAX_WAIT_SECONDS=360
 WAIT_INTERVAL=5
 ELAPSED=0
 
