@@ -101,8 +101,14 @@ export default function MainLayout({
         try {
           const gate = await onboardingApi.getGate();
           if (!active) return;
+          const gateRecord = gate as Record<string, unknown> | undefined;
+          const nestedData = gateRecord?.data as Record<string, unknown> | undefined;
           const isRequired =
-            (gate as any)?.data?.required ?? (gate as any)?.required;
+            typeof nestedData?.required === "boolean"
+              ? nestedData.required
+              : typeof gateRecord?.required === "boolean"
+              ? gateRecord.required
+              : undefined;
           if (isRequired === false) {
             // User not requiring onboarding -> allow access without lockout
             setOnboardingCompleted(true);
@@ -123,7 +129,7 @@ export default function MainLayout({
   }, [
     isChecking,
     isAuthenticated,
-    user?.id,
+    user,
     isAdmin,
     onboardingCompleted,
     isInvitationRoute,
