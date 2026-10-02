@@ -64,6 +64,9 @@ export const authApi = {
               avatar: profile.avatarUrl || undefined,
               name: profile.displayName || undefined,
             });
+            if (profile.onboardingRequired === false) {
+              useAuthStore.getState().setOnboardingCompleted(true);
+            }
           }
         })
         .catch(() => {

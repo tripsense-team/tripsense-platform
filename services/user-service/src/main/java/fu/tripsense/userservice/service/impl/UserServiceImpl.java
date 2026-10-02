@@ -1,14 +1,18 @@
 package fu.tripsense.userservice.service.impl;
 
+import fu.tripsense.userservice.dto.request.PartnerEnrollmentRequest;
 import fu.tripsense.userservice.dto.request.UpdateProfileRequest;
 import fu.tripsense.userservice.dto.response.OnboardingGateDto;
 import fu.tripsense.userservice.dto.response.PublicProfileDto;
+import fu.tripsense.userservice.dto.response.UserDto;
 import fu.tripsense.userservice.dto.response.UserProfileDto;
 import fu.tripsense.userservice.entity.User;
 import fu.tripsense.userservice.entity.UserProfile;
+import fu.tripsense.userservice.enums.UserStatus;
 import fu.tripsense.userservice.repository.UserProfileRepository;
 import fu.tripsense.userservice.repository.UserRepository;
 import fu.tripsense.userservice.service.UserService;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +34,52 @@ public class UserServiceImpl implements UserService {
 
   private final UserRepository userRepository;
   private final UserProfileRepository userProfileRepository;
+
+  @Override
+  @Transactional(readOnly = true)
+  public UserDto getMe(UUID userId) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    return toUserDto(user);
+  }
+
+  @Override
+  @Transactional
+  public UserDto enrollPartner(UUID userId, PartnerEnrollmentRequest request) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+    if (user.getStatus() != UserStatus.ACTIVE) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only ACTIVE users can enroll as partner");
+    }
+
+    if (!user.isPartnerEnrolled()) {
+      user.setPartnerEnrolled(true);
+      user.setPartnerEnrolledAt(LocalDateTime.now());
+      user.setPartnerTermsVersion(
+          request != null && request.acceptedTermsVersion() != null
+              ? request.acceptedTermsVersion()
+              : "v1");
+      userRepository.save(user);
+    }
+
+    return toUserDto(user);
+  }
+
+  private UserDto toUserDto(User user) {
+    return UserDto.builder()
+        .id(user.getId())
+        .email(user.getEmail())
+        .role(user.getRole())
+        .roles(user.getRoles())
+        .partnerEnrolled(user.isPartnerEnrolled())
+        .status(user.getStatus())
+        .build();
+  }
 
   @Override
   @Transactional(readOnly = true)

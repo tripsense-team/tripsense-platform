@@ -29,14 +29,36 @@ export interface SharedTripSummary {
   datePrecision?: "EXACT" | "DAY_NUMBER_ONLY";
 }
 
+export interface GuidePromotionSummary {
+  businessId: string;
+  promotionId: string;
+  approvedRevisionId?: string;
+  title: string;
+  summary: string;
+  coverImageUrl?: string;
+  areaTopics?: string[];
+  skillLabels?: string[];
+  languageLabels?: string[];
+  indicativePrice?: {
+    amount: string | number;
+    currency: string;
+    unit: string;
+  } | null;
+  profilePath: string;
+  promotionPath: string;
+  canRequestInquiry: boolean;
+}
+
 export interface SocialPost {
   id: string;
-  type?: "STANDARD" | "TRIP_SHARE";
+  type?: "STANDARD" | "TRIP_SHARE" | "GUIDE_PROMOTION";
   author: SocialPostAuthor;
   content: string;
   mediaUrls?: string[];
   visibility?: "PUBLIC" | "UNLISTED" | "PRIVATE";
   trip?: SharedTripSummary | null;
+  guidePromotion?: GuidePromotionSummary | null;
+  guideAvailability?: "AVAILABLE" | "UNAVAILABLE" | "TEMPORARILY_UNAVAILABLE" | null;
   createdAt: string;
   updatedAt?: string;
   likeCount: number;
@@ -186,12 +208,14 @@ export interface PostComment {
   likeCount: number;
   isLiked?: boolean;
   replyToAuthorName?: string;
+  submittedUnderRevision?: number | null;
   children?: PostComment[];
 }
 
 export interface CreateCommentRequest {
   content: string;
   parentId?: string | null;
+  submittedUnderRevision?: number | null;
 }
 
 export interface ToggleLikeResponse {
@@ -209,7 +233,7 @@ export interface SocialPostPageResponse {
 
 export interface ListPostsParams {
   userId?: string;
-  type?: "ALL" | "STANDARD" | "TRIP_SHARE";
+  type?: "ALL" | "STANDARD" | "TRIP_SHARE" | "GUIDE_PROMOTION";
   page?: number;
   size?: number;
 }

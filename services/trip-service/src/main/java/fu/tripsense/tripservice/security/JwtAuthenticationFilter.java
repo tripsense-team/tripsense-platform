@@ -34,11 +34,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     try {
       AuthenticatedUser user = jwtService.parseAccessToken(authorization.substring(7));
-      String role = user.role() == null ? "USER" : user.role();
-      String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+      java.util.List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+      if (user.roles() != null && !user.roles().isEmpty()) {
+        for (String r : user.roles()) {
+          if (r != null && !r.isBlank()) {
+            authorities.add(new SimpleGrantedAuthority(r.startsWith("ROLE_") ? r : "ROLE_" + r));
+          }
+        }
+      } else {
+        String role = user.role() == null ? "USER" : user.role();
+        authorities.add(new SimpleGrantedAuthority(role.startsWith("ROLE_") ? role : "ROLE_" + role));
+      }
       UsernamePasswordAuthenticationToken authentication =
-          new UsernamePasswordAuthenticationToken(
-              user, null, List.of(new SimpleGrantedAuthority(authority)));
+          new UsernamePasswordAuthenticationToken(user, null, authorities);
       SecurityContextHolder.getContext().setAuthentication(authentication);
     } catch (Exception ex) {
       log.warn("Trip service JWT authentication failed: {}", ex.getMessage());

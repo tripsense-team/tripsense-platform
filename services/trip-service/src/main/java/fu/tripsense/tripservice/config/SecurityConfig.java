@@ -52,10 +52,27 @@ public class SecurityConfig implements WebMvcConfigurer {
             auth ->
                 auth.requestMatchers("/actuator/**")
                     .permitAll()
+                    .requestMatchers("/internal/**")
+                    .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/trips/invitations/token/*")
                     .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/guide-taxonomy",
+                        "/api/guides",
+                        "/api/guides/**",
+                        "/api/guide-promotions",
+                        "/api/guide-promotions/**",
+                        "/api/public/restaurants/**",
+                        "/api/partner-listings/**",
+                        "/api/hotels/search")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/hotels/payments/payos/webhook")
+                    .permitAll()
+                    .requestMatchers("/api/admin/**")
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

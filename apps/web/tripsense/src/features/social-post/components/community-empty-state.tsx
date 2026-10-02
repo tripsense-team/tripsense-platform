@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 
 interface CommunityEmptyStateProps {
-  filter?: "all" | "updates" | "trips";
+  filter?: "all" | "updates" | "trips" | "guides";
   onActionClick?: () => void;
   className?: string;
 }

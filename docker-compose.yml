@@ -160,6 +160,8 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       SOCIAL_RATE_LIMIT_ENABLED: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      AI_RESPONSE_TIMEOUT: ${AI_RESPONSE_TIMEOUT:-300s}
+      GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT: ${GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT:-300s}
       AI_SERVICE_V2_URL: ${AI_SERVICE_V2_URL:-http://ai-service:8089}
     depends_on:
       discovery-server:
@@ -233,6 +235,7 @@ services:
       RECOMMENDATION_DB_PASS: ${RECOMMENDATION_DB_PASS:-123456}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       PLACE_SERVICE_URL: http://place-service:8082
       CONTEXT_SERVICE_URL: http://context-service:8087
       TRIP_SERVICE_URL: http://trip-service:8084
@@ -381,6 +384,13 @@ services:
         required: false
     environment:
       TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
+      HOTEL_DEMO_PAYMENTS_ENABLED: ${HOTEL_DEMO_PAYMENTS_ENABLED:-false}
+      PAYOS_ENABLED: ${PAYOS_ENABLED:-true}
+      PAY_OS_CLIENT_ID: ${PAY_OS_CLIENT_ID:-}
+      PAY_OS_API_KEY: ${PAY_OS_API_KEY:-}
+      PAY_OS_CHECKSUM_KEY: ${PAY_OS_CHECKSUM_KEY:-}
+      PAYOS_RETURN_BASE_URL: ${PAYOS_RETURN_BASE_URL:-http://localhost:3000}
+      HOTEL_MAIL_URL: http://mail-service:8082
       TRIP_DB_HOST: trip-db
       TRIP_DB_PORT: "5432"
       TRIP_DB_USER: ${TRIP_DB_USER:-postgres}
@@ -474,6 +484,7 @@ services:
       DATABASE_URL: ${AI_DATABASE_URL:-${AI_V2_DATABASE_URL:-postgresql://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}}
       GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
       AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
       PLACE_SERVICE_URL: http://place-service:8082

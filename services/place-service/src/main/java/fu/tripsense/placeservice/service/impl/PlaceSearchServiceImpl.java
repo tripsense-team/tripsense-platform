@@ -618,6 +618,21 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
                 && !local.getReviews().isEmpty()) {
               place.setReviews(local.getReviews());
             }
+            if (place.getRating() == null && local.getRating() != null) {
+              place.setRating(local.getRating());
+            }
+            if (place.getUserRatingCount() == null && local.getUserRatingCount() != null) {
+              place.setUserRatingCount(local.getUserRatingCount());
+            }
+            if (!StringUtils.hasText(place.getOpeningHours()) && StringUtils.hasText(local.getOpeningHours())) {
+              place.setOpeningHours(local.getOpeningHours());
+            }
+            if (!StringUtils.hasText(place.getPhone()) && StringUtils.hasText(local.getPhone())) {
+              place.setPhone(local.getPhone());
+            }
+            if (!StringUtils.hasText(place.getWebsite()) && StringUtils.hasText(local.getWebsite())) {
+              place.setWebsite(local.getWebsite());
+            }
           }
           merged.put(key, place);
         });

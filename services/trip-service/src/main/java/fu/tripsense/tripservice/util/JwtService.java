@@ -7,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -31,10 +32,15 @@ public class JwtService {
       throw new IllegalArgumentException("Token is expired");
     }
 
+    List<?> rawRoles = claims.get("roles", List.class);
+    List<String> roles =
+        rawRoles != null ? rawRoles.stream().map(Object::toString).toList() : null;
+
     return new AuthenticatedUser(
         UUID.fromString(claims.getSubject()),
         claims.get("email", String.class),
-        claims.get("role", String.class));
+        claims.get("role", String.class),
+        roles);
   }
 
   private Key signingKey() {

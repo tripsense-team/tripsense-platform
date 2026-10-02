@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { UserLayout } from "@/components/layout";
-import { useAuth, useAuthStore } from "@/features/auth";
+import { useAuth, useAuthStore, isUserAdmin } from "@/features/auth";
 import { onboardingApi } from "@/features/onboarding/services/onboarding-api";
 import { AuthLoadingScreen } from "@/components/shared";
 
@@ -20,6 +20,7 @@ export default function MainLayout({
 
   const isChecking =
     isLoading || status === "checking" || status === "initializing";
+  const isAdmin = isUserAdmin(user);
   const isInvitationRoute = pathname === "/trips/join";
 
   // 1. Redirect unauthenticated users
@@ -54,7 +55,7 @@ export default function MainLayout({
       isChecking ||
       !isAuthenticated ||
       !user ||
-      user.role === "ROLE_ADMIN" ||
+      isAdmin ||
       onboardingCompleted
     ) {
       return;
@@ -100,7 +101,15 @@ export default function MainLayout({
         try {
           const gate = await onboardingApi.getGate();
           if (!active) return;
-          if (gate && !gate.required) {
+          const gateRecord = gate as Record<string, unknown> | undefined;
+          const nestedData = gateRecord?.data as Record<string, unknown> | undefined;
+          const isRequired =
+            typeof nestedData?.required === "boolean"
+              ? nestedData.required
+              : typeof gateRecord?.required === "boolean"
+              ? gateRecord.required
+              : undefined;
+          if (isRequired === false) {
             // User not requiring onboarding -> allow access without lockout
             setOnboardingCompleted(true);
             return;
@@ -120,8 +129,8 @@ export default function MainLayout({
   }, [
     isChecking,
     isAuthenticated,
-    user?.id,
-    user?.role,
+    user,
+    isAdmin,
     onboardingCompleted,
     isInvitationRoute,
     pathname,
@@ -145,9 +154,7 @@ export default function MainLayout({
   if (
     isChecking ||
     !isAuthenticated ||
-    (!isInvitationRoute &&
-      user?.role !== "ROLE_ADMIN" &&
-      !onboardingCompleted)
+    (!isInvitationRoute && !isAdmin && !onboardingCompleted)
   ) {
     return <AuthLoadingScreen message="Đang kiểm tra quyền truy cập..." />;
   }

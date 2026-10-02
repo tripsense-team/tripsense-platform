@@ -13,6 +13,8 @@ import {
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { useTranslation } from "@/i18n";
 import { siteConfig } from "@/config/site";
+import { useAuth } from "@/features/auth";
+import { UserMenu } from "../user/user-menu";
 
 export interface LandingHeaderProps {
   onOpenAuthModal?: (mode: "signin" | "signup") => void;
@@ -20,6 +22,7 @@ export interface LandingHeaderProps {
 
 export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
   const { t } = useTranslation();
+  const { isAuthenticated, user } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 transition-all">
@@ -63,22 +66,40 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
 
         <div className="hidden md:flex items-center gap-3">
           <LanguageSwitcher />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenAuthModal?.("signin")}
-            className="font-medium"
-          >
-            {t("auth.login")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => onOpenAuthModal?.("signup")}
-            className="rounded-full gap-2 shadow-sm font-medium"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>{t("nav.startTrip")}</span>
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <Button
+                asChild
+                size="sm"
+                className="rounded-full gap-2 shadow-sm font-medium"
+              >
+                <Link href="/ai-planner">
+                  <Sparkles className="h-4 w-4" />
+                  <span>{t("nav.startTrip")}</span>
+                </Link>
+              </Button>
+              <UserMenu />
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenAuthModal?.("signin")}
+                className="font-medium"
+              >
+                {t("auth.login")}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => onOpenAuthModal?.("signup")}
+                className="rounded-full gap-2 shadow-sm font-medium"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>{t("nav.startTrip")}</span>
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="md:hidden flex items-center gap-2">
@@ -129,20 +150,43 @@ export function LandingHeader({ onOpenAuthModal }: LandingHeaderProps) {
                     </span>
                     <LanguageSwitcher variant="segmented" />
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => onOpenAuthModal?.("signin")}
-                    className="w-full justify-center"
-                  >
-                    {t("auth.login")}
-                  </Button>
-                  <Button
-                    onClick={() => onOpenAuthModal?.("signup")}
-                    className="w-full justify-center rounded-full gap-2"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    <span>{t("nav.startTrip")}</span>
-                  </Button>
+                  {isAuthenticated ? (
+                    <div className="flex flex-col gap-2 pt-2">
+                      <Button
+                        asChild
+                        className="w-full justify-center rounded-full gap-2"
+                      >
+                        <Link href="/ai-planner">
+                          <Sparkles className="h-4 w-4" />
+                          <span>{t("nav.startTrip")}</span>
+                        </Link>
+                      </Button>
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="w-full justify-center"
+                      >
+                        <Link href="/profile">{t("nav.profile")}</Link>
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => onOpenAuthModal?.("signin")}
+                        className="w-full justify-center"
+                      >
+                        {t("auth.login")}
+                      </Button>
+                      <Button
+                        onClick={() => onOpenAuthModal?.("signup")}
+                        className="w-full justify-center rounded-full gap-2"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        <span>{t("nav.startTrip")}</span>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </SheetContent>

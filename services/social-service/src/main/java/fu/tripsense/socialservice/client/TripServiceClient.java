@@ -76,4 +76,39 @@ public class TripServiceClient {
           "Trip service is currently unavailable");
     }
   }
+
+  public java.util.Map<UUID, fu.tripsense.socialservice.client.dto.InternalGuideSummaryResponse> fetchGuideSummariesBatch(
+      java.util.List<UUID> promotionIds) {
+    if (promotionIds == null || promotionIds.isEmpty()) {
+      return java.util.Map.of();
+    }
+    try {
+      var requestSpec =
+          restClientBuilder
+              .build()
+              .post()
+              .uri(tripServiceUrl + "/internal/partner-guide-summaries/batch")
+              .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+              .body(java.util.Map.of("promotionIds", promotionIds));
+
+      ApiResponseEnvelope<java.util.List<fu.tripsense.socialservice.client.dto.InternalGuideSummaryResponse>> response =
+          requestSpec
+              .retrieve()
+              .body(
+                  new ParameterizedTypeReference<
+                      ApiResponseEnvelope<java.util.List<fu.tripsense.socialservice.client.dto.InternalGuideSummaryResponse>>>() {});
+
+      if (response != null && response.data() != null) {
+        return response.data().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    fu.tripsense.socialservice.client.dto.InternalGuideSummaryResponse::promotionId,
+                    java.util.function.Function.identity(),
+                    (a, b) -> a));
+      }
+    } catch (Exception ex) {
+      log.warn("Failed to fetch guide summaries batch from trip-service: {}", ex.getMessage());
+    }
+    return java.util.Map.of();
+  }
 }

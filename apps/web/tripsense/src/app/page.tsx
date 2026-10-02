@@ -12,18 +12,31 @@ import {
   LandingFeaturesGrid,
   LandingTestimonials,
 } from "@/features/explore";
-import { AuthModal, safeInternalReturnUrl, useAuth } from "@/features/auth";
+import { AuthModal, safeInternalReturnUrl, useAuth, isUserAdmin } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
 
 function LandingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, status, isLoading } = useAuth();
+  const { status, isLoading, isAuthenticated, user } = useAuth();
+
+  const isChecking =
+    isLoading || status === "checking" || status === "initializing";
 
   const signinParam = searchParams.get("signin");
   const signupParam = searchParams.get("signup");
   const returnUrl = safeInternalReturnUrl(searchParams.get("returnUrl"));
   const initialEmail = searchParams.get("email");
+
+  // Authenticated User Route Rule:
+  // If user is already authenticated, NEVER show landing page -> redirect to destination
+  React.useEffect(() => {
+    if (!isChecking && isAuthenticated) {
+      const destination =
+        returnUrl || (isUserAdmin(user) ? "/admin" : "/explore");
+      router.replace(destination);
+    }
+  }, [isChecking, isAuthenticated, user, returnUrl, router]);
 
   const [authModalDismissed, setAuthModalDismissed] = React.useState(false);
   const [activeMode, setActiveMode] = React.useState<
@@ -34,14 +47,6 @@ function LandingContent() {
     (signupParam === "true" || signinParam === "true") && !authModalDismissed;
   const authModalOpen = isParamPrompt || activeMode !== null;
   const authMode = activeMode ?? (signupParam === "true" ? "signup" : "signin");
-
-  // Authenticated User Route Rule:
-  // If user is authenticated, immediately redirect to Home (/explore)
-  React.useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace(returnUrl ?? "/explore");
-    }
-  }, [isLoading, isAuthenticated, returnUrl, router]);
 
   const handleOpenAuthModal = (mode: "signin" | "signup") => {
     setAuthModalDismissed(false);
@@ -55,9 +60,9 @@ function LandingContent() {
     }
   };
 
-  // While checking auth status OR if already authenticated (redirect in flight):
+  // While checking auth status OR if already authenticated (redirecting):
   // Render AuthLoadingScreen. DO NOT render Landing Page!
-  if (isLoading || status === "checking" || isAuthenticated) {
+  if (isChecking || isAuthenticated) {
     return <AuthLoadingScreen />;
   }
 

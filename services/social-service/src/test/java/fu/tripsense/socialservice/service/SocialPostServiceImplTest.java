@@ -40,6 +40,7 @@ class SocialPostServiceImplTest {
   private CommentLikeRepository commentLikes;
   private SocialTripShareRepository tripShares;
   private SocialTripShareSnapshotRepository tripShareSnapshots;
+  private fu.tripsense.socialservice.repository.SocialGuidePromotionRepository guidePromotions;
   private TripServiceClient tripServiceClient;
   private CurrentUserProvider currentUserProvider;
   private ObjectMapper objectMapper;
@@ -59,6 +60,7 @@ class SocialPostServiceImplTest {
     commentLikes = mock(CommentLikeRepository.class);
     tripShares = mock(SocialTripShareRepository.class);
     tripShareSnapshots = mock(SocialTripShareSnapshotRepository.class);
+    guidePromotions = mock(fu.tripsense.socialservice.repository.SocialGuidePromotionRepository.class);
     tripServiceClient = mock(TripServiceClient.class);
     currentUserProvider = mock(CurrentUserProvider.class);
     userFollows = mock(SocialUserFollowRepository.class);
@@ -75,6 +77,7 @@ class SocialPostServiceImplTest {
             commentLikes,
             tripShares,
             tripShareSnapshots,
+            guidePromotions,
             tripServiceClient,
             currentUserProvider,
             objectMapper,
@@ -1039,6 +1042,6 @@ class SocialPostServiceImplTest {
   @Test
   void ensuresSingleConstructorExistsForSpringAutowiring() {
     assertThat(SocialPostServiceImpl.class.getConstructors()).hasSize(1);
-    assertThat(SocialPostServiceImpl.class.getConstructors()[0].getParameterCount()).isEqualTo(13);
+    assertThat(SocialPostServiceImpl.class.getConstructors()[0].getParameterCount()).isEqualTo(14);
   }
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, Settings, LogOut, Bookmark, Database, Sparkles } from "lucide-react";
+import { User, Settings, LogOut, Bookmark, Database, Sparkles, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth, LogoutModal, UserRole } from "@/features/auth";
+import { useAuth, LogoutModal, UserRole, isUserAdmin } from "@/features/auth";
 import { useUserProfile } from "@/features/profile";
 import { useTranslation } from "@/i18n";
 
@@ -71,6 +71,17 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
+            {isUserAdmin(authUser) && (
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 cursor-pointer font-semibold text-primary"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>Admin Dashboard</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link
                 href="/profile"

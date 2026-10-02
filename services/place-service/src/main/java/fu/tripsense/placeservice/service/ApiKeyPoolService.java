@@ -183,7 +183,19 @@ public class ApiKeyPoolService {
       }
     }
 
-    // Fallback to static properties if pool is empty
+    // Only fallback to static properties if the database pool has ZERO configured keys.
+    // If pool has configured keys but none are ACTIVE/AVAILABLE (e.g. all are DISABLED, INVALID, or EXHAUSTED),
+    // we must fail closed to respect administrator action and avoid resurrecting exhausted/disabled keys.
+    long totalKeysInPool = repository.countByProvider(provider);
+    if (totalKeysInPool > 0) {
+      log.warn(
+          "[ApiKeyPool] All {} configured keys in pool for provider {} are exhausted, invalid, or disabled. Failing closed.",
+          totalKeysInPool,
+          provider);
+      return null;
+    }
+
+    // Fallback to static properties if pool is truly empty (unconfigured)
     if (provider == ApiKeyProvider.ZIOMAP) {
       return zioMapProperties.getApiKey();
     } else if (provider == ApiKeyProvider.GEMINI) {
@@ -417,10 +429,11 @@ public class ApiKeyPoolService {
                 .uri(
                     builder ->
                         builder
-                            .path("/api/place/autocomplete")
+                            .path("/api/autocomplete")
                             .queryParam("input", "test")
                             .queryParam("language", "vi")
-                            .queryParam("region", "vn")
+                            .queryParam("components", "country:vn")
+                            .queryParam("key", trimmed)
                             .build())
                 .header("x-api-key", trimmed)
                 .retrieve()

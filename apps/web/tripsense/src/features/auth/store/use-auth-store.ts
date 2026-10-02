@@ -50,7 +50,7 @@ function saveCachedUser(user: User | null) {
 
 function parseJwtClaims(
   token: string,
-): { sub?: string; email?: string; role?: string; exp?: number } | null {
+): { sub?: string; email?: string; role?: string; roles?: string[]; exp?: number } | null {
   try {
     const base64Url = token.split(".")[1];
     if (!base64Url) return null;
@@ -87,7 +87,12 @@ export interface AuthState {
   setOnboardingCompleted: (completed: boolean) => void;
 }
 
-const initialCachedUser = loadCachedUser();
+import { normalizeRole, isUserAdmin } from "../utils/role-helpers";
+
+const initialCachedUserRaw = loadCachedUser();
+const initialCachedUser = initialCachedUserRaw
+  ? { ...initialCachedUserRaw, role: normalizeRole(initialCachedUserRaw.role) }
+  : null;
 
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
@@ -96,24 +101,27 @@ export const useAuthStore = create<AuthState>((set) => ({
   authVersion: 0,
   isAuthenticated: !!initialCachedUser,
   isLoading: true,
-  onboardingCompleted: initialCachedUser?.role === UserRole.ADMIN,
+  onboardingCompleted: isUserAdmin(initialCachedUser),
 
   setAuth: (user, accessToken) => {
     setLoggedInCookie();
     const cached = loadCachedUser();
+    const normalizedRole = normalizeRole(user.role);
     const mergedUser: User = {
       ...user,
+      role: normalizedRole,
       avatar: user.avatar || (cached?.id === user.id ? cached.avatar : undefined),
       name: user.name || (cached?.id === user.id ? cached.name : undefined),
     };
     saveCachedUser(mergedUser);
+    const adminFlag = isUserAdmin(mergedUser);
     set({
       user: mergedUser,
       accessToken,
       status: "authenticated",
       isAuthenticated: true,
       isLoading: false,
-      onboardingCompleted: mergedUser.role === UserRole.ADMIN,
+      onboardingCompleted: adminFlag,
     });
   },
 
@@ -135,18 +143,23 @@ export const useAuthStore = create<AuthState>((set) => ({
       setLoggedInCookie();
       const claims = parseJwtClaims(accessToken);
       const cached = loadCachedUser();
-      const user =
+      const roleFromClaim = normalizeRole(claims?.role);
+      const rawUser =
         state.user ||
         cached ||
         (claims
           ? {
               id: claims.sub || "user-id",
               email: claims.email || "user@tripsense.app",
-              role:
-                claims.role === "ROLE_ADMIN" ? UserRole.ADMIN : UserRole.USER,
+              role: roleFromClaim,
+              roles: claims.roles ?? [roleFromClaim],
               status: UserStatus.ACTIVE,
             }
           : null);
+
+      const user = rawUser
+        ? { ...rawUser, role: normalizeRole(rawUser.role) }
+        : null;
 
       if (user) {
         saveCachedUser(user);
@@ -159,7 +172,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
         onboardingCompleted:
-          user?.role === UserRole.ADMIN || state.onboardingCompleted,
+          isUserAdmin(user) || state.onboardingCompleted,
       };
     }),
 

@@ -11,7 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class InternalApiKeyValidator {
   private final byte[] expectedKey;
 
-  public InternalApiKeyValidator(@Value("${MAIL_INTERNAL_API_KEY}") String expectedKey) {
+  public InternalApiKeyValidator(@Value("${MAIL_INTERNAL_API_KEY:}") String expectedKey) {
     this.expectedKey = expectedKey.getBytes(StandardCharsets.UTF_8);
   }
 
