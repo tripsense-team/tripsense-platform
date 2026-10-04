@@ -1,24 +1,18 @@
-name: CD Azure
+name: CD AWS Manual
 
 on:
-  push:
-    branches:
-      - dev
-      - main
-
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: tripsense-cd-azure
+  group: tripsense-cd-aws
   cancel-in-progress: false
 
 jobs:
   publish:
     name: Build & Publish Images
-    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -151,13 +145,11 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
 
   deploy:
-    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-
     runs-on:
       - self-hosted
       - Linux
       - X64
-      - tripsense-azure
+      - tripsense-aws
 
     needs: publish
 
@@ -191,7 +183,7 @@ jobs:
 
           chmod +x /opt/tripsense/deploy/deploy.sh
 
-      - name: Deploy TripSense to Azure
+      - name: Deploy TripSense to AWS EC2
         env:
           IMAGE_REGISTRY: docker.io
           IMAGE_OWNER: ${{ secrets.DOCKERHUB_USERNAME }}
