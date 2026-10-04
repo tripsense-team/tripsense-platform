@@ -327,6 +327,7 @@ SSL_DOMAIN="$(get_env_val "SSL_DOMAIN")"
 if [ -z "$SSL_DOMAIN" ]; then
   SSL_DOMAIN="tripsense.duckdns.org"
 fi
+export SSL_DOMAIN
 
 SSL_EMAIL="$(get_env_val "SSL_EMAIL")"
 if [ -z "$SSL_EMAIL" ]; then
@@ -337,6 +338,33 @@ CERT_FILE="$DEPLOY_DIR/certbot/conf/live/$SSL_DOMAIN/fullchain.pem"
 
 # Ensure host mount directories exist
 mkdir -p "$DEPLOY_DIR/certbot/www" "$DEPLOY_DIR/certbot/conf" "$DEPLOY_DIR/nginx"
+
+# ==============================================================================
+# Render Nginx Configuration Templates with $SSL_DOMAIN
+# ==============================================================================
+render_nginx_template() {
+  local src="$1"
+  local dest="$2"
+  if [ -f "$src" ]; then
+    echo "--> [Template] Rendering: $(basename "$src") -> $(basename "$dest") (Domain: $SSL_DOMAIN)"
+    if command -v envsubst >/dev/null 2>&1; then
+      envsubst '${SSL_DOMAIN}' < "$src" > "$dest"
+    else
+      # Dual-safety fallback using sed if envsubst is not installed on host
+      sed "s|\${SSL_DOMAIN}|$SSL_DOMAIN|g; s|\$SSL_DOMAIN|$SSL_DOMAIN|g" "$src" > "$dest"
+    fi
+  fi
+}
+
+# 1. Render production HTTPS configuration from template if available
+if [ -f "$DEPLOY_DIR/nginx/nginx.conf.template" ]; then
+  render_nginx_template "$DEPLOY_DIR/nginx/nginx.conf.template" "$DEPLOY_DIR/nginx/nginx.conf"
+fi
+
+# 2. Render initial HTTP bootstrap configuration from template if available
+if [ -f "$DEPLOY_DIR/nginx/nginx.init.conf.template" ]; then
+  render_nginx_template "$DEPLOY_DIR/nginx/nginx.init.conf.template" "$DEPLOY_DIR/nginx/nginx.init.conf"
+fi
 
 if [ ! -f "$CERT_FILE" ]; then
   echo ""
@@ -353,10 +381,10 @@ if [ ! -f "$CERT_FILE" ]; then
     cp "$DEPLOY_DIR/nginx/nginx.init.conf" "$DEPLOY_DIR/nginx/nginx.conf"
   else
     # Fallback inline: Nếu không có file init sẵn, tạo ngay cấu hình HTTP tạm thời
-    cat <<'EOF' > "$DEPLOY_DIR/nginx/nginx.conf"
+    cat <<EOF > "$DEPLOY_DIR/nginx/nginx.conf"
 server {
     listen 80;
-    server_name tripsense.duckdns.org;
+    server_name ${SSL_DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
