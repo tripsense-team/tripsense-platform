@@ -187,6 +187,7 @@ jobs:
           cp deploy/docker-compose.prod.yml /opt/tripsense/deploy/docker-compose.yml
           cp scripts/deploy.sh /opt/tripsense/deploy/deploy.sh
           cp deploy/nginx/nginx.conf /opt/tripsense/deploy/nginx/nginx.conf
+          cp deploy/nginx/nginx.init.conf /opt/tripsense/deploy/nginx/nginx.init.conf
 
           chmod +x /opt/tripsense/deploy/deploy.sh
 
