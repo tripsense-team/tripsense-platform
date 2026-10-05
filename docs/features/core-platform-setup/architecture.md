@@ -34,19 +34,19 @@ flowchart LR
 
 ## Port Convention
 
-| Component | Application Name | Local Port |
-| --- | --- | --- |
-| API Gateway | `api-gateway` | `8080` |
-| Discovery Server | `discovery-server` | `8761` |
-| Trip Service | `trip-service` | `8081` |
-| Place Service | `place-service` | `8082` |
-| Context Service | `context-service` | `8083` |
-| Itinerary Service | `itinerary-service` | `8084` |
-| Review Service | `review-service` | `8085` |
-| identity-service | `identity-service` | `8091` reserved |
-| user-service | `user-service` | `8092` reserved |
+| Component            | Application Name       | Local Port      |
+| -------------------- | ---------------------- | --------------- |
+| API Gateway          | `api-gateway`          | `8080`          |
+| Discovery Server     | `discovery-server`     | `8761`          |
+| Trip Service         | `trip-service`         | `8081`          |
+| Place Service        | `place-service`        | `8082`          |
+| Context Service      | `context-service`      | `8083`          |
+| Itinerary Service    | `itinerary-service`    | `8084`          |
+| Review Service       | `review-service`       | `8085`          |
+| identity-service     | `identity-service`     | `8091` reserved |
+| user-service         | `user-service`         | `8092` reserved |
 | notification-service | `notification-service` | `8093` reserved |
-| ai-service | `ai-service` | `8094` reserved |
+| ai-service           | `ai-service`           | `8094` reserved |
 
 ## Sync Communication
 

@@ -1,0 +1,530 @@
+services:
+  # =========================
+  # DATABASES & CACHE
+  # =========================
+
+  db:
+    image: postgres:17-alpine
+    container_name: user-postgres
+    environment:
+      POSTGRES_DB: tripsense_user
+      POSTGRES_USER: ${USER_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${USER_DB_PASS:-123456}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  trip-db:
+    image: postgres:17-alpine
+    container_name: trip-postgres
+    environment:
+      POSTGRES_DB: tripsense_trip
+      POSTGRES_USER: ${TRIP_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${TRIP_DB_PASS:-123456}
+    ports:
+      - "5433:5432"
+    volumes:
+      - trip_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  social-db:
+    image: postgres:17-alpine
+    container_name: social-postgres
+    environment:
+      POSTGRES_DB: ${SOCIAL_DB_NAME:-tripsense_social}
+      POSTGRES_USER: ${SOCIAL_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${SOCIAL_DB_PASS:-123456}
+    ports:
+      - "5434:5432"
+    volumes:
+      - social_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  context-db:
+    image: postgres:17-alpine
+    container_name: context-postgres
+    environment:
+      POSTGRES_DB: ${CONTEXT_DB_NAME:-tripsense_context}
+      POSTGRES_USER: ${CONTEXT_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${CONTEXT_DB_PASS:-123456}
+    ports:
+      - "5435:5432"
+    volumes:
+      - context_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  ai-db:
+    image: postgres:17-alpine
+    container_name: ai-postgres
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME:-tripsense_ai}
+      POSTGRES_USER: ${AI_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${AI_DB_PASS:-123456}
+    ports:
+      - "5436:5432"
+    volumes:
+      - ai_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  recommendation-db:
+    image: postgres:17-alpine
+    container_name: recommendation-postgres
+    environment:
+      POSTGRES_DB: ${RECOMMENDATION_DB_NAME:-tripsense_recommendation}
+      POSTGRES_USER: ${RECOMMENDATION_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${RECOMMENDATION_DB_PASS:-123456}
+    ports:
+      - "5437:5432"
+    volumes:
+      - recommendation_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RECOMMENDATION_DB_USER:-postgres} -d ${RECOMMENDATION_DB_NAME:-tripsense_recommendation}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7.0
+    container_name: place-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tripsense-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.4
+    profiles: ["semantic"]
+    container_name: tripsense-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # =========================
+  # EUREKA DISCOVERY SERVER
+  # =========================
+
+  discovery-server:
+    build:
+      context: .
+      dockerfile: services/discovery-server/Dockerfile
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'curl -fsS http://localhost:8761/actuator/health | grep -q ''"status":"UP"''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  # =========================
+  # API GATEWAY
+  # =========================
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SOCIAL_RATE_LIMIT_ENABLED: "true"
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      AI_RESPONSE_TIMEOUT: ${AI_RESPONSE_TIMEOUT:-300s}
+      GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT: ${GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT:-300s}
+      AI_SERVICE_V2_URL: ${AI_SERVICE_V2_URL:-http://ai-service:8089}
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      user-service:
+        condition: service_started
+      context-service:
+        condition: service_started
+      recommendation-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # =========================
+  # PLACE SERVICE
+  # =========================
+
+  place-service:
+    build:
+      context: .
+      dockerfile: services/place-service/Dockerfile
+    container_name: place-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/tripsense_places}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-tripsense_places}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SERVER_PORT: 8082
+      ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
+      ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
+      RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+
+  # =========================
+  # RECOMMENDATION SERVICE
+  # =========================
+
+  recommendation-service:
+    build:
+      context: .
+      dockerfile: services/recommendation-service/Dockerfile
+    container_name: recommendation-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      RECOMMENDATION_DB_HOST: recommendation-db
+      RECOMMENDATION_DB_PORT: "5432"
+      RECOMMENDATION_DB_NAME: ${RECOMMENDATION_DB_NAME:-tripsense_recommendation}
+      RECOMMENDATION_DB_USER: ${RECOMMENDATION_DB_USER:-postgres}
+      RECOMMENDATION_DB_PASS: ${RECOMMENDATION_DB_PASS:-123456}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      PLACE_SERVICE_URL: http://place-service:8082
+      CONTEXT_SERVICE_URL: http://context-service:8087
+      TRIP_SERVICE_URL: http://trip-service:8084
+      USER_SERVICE_URL: http://user-service:8081
+      QDRANT_URL: http://qdrant:6333
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+      RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}
+      RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET:-}
+    depends_on:
+      recommendation-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+      place-service:
+        condition: service_started
+      user-service:
+        condition: service_healthy
+      context-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'curl -fsS http://localhost:8088/actuator/health | grep -q ''"status":"UP"''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    ports:
+      - "8088:8088"
+    restart: unless-stopped
+
+  # =========================
+  # MAIL SERVICE
+  # =========================
+
+  mail-service:
+    build:
+      context: .
+      dockerfile: services/mail-service/Dockerfile
+    container_name: mail-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8083:8082"
+    restart: unless-stopped
+
+  # =========================
+  # USER SERVICE
+  # =========================
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: user-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      USER_DATASOURCE_URL: ${USER_DATASOURCE_URL:-jdbc:postgresql://db:5432/tripsense_user}
+      USER_DB_HOST: db
+      USER_DB_PORT: "5432"
+      USER_DB_USER: ${USER_DB_USER:-postgres}
+      USER_DB_PASS: ${USER_DB_PASS:-123456}
+      EMAIL_SERVICE_URL: http://mail-service:8082
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+    depends_on:
+      db:
+        condition: service_started
+      mail-service:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'curl -fsS http://localhost:8081/actuator/health | grep -q ''"status":"UP"''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  # =========================
+  # TRIP SERVICE
+  # =========================
+
+  context-service:
+    build:
+      context: .
+      dockerfile: services/context-service/Dockerfile
+    container_name: context-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      CONTEXT_SERVICE_PORT: "8087"
+      CONTEXT_DATASOURCE_URL: ${CONTEXT_DATASOURCE_URL:-jdbc:postgresql://context-db:5432/tripsense_context}
+      CONTEXT_DB_HOST: context-db
+      CONTEXT_DB_PORT: "5432"
+      CONTEXT_DB_NAME: ${CONTEXT_DB_NAME:-tripsense_context}
+      CONTEXT_DB_USER: ${CONTEXT_DB_USER:-postgres}
+      CONTEXT_DB_PASS: ${CONTEXT_DB_PASS:-123456}
+      CONTEXT_ENCRYPTION_SECRET: ${CONTEXT_ENCRYPTION_SECRET:-tripsense-context-onboarding-secure-key-32b}
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      context-db:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8087:8087"
+    restart: unless-stopped
+
+  trip-service:
+    build:
+      context: .
+      dockerfile: services/trip-service/Dockerfile
+    container_name: trip-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
+      HOTEL_DEMO_PAYMENTS_ENABLED: ${HOTEL_DEMO_PAYMENTS_ENABLED:-false}
+      PAYOS_ENABLED: ${PAYOS_ENABLED:-true}
+      PAY_OS_CLIENT_ID: ${PAY_OS_CLIENT_ID:-}
+      PAY_OS_API_KEY: ${PAY_OS_API_KEY:-}
+      PAY_OS_CHECKSUM_KEY: ${PAY_OS_CHECKSUM_KEY:-}
+      PAYOS_RETURN_BASE_URL: ${PAYOS_RETURN_BASE_URL:-http://localhost:3000}
+      HOTEL_MAIL_URL: http://mail-service:8082
+      TRIP_DB_HOST: trip-db
+      TRIP_DB_PORT: "5432"
+      TRIP_DB_USER: ${TRIP_DB_USER:-postgres}
+      TRIP_DB_PASS: ${TRIP_DB_PASS:-123456}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
+      PLACE_SERVICE_URL: http://place-service:8082
+      EMAIL_SERVICE_URL: http://mail-service:8082
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3000}
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+    depends_on:
+      trip-db:
+        condition: service_started
+      redis:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+      mail-service:
+        condition: service_started
+    ports:
+      - "8084:8084"
+    restart: unless-stopped
+
+  # =========================
+  # SOCIAL SERVICE
+  # =========================
+
+  social-service:
+    build:
+      context: .
+      dockerfile: services/social-service/Dockerfile
+    container_name: social-service
+    env_file:
+      - path: ./env/.env
+        required: true
+    environment:
+      SOCIAL_DATASOURCE_URL: ${SOCIAL_DATASOURCE_URL:-jdbc:postgresql://social-db:5432/tripsense_social}
+      SOCIAL_DB_HOST: social-db
+      SOCIAL_DB_PORT: "5432"
+      SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
+      SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
+      SOCIAL_DB_PASS: ${SOCIAL_DB_PASS:-123456}
+      REDIS_HOST: redis
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      USER_SERVICE_URL: http://user-service:8081
+      TRIP_SERVICE_URL: http://trip-service:8084
+      PLACE_SERVICE_URL: http://place-service:8082
+      COMMUNITY_REVIEWS_WRITE_ENABLED: ${COMMUNITY_REVIEWS_WRITE_ENABLED:-false}
+      EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+      EUREKA_CLIENT_ENABLED: "true"
+      EUREKA_REGISTER: "true"
+      EUREKA_FETCH: "true"
+    depends_on:
+      social-db:
+        condition: service_started
+      redis:
+        condition: service_started
+      user-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+      place-service:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    restart: unless-stopped
+
+  # =========================
+  # AI SERVICE (Hono + Vercel AI SDK)
+  # =========================
+
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+    container_name: ai-service
+    env_file:
+      - path: ./env/.env
+        required: false
+    environment:
+      PORT: "8089"
+      NODE_ENV: "production"
+      DATABASE_URL: ${AI_DATABASE_URL:-${AI_V2_DATABASE_URL:-postgresql://${AI_DB_USER:-postgres}:${AI_DB_PASS:-123456}@ai-db:5432/${AI_DB_NAME:-tripsense_ai}}}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
+      AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
+      PLACE_SERVICE_URL: http://place-service:8082
+      TRIP_SERVICE_URL: http://trip-service:8084
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3001,http://localhost:8080"
+    depends_on:
+      ai-db:
+        condition: service_started
+      discovery-server:
+        condition: service_healthy
+      place-service:
+        condition: service_started
+      trip-service:
+        condition: service_started
+    ports:
+      - "8089:8089"
+    restart: unless-stopped
+
+  # =========================
+  # DOCKER WEB UI (PORTAINER)
+  # =========================
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: tripsense-portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  trip_postgres_data:
+  social_postgres_data:
+  context_postgres_data:
+  mongodb_data:
+  redis_data:
+  portainer_data:
+  ai_postgres_data:
+  recommendation_postgres_data:
+  qdrant_data:

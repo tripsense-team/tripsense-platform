@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -d "apps/web/tripsense" ]; then
+  cd apps/web/tripsense || exit 1
+  npm run i18n:sort
+  git add src/locales/*.json
+fi

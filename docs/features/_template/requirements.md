@@ -15,4 +15,3 @@ Capture only confirmed or explicitly assumed requirements.
 ## Out Of Scope
 
 ## Open Questions
-

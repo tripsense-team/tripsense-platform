@@ -1,0 +1,293 @@
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import type { ApiResponse, RefreshResponse } from "@/features/auth/types";
+
+const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || "";
+
+// Auth endpoints that MUST NOT trigger 401 auto-refresh interceptor
+const AUTH_ENDPOINTS = [
+  "/api/auth/login",
+  "/api/auth/google",
+  "/api/auth/logout",
+  "/api/auth/logout-all",
+  "/api/auth/refresh",
+  "/api/auth/register",
+  "/api/auth/verify-email",
+  "/api/auth/resend-code",
+];
+
+function isAuthEndpoint(endpoint: string): boolean {
+  return AUTH_ENDPOINTS.some((path) => endpoint.includes(path));
+}
+
+// Single-Flight Refresh Promise to prevent multiple parallel /refresh requests across the entire application
+let refreshPromise: Promise<ApiResponse<RefreshResponse>> | null = null;
+
+export async function requestRefreshToken(): Promise<ApiResponse<RefreshResponse>> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  const currentStore = useAuthStore.getState();
+  const startingVersion = currentStore.authVersion;
+
+  refreshPromise = (async () => {
+    try {
+      const refreshResponse = await fetch(`${API_GATEWAY_URL}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!refreshResponse.ok) {
+        useAuthStore.getState().clearAuth();
+        const errorData = await refreshResponse.json().catch(() => ({}));
+        throw createSanitizedApiError(
+          errorData.message || `Refresh token expired with status ${refreshResponse.status}`,
+          refreshResponse.status,
+          errorData,
+          "/api/auth/refresh",
+        );
+      }
+
+      const refreshData = (await refreshResponse.json()) as ApiResponse<RefreshResponse>;
+      const newToken = refreshData?.data?.accessToken;
+
+      if (!newToken) {
+        useAuthStore.getState().clearAuth();
+        throw new Error("No access token returned from refresh endpoint");
+      }
+
+      // Race Condition Check: If user logged out while refresh was in-flight, DISCARD token!
+      const latestStore = useAuthStore.getState();
+      if (
+        latestStore.authVersion !== startingVersion ||
+        latestStore.status === "unauthenticated"
+      ) {
+        throw new Error("User logged out while refresh was in-flight");
+      }
+
+      // Update in-memory RAM token in Zustand store
+      useAuthStore.getState().setAccessToken(newToken);
+      return refreshData;
+    } catch (error) {
+      // If refresh fails, mark status as unauthenticated to halt further refreshes
+      useAuthStore.getState().clearAuth();
+      throw error;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+export async function performSilentRefresh(): Promise<string> {
+  const result = await requestRefreshToken();
+  return result.data.accessToken;
+}
+
+import {
+  sanitizeErrorMessage,
+  sanitizeErrorData,
+  createIncidentReference,
+} from "./error-sanitizer";
+
+export interface ApiClientOptions extends RequestInit {
+  skipAuth?: boolean;
+  _retry?: boolean;
+}
+
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+  incidentId?: string;
+  rawMessage?: string;
+
+  constructor(
+    message: string,
+    status: number,
+    data: unknown,
+    incidentId?: string,
+    rawMessage?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+    this.incidentId = incidentId;
+    this.rawMessage = rawMessage;
+  }
+}
+
+function createSanitizedApiError(
+  rawMessage: string | undefined,
+  status: number,
+  rawData: unknown,
+  endpoint: string,
+): ApiError {
+  const incidentRef = createIncidentReference();
+  const sanitized = sanitizeErrorMessage(rawMessage, status, incidentRef);
+  const cleanData = sanitizeErrorData(rawData, status);
+
+  if (process.env.NODE_ENV === "development" && sanitized.isSanitized) {
+    console.warn(
+      `[TripSense Dev Guard] Intercepted and sanitized sensitive server error (${status}) on ${endpoint}:`,
+      {
+        incidentRef,
+        rawMessage,
+        sanitizedMessage: sanitized.message,
+      },
+    );
+  }
+
+  return new ApiError(
+    sanitized.message,
+    status,
+    cleanData,
+    incidentRef,
+    process.env.NODE_ENV === "development" ? rawMessage : undefined,
+  );
+}
+
+export async function authenticatedFetch(
+  endpoint: string,
+  options: RequestInit = {},
+  retried = false,
+): Promise<Response> {
+  const requestUrl = endpoint.startsWith("http")
+    ? endpoint
+    : `${API_GATEWAY_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  let token = useAuthStore.getState().accessToken;
+  const authStatus = useAuthStore.getState().status;
+  const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+  // If user is authenticated (e.g. from local cache on page reload/startup)
+  // but accessToken in memory is not yet available, wait for refresh to complete!
+  if (!token && isAuthenticated && (authStatus === "checking" || authStatus === "initializing")) {
+    try {
+      const refreshResult = await requestRefreshToken();
+      token = refreshResult?.data?.accessToken || null;
+    } catch {
+      // Refresh failed or network error; proceed with whatever state we have
+    }
+  }
+
+  const headers = new Headers(options.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(requestUrl, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+  if (response.status !== 401 || retried || isAuthEndpoint(endpoint)) {
+    return response;
+  }
+  await requestRefreshToken();
+  return authenticatedFetch(endpoint, options, true);
+}
+
+export async function apiClient<T>(
+  endpoint: string,
+  options: ApiClientOptions = {},
+): Promise<T> {
+  const {
+    skipAuth = false,
+    _retry = false,
+    headers: customHeaders,
+    ...customOptions
+  } = options;
+
+  const requestUrl = endpoint.startsWith("http")
+    ? endpoint
+    : `${API_GATEWAY_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(customHeaders as Record<string, string>),
+  };
+
+  // Get in-memory RAM Access Token from Zustand store
+  const { accessToken: currentToken } = useAuthStore.getState();
+
+  if (!skipAuth && currentToken) {
+    headers["Authorization"] = `Bearer ${currentToken}`;
+  }
+
+  const fetchOptions: RequestInit = {
+    ...customOptions,
+    headers,
+    credentials: "include", // Pass HttpOnly refreshToken cookie
+  };
+
+  try {
+    const response = await fetch(requestUrl, fetchOptions);
+
+    // 401 Handling & Interceptor Guard
+    if (response.status === 401) {
+      // 1. If this is an auth endpoint, or skipAuth, or already retried once -> DO NOT REFRESH
+      if (skipAuth || _retry || isAuthEndpoint(endpoint)) {
+        if (_retry || endpoint.includes("/api/auth/refresh")) {
+          useAuthStore.getState().clearAuth();
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw createSanitizedApiError(
+          errorData.message,
+          response.status,
+          errorData,
+          endpoint,
+        );
+      }
+
+      // 2. Always evaluate LATEST fresh status from Zustand store (never use stale local variables!)
+      const latestStatus = useAuthStore.getState().status;
+      if (latestStatus === "unauthenticated") {
+        const errorData = await response.json().catch(() => ({}));
+        throw createSanitizedApiError(
+          errorData.message || "User is unauthenticated. Request cancelled.",
+          response.status,
+          errorData,
+          endpoint,
+        );
+      }
+
+      // 3. Initiate or await Single-Flight Refresh
+      try {
+        const refreshResult = await requestRefreshToken();
+        const newToken = refreshResult.data.accessToken;
+
+        // 4. Retry original request ONCE with _retry = true flag
+        return await apiClient<T>(endpoint, {
+          ...options,
+          _retry: true,
+          headers: {
+            ...customHeaders,
+            Authorization: `Bearer ${newToken}`,
+          },
+        });
+      } catch (refreshErr) {
+        useAuthStore.getState().clearAuth();
+        throw refreshErr;
+      }
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw createSanitizedApiError(
+        errorData.message,
+        response.status,
+        errorData,
+        endpoint,
+      );
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const text = await response.text();
+    return (text ? JSON.parse(text) : undefined) as T;
+  } catch (error) {
+    throw error;
+  }
+}

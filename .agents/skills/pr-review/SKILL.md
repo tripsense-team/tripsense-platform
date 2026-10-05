@@ -14,7 +14,7 @@ Do not modify code during review unless the user explicitly asks for fixes.
 Read:
 
 1. `AGENTS.md`
-2. Relevant feature docs under `docs/features/`
+2. The approved feature plan at `docs/features/<feature-name>.md` (or legacy `docs/features/<feature-name>/`)
 3. Changed source and test files
 4. Relevant architecture and service-boundary docs
 

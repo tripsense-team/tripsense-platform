@@ -1,0 +1,116 @@
+package fu.tripsense.emailservice.controller;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verify;
+
+import fu.tripsense.emailservice.dto.request.SendPasswordResetEmailRequest;
+import fu.tripsense.emailservice.dto.request.SendTemplateEmailRequest;
+import fu.tripsense.emailservice.dto.request.SendTripInvitationEmailRequest;
+import fu.tripsense.emailservice.dto.request.SendVerificationEmailRequest;
+import fu.tripsense.emailservice.dto.response.ApiResponse;
+import fu.tripsense.emailservice.dto.response.EmailResponse;
+import fu.tripsense.emailservice.security.InternalApiKeyValidator;
+import fu.tripsense.emailservice.service.EmailService;
+import java.time.Instant;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
+
+@ExtendWith(MockitoExtension.class)
+class EmailControllerTest {
+
+  @Mock private EmailService emailService;
+  @Mock private InternalApiKeyValidator internalApiKeyValidator;
+
+  @InjectMocks private EmailController emailController;
+
+  @Test
+  void testSendVerificationEmail() {
+    SendVerificationEmailRequest request =
+        new SendVerificationEmailRequest("user@example.com", "123456");
+
+    ResponseEntity<ApiResponse<EmailResponse>> response =
+        emailController.sendVerificationEmail(request);
+
+    assertEquals(200, response.getStatusCode().value());
+    assertNotNull(response.getBody());
+    assertTrue(response.getBody().success());
+    assertNotNull(response.getBody().data());
+    assertTrue(response.getBody().data().success());
+    verify(emailService).sendVerificationCode("user@example.com", "123456");
+  }
+
+  @Test
+  void testSendPasswordResetEmail() {
+    SendPasswordResetEmailRequest request =
+        new SendPasswordResetEmailRequest("user@example.com", "654321");
+
+    ResponseEntity<ApiResponse<EmailResponse>> response =
+        emailController.sendPasswordResetEmail(request);
+
+    assertEquals(200, response.getStatusCode().value());
+    assertNotNull(response.getBody());
+    assertTrue(response.getBody().success());
+    assertNotNull(response.getBody().data());
+    assertTrue(response.getBody().data().success());
+    verify(emailService).sendPasswordResetCode("user@example.com", "654321");
+  }
+
+  @Test
+  void testSendTemplateEmail() {
+    SendTemplateEmailRequest request =
+        new SendTemplateEmailRequest(
+            "customer@email.com",
+            "Order Confirmation",
+            "order-confirmation",
+            Map.of("PRODUCT", "Vintage Macintosh", "PRICE", 499));
+
+    ResponseEntity<ApiResponse<EmailResponse>> response =
+        emailController.sendTemplateEmail(request);
+
+    assertEquals(200, response.getStatusCode().value());
+    assertNotNull(response.getBody());
+    assertTrue(response.getBody().success());
+    assertNotNull(response.getBody().data());
+    assertTrue(response.getBody().data().success());
+    verify(emailService)
+        .sendTemplateEmail(
+            "customer@email.com",
+            "Order Confirmation",
+            "order-confirmation",
+            Map.of("PRODUCT", "Vintage Macintosh", "PRICE", 499));
+  }
+
+  @Test
+  void testSendTripInvitationEmail() {
+    Instant expiresAt = Instant.parse("2026-10-07T08:00:00Z");
+    SendTripInvitationEmailRequest request =
+        new SendTripInvitationEmailRequest(
+            "friend@example.com",
+            "Da Nang",
+            "EDITOR",
+            "Join us",
+            "http://localhost:3000/trips/join?token=token123",
+            expiresAt);
+
+    ResponseEntity<ApiResponse<EmailResponse>> response =
+        emailController.sendTripInvitationEmail("test-internal-key", request);
+
+    assertEquals(200, response.getStatusCode().value());
+    verify(internalApiKeyValidator).requireValid("test-internal-key");
+    verify(emailService)
+        .sendTripInvitation(
+            "friend@example.com",
+            "Da Nang",
+            "EDITOR",
+            "Join us",
+            "http://localhost:3000/trips/join?token=token123",
+            expiresAt);
+  }
+}

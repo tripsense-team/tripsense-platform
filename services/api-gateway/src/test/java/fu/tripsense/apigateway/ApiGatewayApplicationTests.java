@@ -1,5 +1,9 @@
 package fu.tripsense.apigateway;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.net.URI;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -7,32 +11,99 @@ import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.net.URI;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 @SpringBootTest
 @ActiveProfiles("test")
 class ApiGatewayApplicationTests {
 
-    @Autowired
-    private RouteLocator routeLocator;
+  @Autowired private RouteLocator routeLocator;
 
-    @Test
-    void contextLoads() {
-    }
+  @Test
+  void contextLoads() {}
 
-    @Test
-    void placeServiceRouteUsesDiscoveryLoadBalancer() {
-        List<Route> routes = routeLocator.getRoutes().collectList().block();
+  @Test
+  void blockInternalEndpointsRouteExists() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
 
-        assertThat(routes)
-                .isNotNull()
-                .anySatisfy(route -> {
-                    assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.PLACE_SERVICE_ROUTE_ID);
-                    assertThat(route.getUri()).isEqualTo(URI.create("lb://place-service"));
-                });
-    }
+    assertThat(routes)
+        .isNotNull()
+        .anySatisfy(
+            route -> {
+              assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.BLOCK_INTERNAL_ROUTE_ID);
+              assertThat(route.getFilters()).isNotEmpty();
+            });
+  }
 
+  @Test
+  void placeServiceRouteUsesDiscoveryLoadBalancer() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .anySatisfy(
+            route -> {
+              assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.PLACE_SERVICE_ROUTE_ID);
+              assertThat(route.getUri()).isEqualTo(URI.create("lb://place-service"));
+              assertThat(route.getFilters()).isNotEmpty();
+            });
+  }
+
+  @Test
+  void tripServiceRouteUsesDiscoveryLoadBalancer() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .anySatisfy(
+            route -> {
+              assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.TRIP_SERVICE_ROUTE_ID);
+              assertThat(route.getUri()).isEqualTo(URI.create("lb://trip-service"));
+            });
+  }
+
+  @Test
+  void recommendationServiceRouteUsesDiscoveryLoadBalancer() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .anySatisfy(
+            route -> {
+              assertThat(route.getId())
+                  .isEqualTo(GatewayRoutesConfig.RECOMMENDATION_SERVICE_ROUTE_ID);
+              assertThat(route.getUri()).isEqualTo(URI.create("lb://recommendation-service"));
+            });
+  }
+
+  @Test
+  void socialServiceRouteUsesDiscoveryLoadBalancerAndRateLimit() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .anySatisfy(
+            route -> {
+              assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.SOCIAL_SERVICE_ROUTE_ID);
+              assertThat(route.getUri()).isEqualTo(URI.create("lb://social-service"));
+              assertThat(route.getFilters()).isNotEmpty();
+            });
+  }
+
+  @Test
+  void featureRoutesHaveScopedRateLimitFilters() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .filteredOn(
+            route ->
+                List.of(
+                        GatewayRoutesConfig.COLLECTION_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.SAVED_MEMBERSHIP_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.TRIP_PLACE_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.REVIEW_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.REVIEW_READS_ROUTE_ID)
+                    .contains(route.getId()))
+        .hasSize(5)
+        .allSatisfy(route -> assertThat(route.getFilters()).isNotEmpty());
+  }
 }

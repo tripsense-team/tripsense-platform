@@ -15,22 +15,22 @@ Before coding, read:
 
 1. `AGENTS.md`
 2. `docs/index.md`
-3. The feature folder under `docs/features/<feature-name>/`
+3. The feature plan at `docs/features/<feature-name>.md` (or legacy `docs/features/<feature-name>/index.md`)
 4. Affected service docs and architecture docs
 5. Relevant ADRs if present
 6. Current source code for affected areas
 
 ## Process
 
-1. Confirm the feature is `APPROVED` in `docs/features/index.md` or the feature docs.
+1. Confirm the feature is `APPROVED` in `docs/features/index.md` or the feature plan.
 2. Implement only the approved architecture.
-3. Add or update tests from `test-plan.md`.
+3. Add or update tests from Section 7 (Tasks & Verification) of the feature plan.
 4. Run appropriate verification.
 5. Run architecture review.
 6. Run database review.
 7. Run security review.
 8. Run PR review.
-9. Update feature docs only when documenting the implemented approved design.
+9. Update the feature plan status to `DONE` and record completion.
 
 ## Stop Conditions
 

@@ -1,20 +1,4 @@
-# Environments
+node_modules
+dist
 .env
-.venv/
-venv/
-env/
-
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Pytest / Coverage
-.pytest_cache/
-.coverage
-htmlcov/
-
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
+*.log

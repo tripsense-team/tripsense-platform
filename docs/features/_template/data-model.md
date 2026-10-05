@@ -20,4 +20,3 @@ Document data ownership and persistence changes.
 
 - No cross-service JPA relationships.
 - No direct access to another service database.
-

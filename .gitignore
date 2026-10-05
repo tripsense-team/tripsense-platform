@@ -4,6 +4,17 @@ target/
 *.jar
 *.war
 *.ear
+.tools/
+.m2/
+
+# Python caches and test databases
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.db
+
+# pnpm local content-addressable cache
+/.pnpm-store/
 
 # Runtime logs
 *.log
@@ -17,7 +28,22 @@ logs/
 # IDE and OS metadata
 .idea/
 .vscode/
+.claude/
 *.iml
 .DS_Store
 Thumbs.db
 
+.tools/
+
+# Scripts (keep only deploy.sh)
+scripts/*
+!scripts/deploy.sh
+
+# SSH / deployment private keys
+deploy/tripsense-dev-vm-key.pem
+deploy/nginx/certs/
+deploy/certbot/
+*.pem
+
+firebase*.json
+*-firebase-adminsdk-*.json

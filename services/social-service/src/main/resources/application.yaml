@@ -1,0 +1,62 @@
+server:
+  port: ${SOCIAL_SERVICE_PORT:${SERVER_PORT:8086}}
+  shutdown: graceful
+spring:
+  application:
+    name: social-service
+  data:
+    redis:
+      url: ${REDIS_URL}
+  datasource:
+    url: ${SOCIAL_DATASOURCE_URL}
+    username: ${SOCIAL_DB_USER}
+    password: ${SOCIAL_DB_PASS}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    out-of-order: true
+    locations: classpath:db/migration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:${DISCOVERY_SERVER_PORT:8761}/eureka/}
+  instance:
+    prefer-ip-address: true
+jwt:
+  access-secret: ${JWT_ACCESS_SECRET}
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  folder-prefix: ${CLOUDINARY_SOCIAL_FOLDER:tripsense/social}
+  signature-algorithm: ${CLOUDINARY_SIGNATURE_ALGORITHM:sha1}
+trip-service:
+  url: ${TRIP_SERVICE_URL:http://localhost:${TRIP_SERVICE_PORT:8084}}
+  connect-timeout: ${TRIP_SERVICE_CONNECT_TIMEOUT:2s}
+  read-timeout: ${TRIP_SERVICE_READ_TIMEOUT:5s}
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:${USER_SERVICE_PORT:8081}}
+  connect-timeout: ${USER_SERVICE_CONNECT_TIMEOUT:2s}
+  read-timeout: ${USER_SERVICE_READ_TIMEOUT:5s}
+place-service:
+  url: ${PLACE_SERVICE_URL:http://localhost:${PLACE_SERVICE_PORT:8082}}
+community-reviews:
+  write-enabled: ${COMMUNITY_REVIEWS_WRITE_ENABLED:false}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+weather:
+  open-meteo:
+    base-url: ${OPEN_METEO_BASE_URL:https://api.open-meteo.com/v1/forecast}
+    connect-timeout-ms: ${WEATHER_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${WEATHER_READ_TIMEOUT_MS:4000}
+
+firebase:
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}

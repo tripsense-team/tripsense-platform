@@ -14,7 +14,7 @@ Read:
 1. `AGENTS.md`
 2. `docs/architecture/tripsense-architecture.md`
 3. `docs/architecture/service-boundaries.md`
-4. The feature `security.md`
+4. The feature plan (Section 5: Security & Trust Boundaries) at `docs/features/<feature-name>.md` (or legacy `docs/features/<feature-name>/security.md`)
 5. Relevant API, backend, gateway, and configuration files
 
 ## Review Checklist

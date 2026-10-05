@@ -1,0 +1,86 @@
+"use client";
+
+import * as React from "react";
+import { Send } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+
+export interface ChatInputProps {
+  onSend: (message: string) => void;
+  isLoading?: boolean;
+  placeholder?: string;
+  className?: string;
+}
+
+export function shouldSubmitChatOnEnter(event: {
+  key: string;
+  shiftKey: boolean;
+  isComposing: boolean;
+  keyCode?: number;
+}) {
+  return event.key === "Enter"
+    && !event.shiftKey
+    && !event.isComposing
+    && event.keyCode !== 229;
+}
+
+export function ChatInput({
+  onSend,
+  isLoading = false,
+  placeholder = "Ask AI to plan a trip, suggest places, or optimize route...",
+  className,
+}: ChatInputProps) {
+  const [value, setValue] = React.useState("");
+  const isComposingRef = React.useRef(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isComposingRef.current || !value.trim() || isLoading) return;
+    onSend(value.trim());
+    setValue("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (shouldSubmitChatOnEnter({
+      key: e.key,
+      shiftKey: e.shiftKey,
+      isComposing: e.nativeEvent.isComposing || isComposingRef.current,
+      keyCode: e.nativeEvent.keyCode,
+    })) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className={cn(
+        "relative flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all",
+        className,
+      )}
+    >
+      <Textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onCompositionStart={() => { isComposingRef.current = true; }}
+        onCompositionEnd={() => { isComposingRef.current = false; }}
+        placeholder={placeholder}
+        rows={1}
+        className="min-h-[38px] max-h-32 resize-none border-0 p-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm shadow-none"
+      />
+
+      <Button
+        type="submit"
+        disabled={!value.trim() || isLoading}
+        size="icon"
+        className="h-11 w-11 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+      >
+        <Send />
+        <span className="sr-only">Send message</span>
+      </Button>
+    </form>
+  );
+}

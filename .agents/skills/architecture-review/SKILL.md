@@ -15,7 +15,7 @@ Read:
 2. `docs/architecture/tripsense-architecture.md`
 3. `docs/architecture/service-boundaries.md`
 4. `docs/workflows/multi-agent-feature-workflow.md`
-5. The relevant feature docs under `docs/features/`
+5. The feature plan at `docs/features/<feature-name>.md` (or legacy `docs/features/<feature-name>/`)
 6. Changed source files when reviewing implementation
 
 ## Review Checklist
@@ -31,9 +31,9 @@ Read:
 - Async events are used where eventual consistency is acceptable.
 - Dependencies do not create avoidable coupling.
 - Responsibilities are not duplicated across services.
-- Architecture changes are documented in feature docs or ADRs.
+- Architecture changes are documented in the feature plan or ADRs.
 - AI decisions do not replace deterministic business rules.
-- Planned implementation matches the approved feature docs.
+- Planned implementation matches the approved feature plan.
 
 ## Findings
 

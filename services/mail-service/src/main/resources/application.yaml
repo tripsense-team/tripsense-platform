@@ -1,0 +1,23 @@
+server:
+  port: ${MAIL_SERVICE_PORT:${EMAIL_SERVICE_PORT:${SERVER_PORT:8082}}}
+
+spring:
+  application:
+    name: mail-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:${DISCOVERY_SERVER_PORT:8761}/eureka/}
+  instance:
+    prefer-ip-address: true
+
+resend:
+  api-key: ${RESEND_API_KEY}
+  from-email: "MindTrip <MindTrip@lanailsspa.com>"
+  templates:
+    verification: ${RESEND_VERIFICATION_TEMPLATE:fe57f2e7-61bb-457f-9ec7-9ec3709a1b98}
+    password-reset: ${RESEND_PASSWORD_RESET_TEMPLATE:password-reset}
+
+mail:
+  internal-api-key: ${MAIL_INTERNAL_API_KEY:}

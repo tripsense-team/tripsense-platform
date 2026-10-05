@@ -11,4 +11,3 @@ Implementation may start only when the feature status is `APPROVED`.
 ## Stop Conditions
 
 Stop and request a planning revision if implementation requires architecture, API, data ownership, or security changes that were not approved.
-

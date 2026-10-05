@@ -1,0 +1,8 @@
+**/node_modules/
+**/.next/
+**/target/
+**/dist/
+**/build/
+
+# Flyway migrations are immutable after deployment; do not rewrite their checksums.
+**/db/migration/*.sql

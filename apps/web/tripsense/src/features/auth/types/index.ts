@@ -1,0 +1,89 @@
+export enum UserRole {
+  USER = "ROLE_USER",
+  ADMIN = "ROLE_ADMIN",
+  MODERATOR = "ROLE_MODERATOR",
+  PARTNER = "ROLE_PARTNER",
+}
+
+export enum UserStatus {
+  UNVERIFIED = "UNVERIFIED",
+  ACTIVE = "ACTIVE",
+  SUSPENDED = "SUSPENDED",
+}
+
+export type AuthStatus =
+  | "checking"
+  | "authenticated"
+  | "unauthenticated"
+  | "initializing";
+
+export type AuthModalStep =
+  | "email"
+  | "login-password"
+  | "register-details"
+  | "verify-otp"
+  | "forgot-password"
+  | "reset-password";
+
+export interface User {
+  id: string;
+  email: string;
+  role: UserRole;
+  roles?: string[];
+  partnerEnrolled?: boolean;
+  status: UserStatus;
+  name?: string;
+  avatar?: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  timestamp: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password?: string;
+}
+
+export interface VerifyEmailRequest {
+  email: string;
+  code: string;
+}
+
+export interface ResendCodeRequest {
+  email: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password?: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user: User;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  newPassword: string;
+}

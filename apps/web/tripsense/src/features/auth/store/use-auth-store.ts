@@ -1,0 +1,225 @@
+import { create } from "zustand";
+import { User, UserRole, UserStatus, type AuthStatus } from "../types";
+import {
+  setLoggedInCookie,
+  clearLoggedInCookie,
+} from "../utils/cookie-indicator";
+
+const CACHED_USER_KEY = "tripsense_cached_user";
+const memoryCache: Record<string, string> = {};
+
+export function loadCachedUser(): User | null {
+  try {
+    const raw =
+      typeof window !== "undefined" &&
+      typeof window.localStorage?.getItem === "function"
+        ? window.localStorage.getItem(CACHED_USER_KEY)
+        : memoryCache[CACHED_USER_KEY];
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return memoryCache[CACHED_USER_KEY]
+      ? JSON.parse(memoryCache[CACHED_USER_KEY])
+      : null;
+  }
+}
+
+function saveCachedUser(user: User | null) {
+  try {
+    if (user) {
+      const val = JSON.stringify(user);
+      memoryCache[CACHED_USER_KEY] = val;
+      if (
+        typeof window !== "undefined" &&
+        typeof window.localStorage?.setItem === "function"
+      ) {
+        window.localStorage.setItem(CACHED_USER_KEY, val);
+      }
+    } else {
+      delete memoryCache[CACHED_USER_KEY];
+      if (
+        typeof window !== "undefined" &&
+        typeof window.localStorage?.removeItem === "function"
+      ) {
+        window.localStorage.removeItem(CACHED_USER_KEY);
+      }
+    }
+  } catch {
+    // Ignore storage issues
+  }
+}
+
+function parseJwtClaims(
+  token: string,
+): { sub?: string; email?: string; role?: string; roles?: string[]; exp?: number } | null {
+  try {
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+export interface AuthState {
+  accessToken: string | null;
+  user: User | null;
+  status: AuthStatus;
+  authVersion: number;
+
+  // Reactive properties for component selectors
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  onboardingCompleted: boolean;
+
+  // Essential Actions
+  setAuth: (user: User, accessToken: string) => void;
+  setAccessToken: (accessToken: string | null) => void;
+  clearAuth: () => void;
+  updateUserAvatar: (avatarUrl: string | undefined) => void;
+  updateUserProfile: (data: { avatar?: string; name?: string }) => void;
+  setOnboardingCompleted: (completed: boolean) => void;
+}
+
+import { normalizeRole, isUserAdmin } from "../utils/role-helpers";
+
+const initialCachedUserRaw = loadCachedUser();
+const initialCachedUser = initialCachedUserRaw
+  ? { ...initialCachedUserRaw, role: normalizeRole(initialCachedUserRaw.role) }
+  : null;
+
+export const useAuthStore = create<AuthState>((set) => ({
+  accessToken: null,
+  user: initialCachedUser,
+  status: "checking",
+  authVersion: 0,
+  isAuthenticated: !!initialCachedUser,
+  isLoading: true,
+  onboardingCompleted: isUserAdmin(initialCachedUser),
+
+  setAuth: (user, accessToken) => {
+    setLoggedInCookie();
+    const cached = loadCachedUser();
+    const normalizedRole = normalizeRole(user.role);
+    const mergedUser: User = {
+      ...user,
+      role: normalizedRole,
+      avatar: user.avatar || (cached?.id === user.id ? cached.avatar : undefined),
+      name: user.name || (cached?.id === user.id ? cached.name : undefined),
+    };
+    saveCachedUser(mergedUser);
+    const adminFlag = isUserAdmin(mergedUser);
+    set({
+      user: mergedUser,
+      accessToken,
+      status: "authenticated",
+      isAuthenticated: true,
+      isLoading: false,
+      onboardingCompleted: adminFlag,
+    });
+  },
+
+  setAccessToken: (accessToken) =>
+    set((state) => {
+      if (!accessToken) {
+        clearLoggedInCookie();
+        saveCachedUser(null);
+        return {
+          accessToken: null,
+          user: null,
+          status: "unauthenticated",
+          isAuthenticated: false,
+          isLoading: false,
+          onboardingCompleted: false,
+        };
+      }
+
+      setLoggedInCookie();
+      const claims = parseJwtClaims(accessToken);
+      const cached = loadCachedUser();
+      const roleFromClaim = normalizeRole(claims?.role);
+      const rawUser =
+        state.user ||
+        cached ||
+        (claims
+          ? {
+              id: claims.sub || "user-id",
+              email: claims.email || "user@tripsense.app",
+              role: roleFromClaim,
+              roles: claims.roles ?? [roleFromClaim],
+              status: UserStatus.ACTIVE,
+            }
+          : null);
+
+      const user = rawUser
+        ? { ...rawUser, role: normalizeRole(rawUser.role) }
+        : null;
+
+      if (user) {
+        saveCachedUser(user);
+      }
+
+      return {
+        accessToken,
+        user,
+        status: "authenticated",
+        isAuthenticated: true,
+        isLoading: false,
+        onboardingCompleted:
+          isUserAdmin(user) || state.onboardingCompleted,
+      };
+    }),
+
+  clearAuth: () => {
+    clearLoggedInCookie();
+    saveCachedUser(null);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("tripsense_fcm_token");
+        document.title = document.title.replace(/^\(\d+\)\s*/, "");
+      } catch {
+        // Safe fallback
+      }
+    }
+    set((state) => ({
+      accessToken: null,
+      user: null,
+      status: "unauthenticated",
+      authVersion: state.authVersion + 1,
+      isAuthenticated: false,
+      isLoading: false,
+      onboardingCompleted: false,
+    }));
+  },
+
+  updateUserAvatar: (avatarUrl) => {
+    set((state) => {
+      const updated = state.user ? { ...state.user, avatar: avatarUrl } : null;
+      saveCachedUser(updated);
+      return { user: updated };
+    });
+  },
+
+  updateUserProfile: (data) => {
+    set((state) => {
+      if (!state.user) return state;
+      const updatedUser: User = {
+        ...state.user,
+        ...(data.avatar !== undefined ? { avatar: data.avatar } : {}),
+        ...(data.name !== undefined ? { name: data.name } : {}),
+      };
+      saveCachedUser(updatedUser);
+      return { user: updatedUser };
+    });
+  },
+
+  setOnboardingCompleted: (completed) => {
+    set({ onboardingCompleted: completed });
+  },
+}));

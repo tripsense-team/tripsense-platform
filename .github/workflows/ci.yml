@@ -6,58 +6,380 @@ on:
       - dev
       - main
 
-  push:
-    branches:
-      - dev
-      - feature/**
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  verify:
+  detect-changes:
+    name: Detect Changed Services
     runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_docker_builds: ${{ steps.set-matrix.outputs.has_docker_builds }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'services/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'apps/web/tripsense/**'
+              - '.github/workflows/ci.yml'
+            api_gateway:
+              - 'services/api-gateway/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            discovery_server:
+              - 'services/discovery-server/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            place_service:
+              - 'services/place-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            user_service:
+              - 'services/user-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            mail_service:
+              - 'services/mail-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            trip_service:
+              - 'services/trip-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            social_service:
+              - 'services/social-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            context_service:
+              - 'services/context-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            recommendation_service:
+              - 'services/recommendation-service/**'
+              - 'pom.xml'
+              - '.github/workflows/ci.yml'
+            ai_service:
+              - 'services/ai-service/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Generate Dynamic Docker Build Matrix
+        id: set-matrix
+        env:
+          WEB_CHANGED: ${{ steps.filter.outputs.web }}
+          API_GATEWAY_CHANGED: ${{ steps.filter.outputs.api_gateway }}
+          DISCOVERY_SERVER_CHANGED: ${{ steps.filter.outputs.discovery_server }}
+          PLACE_SERVICE_CHANGED: ${{ steps.filter.outputs.place_service }}
+          USER_SERVICE_CHANGED: ${{ steps.filter.outputs.user_service }}
+          MAIL_SERVICE_CHANGED: ${{ steps.filter.outputs.mail_service }}
+          TRIP_SERVICE_CHANGED: ${{ steps.filter.outputs.trip_service }}
+          SOCIAL_SERVICE_CHANGED: ${{ steps.filter.outputs.social_service }}
+          CONTEXT_SERVICE_CHANGED: ${{ steps.filter.outputs.context_service }}
+          RECOMMENDATION_SERVICE_CHANGED: ${{ steps.filter.outputs.recommendation_service }}
+          AI_SERVICE_CHANGED: ${{ steps.filter.outputs.ai_service }}
+        run: |
+          node -e '
+            const matrix = [];
+            if (process.env.WEB_CHANGED === "true") {
+              matrix.push({ image: "web", context: "apps/web/tripsense", dockerfile: "apps/web/tripsense/Dockerfile" });
+            }
+            if (process.env.API_GATEWAY_CHANGED === "true") {
+              matrix.push({ image: "api-gateway", context: ".", dockerfile: "services/api-gateway/Dockerfile" });
+            }
+            if (process.env.DISCOVERY_SERVER_CHANGED === "true") {
+              matrix.push({ image: "discovery-server", context: ".", dockerfile: "services/discovery-server/Dockerfile" });
+            }
+            if (process.env.PLACE_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "place-service", context: ".", dockerfile: "services/place-service/Dockerfile" });
+            }
+            if (process.env.USER_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "user-service", context: ".", dockerfile: "services/user-service/Dockerfile" });
+            }
+            if (process.env.MAIL_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "mail-service", context: ".", dockerfile: "services/mail-service/Dockerfile" });
+            }
+            if (process.env.TRIP_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "trip-service", context: ".", dockerfile: "services/trip-service/Dockerfile" });
+            }
+            if (process.env.SOCIAL_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "social-service", context: ".", dockerfile: "services/social-service/Dockerfile" });
+            }
+            if (process.env.CONTEXT_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "context-service", context: ".", dockerfile: "services/context-service/Dockerfile" });
+            }
+            if (process.env.RECOMMENDATION_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "recommendation-service", context: ".", dockerfile: "services/recommendation-service/Dockerfile" });
+            }
+            if (process.env.AI_SERVICE_CHANGED === "true") {
+              matrix.push({ image: "ai-service", context: "services/ai-service", dockerfile: "services/ai-service/Dockerfile" });
+            }
+
+            const hasDockerBuilds = matrix.length > 0;
+            const fs = require("fs");
+            const output = process.env.GITHUB_OUTPUT;
+            fs.appendFileSync(output, `matrix=${JSON.stringify(matrix)}\n`);
+            fs.appendFileSync(output, `has_docker_builds=${hasDockerBuilds}\n`);
+            console.log("Generated matrix items:", matrix.length);
+          '
+
+  verify:
+    name: Verify Backend Services
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: tripsense_user
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d tripsense_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASS: ci-placeholder
+      USER_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_user?sslmode=disable
+      USER_DB_USER: postgres
+      USER_DB_PASS: ci-placeholder
+      TRIPSENSE_TESTCONTAINERS_ENABLED: "false"
+      TRIP_DB_HOST: localhost
+      TRIP_DB_PORT: 5432
+      TRIP_DB_NAME: tripsense_trip
+      TRIP_DB_USER: postgres
+      TRIP_DB_PASS: ci-placeholder
+      TRIP_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_trip?sslmode=disable
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      REDIS_URL: redis://localhost:6379
+      SOCIAL_DB_HOST: localhost
+      SOCIAL_DB_PORT: 5432
+      SOCIAL_DB_NAME: tripsense_social
+      SOCIAL_DB_USER: postgres
+      SOCIAL_DB_PASS: ci-placeholder
+      SOCIAL_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_social?sslmode=disable
+      CONTEXT_DB_HOST: localhost
+      CONTEXT_DB_PORT: 5432
+      CONTEXT_DB_NAME: tripsense_context
+      CONTEXT_DB_USER: postgres
+      CONTEXT_DB_PASS: ci-placeholder
+      CONTEXT_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_context?sslmode=disable
+      MONGODB_URI: mongodb://localhost:27017/tripsense_places
+      MONGODB_DATABASE: tripsense_places
+      RECOMMENDATION_DB_HOST: localhost
+      RECOMMENDATION_DB_PORT: 5432
+      RECOMMENDATION_DB_NAME: tripsense_recommendation
+      RECOMMENDATION_DB_USER: postgres
+      RECOMMENDATION_DB_PASS: ci-placeholder
+      JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+      JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+      RESEND_API_KEY: ci-placeholder
+      EMAIL_SERVICE_URL: http://localhost:8082
+      MAIL_INTERNAL_API_KEY: ${{ secrets.MAIL_INTERNAL_API_KEY }}
+      ZIOMAP_API_KEY: ci-placeholder
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Create TripSense test databases
+        env:
+          PGPASSWORD: ci-placeholder
+        run: |
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_trip;"
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_social;"
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_context;"
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE tripsense_recommendation;"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
           cache: maven
 
       - name: Build and test all services
-        run: mvn -B clean verify
+        run: mvn -B -T 1C verify
 
-  docker-build:
+  verify-web:
+    name: Verify Frontend
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
     runs-on: ubuntu-latest
-    needs: verify
-
-    strategy:
-      matrix:
-        service:
-          - api-gateway
-          - auth-service
-          - user-service
-          - booking-service
-          - payment-service
+    defaults:
+      run:
+        working-directory: apps/web/tripsense
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/tripsense/package-lock.json
 
-      - name: Package service
-        run: mvn -B -pl backend/${{ matrix.service }} -am package -DskipTests
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check i18n
+        run: npm run i18n:check
+
+      - name: Run TypeScript type check
+        run: npm run type-check
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run unit & integration tests
+        run: npm test
+
+  docker-build:
+    name: Build Docker Image (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: [detect-changes, verify, verify-web]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.has_docker_builds == 'true' &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped') &&
+      (needs.verify-web.result == 'success' || needs.verify-web.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate production compose
+        env:
+          IMAGE_REGISTRY: docker.io
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          IMAGE_PROJECT: tripsense
+          IMAGE_TAG: ci-${{ github.sha }}
+
+          USER_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_user
+          USER_DB_USER: postgres
+          USER_DB_PASS: ci-placeholder
+          TRIP_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_trip
+          TRIP_DB_USER: postgres
+          TRIP_DB_PASS: ci-placeholder
+          SOCIAL_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_social
+          SOCIAL_DB_USER: postgres
+          SOCIAL_DB_PASS: ci-placeholder
+          CONTEXT_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_context
+          CONTEXT_DB_USER: postgres
+          CONTEXT_DB_PASS: ci-placeholder
+          AI_DATABASE_URL: postgresql://postgres:ci-placeholder@localhost:5432/tripsense_ai
+          MONGODB_URI: mongodb://localhost:27017/tripsense_places
+          REDIS_URL: redis://localhost:6379
+          CONTEXT_ENCRYPTION_SECRET: ci-placeholder-encryption-secret-32b
+          RECOMMENDATION_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_recommendation
+          RECOMMENDATION_DB_USER: postgres
+          RECOMMENDATION_DB_PASS: ci-placeholder
+          OPENAI_API_KEY: ci-placeholder
+          JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+          JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+
+          RESEND_API_KEY: ci-placeholder
+          ZIOMAP_API_KEY: ci-placeholder
+          CLOUDINARY_CLOUD_NAME: ci-placeholder
+          CLOUDINARY_API_KEY: ci-placeholder
+          CLOUDINARY_API_SECRET: ci-placeholder
+          CLOUDINARY_SOCIAL_FOLDER: tripsense/social
+          RECOMMENDATION_INTERNAL_API_KEY: ci-placeholder-internal-key
+          RECOMMENDATION_CACHE_KEY_SECRET: ci-placeholder-cache-key-secret-32b
+          API_KEY_ENCRYPTION_SECRET: ci-placeholder-api-key-secret-32b
+
+        run: docker compose -f deploy/docker-compose.prod.yml config
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        if: env.DOCKERHUB_USERNAME != ''
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: false
+          tags: tripsense-${{ matrix.image }}:ci-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [detect-changes, verify, verify-web, docker-build]
+    if: always()
+    steps:
+      - name: Evaluate CI Status
         run: |
-          docker build \
-            -t tripsense-platform-${{ matrix.service }}:${{ github.sha }} \
-            ./backend/${{ matrix.service }}
+          echo "detect-changes: ${{ needs.detect-changes.result }}"
+          echo "verify: ${{ needs.verify.result }}"
+          echo "verify-web: ${{ needs.verify-web.result }}"
+          echo "docker-build: ${{ needs.docker-build.result }}"
+
+          if [[ "${{ needs.detect-changes.result }}" != "success" ]]; then
+            echo "::error::detect-changes failed or was cancelled."
+            exit 1
+          fi
+
+          if [[ "${{ needs.verify.result }}" != "success" && "${{ needs.verify.result }}" != "skipped" ]]; then
+            echo "::error::Verify Backend Services failed or was cancelled."
+            exit 1
+          fi
+
+          if [[ "${{ needs.verify-web.result }}" != "success" && "${{ needs.verify-web.result }}" != "skipped" ]]; then
+            echo "::error::Verify Web Frontend failed or was cancelled."
+            exit 1
+          fi
+
+          if [[ "${{ needs.docker-build.result }}" != "success" && "${{ needs.docker-build.result }}" != "skipped" ]]; then
+            echo "::error::Docker build validation failed or was cancelled."
+            exit 1
+          fi
+
+          echo "All required checks passed or were safely skipped."
+

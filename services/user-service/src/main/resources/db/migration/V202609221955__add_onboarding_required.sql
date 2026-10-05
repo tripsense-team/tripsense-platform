@@ -1,0 +1,1 @@
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS onboarding_required BOOLEAN NOT NULL DEFAULT FALSE;

@@ -4,19 +4,73 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
-
-No feature plans have been created yet. Use [_template](./_template/index.md) for the first feature.
+| `shared-place-templates-and-partner-workspaces` | DONE | `apps/web/tripsense`, `services/trip-service`; existing Gateway routes | [Docs](./shared-place-templates-and-partner-workspaces.md) |
+| `hotel-payos-payment` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-payos-payment.md) |
+| `hotel-demo-commerce-and-pr66-remediation` | DONE | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-demo-commerce-and-pr66-remediation.md) |
+| `ai-service-dynamic-gemini-key-pool` | DONE | `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-dynamic-gemini-key-pool.md) |
+| `ai-conversational-trip-intake-auto-commit` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/trip-service`, `services/place-service` | [Docs](./ai-conversational-trip-intake-auto-commit.md) |
+| `ai-chat-mindtrip-experience-enhancement` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-chat-mindtrip-experience-enhancement.md) |
+| `ai-chat-trip-aware-rich-itinerary` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2`, `services/trip-service`, `services/api-gateway` | [Docs](./ai-chat-trip-aware-rich-itinerary.md) |
+| `ai-planner-trip-detail-panel` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/ai-service-v2`, `services/api-gateway` | [Docs](./ai-planner-trip-detail-panel.md) |
+| `ai-v2-mindtrip-sidebar-drawer` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2` | [Docs](./ai-v2-mindtrip-sidebar-drawer.md) |
+| `ai-service-v2` | DONE | `services/ai-service-v2`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-v2.md) |
+| `save-add-place-and-community-reviews` | APPROVED; IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/trip-service`, `services/social-service`, `services/user-service` | [Docs](./save-add-place-and-community-reviews.md) |
+| `user-personalization-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/context-service`, `services/recommendation-service` | [Docs](./user-personalization-settings.md) |
+| `explore-category-discovery-and-pagination` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./explore-category-discovery-and-pagination.md) |
+| `place-batch-enrichment-and-ziomap-settings` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./place-batch-enrichment-and-ziomap-settings.md) |
+| `provider-api-key-management` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./provider-api-key-management.md) |
+| `explore-for-you-personalized-recommendations` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/recommendation-service`, `services/context-service`, `services/place-service` | [Docs](./explore-for-you-personalized-recommendations.md) |
+| `mindtrip-explore-experience-redesign` | DONE | `apps/web/tripsense` | [Docs](./mindtrip-explore-experience-redesign.md) |
+| `explore-search-autocomplete-dropdown` | DONE | `apps/web/tripsense` | [Docs](./explore-search-autocomplete-dropdown.md) |
+| `place-detail-map-overlay` | DONE | `apps/web/tripsense` | [Docs](./place-detail-map-overlay.md) |
+| `partner-location-autocomplete` | DONE | `apps/web/tripsense`; existing Gateway/Place APIs | [Docs](./partner-location-autocomplete.md) |
+| `partner-onboarding-and-business-approval` | DONE | `services/user-service`, `services/trip-service` (partner/hotel/guide), `services/social-service` (Community), `services/mail-service`, `services/api-gateway`, `services/ai-service`, `apps/web/tripsense` | [Docs — onboarding, Community guide promotion & inquiries](./partner-onboarding-and-business-approval.md) |
+| `hotel-management-and-booking` | SUPERSEDED; IMPLEMENTATION PAUSED | Inventory/hold invariants retained; Partner plan replaces onboarding/approval and extends fulfilment/support | [Docs](./hotel-management-and-booking.md) |
+| `hotel-availability-and-ota-redirect` | SUPERSEDED | External OTA integration deferred; first-party inventory is current direction | [Docs](./hotel-availability-and-ota-redirect.md) |
+| `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |
+| `web-typography-system` | DONE | `apps/web/tripsense` | [Docs](./web-typography-system.md) |
+| `place-search-embedding-sync` | DONE | `services/place-service`, `services/recommendation-service` | [Docs](./place-search-embedding-sync.md) |
+| `recommendation-decision-intelligence` | IMPLEMENTING | `services/recommendation-service`, `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./recommendation-decision-intelligence.md) |
+| `evidence-aware-recommendation-ranking` | DONE | `services/place-service`, `services/recommendation-service`, `services/ai-service`, `apps/web/tripsense` | [Docs](./evidence-aware-recommendation-ranking.md) |
+| `recommendation-engine-v2` | DONE | `services/recommendation-service`, `services/place-service`, `services/context-service`, `services/trip-service`, `services/user-service`, `services/api-gateway`, `services/ai-service` | [Docs](./recommendation-engine-v2.md) |
+| `adaptive-ai-travel-chat-redesign` | DONE | `services/ai-service`, `services/place-service`, `apps/web/tripsense` | [Docs](./adaptive-ai-travel-chat-redesign.md) |
+| `live-ai-agent-activity-stream` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./live-ai-agent-activity-stream.md) |
+| `agentic-place-discovery-ingestion` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/place-service` | [Docs](./agentic-place-discovery-ingestion.md) |
+| `ai-chat-travel-platform` | APPROVED; IMPLEMENTING B–E AND RICH ITINERARY; PHOTO MODAL LOCAL TRIAL APPROVED, PRODUCTION DISPLAY GATED; SHARED PHOTO PERSISTENCE WAITING FOR APPROVAL | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/place-service`, `services/trip-service`, `services/user-service` | [Docs](./ai-native-travel-platform-plan.md) |
+| `chat-to-trip-handoff` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./chat-to-trip-handoff.md) |
+| `logout-management` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/user-service` | [Docs](./logout-management/index.md) |
+| `manage-trip-itinerary` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service`, `services/place-service`, `services/ai-service`, `services/user-service` | [Docs](./manage-trip-itinerary/index.md) |
+| `places-maps-integration` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./places-maps-integration/index.md) |
+| `social-post-management` | DONE | `apps/web/tripsense`, `services/social-service`, `services/api-gateway`, `services/user-service` (profile snapshot) | [Docs](./social-post-management/index.md) |
+| `trip-sharing` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/social-service`, `services/trip-service` | [Docs](./trip-sharing/index.md) |
+| `trip-collaboration` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./trip-collaboration.md) |
+| `collaborative-itinerary-editing` | APPROVED | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./collaborative-itinerary-editing.md) |
+| `community-experience-redesign` | IMPLEMENTING | `apps/web/tripsense`, `services/social-service`, `services/trip-service`, `services/api-gateway` | [Docs](./community-experience-redesign/index.md) |
+| `community-discovery-rail` | APPROVED | `apps/web/tripsense`, `services/social-service`, `services/user-service`, `services/trip-service`, `services/api-gateway`; future `context-service` | [Docs](./community-discovery-rail/index.md) |
+| `google-oauth-login` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/user-service` | [Docs](./google-oauth-login/index.md) |
+| `ai-personalization-onboarding` | APPROVED | `apps/web/tripsense`, `services/user-service`, `services/place-service`, `services/context-service`, `services/ai-service`, `services/api-gateway` | [Docs](./ai-personalization-onboarding/index.md) |
+| `user-chat` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/social-service`, `services/user-service` | [Docs](./user-chat.md) |
+| `community-creator-discovery` | DONE | `services/social-service`, `services/user-service`, `apps/web/tripsense` | [Docs](./community-creator-discovery.md) |
+| `community-trending-destinations` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./community-trending-destinations.md) |
+| `auth-token-cleanup-cronjob` | DONE | `services/user-service` | [Docs](./auth-token-cleanup-cronjob.md) |
+| `community-destination-weather` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./community-destination-weather.md) |
+| `chat-notifications-and-unread-badge` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./chat-notifications-and-unread-badge.md) |
+| `profile-password-management` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/user-service`, `services/mail-service` | [Docs](./profile-password-management.md) |
 
 ## Statuses
 
 - `DRAFT`: feature request captured but not reviewed.
-- `IN_REVIEW`: specialist agents are analyzing the plan.
-- `WAITING_FOR_APPROVAL`: final plan is ready and implementation is blocked on human approval.
-- `APPROVED`: human approved the plan.
+- `WAITING_FOR_APPROVAL`: final single-file plan is ready in `docs/features/<feature-name>.md` and blocked on human approval.
+- `APPROVED`: human approved the plan (`STATUS: APPROVED`).
 - `IMPLEMENTING`: approved implementation is in progress.
 - `DONE`: implementation, tests, review, and docs are complete.
+- `SUPERSEDED`: a newer feature plan replaces this scope; retained for reference, not authorization to implement.
+
+## Template
+
+- New features should use the unified single-file template: [docs/features/_template/feature-plan-template.md](./_template/feature-plan-template.md).
 
 ## Related
 
-- [Multi-Agent Feature Workflow](../workflows/multi-agent-feature-workflow.md)
+- [Feature Planning Workflow](../workflows/multi-agent-feature-workflow.md)
 - [TripSense Architecture](../architecture/tripsense-architecture.md)

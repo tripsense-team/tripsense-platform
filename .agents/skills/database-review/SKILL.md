@@ -13,7 +13,7 @@ Read:
 
 1. `AGENTS.md`
 2. `docs/architecture/service-boundaries.md`
-3. The feature `data-model.md`
+3. The feature plan (Section 4: Data Model & Migrations) at `docs/features/<feature-name>.md` (or legacy `docs/features/<feature-name>/data-model.md`)
 4. Relevant service code and migration files when present
 
 ## Hard Rejections

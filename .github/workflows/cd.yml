@@ -1,8 +1,9 @@
-name: CD
+name: CD Azure
 
 on:
   push:
     branches:
+      - dev
       - main
 
   workflow_dispatch:
@@ -10,51 +11,114 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: tripsense-cd-azure
+  cancel-in-progress: false
+
 jobs:
-  verify:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-
-      - name: Build and test all services
-        run: mvn -B clean verify
-
   publish:
-    if: github.ref == 'refs/heads/main'
+    name: Build & Publish Images
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    needs: verify
 
     strategy:
+      fail-fast: false
+
       matrix:
-        service:
-          - api-gateway
-          - auth-service
-          - user-service
-          - booking-service
-          - payment-service
+        include:
+          - image: web
+            context: apps/web/tripsense
+            dockerfile: apps/web/tripsense/Dockerfile
+
+          - image: api-gateway
+            context: .
+            dockerfile: services/api-gateway/Dockerfile
+
+          - image: discovery-server
+            context: .
+            dockerfile: services/discovery-server/Dockerfile
+
+          - image: place-service
+            context: .
+            dockerfile: services/place-service/Dockerfile
+
+          - image: user-service
+            context: .
+            dockerfile: services/user-service/Dockerfile
+
+          - image: mail-service
+            context: .
+            dockerfile: services/mail-service/Dockerfile
+
+          - image: trip-service
+            context: .
+            dockerfile: services/trip-service/Dockerfile
+
+          - image: social-service
+            context: .
+            dockerfile: services/social-service/Dockerfile
+
+          - image: context-service
+            context: .
+            dockerfile: services/context-service/Dockerfile
+
+          - image: recommendation-service
+            context: .
+            dockerfile: services/recommendation-service/Dockerfile
+
+          - image: ai-service
+            context: services/ai-service
+            dockerfile: services/ai-service/Dockerfile
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Package service
-        run: mvn -B -pl backend/${{ matrix.service }} -am package -DskipTests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate production compose
+        env:
+          IMAGE_REGISTRY: docker.io
+          IMAGE_OWNER: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_PROJECT: tripsense
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+          USER_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_user
+          USER_DB_USER: postgres
+          USER_DB_PASS: ci-placeholder
+          TRIP_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_trip
+          TRIP_DB_USER: postgres
+          TRIP_DB_PASS: ci-placeholder
+          SOCIAL_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_social
+          SOCIAL_DB_USER: postgres
+          SOCIAL_DB_PASS: ci-placeholder
+          CONTEXT_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_context
+          CONTEXT_DB_USER: postgres
+          CONTEXT_DB_PASS: ci-placeholder
+          AI_DATABASE_URL: postgresql://postgres:ci-placeholder@localhost:5432/tripsense_ai
+          MONGODB_URI: mongodb://localhost:27017/tripsense_places
+          REDIS_URL: redis://localhost:6379
+          CONTEXT_ENCRYPTION_SECRET: ci-placeholder-encryption-secret-32b
+          OPENAI_API_KEY: ci-placeholder
+          RECOMMENDATION_DATASOURCE_URL: jdbc:postgresql://localhost:5432/tripsense_recommendation
+          RECOMMENDATION_DB_USER: postgres
+          RECOMMENDATION_DB_PASS: ci-placeholder
+          JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+          JWT_REFRESH_SECRET: ci-placeholder-refresh-secret-12345678901234567890
+          RESEND_API_KEY: ci-placeholder
+          ZIOMAP_API_KEY: ci-placeholder
+          CLOUDINARY_CLOUD_NAME: ci-placeholder
+          CLOUDINARY_API_KEY: ci-placeholder
+          CLOUDINARY_API_SECRET: ci-placeholder
+          CLOUDINARY_SOCIAL_FOLDER: tripsense/social
+          AI_TRIP_COMMIT_SECRET: ci-placeholder
+          RECOMMENDATION_INTERNAL_API_KEY: ci-placeholder-internal-key
+          RECOMMENDATION_CACHE_KEY_SECRET: ci-placeholder-cache-key-secret-32b
+          API_KEY_ENCRYPTION_SECRET: ci-placeholder-api-key-secret-32b
+          GOOGLE_GENERATIVE_AI_API_KEY: ci-placeholder
+        run: docker compose -f deploy/docker-compose.prod.yml config
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -66,22 +130,43 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./backend/${{ matrix.service }}
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
+          build-args: |
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_GOOGLE_CLIENT_ID={0}', secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_MAPVINA_API_KEY={0}', secrets.NEXT_PUBLIC_MAPVINA_API_KEY) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_API_KEY={0}', secrets.NEXT_PUBLIC_FIREBASE_API_KEY) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_PROJECT_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN={0}', secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET={0}', secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_APP_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_APP_ID) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_VAPID_KEY={0}', secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_COMMUNITY_REVIEW_WRITES_ENABLED={0}', vars.NEXT_PUBLIC_COMMUNITY_REVIEW_WRITES_ENABLED || 'false') || '' }}
           tags: |
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.service }}:${{ github.sha }}
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.service }}:latest
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:${{ github.event.workflow_run.head_sha || github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tripsense-${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+
     runs-on:
       - self-hosted
       - Linux
       - X64
+      - tripsense-azure
 
     needs: publish
 
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -89,7 +174,29 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Deploy TripSense to Azure
+      - name: Check deployment files
         run: |
-          cd /opt/tripsense
-          ./deploy.sh
+          pwd
+          ls -la deploy
+          ls -la deploy/nginx
+          ls -la scripts
+
+      - name: Prepare deployment directory
+        run: |
+          mkdir -p /opt/tripsense/deploy/nginx
+
+          cp deploy/docker-compose.prod.yml /opt/tripsense/deploy/docker-compose.yml
+          cp scripts/deploy.sh /opt/tripsense/deploy/deploy.sh
+          cp -r deploy/nginx/. /opt/tripsense/deploy/nginx/
+
+          chmod +x /opt/tripsense/deploy/deploy.sh
+
+      - name: Deploy TripSense to Azure
+        env:
+          IMAGE_REGISTRY: docker.io
+          IMAGE_OWNER: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_PROJECT: tripsense
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+        run: |
+          /opt/tripsense/deploy/deploy.sh

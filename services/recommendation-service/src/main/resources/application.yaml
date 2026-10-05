@@ -1,0 +1,114 @@
+server:
+  port: ${RECOMMENDATION_SERVICE_PORT:${SERVER_PORT:8088}}
+  shutdown: graceful
+
+spring:
+  application:
+    name: recommendation-service
+  datasource:
+    url: ${RECOMMENDATION_DATASOURCE_URL:jdbc:postgresql://${RECOMMENDATION_DB_HOST:localhost}:${RECOMMENDATION_DB_PORT:5437}/${RECOMMENDATION_DB_NAME:tripsense_recommendation}}
+    username: ${RECOMMENDATION_DB_USER:postgres}
+    password: ${RECOMMENDATION_DB_PASS:}
+  flyway:
+    enabled: true
+  data:
+    redis:
+      url: ${REDIS_URL:redis://${REDIS_HOST:localhost}:${REDIS_PORT:6379}}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2s}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  access-secret: ${JWT_ACCESS_SECRET:}
+
+tripsense:
+  recommendation:
+    retrieval:
+      source-limit: ${RECOMMENDATION_SOURCE_LIMIT:50}
+      rrf-k: ${RECOMMENDATION_RRF_K:60}
+      candidate-multiplier: ${RECOMMENDATION_CANDIDATE_MULTIPLIER:3}
+      maximum-place-age: ${RECOMMENDATION_MAXIMUM_PLACE_AGE:30d}
+    features:
+      distance-tau-km: ${RECOMMENDATION_DISTANCE_TAU_KM:5.0}
+      prior-rating: ${RECOMMENDATION_PRIOR_RATING:4.0}
+      rating-confidence-threshold: ${RECOMMENDATION_RATING_CONFIDENCE:20.0}
+    ranking:
+      rrf-normalization-pivot: ${RECOMMENDATION_RRF_NORMALIZATION_PIVOT:0.01}
+      dislike-conflict-penalty: ${RECOMMENDATION_DISLIKE_CONFLICT_PENALTY:0.50}
+      quietness-weight: ${RECOMMENDATION_QUIETNESS_WEIGHT:0.15}
+    diversity:
+      enabled: ${RECOMMENDATION_MMR_ENABLED:true}
+      lambda: ${RECOMMENDATION_MMR_LAMBDA:0.75}
+    downstream:
+      place-url: ${PLACE_SERVICE_URL:http://localhost:8083}
+      context-url: ${CONTEXT_SERVICE_URL:http://localhost:8087}
+      trip-url: ${TRIP_SERVICE_URL:http://localhost:8084}
+      user-url: ${USER_SERVICE_URL:http://localhost:8081}
+      timeout: ${RECOMMENDATION_DOWNSTREAM_TIMEOUT:3s}
+    semantic:
+      enabled: ${RECOMMENDATION_SEMANTIC_ENABLED:true}
+      embedding-base-url: ${EMBEDDING_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
+      embedding-api-key: ${EMBEDDING_API_KEY:}
+      embedding-model: ${EMBEDDING_MODEL:gemini-embedding-001}
+      qdrant-url: ${QDRANT_URL:http://localhost:6333}
+      qdrant-api-key: ${QDRANT_API_KEY:}
+      collection: ${QDRANT_PLACE_COLLECTION:tripsense_places}
+    explore:
+      minimum-useful-results: ${EXPLORE_RECOMMENDATION_MINIMUM_RESULTS:6}
+      minimum-query-relevance: ${EXPLORE_MINIMUM_QUERY_RELEVANCE:0.15}
+      maximum-provider-query-rank: ${EXPLORE_MAXIMUM_PROVIDER_QUERY_RANK:40}
+      cache-ttl: ${EXPLORE_RECOMMENDATION_CACHE_TTL:10m}
+      last-known-good-ttl: ${EXPLORE_RECOMMENDATION_LKG_TTL:24h}
+      cache-key-secret: ${RECOMMENDATION_CACHE_KEY_SECRET:tripsense-default-cache-key-secret-32b}
+    security:
+      internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:tripsense-internal-recommendation-key-sec-2026}
+    feedback:
+      max-clock-skew: ${RECOMMENDATION_FEEDBACK_MAX_CLOCK_SKEW:10m}
+      max-history-events: ${RECOMMENDATION_MAX_HISTORY_EVENTS:5000}
+    taxonomy:
+      category-aliases:
+        cafe: [cafe, coffee, ca phe, quan ca phe]
+        restaurant: [restaurant, quan an, nha hang]
+        vegetarian_restaurant:
+          [
+            vegetarian restaurant,
+            vegan restaurant,
+            nha hang chay,
+            quan chay,
+            com chay,
+            chay,
+          ]
+        hotel:
+          [
+            hotel,
+            lodging,
+            accommodation,
+            resort,
+            motel,
+            homestay,
+            guest house,
+            khach san,
+            khu nghi duong,
+            luu tru,
+          ]
+        attraction: [attraction, tourist, temple, pagoda, chua, diem tham quan]
+
+management:
+  health:
+    redis:
+      enabled: false
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
