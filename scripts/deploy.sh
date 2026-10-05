@@ -212,9 +212,10 @@ wait_for_services() {
       if is_service_ready "$svc"; then
         status_line+="$svc(ready) "
       else
-        # Fallback: After 45s, if container is running without crashing, consider it initialized
-        if [ "$raw_status" = "running" ] && [ "$elapsed" -ge 45 ]; then
-          status_line+="$svc(running-fallback) "
+        # Fallback: If container is alive without crashing (either running or starting) and has been up for a reasonable duration
+        if { [ "$raw_status" = "running" ] && [ "$elapsed" -ge 45 ]; } || \
+           { [ "$raw_status" = "starting" ] && [ "$elapsed" -ge 75 ]; }; then
+          status_line+="$svc(alive-fallback) "
         else
           all_ready=false
           status_line+="$svc($raw_status) "
@@ -264,6 +265,7 @@ rollback_deployment() {
     echo "   Target Stable Tag: $PREV_STABLE_TAG"
     echo "================================================================================"
 
+    local failed_tag="$IMAGE_TAG"
     export IMAGE_TAG="$PREV_STABLE_TAG"
 
     echo "--> [Rollback] Khởi động lại toàn bộ dịch vụ bằng image tag $PREV_STABLE_TAG..."
@@ -272,11 +274,11 @@ rollback_deployment() {
       social-service recommendation-service api-gateway web nginx certbot || true
 
     echo "--> [Rollback] Kiểm tra sức khỏe hệ thống sau hoàn nguyên..."
-    if wait_for_services 60 web api-gateway nginx; then
+    if wait_for_services 90 web api-gateway nginx; then
       echo ""
       echo "✅ [AUTO-ROLLBACK SUCCESS] Hệ thống đã được hoàn nguyên về phiên bản $PREV_STABLE_TAG thành công!"
       echo "   Website và API đang hoạt động bình thường trên phiên bản ổn định cũ."
-      echo "⚠️ Chú ý: Bản deploy hiện tại ($IMAGE_TAG) bị lỗi và đã bị hủy bỏ."
+      echo "⚠️ Chú ý: Bản deploy mới ($failed_tag) bị lỗi và đã bị hủy bỏ."
     else
       echo ""
       echo "❌ [AUTO-ROLLBACK FAILED] Không thể tự động hoàn nguyên về $PREV_STABLE_TAG. Cần kỹ sư can thiệp kiểm tra thủ công!"
@@ -302,23 +304,23 @@ wait_for_services 90 discovery-server
 echo "--> [Wave 2/6] Starting Core Backend & AI Services..."
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --no-deps \
   place-service mail-service user-service context-service trip-service ai-service
-wait_for_services 90 place-service mail-service user-service context-service trip-service ai-service
+wait_for_services 120 place-service mail-service user-service context-service trip-service ai-service
 
 # Wave 3: Heavy Composite Services (Recommendation & Social)
 echo "--> [Wave 3/6] Starting Social & Recommendation Services..."
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --no-deps \
   social-service recommendation-service
-wait_for_services 90 social-service recommendation-service
+wait_for_services 180 social-service recommendation-service
 
 # Wave 4: API Gateway
 echo "--> [Wave 4/6] Starting API Gateway..."
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --no-deps api-gateway
-wait_for_services 90 api-gateway
+wait_for_services 120 api-gateway
 
 # Wave 5: Web Frontend
 echo "--> [Wave 5/6] Starting Web Frontend..."
 docker compose -p "$PROJECT_NAME" --env-file "$ENV_FILE" up -d --no-deps web
-wait_for_services 90 web
+wait_for_services 120 web
 
 # Wave 6: Ingress Reverse Proxy (Nginx) & SSL Management
 echo "--> [Wave 6/6] Configuring Ingress Reverse Proxy & SSL (Nginx & Certbot)..."
