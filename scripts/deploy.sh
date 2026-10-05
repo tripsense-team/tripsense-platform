@@ -326,6 +326,12 @@ wait_for_services 120 web
 echo "--> [Wave 6/6] Configuring Ingress Reverse Proxy & SSL (Nginx & Certbot)..."
 
 SSL_DOMAIN="$(get_env_val "SSL_DOMAIN")"
+# Tự động chuẩn hóa domain (loại bỏ http://, https://, dấu gạch chéo cuối nếu vô tình nhập vào .env)
+SSL_DOMAIN="${SSL_DOMAIN#http://}"
+SSL_DOMAIN="${SSL_DOMAIN#https://}"
+SSL_DOMAIN="${SSL_DOMAIN%%/*}"
+SSL_DOMAIN="$(echo "$SSL_DOMAIN" | tr -d '[:space:]')"
+
 if [ -z "$SSL_DOMAIN" ]; then
   SSL_DOMAIN="tripsense.duckdns.org"
 fi
