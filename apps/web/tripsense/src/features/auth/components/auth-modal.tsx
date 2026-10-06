@@ -32,6 +32,7 @@ interface AuthModalProps {
   initialMode?: "signin" | "signup";
   returnUrl?: string | null;
   initialEmail?: string | null;
+  initialStep?: AuthModalStep;
 }
 
 export function AuthModal({
@@ -40,6 +41,7 @@ export function AuthModal({
   initialMode = "signin",
   returnUrl,
   initialEmail,
+  initialStep = "email",
 }: AuthModalProps) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -49,7 +51,7 @@ export function AuthModal({
   const { mutateAsync: resetPasswordApi } = useResetPassword();
 
   const [mode, setMode] = React.useState<"signin" | "signup">(initialMode);
-  const [step, setStep] = React.useState<AuthModalStep>("email");
+  const [step, setStep] = React.useState<AuthModalStep>(initialStep);
 
   // Form states
   const [email, setEmail] = React.useState(initialEmail ?? "");
@@ -88,7 +90,7 @@ export function AuthModal({
   React.useEffect(() => {
     if (open && !prevOpenRef.current) {
       setMode(initialMode);
-      setStep("email");
+      setStep(initialStep);
       setErrorMsg("");
       setSuccessMsg("");
       setOtpCode("");
@@ -364,7 +366,7 @@ export function AuthModal({
             type="button"
             onClick={() => {
               setErrorMsg("");
-              setStep("email");
+              setStep(initialStep === "forgot-password" ? "forgot-password" : "email");
             }}
             className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
@@ -450,6 +452,22 @@ export function AuthModal({
                 </span>
               )}
             </div>
+
+            {mode === "signin" && (
+              <div className="text-xs mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErrorMsg("");
+                    setSuccessMsg("");
+                    setStep("forgot-password");
+                  }}
+                  className="font-bold text-foreground underline hover:text-primary transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             {/* Or Separator */}
             <div className="relative w-full flex items-center justify-center my-2">
@@ -778,36 +796,38 @@ export function AuthModal({
               </div>
             )}
 
-            <form onSubmit={handleResetPasswordSubmit} className="w-full space-y-4">
+            <form onSubmit={handleResetPasswordSubmit} className="w-full space-y-5">
               <OtpInput
                 value={otpCode}
                 onChange={setOtpCode}
                 disabled={loading}
               />
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mật khẩu mới"
-                className="h-12 rounded-2xl px-4 text-sm mt-4"
-                required
-                minLength={6}
-              />
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Xác nhận mật khẩu mới"
-                className="h-12 rounded-2xl px-4 text-sm mt-3"
-                required
-                minLength={6}
-              />
+              <div className="space-y-3">
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mật khẩu mới"
+                  className="h-12 rounded-2xl px-4 text-sm"
+                  required
+                  minLength={6}
+                />
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Xác nhận mật khẩu mới"
+                  className="h-12 rounded-2xl px-4 text-sm"
+                  required
+                  minLength={6}
+                />
+              </div>
               <Button
                 type="submit"
                 disabled={loading || otpCode.length < 6 || !password || !confirmPassword}
                 loading={loading}
                 loadingText="Đang xử lý..."
-                className="w-full h-12 rounded-full font-semibold text-sm shadow-md mt-4"
+                className="w-full h-12 rounded-full font-semibold text-sm shadow-md"
               >
                 Đặt lại mật khẩu
               </Button>

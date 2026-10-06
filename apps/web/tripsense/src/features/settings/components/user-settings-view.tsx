@@ -396,10 +396,11 @@ function AccountSettingsPanel() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border/50 bg-card p-6 space-y-4 shadow-xs mt-6">
-        <h2 className="text-sm font-bold text-foreground">
-          {t("settings.userSettings.account.changePasswordTitle", { defaultValue: "Change Password" })}
-        </h2>
+      {user?.hasPassword && (
+        <div className="rounded-2xl border border-border/50 bg-card p-6 space-y-4 shadow-xs mt-6">
+          <h2 className="text-sm font-bold text-foreground">
+            {t("settings.userSettings.account.changePasswordTitle", { defaultValue: "Change Password" })}
+          </h2>
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div className="space-y-2">
             <label className="text-xs font-semibold text-foreground">
@@ -462,6 +463,7 @@ function AccountSettingsPanel() {
           </div>
         </form>
       </div>
+      )}
     </div>
   );
 }

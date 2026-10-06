@@ -12,7 +12,8 @@ public record UserDto(
     String role,
     List<String> roles,
     boolean partnerEnrolled,
-    UserStatus status) {
+    UserStatus status,
+    boolean hasPassword) {
 
   public UserDto {
     if (roles == null) {
@@ -21,6 +22,6 @@ public record UserDto(
   }
 
   public UserDto(UUID id, String email, String role, UserStatus status) {
-    this(id, email, role, role != null ? List.of(role) : List.of("ROLE_USER"), false, status);
+    this(id, email, role, role != null ? List.of(role) : List.of("ROLE_USER"), false, status, true);
   }
 }

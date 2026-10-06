@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { useAuth, getAuthErrorMessage, isUserAdmin } from "@/features/auth";
+import { AuthModal } from "@/features/auth/components/auth-modal";
 import { sanitizeReturnUrl } from "@/lib/url-utils";
 
 export default function LoginPage() {
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState("");
+  const [showForgotModal, setShowForgotModal] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +108,13 @@ export default function LoginPage() {
             >
               Mật khẩu
             </label>
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(true)}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Quên mật khẩu?
+            </button>
           </div>
           <Input
             id="login-password"
@@ -139,6 +148,12 @@ export default function LoginPage() {
           Đăng ký ngay
         </Link>
       </div>
+
+      <AuthModal
+        open={showForgotModal}
+        onOpenChange={setShowForgotModal}
+        initialStep="forgot-password"
+      />
     </div>
   );
 }

@@ -33,6 +33,7 @@ public class VerificationController {
             .roles(user.getRoles())
             .partnerEnrolled(user.isPartnerEnrolled())
             .status(user.getStatus())
+            .hasPassword(user.getPassword() != null)
             .build();
     return ResponseEntity.ok(ApiResponse.success("Email verified successfully", userDto));
   }

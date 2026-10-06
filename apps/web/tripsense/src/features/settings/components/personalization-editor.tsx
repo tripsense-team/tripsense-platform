@@ -60,7 +60,18 @@ export function PersonalizationEditor() {
     try {
       setLoading(true);
       setErrorMessage(null);
-      const data = await onboardingApi.get();
+      let data: OnboardingProfile;
+      try {
+        data = await onboardingApi.get();
+      } catch (err: any) {
+        if (err.status === 404) {
+          // Auto-start if it doesn't exist
+          data = await onboardingApi.start();
+        } else {
+          throw err;
+        }
+      }
+      
       setProfile(data);
 
       // Home city parsing: handles JSON { name, placeRef } or raw string

@@ -2,6 +2,8 @@ package fu.tripsense.userservice.service.impl;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import fu.tripsense.userservice.dto.request.ChangePasswordRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import fu.tripsense.userservice.dto.request.ForgotPasswordRequest;
 import fu.tripsense.userservice.dto.request.GoogleLoginRequest;
 import fu.tripsense.userservice.dto.request.LoginRequest;
@@ -202,6 +204,7 @@ public class AuthServiceImpl implements AuthService {
         .roles(user.getRoles())
         .partnerEnrolled(user.isPartnerEnrolled())
         .status(user.getStatus())
+                    .hasPassword(user.getPassword() != null)
         .build();
   }
 
@@ -383,6 +386,7 @@ public class AuthServiceImpl implements AuthService {
                     .roles(user.getRoles())
                     .partnerEnrolled(user.isPartnerEnrolled())
                     .status(user.getStatus())
+                    .hasPassword(user.getPassword() != null)
                     .build())
             .build();
 
@@ -414,11 +418,11 @@ public class AuthServiceImpl implements AuthService {
 
     // Verify current password
     if (currentUser.getPassword() == null) {
-      throw new BadCredentialsException("Your account does not have a password. Please use Google Login.");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your account does not have a password. Please use Google Login.");
     }
 
     if (!passwordEncoder.matches(request.currentPassword(), currentUser.getPassword())) {
-      throw new BadCredentialsException("Incorrect current password");
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Incorrect current password");
     }
 
     // Update to new password
