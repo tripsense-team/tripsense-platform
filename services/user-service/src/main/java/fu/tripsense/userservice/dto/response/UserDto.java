@@ -22,6 +22,6 @@ public record UserDto(
   }
 
   public UserDto(UUID id, String email, String role, UserStatus status) {
-    this(id, email, role, role != null ? List.of(role) : List.of("ROLE_USER"), false, status, true);
+    this(id, email, role, role != null ? List.of(role) : List.of("ROLE_USER"), false, status, false);
   }
 }

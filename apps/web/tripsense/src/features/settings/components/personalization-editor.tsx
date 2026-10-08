@@ -64,7 +64,7 @@ export function PersonalizationEditor() {
       try {
         data = await onboardingApi.get();
       } catch (err: any) {
-        if (err.status === 404) {
+        if (err.status === 404 || err.response?.status === 404) {
           // Auto-start if it doesn't exist
           data = await onboardingApi.start();
         } else {

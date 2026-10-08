@@ -464,7 +464,7 @@ export function AuthModal({
                   }}
                   className="font-bold text-foreground underline hover:text-primary transition-colors"
                 >
-                  Forgot password?
+                  {t("auth.forgotPassword", { defaultValue: "Quên mật khẩu?" })}
                 </button>
               </div>
             )}

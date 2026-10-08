@@ -50,7 +50,7 @@ function saveCachedUser(user: User | null) {
 
 function parseJwtClaims(
   token: string,
-): { sub?: string; email?: string; role?: string; roles?: string[]; exp?: number } | null {
+): { sub?: string; email?: string; role?: string; roles?: string[]; exp?: number; hasPassword?: boolean } | null {
   try {
     const base64Url = token.split(".")[1];
     if (!base64Url) return null;
@@ -154,6 +154,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               role: roleFromClaim,
               roles: claims.roles ?? [roleFromClaim],
               status: UserStatus.ACTIVE,
+              hasPassword: claims.hasPassword,
             }
           : null);
 
