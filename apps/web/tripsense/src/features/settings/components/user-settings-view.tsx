@@ -25,6 +25,7 @@ import { useAuth, useChangePassword } from "@/features/auth";
 import { useUserProfile, useUpdateProfile } from "@/features/profile";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { PersonalizationEditor } from "./personalization-editor";
 import { socialPostRepository } from "@/features/social-post/services";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
@@ -363,8 +364,19 @@ function AccountSettingsPanel() {
       setNewPassword("");
       setConfirmPassword("");
       setTimeout(() => setPasswordSuccess(false), 3000);
-    } catch (err: any) {
-      setPasswordError(err.message || t("settings.userSettings.account.passwordChangeError", { defaultValue: "Failed to change password" }));
+    } catch (error) {
+      const safeMsg = getSafeErrorMessage(
+        error,
+        t("settings.userSettings.account.passwordChangeError", { defaultValue: "Failed to change password" })
+      );
+
+      if (safeMsg === "ERR_INVALID_PASSWORD") {
+        setPasswordError(t("auth.errors.invalidPassword", { defaultValue: "Mật khẩu hiện tại không chính xác." }));
+      } else if (safeMsg === "ERR_NO_PASSWORD_SET") {
+        setPasswordError(t("auth.errors.noPasswordSet", { defaultValue: "Tài khoản của bạn chưa có mật khẩu, hãy dùng đăng nhập Google." }));
+      } else {
+        setPasswordError(safeMsg);
+      }
     }
   };
 
