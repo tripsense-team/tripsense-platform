@@ -204,7 +204,7 @@ public class AuthServiceImpl implements AuthService {
         .roles(user.getRoles())
         .partnerEnrolled(user.isPartnerEnrolled())
         .status(user.getStatus())
-                    .hasPassword(user.getPassword() != null)
+        .hasPassword(user.getPassword() != null)
         .build();
   }
 

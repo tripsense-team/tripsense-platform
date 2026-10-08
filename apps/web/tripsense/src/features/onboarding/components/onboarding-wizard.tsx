@@ -394,26 +394,8 @@ export function OnboardingWizard() {
     }
   };
 
-  const handleClose = async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      // Create a blank profile if none exists
-      let currentVersion = profile?.version;
-      if (currentVersion === undefined) {
-        const newProfile = await onboardingApi.start();
-        currentVersion = newProfile.version;
-      }
-      // Complete it to bypass the gate
-      await onboardingApi.complete(currentVersion ?? 0);
-      await onboardingApi.markProfileComplete();
-      useAuthStore.getState().setOnboardingCompleted(true);
-      router.replace("/explore");
-    } catch (err) {
-      setError(getSafeErrorMessage(err, t("errors.generic")));
-    } finally {
-      setSaving(false);
-    }
+  const handleClose = () => {
+    router.push("/explore");
   };
 
   // Filtered popular destinations based on search query
