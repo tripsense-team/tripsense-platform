@@ -366,7 +366,7 @@ export function AuthModal({
             type="button"
             onClick={() => {
               setErrorMsg("");
-              setStep(initialStep === "forgot-password" ? "forgot-password" : "email");
+              setStep(initialStep);
             }}
             className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >

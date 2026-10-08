@@ -418,11 +418,11 @@ public class AuthServiceImpl implements AuthService {
 
     // Verify current password
     if (currentUser.getPassword() == null) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Your account does not have a password. Please use Google Login.");
+      throw new BadCredentialsException("ERR_NO_PASSWORD_SET");
     }
 
     if (!passwordEncoder.matches(request.currentPassword(), currentUser.getPassword())) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Incorrect current password");
+      throw new BadCredentialsException("ERR_INVALID_PASSWORD");
     }
 
     // Update to new password

@@ -28,6 +28,7 @@ import {
   type OnboardingProfile,
   type UpdateOnboardingRequest,
 } from "@/features/onboarding";
+import { ApiError } from "@/services/api-client";
 
 export function PersonalizationEditor() {
   const { t } = useTranslation();
@@ -63,12 +64,12 @@ export function PersonalizationEditor() {
       let data: OnboardingProfile;
       try {
         data = await onboardingApi.get();
-      } catch (err: any) {
-        if (err.status === 404 || err.response?.status === 404) {
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
           // Auto-start if it doesn't exist
           data = await onboardingApi.start();
         } else {
-          throw err;
+          throw error;
         }
       }
       
