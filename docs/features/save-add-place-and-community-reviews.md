@@ -196,7 +196,19 @@ Rules: collection mutation endpoints derive `ownerUserId` from verified JWT, nev
 | `DELETE` | `/api/trips/{tripId}/places/{placeRef}` | JWT trip owner | Idempotently remove; `204` |
 | `GET` | `/api/trips/{tripId}/places?page=0&size=50` | JWT trip owner | Trip place pool for Trip Details |
 
-The picker reuses existing `GET /api/trips?size=50`. MVP is owner-only to match the existing list contract. Collaborative editor support requires an explicit follow-up authorization/UX decision.
+The picker reuses existing `GET /api/trips?size=50`, which now includes owned and member trips. The pool remains owner-only; the picker must filter by `TripResponse.ownerId` and exclude archived/cancelled trips. Collaborative editor support requires an explicit follow-up authorization/UX decision.
+
+#### Permission alignment correction — 2026-10-12
+
+`STATUS: APPROVED` — human approved the permission-alignment plan before implementation.
+
+- Mount the pool and its scheduling dialog only for the authenticated trip owner; retain real errors/retry for owners. Never turn a permission failure into an empty pool.
+- Keep shared trips visible in My Trips and preserve editor/viewer itinerary capabilities from [collaborative itinerary editing](collaborative-itinerary-editing.md). Do not infer ownership from `canEdit`.
+- Replace the hardcoded owner badge with the current access label. Only owners see publication/management actions, consistent with [trip sharing](trip-sharing/requirements.md); members can still open the member list.
+- Add-to-trip reconciliation only mutates loaded, owned, active trips. Preserve memberships outside the loaded page. Missing auth must fail closed. Reset pool/share dialogs on trip changes and ignore obsolete share responses.
+- No backend authorization, API, data model, migration, or event changes. Continue using Gateway, `apiClient`, sanitized errors and EN/VI translation parity.
+- Verify owner/editor/viewer/missing-user rendering, no pool requests for members, owner-only picker mutations, out-of-page membership preservation, trip-switch state, type checking, focused lint and i18n checks. Map/photo/SSE issues are separate from this correction.
+- Implementation: owner gating, picker filtering/reconciliation, dialog reset, localized access labels and `trip-permissions.test.tsx` added. Static review confirms no API/database/security-contract change; backend ownership guards remain unchanged. `git diff --check` passed. Automated tests, type-check, lint and i18n validation remain pending: command execution was blocked by the tool safety classifier being unavailable (`Coding[1m] is temporarily unavailable`). No live backend verification performed; do not mark this correction DONE until checks run.
 
 ```json
 // POST /api/trips/place-memberships:batch

@@ -4,6 +4,8 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CreateTripModal } from "@/components/chat/modals/create-trip-modal";
 import {
   CalendarDays,
   Check,
@@ -259,12 +261,14 @@ interface TripSharingWorkspaceProps {
 }
 
 export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProps = {}) {
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [trips, setTrips] = React.useState<TripResponse[]>([]);
   const [trip, setTrip] = React.useState<TripResponse | null>(null);
   const [itinerary, setItinerary] = React.useState<ItineraryResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [createTripOpen, setCreateTripOpen] = React.useState(false);
   const [switchingTripId, setSwitchingTripId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [shareOpen, setShareOpen] = React.useState(false);
@@ -306,6 +310,22 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     return () => window.clearTimeout(timeout);
   }, [feedbackMessage]);
 
+  const handleTripCreatedFromWorkspace = React.useCallback(
+    (newTrip: TripResponse, prompt?: string) => {
+      setCreateTripOpen(false);
+      if (typeof window !== "undefined") {
+        const defaultPrompt =
+          prompt?.trim() ||
+          (locale === "vi"
+            ? `Hãy lên lịch trình chi tiết cho chuyến đi ${newTrip.destinationName} từ ngày ${newTrip.startDate} đến ${newTrip.endDate}.`
+            : `Please plan a detailed itinerary for a trip to ${newTrip.destinationName} from ${newTrip.startDate} to ${newTrip.endDate}.`);
+        sessionStorage.setItem("tripsense:initial-ai-prompt", defaultPrompt);
+      }
+      router.push(`/ai-planner?tripId=${newTrip.id}`);
+    },
+    [locale, router],
+  );
+
   const loadTripDetails = React.useCallback(async (tripId: string) => {
     const [freshTrip, freshItinerary] = await Promise.all([getTrip(tripId), getItinerary(tripId)]);
     return { trip: freshTrip, itinerary: chainItineraryResponse(freshItinerary) };
@@ -333,6 +353,8 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   });
 
   const canEditItinerary = itinerary?.capabilities?.canEdit ?? false;
+  const isOwner = Boolean(user?.id && trip?.ownerId === user.id);
+  const canManageOwnedTrip = isOwner && !switchingTripId;
 
   const applyWorkspaceData = React.useCallback(async () => {
     const page = await listTrips({ size: 20 });
@@ -395,7 +417,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     let ignore = false;
 
     async function loadExistingShare() {
-      if (!trip || !user?.id) {
+      if (!trip || !user?.id || !canManageOwnedTrip) {
         setPublishedPostId(null);
         return;
       }
@@ -421,7 +443,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
     return () => {
       ignore = true;
     };
-  }, [trip, user?.id]);
+  }, [trip, user?.id, canManageOwnedTrip]);
 
   async function refreshPublishedShare(tripId: string) {
     if (!user?.id) return null;
@@ -436,8 +458,14 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   }
 
   async function selectTrip(tripId: string) {
-    if (tripId === trip?.id || switchingTripId) return;
+    if (tripId === trip?.id || switchingTripId || submittingShare || savingVisibility || removingShare) return;
 
+    setShareOpen(false);
+    setVisibilityOpen(false);
+    setRemoveOpen(false);
+    setSchedulingPlace(null);
+    setCaption("");
+    setVisibility("PUBLIC");
     setSwitchingTripId(tripId);
     setError(null);
     setShareError(null);
@@ -668,7 +696,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   }
 
   async function publishTripShare() {
-    if (!trip) return;
+    if (!trip || !canManageOwnedTrip) return;
 
     setSubmittingShare(true);
     setShareError(null);
@@ -705,7 +733,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   }
 
   async function savePostVisibility() {
-    if (!publishedPostId) {
+    if (!canManageOwnedTrip || !publishedPostId) {
       setVisibilityOpen(false);
       return;
     }
@@ -724,7 +752,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
   }
 
   async function removeSharedPost() {
-    if (!publishedPostId) {
+    if (!canManageOwnedTrip || !publishedPostId) {
       setRemoveOpen(false);
       return;
     }
@@ -753,15 +781,20 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         <div className="flex min-h-[70vh] items-center justify-center p-8">
           <EmptyState
             icon={Compass}
-            title="No trips found"
-            description="Create a trip in My Trips first, then come back to share it."
+            title={t("trip.noTrips")}
+            description="Create a trip first, then come back to share it."
             action={
-              <Button asChild className="rounded-full">
-                <Link href="/trips/new">Create a Trip</Link>
+              <Button onClick={() => setCreateTripOpen(true)} className="rounded-full">
+                {t("trip.createTrip")}
               </Button>
             }
           />
         </div>
+        <CreateTripModal
+          isOpen={createTripOpen}
+          onClose={() => setCreateTripOpen(false)}
+          onTripCreated={handleTripCreatedFromWorkspace}
+        />
       </div>
     );
   }
@@ -780,13 +813,21 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         onAddPlace={() => setAddItemDay(itinerary?.days[0] ?? null)}
         onInvite={() => setMembersDialogOpen(true)}
         canEdit={canEditItinerary}
+        canShare={canManageOwnedTrip}
+        accessLabel={t(isOwner ? "trip.ownerView" : canEditItinerary ? "trip.editorView" : "trip.viewerView")}
         collaborationConnection={collaborationConnection}
         collaborationLabel={t(`trip.collaboration${collaborationConnection[0].toUpperCase()}${collaborationConnection.slice(1)}`)}
       />
 
       <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
-          <TripSwitcher trips={trips} activeTripId={trip.id} switchingTripId={switchingTripId} onSelectTrip={selectTrip} />
+          <TripSwitcher
+            trips={trips}
+            activeTripId={trip.id}
+            switchingTripId={switchingTripId}
+            onSelectTrip={selectTrip}
+            onAddTrip={() => setCreateTripOpen(true)}
+          />
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-xs">
             {["Itinerary List", "Expenses & Splits", "Notes & Bookings"].map((tab, index) => (
               <Button key={tab} size="sm" variant={index === 0 ? "default" : "ghost"} className="rounded-full text-xs font-semibold">
@@ -795,11 +836,13 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
             ))}
             <Badge variant="secondary" className="ml-auto rounded-full">{itineraryItemCount(itinerary)} selected</Badge>
           </div>
-          <TripPlacePool
-            tripId={trip.id}
-            canEdit={canEditItinerary}
-            onSchedule={setSchedulingPlace}
-          />
+          {canManageOwnedTrip && (
+            <TripPlacePool
+              tripId={trip.id}
+              canEdit={canEditItinerary}
+              onSchedule={setSchedulingPlace}
+            />
+          )}
           <ItineraryList
             trip={trip}
             itinerary={itinerary}
@@ -815,19 +858,21 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
 
         <aside className="space-y-5">
           <RouteMapCard places={places} budget={trip.budgetAmount} currency={trip.budgetCurrency} />
-          <CommunityPreviewCard
-            trip={trip}
-            itinerary={itinerary}
-            caption={caption}
-            publishedPostId={publishedPostId}
-            onPublish={() => setShareOpen(true)}
-            onOpenVisibility={() => setVisibilityOpen(true)}
-            onRemove={() => setRemoveOpen(true)}
-          />
+          {canManageOwnedTrip && (
+            <CommunityPreviewCard
+              trip={trip}
+              itinerary={itinerary}
+              caption={caption}
+              publishedPostId={publishedPostId}
+              onPublish={() => setShareOpen(true)}
+              onOpenVisibility={() => setVisibilityOpen(true)}
+              onRemove={() => setRemoveOpen(true)}
+            />
+          )}
         </aside>
       </section>
 
-      <ShareTripDialog
+      {canManageOwnedTrip && <ShareTripDialog
         open={shareOpen}
         onOpenChange={setShareOpen}
         trip={trip}
@@ -841,9 +886,9 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         submitting={submittingShare}
         error={shareError}
         onPublish={publishTripShare}
-      />
+      />}
 
-      <VisibilityDialog
+      {canManageOwnedTrip && <VisibilityDialog
         open={visibilityOpen}
         onOpenChange={setVisibilityOpen}
         visibility={visibility}
@@ -852,8 +897,8 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         saving={savingVisibility}
         error={visibilityError}
         onSave={savePostVisibility}
-      />
-      <RemoveShareDialog
+      />}
+      {canManageOwnedTrip && <RemoveShareDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         tripTitle={displayTripTitle(trip)}
@@ -861,10 +906,12 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         removing={removingShare}
         error={removeError}
         onRemove={removeSharedPost}
-      />
+      />}
       <AddItemDialog
         trip={trip}
         day={addItemDay}
+        days={itinerary?.days ?? []}
+        onSelectDay={setAddItemDay}
         draft={itemDraft}
         error={itemError}
         submitting={submittingItem}
@@ -894,7 +941,7 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
         onDraftChange={setEditItemDraft}
         onSubmit={handleUpdateItem}
       />
-      <ScheduleTripPlaceDialog
+      {canManageOwnedTrip && <ScheduleTripPlaceDialog
         tripId={trip.id}
         place={schedulingPlace}
         days={itinerary?.days ?? []}
@@ -905,12 +952,17 @@ export function TripSharingWorkspace({ initialTripId }: TripSharingWorkspaceProp
           setItinerary(chainItineraryResponse(freshItinerary));
           setFeedbackMessage(t("trip.scheduledPlaceSuccess"));
         }}
-      />
+      />}
       <TripMembersDialog
         tripId={trip.id}
         tripName={displayTripTitle(trip)}
         open={membersDialogOpen}
         onOpenChange={setMembersDialogOpen}
+      />
+      <CreateTripModal
+        isOpen={createTripOpen}
+        onClose={() => setCreateTripOpen(false)}
+        onTripCreated={handleTripCreatedFromWorkspace}
       />
     </main>
   );
@@ -962,6 +1014,8 @@ function TripHero({
   onAddPlace,
   onInvite,
   canEdit,
+  canShare,
+  accessLabel,
   collaborationConnection,
   collaborationLabel,
 }: {
@@ -973,9 +1027,12 @@ function TripHero({
   onAddPlace: () => void;
   onInvite?: () => void;
   canEdit: boolean;
+  canShare: boolean;
+  accessLabel: string;
   collaborationConnection: "connecting" | "connected" | "reconnecting";
   collaborationLabel: string;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="relative isolate overflow-hidden">
       <div className="absolute inset-0">
@@ -988,7 +1045,7 @@ function TripHero({
           <Badge className="rounded-full bg-background text-foreground hover:bg-background">TF-56: Share a trip as a social post</Badge>
           <Badge className="rounded-full bg-background/90 text-foreground hover:bg-background">
             <ShieldCheck className="mr-1 h-3 w-3" />
-            Owner view
+            {accessLabel}
           </Badge>
           <Badge className="rounded-full bg-primary text-primary-foreground">
             <Globe2 className="mr-1 h-3 w-3" />
@@ -1014,17 +1071,17 @@ function TripHero({
             </div>
           </div>
           <div className="flex flex-wrap gap-2 rounded-2xl border border-primary-foreground/20 bg-background/20 p-3 shadow-md backdrop-blur-md">
-            <Button onClick={onShare} className="rounded-full font-bold">
+            {canShare && <Button onClick={onShare} className="rounded-full font-bold">
               <Share2 className="h-4 w-4" />
-              Share Trip
-            </Button>
+              {t("trip.shareTrip")}
+            </Button>}
             <Button type="button" variant="secondary" className="rounded-full font-bold" onClick={onAddPlace} disabled={!canEdit || !itinerary?.days.length}>
               <Plus className="h-4 w-4" />
               Add Place
             </Button>
             <Button variant="secondary" className="rounded-full font-bold" onClick={onInvite}>
               <Users className="h-4 w-4" />
-              Invite
+              {t("trip.members")}
             </Button>
             <Button variant="secondary" size="icon" className="rounded-full" aria-label="Copy trip link">
               <Link2 className="h-4 w-4" />
@@ -1046,24 +1103,39 @@ function TripSwitcher({
   activeTripId,
   switchingTripId,
   onSelectTrip,
+  onAddTrip,
 }: {
   trips: TripResponse[];
   activeTripId: string;
   switchingTripId: string | null;
   onSelectTrip: (tripId: string) => void;
+  onAddTrip: () => void;
 }) {
-  if (trips.length <= 1) return null;
+  const { t } = useTranslation();
+  if (trips.length === 0) return null;
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-xs">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-normal text-muted-foreground">Choose trip to share</h2>
+          <h2 className="text-sm font-bold uppercase tracking-normal text-muted-foreground">{t("trip.chooseTrip")}</h2>
           <p className="text-sm text-muted-foreground">Loaded from My Trips API</p>
         </div>
-        <Badge variant="secondary" className="rounded-full">
-          {trips.length} trips
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            className="rounded-full text-xs font-bold gap-1 shadow-2xs cursor-pointer h-7 px-3"
+            onClick={onAddTrip}
+          >
+            <Plus className="size-3.5" />
+            <span>{t("trip.addTrip")}</span>
+          </Button>
+          <Badge variant="secondary" className="rounded-full">
+            {trips.length} {trips.length === 1 ? "trip" : "trips"}
+          </Badge>
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {trips.map((item) => {

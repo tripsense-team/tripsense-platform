@@ -7,6 +7,7 @@ import { CalendarDays, Loader2 } from "lucide-react";
 import { ResponsiveDialog, EmptyState } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n";
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import type { Place } from "@/features/places/types";
 import { useUserTrips } from "@/features/trip-management";
@@ -26,7 +27,8 @@ export function AddToTripDialog({ place, open, selectedTripIds, onOpenChange, on
   const { t, locale } = useTranslation();
   const queryClient = useQueryClient();
   const { trips, isLoading, isError, error, refetchTrips } = useUserTrips();
-  const selectableTrips = trips.filter((trip) => trip.status !== "ARCHIVED" && trip.status !== "CANCELLED");
+  const userId = useAuthStore((state) => state.user?.id);
+  const selectableTrips = trips.filter((trip) => userId && trip.ownerId === userId && trip.status !== "ARCHIVED" && trip.status !== "CANCELLED");
   const [selected, setSelected] = React.useState<Set<string>>(
     () => new Set(selectedTripIds),
   );
@@ -34,16 +36,19 @@ export function AddToTripDialog({ place, open, selectedTripIds, onOpenChange, on
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!place) return;
+      if (!place || !userId || isLoading || isError) throw new Error(t("errors.generic"));
+      const eligibleIds = new Set(selectableTrips.map((trip) => trip.id));
       await reconcileMemberships(
-        selectedTripIds,
-        selected,
+        selectedTripIds.filter((id) => eligibleIds.has(id)),
+        [...selected].filter((id) => eligibleIds.has(id)),
         (id) => addPlaceToTrip(id, place.id),
         (id) => removePlaceFromTrip(id, place.id),
       );
+      return [...selected].some((id) => eligibleIds.has(id))
+        || selectedTripIds.some((id) => !eligibleIds.has(id));
     },
-    onSuccess: () => {
-      onAdded?.(selected.size > 0);
+    onSuccess: (added) => {
+      onAdded?.(added);
       onOpenChange(false);
     },
     onError: (error) => setMessage(getSafeErrorMessage(error, t("errors.generic"))),
@@ -64,7 +69,7 @@ export function AddToTripDialog({ place, open, selectedTripIds, onOpenChange, on
         ) : selectableTrips.length === 0 ? (
           <EmptyState
             icon={CalendarDays}
-            title={t("trip.noTrips")}
+            title={t("trip.noOwnedTripsForPlace")}
             description={t("trip.noTripsForPlace")}
             action={<Button asChild><Link href="/trips/new">{t("trip.createTrip")}</Link></Button>}
           />
@@ -95,7 +100,7 @@ export function AddToTripDialog({ place, open, selectedTripIds, onOpenChange, on
         {message && <p className="text-sm text-destructive">{message}</p>}
         <div className="flex justify-end gap-2 border-t border-border pt-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button type="button" disabled={!place || mutation.isPending || selectableTrips.length === 0} onClick={() => mutation.mutate()}>
+          <Button type="button" disabled={!place || !userId || isLoading || isError || mutation.isPending || selectableTrips.length === 0} onClick={() => mutation.mutate()}>
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("common.confirm")}
           </Button>

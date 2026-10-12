@@ -688,6 +688,8 @@ export function TripManagementView({
       <AddItemDialog
         trip={trip}
         day={addItemDay}
+        days={itinerary?.days ?? []}
+        onSelectDay={setAddItemDay}
         draft={itemDraft}
         error={error}
         submitting={submitting}

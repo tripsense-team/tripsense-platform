@@ -56,6 +56,7 @@ Track every feature that enters the multi-agent workflow.
 | `community-destination-weather` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./community-destination-weather.md) |
 | `chat-notifications-and-unread-badge` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./chat-notifications-and-unread-badge.md) |
 | `profile-password-management` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/user-service`, `services/mail-service` | [Docs](./profile-password-management.md) |
+| `mindtrip-trip-creation-handoff` | APPROVED | `apps/web/tripsense`, `services/trip-service`, `services/ai-service` | [Docs](./mindtrip-trip-creation-handoff.md) |
 
 ## Statuses
 

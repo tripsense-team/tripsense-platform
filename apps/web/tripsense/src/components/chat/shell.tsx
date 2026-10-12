@@ -188,14 +188,30 @@ export function ChatShell() {
         }
         await linkChatToTrip(chatId, tripIdParam, null);
       })
-      .catch(() => {
-        toast.error(
-          locale === "vi"
-            ? "Không thể liên kết chuyến đi với đoạn chat này."
-            : "The trip could not be linked to this chat.",
-        );
+      .catch((err) => {
+        console.warn("Could not link trip to chat on mount:", err);
       });
   }, [chatId, isAuthenticated, locale, tripIdParam]);
+
+  // Auto-send initial prompt from trip creation handoff (Mindtrip flow)
+  const initialPromptDispatchedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !tripIdParam || initialPromptDispatchedRef.current) return;
+    const pendingPrompt = sessionStorage.getItem("tripsense:initial-ai-prompt");
+    if (!pendingPrompt) return;
+
+    initialPromptDispatchedRef.current = true;
+    sessionStorage.removeItem("tripsense:initial-ai-prompt");
+
+    const timer = setTimeout(() => {
+      sendMessage({
+        parts: [{ text: pendingPrompt.trim(), type: "text" }],
+        role: "user",
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [tripIdParam, sendMessage]);
 
   // Restore the trip linked to this AI conversation, including after an AI commit.
   useEffect(() => {
