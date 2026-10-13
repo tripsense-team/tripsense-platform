@@ -59,9 +59,13 @@ public class HotelController {
   public Object noShow(@PathVariable UUID id, @RequestBody(required = false) HotelTransitionInput input) {
     return hotels.noShow(users.get(), id, input != null ? input.expectedVersion() : null);
   }
+  @GetMapping("/vouchers/available") public Object availableVouchers() { return hotels.getAvailableVouchers(); }
+  @PostMapping("/bookings/{id}/voucher") public Object applyVoucher(@PathVariable UUID id, @Valid @RequestBody HotelDtos.ApplyVoucherInput in) { return hotels.applyVoucher(users.get(), id, in.code()); }
+  @DeleteMapping("/bookings/{id}/voucher") public Object removeVoucher(@PathVariable UUID id) { return hotels.removeVoucher(users.get(), id); }
   @GetMapping("/bookings") public Object bookings() { return hotels.bookings(users.get(),null); }
   @GetMapping("/properties/{id}/bookings") public Object ownerBookings(@PathVariable UUID id) { return hotels.bookings(users.get(),id); }
   @GetMapping("/notifications") public Object notifications() { return hotels.notifications(users.get()); }
   @PostMapping("/notifications/{id}/read") public Map<String,Boolean> read(@PathVariable UUID id) { hotels.read(users.get(),id); return Map.of("read",true); }
+  @PostMapping("/notifications/read-all") public Map<String,Boolean> readAll() { hotels.readAll(users.get()); return Map.of("readAll",true); }
   @GetMapping("/admin/deliveries") public Object deliveries() { return hotels.deliveries(users.get()); }
 }

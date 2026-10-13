@@ -31,4 +31,11 @@ public class PartnerNotificationController {
       @AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
     return ResponseEntity.ok(ApiResponse.success(notificationService.markAsRead(user, id)));
   }
+
+  @PostMapping("/read-all")
+  public ResponseEntity<ApiResponse<Void>> markAllAsRead(
+      @AuthenticationPrincipal AuthenticatedUser user) {
+    notificationService.markAllAsRead(user);
+    return ResponseEntity.ok(ApiResponse.success(null));
+  }
 }

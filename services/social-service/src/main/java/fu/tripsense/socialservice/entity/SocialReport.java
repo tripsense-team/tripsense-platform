@@ -28,7 +28,7 @@ public class SocialReport {
   @Column(name = "target_id", nullable = false)
   private UUID targetId;
 
-  @Column(name = "post_id", nullable = false)
+  @Column(name = "post_id")
   private UUID postId;
 
   @Column(name = "reporter_id", nullable = false)

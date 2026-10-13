@@ -186,6 +186,18 @@ class RestaurantServiceTest {
   }
 
   @Test
+  @DisplayName("updateMenu: fails when version conflict occurs")
+  void updateMenu_versionConflict() {
+    mockMembership(ownerId, MembershipRole.OWNER, MembershipState.ACTIVE);
+    PartnerBusiness business = createRestaurantBusiness(OperationState.ACTIVE, PublicationState.PUBLISHED, false);
+    when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
+
+    assertThatThrownBy(() -> restaurantService.updateMenu(ownerUser, businessId, new RestaurantMenuBatchRequest(List.of(), 999L)))
+        .isInstanceOf(TripServiceException.class)
+        .satisfies(ex -> assertThat(((TripServiceException) ex).code()).isEqualTo("VERSION_CONFLICT"));
+  }
+
+  @Test
   @DisplayName("updateContactSharing: Owner can update consent with matching version")
   void updateContactSharing_success() {
     mockMembership(ownerId, MembershipRole.OWNER, MembershipState.ACTIVE);

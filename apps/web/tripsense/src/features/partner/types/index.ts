@@ -417,6 +417,76 @@ export interface ManagementClaimDecisionRequest {
   reason: string;
 }
 
+export interface RestaurantMenuItemDto {
+  id?: string;
+  name: string;
+  category?: string;
+  description?: string;
+  price: number;
+  currency?: string;
+  tags?: string[];
+  available: boolean;
+  displayOrder: number;
+}
+
+export interface RestaurantMenuBatchRequest {
+  items: RestaurantMenuItemDto[];
+  expectedVersion?: number;
+}
+
+export interface PublicRestaurantListingDto {
+  id: string;
+  displayName: string;
+  address?: string;
+  destination?: string;
+  openingHours?: string;
+  cuisineTags?: string[];
+  menu: RestaurantMenuItemDto[];
+  publicEmail?: string;
+  publicPhone?: string;
+}
+
+export interface RestaurantReservationDto {
+  id: string;
+  businessId: string;
+  businessName: string;
+  customerId: string;
+  customerEmail?: string | null;
+  customerName?: string | null;
+  startAt: string;
+  timeZone: string;
+  adults: number;
+  children: number;
+  notes?: string | null;
+  state: "REQUESTED" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+  cancellationReason?: string | null;
+  decisionReason?: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRestaurantReservationRequest {
+  startAt: string;
+  timeZone: string;
+  adults: number;
+  children: number;
+  notes?: string;
+}
+
+export interface RestaurantReservationDecisionRequest {
+  expectedVersion: number;
+  decision: "CONFIRM" | "REJECT" | "CANCEL";
+  reason?: string;
+}
+
+export interface CancelRestaurantReservationRequest {
+  expectedVersion: number;
+  reason?: string;
+}
+
+
+
 export interface TaxonomyItem {
   id: string;
   name: string;
@@ -427,4 +497,17 @@ export interface GuideTaxonomyData {
   skills: TaxonomyItem[];
   areas: TaxonomyItem[];
   topics: TaxonomyItem[];
+}
+
+export interface PartnerNotificationDto {
+  id: string;
+  eventId?: string;
+  eventType?: string;
+  businessId?: string;
+  title?: string;
+  message: string;
+  read?: boolean;
+  readAt?: string | null;
+  targetUri?: string;
+  createdAt: string;
 }

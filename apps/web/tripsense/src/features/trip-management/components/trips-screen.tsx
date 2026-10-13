@@ -7,6 +7,7 @@ import {
   Briefcase,
   Check,
   ChevronDown,
+  Copy,
   Edit3,
   ImageIcon,
   Link2,
@@ -48,6 +49,7 @@ interface TripsScreenProps {
   onRequestDeleteTrip: (trip: TripResponse) => void;
   onRequestChangePhoto: (trip: TripResponse) => void;
   onRequestShareTrip: (trip: TripResponse) => void;
+  onRequestCloneTrip?: (trip: TripResponse) => void;
 }
 
 export function TripsScreen({
@@ -61,6 +63,7 @@ export function TripsScreen({
   onRequestDeleteTrip,
   onRequestChangePhoto,
   onRequestShareTrip,
+  onRequestCloneTrip,
 }: TripsScreenProps) {
   const [filter, setFilter] = React.useState<TripListFilter>("all");
   const displayTrips = React.useMemo(() => {
@@ -167,6 +170,7 @@ export function TripsScreen({
                 onRequestDelete={onRequestDeleteTrip}
                 onRequestChangePhoto={onRequestChangePhoto}
                 onRequestShare={onRequestShareTrip}
+                onRequestClone={onRequestCloneTrip}
               />
             ))}
           </div>
@@ -183,6 +187,7 @@ function TripPoster({
   onRequestDelete,
   onRequestChangePhoto,
   onRequestShare,
+  onRequestClone,
 }: {
   trip: TripResponse;
   deleting: boolean;
@@ -190,6 +195,7 @@ function TripPoster({
   onRequestDelete: (trip: TripResponse) => void;
   onRequestChangePhoto: (trip: TripResponse) => void;
   onRequestShare: (trip: TripResponse) => void;
+  onRequestClone?: (trip: TripResponse) => void;
 }) {
   const destination = titleCaseDestination(trip.destinationName);
   const coverImage = coverImageForTrip(trip);
@@ -257,6 +263,15 @@ function TripPoster({
             <ImageIcon className="h-5 w-5" />
             Change photo
           </DropdownMenuItem>
+          {onRequestClone && (
+            <DropdownMenuItem
+              className="gap-3 rounded-xl px-3 py-3 text-base"
+              onSelect={() => onRequestClone(trip)}
+            >
+              <Copy className="h-5 w-5" />
+              Clone trip
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             disabled={deleting}

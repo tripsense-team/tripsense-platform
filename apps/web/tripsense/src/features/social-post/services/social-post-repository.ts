@@ -61,6 +61,10 @@ export interface ISocialPostRepository {
     commentId: string,
     payload: SubmitCommunityReportRequest,
   ): Promise<ReportReceiptResponse>;
+  submitReviewReport(
+    reviewId: string,
+    payload: SubmitCommunityReportRequest,
+  ): Promise<ReportReceiptResponse>;
   listModerationReports(
     status?: "PENDING" | "DISMISSED" | "ACTIONED",
   ): Promise<ModerationReportPage>;

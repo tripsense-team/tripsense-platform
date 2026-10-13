@@ -15,4 +15,7 @@ public record ModerationReportResponse(
     Instant createdAt,
     Instant reviewedAt,
     UUID reviewedBy,
-    String moderatorNote) {}
+    String moderatorNote,
+    String placeRef,
+    String reviewContent,
+    Short reviewRating) {}

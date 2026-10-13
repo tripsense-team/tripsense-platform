@@ -39,6 +39,21 @@ public class CommunityModerationService {
   private final SocialTripShareRepository tripShares;
   private final SocialReportRepository reports;
   private final SocialModerationAuditRepository audits;
+  private final fu.tripsense.socialservice.repository.PlaceReviewRepository reviews;
+
+  @Transactional
+  public ReportReceiptResponse reportReview(
+      UUID reviewId, AuthenticatedUser reporter, SubmitReportRequest request) {
+    var review = reviews.lockById(reviewId)
+        .filter(value -> value.getDeletedAt() == null && "PUBLISHED".equals(value.getStatus()))
+        .orElseThrow(() -> new SocialException(
+            HttpStatus.NOT_FOUND, "REVIEW_NOT_FOUND", "Review not found"));
+    if (review.getAuthorUserId().equals(reporter.id())) {
+      throw new SocialException(
+          HttpStatus.BAD_REQUEST, "SELF_REPORT_NOT_ALLOWED", "You cannot report your own review");
+    }
+    return createReport("PLACE_REVIEW", reviewId, null, reporter, request);
+  }
 
   @Transactional
   public ReportReceiptResponse reportPost(
@@ -202,6 +217,16 @@ public class CommunityModerationService {
   }
 
   private void removeTarget(SocialReport report, AuthenticatedUser moderator, Instant now) {
+    if ("PLACE_REVIEW".equals(report.getTargetType())) {
+      reviews.lockById(report.getTargetId()).ifPresent(review -> {
+        if (review.getDeletedAt() == null) {
+          review.setStatus("REMOVED");
+          review.setDeletedAt(now);
+          review.setUpdatedAt(now);
+        }
+      });
+      return;
+    }
     if ("POST".equals(report.getTargetType())) {
       SocialPost post =
           posts
@@ -247,6 +272,10 @@ public class CommunityModerationService {
   }
 
   private ModerationReportResponse response(SocialReport report) {
+    var review = "PLACE_REVIEW".equals(report.getTargetType())
+        ? reviews.findByIdAndDeletedAtIsNull(report.getTargetId())
+            .filter(value -> "PUBLISHED".equals(value.getStatus())).orElse(null)
+        : null;
     return new ModerationReportResponse(
         report.getId(),
         report.getTargetType(),
@@ -259,7 +288,10 @@ public class CommunityModerationService {
         report.getCreatedAt(),
         report.getReviewedAt(),
         report.getReviewedBy(),
-        report.getModeratorNote());
+        report.getModeratorNote(),
+        review == null ? null : review.getPlaceRef(),
+        review == null ? null : review.getContent(),
+        review == null ? null : review.getRating());
   }
 
   private String normalize(String value) {

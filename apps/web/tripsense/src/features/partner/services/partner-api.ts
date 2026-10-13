@@ -3,12 +3,14 @@ import type {
   AdminReviewDecisionRequest,
   ApplicationDetailDto,
   BusinessDetailDto,
+  CancelRestaurantReservationRequest,
   CommunityPublication,
   CommunityPublicationRequest,
   CreateBusinessDraftRequest,
   CreateGuideInquiryInput,
   CreateGuidePromotionDraftRequest,
   CreateManagementClaimRequest,
+  CreateRestaurantReservationRequest,
   GuideInquiryDto,
   GuidePromotionDto,
   GuidePromotionSummaryDto,
@@ -22,7 +24,12 @@ import type {
   PartnerContextDto,
   ProposalDecisionRequest,
   PublicGuideProfileDto,
+  PublicRestaurantListingDto,
   PublicationRequest,
+  RestaurantMenuBatchRequest,
+  RestaurantMenuItemDto,
+  RestaurantReservationDecisionRequest,
+  RestaurantReservationDto,
   RevokeConsentRequest,
   SubmitApplicationRequest,
   SubmitGuidePromotionRequest,
@@ -333,5 +340,130 @@ export async function searchBusinessCandidates(
   const query = params.toString() ? `?${params.toString()}` : "";
   return request<PartnerCandidateDto[]>(`/api/partners/business-candidates${query}`);
 }
+
+// -------------------------------------------------------------
+// Restaurant Menu & Public Listing
+// -------------------------------------------------------------
+
+export async function getRestaurantMenu(
+  businessId: string,
+): Promise<RestaurantMenuItemDto[]> {
+  return request<RestaurantMenuItemDto[]>(
+    `/api/partners/businesses/${businessId}/restaurant-menu`,
+  );
+}
+
+export async function updateRestaurantMenu(
+  businessId: string,
+  req: RestaurantMenuBatchRequest,
+): Promise<RestaurantMenuItemDto[]> {
+  return request<RestaurantMenuItemDto[]>(
+    `/api/partners/businesses/${businessId}/restaurant-menu`,
+    {
+      method: "PUT",
+      body: JSON.stringify(req),
+    },
+  );
+}
+
+export async function updateContactSharing(
+  businessId: string,
+  req: { expectedVersion: number; publicContactConsent: boolean },
+): Promise<void> {
+  await request<void>(
+    `/api/partners/businesses/${businessId}/contact-sharing`,
+    {
+      method: "PUT",
+      body: JSON.stringify(req),
+    },
+  );
+}
+
+export async function getPublicRestaurant(
+  businessId: string,
+): Promise<PublicRestaurantListingDto> {
+  return request<PublicRestaurantListingDto>(
+    `/api/public/restaurants/${businessId}`,
+  );
+}
+
+// -------------------------------------------------------------
+// Restaurant Table Reservation Requests (C06)
+// -------------------------------------------------------------
+
+export async function createRestaurantReservation(
+  businessId: string,
+  req: CreateRestaurantReservationRequest,
+  requestKey?: string,
+): Promise<RestaurantReservationDto> {
+  const headers: Record<string, string> = {};
+  if (requestKey) headers["Idempotency-Key"] = requestKey;
+  return request<RestaurantReservationDto>(
+    `/api/restaurants/${businessId}/reservation-requests`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify(req),
+    },
+  );
+}
+
+export async function getMyRestaurantReservations(
+  page = 0,
+  size = 20,
+): Promise<{ content: RestaurantReservationDto[]; totalElements: number }> {
+  return request<{ content: RestaurantReservationDto[]; totalElements: number }>(
+    `/api/me/restaurant-reservation-requests?page=${page}&size=${size}`,
+  );
+}
+
+export async function getRestaurantReservation(
+  id: string,
+): Promise<RestaurantReservationDto> {
+  return request<RestaurantReservationDto>(
+    `/api/restaurant-reservation-requests/${id}`,
+  );
+}
+
+export async function cancelRestaurantReservation(
+  id: string,
+  req: CancelRestaurantReservationRequest,
+): Promise<RestaurantReservationDto> {
+  return request<RestaurantReservationDto>(
+    `/api/restaurant-reservation-requests/${id}/cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify(req),
+    },
+  );
+}
+
+export async function getBusinessRestaurantReservations(
+  businessId: string,
+  state?: string,
+  page = 0,
+  size = 20,
+): Promise<{ content: RestaurantReservationDto[]; totalElements: number }> {
+  const query = state ? `&state=${encodeURIComponent(state)}` : "";
+  return request<{ content: RestaurantReservationDto[]; totalElements: number }>(
+    `/api/partners/businesses/${businessId}/reservation-requests?page=${page}&size=${size}${query}`,
+  );
+}
+
+export async function decideRestaurantReservation(
+  businessId: string,
+  id: string,
+  req: RestaurantReservationDecisionRequest,
+): Promise<RestaurantReservationDto> {
+  return request<RestaurantReservationDto>(
+    `/api/partners/businesses/${businessId}/reservation-requests/${id}/decision`,
+    {
+      method: "POST",
+      body: JSON.stringify(req),
+    },
+  );
+}
+
+
 
 

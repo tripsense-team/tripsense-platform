@@ -15,6 +15,10 @@ public interface PlaceReviewRepository extends JpaRepository<PlaceReview, UUID> 
 
   Optional<PlaceReview> findByIdAndDeletedAtIsNull(UUID id);
 
+  @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+  @Query("select r from PlaceReview r where r.id = :id")
+  Optional<PlaceReview> lockById(@Param("id") UUID id);
+
   Optional<PlaceReview> findByAuthorUserIdAndPlaceRefAndDeletedAtIsNull(
       UUID authorUserId, String placeRef);
 

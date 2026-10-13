@@ -165,6 +165,18 @@ export class RealSocialPostApi implements ISocialPostRepository {
     );
   }
 
+  async submitReviewReport(
+    reviewId: string,
+    payload: SubmitCommunityReportRequest,
+  ): Promise<ReportReceiptResponse> {
+    return unwrap(
+      apiClient<ApiResponse<ReportReceiptResponse>>(
+        `/api/social/place-reviews/${reviewId}/reports`,
+        { method: "POST", body: JSON.stringify(payload) },
+      ),
+    );
+  }
+
   async listModerationReports(
     status: "PENDING" | "DISMISSED" | "ACTIONED" = "PENDING",
   ): Promise<ModerationReportPage> {

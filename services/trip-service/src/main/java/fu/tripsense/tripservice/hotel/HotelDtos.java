@@ -37,4 +37,5 @@ public final class HotelDtos {
       @NotNull LocalDate checkOut, @Min(1) @Max(10) int quantity, @Min(1) @Max(200) int guests) {}
   public record StatusInput(@NotBlank @Pattern(regexp="ACTIVE|REJECTED|SUSPENDED") String status) {}
   public record HotelTransitionInput(Long expectedVersion, String reason) {}
+  public record ApplyVoucherInput(@NotBlank @Size(max=32) String code) {}
 }

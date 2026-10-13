@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   BedDouble,
   BookOpen,
+  ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -284,6 +285,19 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
                   <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn & dịch vụ
                 </Link>
               </Button>
+              {business.publicEligible && (
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs px-2"
+                  title="Xem trang công khai"
+                >
+                  <Link href={`/restaurants/${business.id}`} target="_blank">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              )}
             </>
           )}
         </div>

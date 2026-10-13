@@ -46,6 +46,11 @@ public class RestaurantService {
           "BUSINESS_SUSPENDED", "Cannot update menu while business is suspended", HttpStatus.FORBIDDEN);
     }
 
+    if (request.expectedVersion() != null && !Objects.equals(business.getVersion(), request.expectedVersion())) {
+      throw new TripServiceException(
+          "VERSION_CONFLICT", "Business version conflict", HttpStatus.CONFLICT);
+    }
+
     requireCapability(businessId, PartnerCapability.RESTAURANT_MENU);
 
     // Replace menu items

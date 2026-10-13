@@ -31,6 +31,7 @@ import {
   updateItineraryItem,
   updateTrip,
 } from "../services/trip-management-api";
+import { cloneTrip } from "../utils/clone-trip";
 import type {
   CreateItineraryItemRequest,
   CreateTripRequest,
@@ -144,11 +145,41 @@ export function TripManagementView({
         getItinerary(tripId),
       ]);
       setTrip(nextTrip);
-      setItinerary(chainItineraryResponse(nextItinerary));
+      const chained = chainItineraryResponse(nextItinerary);
+      setItinerary(chained);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(
+            `tripsense:offline:trip:${tripId}`,
+            JSON.stringify({ trip: nextTrip, itinerary: chained, syncedAt: new Date().toISOString() }),
+          );
+        } catch {
+          // Ignore
+        }
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not load trip detail",
-      );
+      let recovered = false;
+      if (typeof window !== "undefined") {
+        try {
+          const cached = localStorage.getItem(`tripsense:offline:trip:${tripId}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed.trip && parsed.itinerary) {
+              setTrip(parsed.trip);
+              setItinerary(parsed.itinerary);
+              recovered = true;
+            }
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (!recovered) {
+        setError(
+          err instanceof Error ? err.message : "Could not load trip detail",
+        );
+      }
     } finally {
       setLoadingDetail(false);
     }
@@ -493,9 +524,26 @@ export function TripManagementView({
         onRequestDeleteTrip={setDeleteTrip}
         onRequestChangePhoto={setPhotoTrip}
         onRequestShareTrip={handleShareTrip}
+        onRequestCloneTrip={handleCloneTripFromList}
       />
     );
   })();
+
+  async function handleCloneTripFromList(tripToClone: TripResponse) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const cloned = await cloneTrip(tripToClone, {
+        newName: `${tripToClone.name} (Bản sao)`,
+      });
+      await loadTrips(true);
+      router.push(`/trips/${cloned.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not clone trip");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   function handleShareTrip(tripToShare: TripResponse) {
     router.push(

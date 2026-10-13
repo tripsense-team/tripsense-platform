@@ -169,4 +169,190 @@ describe("Partner Frontend API Service", () => {
       }),
     );
   });
+
+  it("retrieves and updates restaurant menu with version", async () => {
+    const { getRestaurantMenu, updateRestaurantMenu } = await import("../services/partner-api");
+    const mockItems = [
+      {
+        id: "m-1",
+        name: "Phở Bò",
+        category: "Món chính",
+        price: 65000,
+        currency: "VND",
+        available: true,
+        displayOrder: 1,
+      },
+    ];
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: mockItems,
+    } as any);
+
+    const items = await getRestaurantMenu("biz-rest-1");
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/partners/businesses/biz-rest-1/restaurant-menu",
+      expect.anything(),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe("Phở Bò");
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: mockItems,
+    } as any);
+
+    const updated = await updateRestaurantMenu("biz-rest-1", {
+      items: mockItems,
+      expectedVersion: 3,
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/partners/businesses/biz-rest-1/restaurant-menu",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ items: mockItems, expectedVersion: 3 }),
+      }),
+    );
+    expect(updated).toHaveLength(1);
+  });
+
+  it("updates contact sharing consent and retrieves public restaurant listing", async () => {
+    const { updateContactSharing, getPublicRestaurant } = await import("../services/partner-api");
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: null,
+    } as any);
+
+    await updateContactSharing("biz-rest-1", {
+      expectedVersion: 2,
+      publicContactConsent: true,
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/partners/businesses/biz-rest-1/contact-sharing",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ expectedVersion: 2, publicContactConsent: true }),
+      }),
+    );
+
+    const mockPublicListing = {
+      id: "biz-rest-1",
+      displayName: "Lantern Kitchen",
+      address: "123 Tran Phu, Hoi An",
+      destination: "Hoi An",
+      menu: [],
+      publicPhone: "0901234567",
+    };
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: mockPublicListing,
+    } as any);
+
+    const listing = await getPublicRestaurant("biz-rest-1");
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/public/restaurants/biz-rest-1",
+      expect.anything(),
+    );
+    expect(listing.displayName).toBe("Lantern Kitchen");
+    expect(listing.publicPhone).toBe("0901234567");
+  });
+
+  it("creates, cancels, and partner decides restaurant reservation request", async () => {
+    const {
+      createRestaurantReservation,
+      cancelRestaurantReservation,
+      decideRestaurantReservation,
+    } = await import("../services/partner-api");
+
+    const mockRes = {
+      id: "res-123",
+      businessId: "biz-rest-1",
+      businessName: "Lantern Kitchen",
+      customerId: "user-1",
+      startAt: "2026-10-20T19:00:00Z",
+      timeZone: "Asia/Ho_Chi_Minh",
+      adults: 2,
+      children: 1,
+      state: "REQUESTED",
+      version: 0,
+      createdAt: "2026-10-13T00:00:00Z",
+      updatedAt: "2026-10-13T00:00:00Z",
+    };
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: mockRes,
+    } as any);
+
+    const created = await createRestaurantReservation(
+      "biz-rest-1",
+      {
+        startAt: "2026-10-20T19:00:00Z",
+        timeZone: "Asia/Ho_Chi_Minh",
+        adults: 2,
+        children: 1,
+        notes: "Quiet table",
+      },
+      "key-123",
+    );
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/restaurants/biz-rest-1/reservation-requests",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Idempotency-Key": "key-123" },
+      }),
+    );
+    expect(created.id).toBe("res-123");
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: { ...mockRes, state: "CONFIRMED", version: 1 },
+    } as any);
+
+    const decided = await decideRestaurantReservation("biz-rest-1", "res-123", {
+      expectedVersion: 0,
+      decision: "CONFIRM",
+      reason: "Table confirmed",
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/partners/businesses/biz-rest-1/reservation-requests/res-123/decision",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          expectedVersion: 0,
+          decision: "CONFIRM",
+          reason: "Table confirmed",
+        }),
+      }),
+    );
+    expect(decided.state).toBe("CONFIRMED");
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: { ...mockRes, state: "CANCELLED", version: 2 },
+    } as any);
+
+    const cancelled = await cancelRestaurantReservation("res-123", {
+      expectedVersion: 1,
+      reason: "Plans changed",
+    });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/restaurant-reservation-requests/res-123/cancel",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          expectedVersion: 1,
+          reason: "Plans changed",
+        }),
+      }),
+    );
+    expect(cancelled.state).toBe("CANCELLED");
+  });
 });
