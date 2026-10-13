@@ -282,6 +282,17 @@ public class HotelService {
       if (!u.id().equals(b.get("customer_id"))) throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
       check("HELD".equals(b.get("status")), "HOTEL_INVALID_STATE");
 
+      var pendingPayments = db.queryForList(
+          "SELECT * FROM hotel_payos_payment WHERE booking_id=?", bookingId);
+      if (!pendingPayments.isEmpty()) {
+        var p = pendingPayments.getFirst();
+        String pState = (String) p.get("state");
+        if ("PAID".equals(pState)) throw error("HOTEL_PAYMENT_ALREADY_CAPTURED", HttpStatus.CONFLICT);
+        if ("PENDING".equals(pState) || "CREATING".equals(pState)) {
+          throw error("HOTEL_PAYMENT_IN_PROGRESS", HttpStatus.CONFLICT);
+        }
+      }
+
       var voucherList = db.queryForList("SELECT * FROM hotel_voucher WHERE upper(code)=? FOR UPDATE", code);
       if (voucherList.isEmpty()) throw error("HOTEL_VOUCHER_NOT_FOUND", HttpStatus.NOT_FOUND);
       var v = voucherList.getFirst();
@@ -340,8 +351,6 @@ public class HotelService {
                 updated_at = now()
           """, UUID.randomUUID(), code, bookingId, u.id(), discountAmount);
 
-      db.update("DELETE FROM hotel_payos_payment WHERE booking_id=? AND state IN ('CREATING', 'PENDING')", bookingId);
-
       return booking(bookingId);
     });
   }
@@ -353,6 +362,17 @@ public class HotelService {
       if (!u.id().equals(b.get("customer_id"))) throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
       check("HELD".equals(b.get("status")), "HOTEL_INVALID_STATE");
 
+      var pendingPayments = db.queryForList(
+          "SELECT * FROM hotel_payos_payment WHERE booking_id=?", bookingId);
+      if (!pendingPayments.isEmpty()) {
+        var p = pendingPayments.getFirst();
+        String pState = (String) p.get("state");
+        if ("PAID".equals(pState)) throw error("HOTEL_PAYMENT_ALREADY_CAPTURED", HttpStatus.CONFLICT);
+        if ("PENDING".equals(pState) || "CREATING".equals(pState)) {
+          throw error("HOTEL_PAYMENT_IN_PROGRESS", HttpStatus.CONFLICT);
+        }
+      }
+
       BigDecimal subtotal = (BigDecimal) b.get("subtotal");
       if (subtotal == null) subtotal = (BigDecimal) b.get("total");
 
@@ -360,7 +380,6 @@ public class HotelService {
           subtotal, bookingId);
 
       db.update("UPDATE hotel_voucher_redemption SET state='RELEASED', updated_at=now() WHERE booking_id=?", bookingId);
-      db.update("DELETE FROM hotel_payos_payment WHERE booking_id=? AND state IN ('CREATING', 'PENDING')", bookingId);
 
       return booking(bookingId);
     });

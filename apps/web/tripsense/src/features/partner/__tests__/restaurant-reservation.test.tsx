@@ -47,6 +47,7 @@ describe("RestaurantReservationDialog Component", () => {
     expect(html).toContain("Lantern Kitchen Hoi An");
     expect(html).toContain("Yêu cầu Đặt bàn");
     expect(html).toContain("Thời gian đến dùng bữa");
+    expect(html).toContain("Asia/Ho_Chi_Minh");
     expect(html).toContain("Người lớn (13+)");
     expect(html).toContain("Gửi yêu cầu đặt bàn");
     expect(html).toContain("Chưa trừ tiền và chưa tính là giữ bàn tự động");

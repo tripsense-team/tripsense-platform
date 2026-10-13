@@ -13,5 +13,9 @@ export * from "./components/public-guide-profile-view";
 export * from "./components/restaurant-menu-view";
 export * from "./components/public-restaurant-view";
 export * from "./components/restaurant-reservation-dialog";
+export * from "./components/restaurant-reservations-tab";
+export * from "./components/restaurant-menu-ai-upload-modal";
+export * from "./components/restaurant-overview-card";
+export * from "./components/customer-reservations-view";
 
 

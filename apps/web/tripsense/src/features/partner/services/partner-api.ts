@@ -366,6 +366,32 @@ export async function updateRestaurantMenu(
   );
 }
 
+export interface ExtractedMenuResultDto {
+  items: RestaurantMenuItemDto[];
+  totalItems: number;
+  detectedCurrency: string;
+}
+
+export async function extractRestaurantMenuFromImage(
+  fileOrBase64: File | string,
+): Promise<ExtractedMenuResultDto> {
+  if (typeof fileOrBase64 === "string") {
+    return request<ExtractedMenuResultDto>("/api/ai/restaurant-menu/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: fileOrBase64 }),
+    });
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileOrBase64);
+
+  return request<ExtractedMenuResultDto>("/api/ai/restaurant-menu/extract", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export async function updateContactSharing(
   businessId: string,
   req: { expectedVersion: number; publicContactConsent: boolean },
@@ -385,6 +411,13 @@ export async function getPublicRestaurant(
   return request<PublicRestaurantListingDto>(
     `/api/public/restaurants/${businessId}`,
   );
+}
+
+export async function searchPublicRestaurants(
+  query?: string,
+): Promise<PublicRestaurantListingDto[]> {
+  const q = query ? `?query=${encodeURIComponent(query)}` : "";
+  return request<PublicRestaurantListingDto[]>(`/api/public/restaurants${q}`).catch(() => []);
 }
 
 // -------------------------------------------------------------

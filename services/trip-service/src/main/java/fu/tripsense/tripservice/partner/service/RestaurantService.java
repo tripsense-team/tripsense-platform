@@ -60,13 +60,6 @@ public class RestaurantService {
     if (request.items() != null) {
       int order = 0;
       for (RestaurantMenuItemDto item : request.items()) {
-        String tagsJson = null;
-        if (item.tags() != null && !item.tags().isEmpty()) {
-          try {
-            tagsJson = objectMapper.writeValueAsString(item.tags());
-          } catch (Exception ignored) {
-          }
-        }
         entities.add(
             RestaurantMenuItem.builder()
                 .id(UUID.randomUUID())
@@ -76,7 +69,7 @@ public class RestaurantService {
                 .description(item.description())
                 .price(item.price())
                 .currency(item.currency() != null ? item.currency() : "VND")
-                .tags(tagsJson)
+                .tags(item.tags() != null ? item.tags() : Collections.emptyList())
                 .available(item.available())
                 .displayOrder(item.displayOrder() > 0 ? item.displayOrder() : order++)
                 .build());
@@ -172,14 +165,30 @@ public class RestaurantService {
         .build();
   }
 
-  private RestaurantMenuItemDto toDto(RestaurantMenuItem item) {
-    List<String> tags = Collections.emptyList();
-    if (item.getTags() != null) {
-      try {
-        tags = objectMapper.readValue(item.getTags(), new TypeReference<>() {});
-      } catch (Exception ignored) {
-      }
+  @Transactional(readOnly = true)
+  public List<PublicRestaurantListingDto> searchPublicRestaurants(String query) {
+    List<PartnerBusiness> businesses;
+    if (query != null && !query.isBlank()) {
+      businesses = businessRepository.findByDisplayNameContainingIgnoreCase(query.trim()).stream()
+          .filter(b -> b.getKind() == BusinessKind.RESTAURANT && b.getPublicationState() == PublicationState.PUBLISHED)
+          .toList();
+    } else {
+      businesses = businessRepository.findByKindAndPublicationState(BusinessKind.RESTAURANT, PublicationState.PUBLISHED);
     }
+
+    return businesses.stream()
+        .map(b -> {
+          try {
+            return getPublicRestaurant(b.getId());
+          } catch (Exception e) {
+            return null;
+          }
+        })
+        .filter(Objects::nonNull)
+        .toList();
+  }
+
+  private RestaurantMenuItemDto toDto(RestaurantMenuItem item) {
     return RestaurantMenuItemDto.builder()
         .id(item.getId())
         .name(item.getName())
@@ -187,7 +196,7 @@ public class RestaurantService {
         .description(item.getDescription())
         .price(item.getPrice())
         .currency(item.getCurrency())
-        .tags(tags)
+        .tags(item.getTags() != null ? item.getTags() : Collections.emptyList())
         .available(item.isAvailable())
         .displayOrder(item.getDisplayOrder())
         .build();

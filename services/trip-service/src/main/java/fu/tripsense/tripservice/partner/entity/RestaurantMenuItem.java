@@ -3,8 +3,11 @@ package fu.tripsense.tripservice.partner.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "restaurant_menu_item")
@@ -36,8 +39,9 @@ public class RestaurantMenuItem {
   @Builder.Default
   private String currency = "VND";
 
+  @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "tags", columnDefinition = "jsonb")
-  private String tags;
+  private List<String> tags;
 
   @Column(name = "available", nullable = false)
   @Builder.Default

@@ -18,6 +18,7 @@ import {
   LogOut,
   Store,
   MapPin,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,12 @@ const mainNavDefs: NavItemDef[] = [
     fallbackTitle: "My Trips",
     href: "/trips",
     icon: FolderBookmark,
+  },
+  {
+    key: "nav.myReservations",
+    fallbackTitle: "Reservations",
+    href: "/reservations",
+    icon: CalendarCheck,
   },
   {
     key: "nav.savedPlaces",

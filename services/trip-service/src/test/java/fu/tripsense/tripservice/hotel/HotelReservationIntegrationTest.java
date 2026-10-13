@@ -366,4 +366,17 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     int usageAfterCancel = db.queryForObject("SELECT usage_count FROM hotel_voucher WHERE code='LIFECYCLE'", Integer.class);
     assertEquals(0, usageAfterCancel);
   }
+
+  @Test void voucherRejectedWhenPaymentInProgress() {
+    var id = hold();
+    db.update("""
+        INSERT INTO hotel_voucher(code, title, discount_type, discount_value, min_order_amount, valid_from, valid_until, usage_limit)
+        VALUES ('INPROGRESS', 'In Progress', 'FIXED_AMOUNT', 50000, 100000, now() - interval '1 hour', now() + interval '1 day', 10)
+        ON CONFLICT (code) DO NOTHING
+        """);
+    db.update("INSERT INTO hotel_payos_payment(booking_id, amount, currency, state, expires_at) VALUES (?, 1000000, 'VND', 'PENDING', now() + interval '10 minutes')", id);
+
+    var ex = assertThrows(TripServiceException.class, () -> service.applyVoucher(customer, id, "INPROGRESS"));
+    assertEquals("HOTEL_PAYMENT_IN_PROGRESS", ex.code());
+  }
 }

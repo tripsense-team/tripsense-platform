@@ -18,6 +18,8 @@ import {
   Mail,
   Shield,
   ArrowUpDown,
+  Calendar,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +27,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RestaurantReservationsTab } from "./restaurant-reservations-tab";
+import { RestaurantMenuAiUploadModal } from "./restaurant-menu-ai-upload-modal";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +60,8 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
+  const [activeTab, setActiveTab] = React.useState("menu");
+  const [aiModalOpen, setAiModalOpen] = React.useState(false);
 
   // Dialog for add/edit item
   const [itemDialogOpen, setItemDialogOpen] = React.useState(false);
@@ -100,6 +107,29 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
     setItemTags("");
     setItemAvailable(true);
     setItemDialogOpen(true);
+  };
+
+  const handleApplyAiItems = (
+    newItems: RestaurantMenuItemDto[],
+    mode: "append" | "replace",
+  ) => {
+    if (mode === "replace") {
+      setItems(newItems);
+    } else {
+      setItems((prev) => {
+        const startOrder = prev.length;
+        const normalized = newItems.map((it, idx) => ({
+          ...it,
+          displayOrder: startOrder + idx + 1,
+        }));
+        return [...prev, ...normalized];
+      });
+    }
+    setSuccessMsg(
+      t("partner.restaurant.aiAppliedSuccess", {
+        defaultValue: `Đã đưa ${newItems.length} món vào thực đơn. Hãy kiểm tra và nhấn "Lưu" để hoàn tất.`,
+      }),
+    );
   };
 
   const handleOpenEditDialog = (index: number) => {
@@ -264,38 +294,54 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
               </Link>
             </Button>
           )}
-          <Button
-            size="sm"
-            onClick={handleSaveMenu}
-            disabled={saving}
-            className="h-9 shadow-xs font-medium"
-          >
-            {saving ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {t("common.save")}
-          </Button>
+          {activeTab === "menu" && (
+            <Button
+              size="sm"
+              onClick={handleSaveMenu}
+              disabled={saving}
+              className="h-9 shadow-xs font-medium"
+            >
+              {saving ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {t("common.save")}
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Notifications */}
-      {error && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="h-10 p-1 bg-muted/60 border border-border/50">
+          <TabsTrigger value="menu" className="gap-2 text-xs font-medium">
+            <Utensils className="h-3.5 w-3.5" />
+            {t("partner.restaurant.tabMenu", { defaultValue: "Thực đơn món ăn" })}
+          </TabsTrigger>
+          <TabsTrigger value="reservations" className="gap-2 text-xs font-medium">
+            <Calendar className="h-3.5 w-3.5" />
+            {t("partner.restaurant.tabReservations", { defaultValue: "Yêu cầu đặt bàn" })}
+          </TabsTrigger>
+        </TabsList>
 
-      {successMsg && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
+        <TabsContent value="menu" className="space-y-6 mt-0">
+          {/* Notifications */}
+          {error && (
+            <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-      {/* Owner Contact Sharing Settings Card */}
+          {successMsg && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          {/* Owner Contact Sharing Settings Card */}
       {isOwner && (
         <Card className="shadow-xs border-border/80">
           <CardHeader className="pb-3">
@@ -345,9 +391,21 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
             </CardDescription>
           </div>
 
-          <Button size="sm" onClick={handleOpenAddDialog} className="h-9 gap-1.5 self-start sm:self-auto">
-            <Plus className="h-4 w-4" /> {t("partner.restaurant.addDish", { defaultValue: "Thêm món mới" })}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAiModalOpen(true)}
+              className="h-9 gap-1.5 border-primary/30 text-primary hover:bg-primary/5 font-medium shadow-2xs"
+            >
+              <Sparkles className="h-4 w-4" />
+              {t("partner.restaurant.aiScanButton", { defaultValue: "Quét menu AI" })}
+            </Button>
+            <Button size="sm" onClick={handleOpenAddDialog} className="h-9 gap-1.5 font-medium">
+              <Plus className="h-4 w-4" /> {t("partner.restaurant.addDish", { defaultValue: "Thêm món mới" })}
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="pt-0">
@@ -364,9 +422,21 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
                   defaultValue: "Hãy bắt đầu thêm các món đặc trưng của nhà hàng để du khách dễ dàng khám phá ẩm thực của bạn.",
                 })}
               </p>
-              <Button size="sm" onClick={handleOpenAddDialog} className="gap-1.5">
-                <Plus className="h-4 w-4" /> {t("partner.restaurant.addDish", { defaultValue: "Thêm món mới" })}
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAiModalOpen(true)}
+                  className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {t("partner.restaurant.aiScanButton", { defaultValue: "Quét menu AI" })}
+                </Button>
+                <Button size="sm" onClick={handleOpenAddDialog} className="gap-1.5">
+                  <Plus className="h-4 w-4" /> {t("partner.restaurant.addDish", { defaultValue: "Thêm món mới" })}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -467,6 +537,12 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="reservations" className="mt-0">
+        <RestaurantReservationsTab businessId={businessId} />
+      </TabsContent>
+      </Tabs>
 
       {/* Add / Edit Dish Dialog */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
@@ -576,6 +652,13 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* AI Menu Upload & Extract Modal */}
+      <RestaurantMenuAiUploadModal
+        open={aiModalOpen}
+        onOpenChange={setAiModalOpen}
+        onApplyItems={handleApplyAiItems}
+      />
     </div>
   );
 }

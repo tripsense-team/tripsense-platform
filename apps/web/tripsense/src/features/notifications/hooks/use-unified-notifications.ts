@@ -65,14 +65,36 @@ export function useUnifiedNotifications() {
 
       // 3. Partner Notifications
       partnerNotifs.forEach((p) => {
+        let title = p.title || "Thông báo kênh đối tác";
+        let targetUrl = p.targetUri || "/partner";
+
+        if (p.eventType === "RESTAURANT_RESERVATION_PLACED") {
+          title = "Đã gửi yêu cầu đặt bàn";
+          targetUrl = "/restaurants/reservations";
+        } else if (p.eventType === "RESTAURANT_RESERVATION_CONFIRMED") {
+          title = "Đặt bàn đã được xác nhận";
+          targetUrl = "/restaurants/reservations";
+        } else if (p.eventType === "RESTAURANT_RESERVATION_REJECTED") {
+          title = "Yêu cầu đặt bàn bị từ chối";
+          targetUrl = "/restaurants/reservations";
+        } else if (p.eventType === "RESTAURANT_RESERVATION_CANCELLED") {
+          title = "Yêu cầu đặt bàn đã hủy";
+          targetUrl = "/restaurants/reservations";
+        } else if (p.eventType === "RESTAURANT_RESERVATION_REQUESTED") {
+          title = "Yêu cầu đặt bàn mới";
+          targetUrl = p.businessId
+            ? `/partner/businesses/${p.businessId}/restaurant-menu`
+            : "/partner";
+        }
+
         normalized.push({
           id: `partner-${p.id}`,
           category: "PARTNER",
-          title: p.title || "Thông báo kênh đối tác",
+          title,
           message: p.message || "",
           createdAt: p.createdAt || new Date().toISOString(),
-          read: Boolean(p.read),
-          targetUrl: p.targetUri || "/partner",
+          read: Boolean(p.readAt ?? p.read),
+          targetUrl,
         });
       });
 

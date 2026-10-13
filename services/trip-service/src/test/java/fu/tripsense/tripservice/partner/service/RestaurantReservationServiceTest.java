@@ -30,6 +30,7 @@ class RestaurantReservationServiceTest {
   @Mock private PartnerBusinessCapabilityRepository capabilityRepository;
   @Mock private RestaurantReservationRepository reservationRepository;
   @Mock private RestaurantReservationTransitionRepository transitionRepository;
+  @Mock private PartnerNotificationRepository notificationRepository;
 
   @InjectMocks private RestaurantReservationService reservationService;
 
@@ -85,7 +86,7 @@ class RestaurantReservationServiceTest {
     when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.RESTAURANT_LISTING))
         .thenReturn(Optional.of(cap));
 
-    when(reservationRepository.save(any(RestaurantReservation.class)))
+    when(reservationRepository.saveAndFlush(any(RestaurantReservation.class)))
         .thenAnswer(inv -> inv.getArgument(0));
 
     CreateRestaurantReservationRequest req = new CreateRestaurantReservationRequest(
@@ -108,8 +109,60 @@ class RestaurantReservationServiceTest {
     assertThat(result.state()).isEqualTo("REQUESTED");
     assertThat(result.notes()).isEqualTo("Table by the window please");
 
-    verify(reservationRepository).save(any(RestaurantReservation.class));
+    verify(reservationRepository).saveAndFlush(any(RestaurantReservation.class));
     verify(transitionRepository).save(any(RestaurantReservationTransition.class));
+  }
+
+  @Test
+  @DisplayName("createRequest: handles concurrent DataIntegrityViolationException and returns existing matching request")
+  void createRequest_concurrentUniqueConflictRecovery() {
+    PartnerBusiness business = createRestaurantBusiness(OperationState.ACTIVE, true);
+    when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
+
+    PartnerBusinessCapability cap = PartnerBusinessCapability.builder()
+        .id(new PartnerBusinessCapabilityId(businessId, PartnerCapability.RESTAURANT_LISTING))
+        .build();
+    when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.RESTAURANT_LISTING))
+        .thenReturn(Optional.of(cap));
+
+    CreateRestaurantReservationRequest req = new CreateRestaurantReservationRequest(
+        Instant.now().plus(2, ChronoUnit.DAYS),
+        "Asia/Ho_Chi_Minh",
+        2,
+        0,
+        null
+    );
+
+    when(reservationRepository.saveAndFlush(any(RestaurantReservation.class)))
+        .thenThrow(new org.springframework.dao.DataIntegrityViolationException("unique"));
+
+    RestaurantReservation existing = RestaurantReservation.builder()
+        .id(UUID.randomUUID())
+        .businessId(businessId)
+        .customerId(customerId)
+        .businessNameSnapshot("Lantern Kitchen")
+        .state("REQUESTED")
+        .version(0L)
+        .createdAt(Instant.now())
+        .updatedAt(Instant.now())
+        .build();
+    // compute matching hash
+    try {
+      java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+      String input = businessId + ":" + req.startAt().toEpochMilli() + ":" + req.timeZone() + ":2:0:";
+      byte[] digest = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      existing.setRequestHash(HexFormat.of().formatHex(digest));
+    } catch (Exception ignored) {}
+
+    when(reservationRepository.findByCustomerIdAndRequestKey(customerId, "req-key-dup"))
+        .thenReturn(Optional.of(existing));
+
+    RestaurantReservationDto result =
+        reservationService.createRequest(customerUser, businessId, "req-key-dup", req);
+
+    assertThat(result).isNotNull();
+    assertThat(result.businessId()).isEqualTo(businessId);
+    assertThat(result.state()).isEqualTo("REQUESTED");
   }
 
   @Test

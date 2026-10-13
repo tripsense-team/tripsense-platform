@@ -282,7 +282,7 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
                 className="h-8 text-xs flex-1"
               >
                 <Link href={`/partner/businesses/${business.id}/restaurant-menu`}>
-                  <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn & dịch vụ
+                  <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn & Đặt bàn
                 </Link>
               </Button>
               {business.publicEligible && (

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   Calendar,
   Clock,
@@ -168,9 +169,16 @@ export function RestaurantReservationDialog({
                 defaultValue: "Nhà hàng sẽ kiểm tra sức chứa và phản hồi xác nhận sớm. Bạn có thể theo dõi tiến độ trong danh sách yêu cầu của mình.",
               })}
             </p>
-            <Button size="sm" onClick={handleClose} className="mt-2 w-full">
-              {t("common.close")}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <Button asChild size="sm" variant="outline" className="flex-1 text-xs">
+                <Link href="/restaurants/reservations" onClick={handleClose}>
+                  {t("partner.restaurant.viewMyReservations", { defaultValue: "Đơn đặt bàn của tôi" })}
+                </Link>
+              </Button>
+              <Button size="sm" onClick={handleClose} className="flex-1 text-xs">
+                {t("common.close")}
+              </Button>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-2 text-xs">
@@ -191,9 +199,14 @@ export function RestaurantReservationDialog({
             </div>
 
             <div>
-              <label className="font-semibold block mb-1">
-                {t("partner.restaurant.dateAndTime", { defaultValue: "Thời gian đến dùng bữa *" })}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-semibold block">
+                  {t("partner.restaurant.dateAndTime", { defaultValue: "Thời gian đến dùng bữa *" })}
+                </label>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {t("partner.restaurant.timeZoneLabel", { defaultValue: "Múi giờ" })}: Asia/Ho_Chi_Minh (UTC+7)
+                </span>
+              </div>
               <Input
                 type="datetime-local"
                 required
