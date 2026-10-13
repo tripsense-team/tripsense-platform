@@ -1,16 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { X, Mic, Loader2, Luggage } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Mic, Loader2, Luggage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { createTrip } from "@/features/trip-management/services/trip-management-api";
-import { isoDateFromToday, todayIso } from "@/features/trip-management/utils/date";
+import { isoDateFromToday } from "@/features/trip-management/utils/date";
 import type { TripResponse } from "@/features/trip-management/types";
 import { toast } from "sonner";
+import { ModalBackdrop } from "./modal-backdrop";
+import { WhereModal } from "./where-modal";
+import { WhenModal } from "./when-modal";
+import { WhoModal } from "./who-modal";
 
 export interface CreateTripModalProps {
   isOpen: boolean;
@@ -21,19 +24,8 @@ export interface CreateTripModalProps {
   initialStartDate?: string;
   initialEndDate?: string;
   initialTravelers?: number;
+  initialPromptText?: string;
 }
-
-const COMMON_DESTINATIONS = [
-  { name: "China", label: "China, East Asia" },
-  { name: "Tokyo", label: "Tokyo, Japan" },
-  { name: "Đà Nẵng", label: "Đà Nẵng, Việt Nam" },
-  { name: "Hội An", label: "Hội An, Quảng Nam" },
-  { name: "Bangkok", label: "Bangkok, Thailand" },
-  { name: "Bali", label: "Bali, Indonesia" },
-  { name: "Huế", label: "Huế, Thừa Thiên Huế" },
-  { name: "Đà Lạt", label: "Đà Lạt, Lâm Đồng" },
-  { name: "Phú Quốc", label: "Phú Quốc, Kiên Giang" },
-];
 
 export function CreateTripModal({
   isOpen,
@@ -44,17 +36,27 @@ export function CreateTripModal({
   initialStartDate,
   initialEndDate,
   initialTravelers = 1,
+  initialPromptText = "",
 }: CreateTripModalProps) {
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  const [prompt, setPrompt] = React.useState("");
+  const [prompt, setPrompt] = React.useState(initialPromptText);
   const [destination, setDestination] = React.useState(initialDestination);
   const [startDate, setStartDate] = React.useState(initialStartDate || isoDateFromToday(7));
   const [endDate, setEndDate] = React.useState(initialEndDate || isoDateFromToday(10));
-  const [travelers, setTravelers] = React.useState(initialTravelers);
-  const [activeSubPicker, setActiveSubPicker] = React.useState<"where" | "when" | "who" | null>(null);
+
+  const [whoCounts, setWhoCounts] = React.useState({
+    adults: initialTravelers > 0 ? initialTravelers : 1,
+    children: 0,
+    infants: 0,
+    pets: 0,
+  });
+
+  const [isWhereOpen, setIsWhereOpen] = React.useState(false);
+  const [isWhenOpen, setIsWhenOpen] = React.useState(false);
+  const [isWhoOpen, setIsWhoOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Sync initial props when opened
@@ -62,15 +64,25 @@ export function CreateTripModal({
   if (prevIsOpen !== isOpen) {
     setPrevIsOpen(isOpen);
     if (isOpen) {
+      setPrompt(initialPromptText);
       setDestination(initialDestination);
       if (initialStartDate) setStartDate(initialStartDate);
       if (initialEndDate) setEndDate(initialEndDate);
-      if (initialTravelers) setTravelers(initialTravelers);
-      setActiveSubPicker(null);
+      if (initialTravelers) {
+        setWhoCounts({
+          adults: initialTravelers > 0 ? initialTravelers : 1,
+          children: 0,
+          infants: 0,
+          pets: 0,
+        });
+      }
+      setIsWhereOpen(false);
+      setIsWhenOpen(false);
+      setIsWhoOpen(false);
     }
   }
 
-  // First name extraction for greeting matching Screenshot 2
+  // First name extraction for greeting matching Screenshot 8
   const firstName = React.useMemo(() => {
     if (!user) return locale === "vi" ? "bạn" : "traveler";
     if (user.name) {
@@ -105,6 +117,20 @@ export function CreateTripModal({
     }
   }, [startDate, endDate, locale]);
 
+  const totalTravelers = whoCounts.adults + whoCounts.children + whoCounts.infants;
+  const whoSummaryText = React.useMemo(() => {
+    if (totalTravelers === 0 && whoCounts.pets === 0) return null;
+    if (locale === "vi") {
+      const base = `${totalTravelers} khách`;
+      return whoCounts.pets > 0 ? `${base}, ${whoCounts.pets} thú cưng` : base;
+    }
+    const base = totalTravelers === 1 ? "1 traveler" : `${totalTravelers} travelers`;
+    if (whoCounts.pets > 0) {
+      return `${base}, ${whoCounts.pets} pet${whoCounts.pets > 1 ? "s" : ""}`;
+    }
+    return base;
+  }, [totalTravelers, whoCounts.pets, locale]);
+
   const canSubmit = destination.trim().length > 0 && !isSubmitting;
 
   const handleCreate = async () => {
@@ -122,7 +148,7 @@ export function CreateTripModal({
     }
 
     if (!destination.trim()) {
-      setActiveSubPicker("where");
+      setIsWhereOpen(true);
       toast.error(
         locale === "vi"
           ? "Vui lòng chọn điểm đến cho chuyến đi."
@@ -134,14 +160,26 @@ export function CreateTripModal({
     try {
       setIsSubmitting(true);
       const tripName = `Trip to ${destination.trim()}`;
-      
+
+      const travelerBreakdown = [
+        `${whoCounts.adults} adult${whoCounts.adults > 1 ? "s" : ""}`,
+        whoCounts.children > 0 ? `${whoCounts.children} child${whoCounts.children > 1 ? "ren" : ""}` : null,
+        whoCounts.infants > 0 ? `${whoCounts.infants} infant${whoCounts.infants > 1 ? "s" : ""}` : null,
+        whoCounts.pets > 0 ? `${whoCounts.pets} pet${whoCounts.pets > 1 ? "s" : ""}` : null,
+      ].filter(Boolean).join(", ");
+
+      const combinedNotes = [
+        prompt.trim() || null,
+        travelerBreakdown ? `Travelers: ${travelerBreakdown}` : null,
+      ].filter(Boolean).join("\n\n");
+
       const newTrip = await createTrip({
         name: tripName,
         destinationName: destination.trim(),
         startDate,
         endDate,
-        travelerCount: travelers > 0 ? travelers : 1,
-        notes: prompt.trim() || undefined,
+        travelerCount: totalTravelers > 0 ? totalTravelers : 1,
+        notes: combinedNotes || undefined,
       });
 
       toast.success(
@@ -166,37 +204,25 @@ export function CreateTripModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        overlayClassName="bg-black/10 backdrop-blur-[2px] dark:bg-black/40"
-        className="sm:max-w-[480px] p-0 overflow-hidden border border-border/80 bg-background shadow-2xl rounded-3xl [&>button]:hidden"
+    <>
+      <ModalBackdrop
+        isOpen={isOpen}
+        onClose={onClose}
+        maxWidth="max-w-[480px]"
+        zIndexClassName="z-[50]"
+        hideHeader={true}
       >
-        <DialogTitle className="sr-only">
-          What should I keep in mind for this trip?
-        </DialogTitle>
-
-        <div className="relative p-6 sm:p-7 flex flex-col">
-          {/* Top Row: Close button on left */}
-          <div className="flex items-center justify-between pb-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer"
-              title="Close"
-              aria-label="Close"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          {/* Centered Bag with Plus Icon in Teal Circle (Mindtrip Screenshot 2 1:1) */}
+        <div className="flex flex-col pt-2">
+          {/* Centered Bag with Plus Icon in Teal Circle (Mindtrip Screenshot 8) */}
           <div className="flex flex-col items-center text-center">
-            <div className="size-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center mb-4 shadow-2xs">
+            <div className="size-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center mb-3.5 shadow-2xs">
               <Luggage className="size-5.5" />
             </div>
 
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground max-w-sm leading-snug">
-              What should I keep in mind for this trip, {firstName}?
+              {locale === "vi"
+                ? `Tôi nên lưu ý điều gì cho chuyến đi này, ${firstName}?`
+                : `What should I keep in mind for this trip, ${firstName}?`}
             </h2>
           </div>
 
@@ -205,7 +231,11 @@ export function CreateTripModal({
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value.slice(0, 2000))}
-              placeholder="5-day Tokyo trip this October"
+              placeholder={
+                locale === "vi"
+                  ? "Chuyến đi 5 ngày đến Tokyo tháng 10 này"
+                  : "5-day Tokyo trip this October"
+              }
               rows={3}
               className="w-full bg-transparent resize-none border-0 p-0 text-sm md:text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-0 leading-relaxed"
             />
@@ -225,169 +255,76 @@ export function CreateTripModal({
 
           {/* Subheading: Have details? Share what you know. */}
           <p className="text-xs font-semibold text-muted-foreground/90 mt-5 mb-2.5">
-            Have details? Share what you know.
+            {t("trip.intakeDetailsPrompt") || "Have details? Share what you know."}
           </p>
 
-          {/* 3 Detail Selectors (Where, When, Who) */}
-          <div className="space-y-2">
+          {/* EXACTLY 3 Detail Selectors (Where, When, Who) matching Screenshot 8 */}
+          <div className="space-y-2.5">
             {/* 1. WHERE */}
-            <div className="rounded-2xl border border-border/70 overflow-hidden bg-background">
+            <div className="rounded-2xl border border-border/70 overflow-hidden bg-background/50 hover:bg-muted/40 transition-colors">
               <button
                 type="button"
-                onClick={() => setActiveSubPicker((prev) => (prev === "where" ? null : "where"))}
-                className="w-full flex items-center justify-between p-3.5 hover:bg-muted/40 transition-colors text-left cursor-pointer"
+                onClick={() => setIsWhereOpen(true)}
+                className="w-full flex items-center justify-between p-3.5 text-left cursor-pointer"
               >
-                <span className="font-semibold text-sm text-foreground">Where</span>
-                <span className={cn("text-sm truncate max-w-[220px]", destination ? "text-foreground font-medium" : "text-muted-foreground")}>
-                  {destination || "Select destination"}
+                <span className="font-semibold text-sm text-foreground">
+                  {t("trip.intakeWhere") || "Where"}
+                </span>
+                <span
+                  className={cn(
+                    "text-sm truncate max-w-[220px]",
+                    destination ? "text-foreground font-medium" : "text-muted-foreground"
+                  )}
+                >
+                  {destination || t("trip.intakeSelectDestination") || "Select destination"}
                 </span>
               </button>
-
-              {activeSubPicker === "where" && (
-                <div className="p-3 pt-0 border-t border-border/40 bg-muted/20 space-y-2 animate-in fade-in-0 duration-150">
-                  <input
-                    type="text"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    placeholder="Enter city or country (e.g. China, Tokyo, Da Nang)..."
-                    autoFocus
-                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {COMMON_DESTINATIONS.map((dest) => (
-                      <button
-                        key={dest.name}
-                        type="button"
-                        onClick={() => {
-                          setDestination(dest.name);
-                          setActiveSubPicker(null);
-                        }}
-                        className={cn(
-                          "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer",
-                          destination === dest.name
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground border-border/70 hover:text-foreground hover:bg-muted"
-                        )}
-                      >
-                        {dest.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* 2. WHEN */}
-            <div className="rounded-2xl border border-border/70 overflow-hidden bg-background">
+            <div className="rounded-2xl border border-border/70 overflow-hidden bg-background/50 hover:bg-muted/40 transition-colors">
               <button
                 type="button"
-                onClick={() => setActiveSubPicker((prev) => (prev === "when" ? null : "when"))}
-                className="w-full flex items-center justify-between p-3.5 hover:bg-muted/40 transition-colors text-left cursor-pointer"
+                onClick={() => setIsWhenOpen(true)}
+                className="w-full flex items-center justify-between p-3.5 text-left cursor-pointer"
               >
-                <span className="font-semibold text-sm text-foreground">When</span>
-                <span className={cn("text-sm", formattedDates ? "text-foreground font-medium" : "text-muted-foreground")}>
-                  {formattedDates || "Select dates"}
+                <span className="font-semibold text-sm text-foreground">
+                  {t("trip.intakeWhen") || "When"}
+                </span>
+                <span
+                  className={cn(
+                    "text-sm",
+                    formattedDates ? "text-foreground font-medium" : "text-muted-foreground"
+                  )}
+                >
+                  {formattedDates || t("trip.intakeSelectDates") || "Select dates"}
                 </span>
               </button>
-
-              {activeSubPicker === "when" && (
-                <div className="p-3 pt-0 border-t border-border/40 bg-muted/20 space-y-3 animate-in fade-in-0 duration-150">
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div>
-                      <label className="text-micro font-semibold text-muted-foreground mb-1 block">Start date</label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        min={todayIso()}
-                        onChange={(e) => {
-                          setStartDate(e.target.value);
-                          if (endDate < e.target.value) setEndDate(e.target.value);
-                        }}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-micro font-semibold text-muted-foreground mb-1 block">End date</label>
-                      <input
-                        type="date"
-                        value={endDate}
-                        min={startDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setStartDate(isoDateFromToday(7));
-                        setEndDate(isoDateFromToday(10));
-                        setActiveSubPicker(null);
-                      }}
-                      className="text-xs h-7 rounded-full flex-1"
-                    >
-                      3-day trip
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setStartDate(isoDateFromToday(7));
-                        setEndDate(isoDateFromToday(12));
-                        setActiveSubPicker(null);
-                      }}
-                      className="text-xs h-7 rounded-full flex-1"
-                    >
-                      5-day trip
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* 3. WHO */}
-            <div className="rounded-2xl border border-border/70 overflow-hidden bg-background">
+            <div className="rounded-2xl border border-border/70 overflow-hidden bg-background/50 hover:bg-muted/40 transition-colors">
               <button
                 type="button"
-                onClick={() => setActiveSubPicker((prev) => (prev === "who" ? null : "who"))}
-                className="w-full flex items-center justify-between p-3.5 hover:bg-muted/40 transition-colors text-left cursor-pointer"
+                onClick={() => setIsWhoOpen(true)}
+                className="w-full flex items-center justify-between p-3.5 text-left cursor-pointer"
               >
-                <span className="font-semibold text-sm text-foreground">Who</span>
-                <span className={cn("text-sm", travelers > 0 ? "text-foreground font-medium" : "text-muted-foreground")}>
-                  {travelers > 0 ? `${travelers} ${travelers === 1 ? "traveler" : "travelers"}` : "Add people"}
+                <span className="font-semibold text-sm text-foreground">
+                  {t("trip.intakeWho") || "Who"}
+                </span>
+                <span
+                  className={cn(
+                    "text-sm",
+                    whoSummaryText ? "text-foreground font-medium" : "text-muted-foreground"
+                  )}
+                >
+                  {whoSummaryText || t("trip.intakeAddPeople") || "Add people"}
                 </span>
               </button>
-
-              {activeSubPicker === "who" && (
-                <div className="p-3 pt-0 border-t border-border/40 bg-muted/20 flex items-center justify-between animate-in fade-in-0 duration-150">
-                  <span className="text-xs font-medium text-foreground">Total travelers</span>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setTravelers((prev) => Math.max(1, prev - 1))}
-                      className="size-8 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted font-bold text-sm cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <span className="text-sm font-semibold text-foreground w-6 text-center">{travelers}</span>
-                    <button
-                      type="button"
-                      onClick={() => setTravelers((prev) => Math.min(20, prev + 1))}
-                      className="size-8 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted font-bold text-sm cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Bottom Action: Create Button */}
+          {/* Bottom Action: Create Button matching Screenshot 8 */}
           <div className="mt-6 flex justify-end">
             <Button
               type="button"
@@ -398,15 +335,53 @@ export function CreateTripModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-1.5" />
-                  <span>Creating...</span>
+                  <span>{t("common.loading") || "Creating..."}</span>
                 </>
               ) : (
-                "Create"
+                t("trip.intakeCreate") || "Create"
               )}
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ModalBackdrop>
+
+      {/* Sub-modals rendered at z-[60], smoothly floating over CreateTripModal at z-[50] */}
+      <WhereModal
+        isOpen={isWhereOpen}
+        onClose={() => setIsWhereOpen(false)}
+        initialLocation={destination}
+        onSave={(data) => {
+          setDestination(data.location);
+          setIsWhereOpen(false);
+        }}
+        zIndexClassName="z-[60]"
+      />
+
+      <WhenModal
+        isOpen={isWhenOpen}
+        onClose={() => setIsWhenOpen(false)}
+        initialStartDate={startDate}
+        initialEndDate={endDate}
+        onSave={(data) => {
+          if (data.type === "dates" && data.startDate && data.endDate) {
+            setStartDate(data.startDate);
+            setEndDate(data.endDate);
+          }
+          setIsWhenOpen(false);
+        }}
+        zIndexClassName="z-[60]"
+      />
+
+      <WhoModal
+        isOpen={isWhoOpen}
+        onClose={() => setIsWhoOpen(false)}
+        initialCounts={whoCounts}
+        onSave={(counts) => {
+          setWhoCounts(counts);
+          setIsWhoOpen(false);
+        }}
+        zIndexClassName="z-[60]"
+      />
+    </>
   );
 }

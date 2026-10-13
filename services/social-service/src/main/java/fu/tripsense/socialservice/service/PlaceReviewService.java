@@ -146,7 +146,8 @@ public class PlaceReviewService {
   private PlaceReview requireOwned(UUID authorId, UUID reviewId) {
     PlaceReview review =
         reviews
-            .findByIdAndDeletedAtIsNull(reviewId)
+            .lockById(reviewId)
+            .filter(value -> value.getDeletedAt() == null && PUBLISHED.equals(value.getStatus()))
             .orElseThrow(
                 () ->
                     new SocialException(

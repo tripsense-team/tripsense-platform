@@ -6,6 +6,7 @@ import { Bell, Menu, Sparkles, Moon, Sun } from "lucide-react";
 import { Logo } from "@/components/shared";
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { UserMenu } from "./user-menu";
+import { NotificationCenter } from "@/features/notifications";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth";
 import { useTranslation } from "@/i18n";
@@ -92,15 +93,9 @@ export function UserHeader({
         </Button>
 
         {/* Notifications */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative rounded-full text-muted-foreground hover:text-foreground"
-          aria-label="Notifications"
-        >
-          <Bell />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-        </Button>
+        {isLoggedIn ? (
+          <NotificationCenter />
+        ) : null}
 
         {/* User Menu, Skeleton, or Sign In Button */}
         {isInitializing ? (

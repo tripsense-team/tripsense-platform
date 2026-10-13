@@ -9,6 +9,7 @@ import {
   Clock,
   Edit3,
   Eye,
+  FileDown,
   Globe2,
   Loader2,
   Lock,
@@ -24,6 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { useTranslation } from "@/i18n";
+import { downloadTripIcs } from "@/features/trip-management/utils/export-itinerary";
+import type { TripResponse } from "@/features/trip-management/types";
 import { socialPostRepository } from "../services";
 import type {
   SocialPost,
@@ -183,6 +186,59 @@ export function SharedTripDetailView({
     }
   }
 
+  const handleExportIcs = () => {
+    if (!trip || !publication) return;
+    const convertedItinerary = {
+      tripId: trip.tripId || post.id,
+      days: publication.days.map((d) => ({
+        id: `day-${d.dayNumber}`,
+        dayNumber: d.dayNumber,
+        date: d.date || "",
+        version: 1,
+        items: d.items.map((it, idx) => ({
+          id: `item-${d.dayNumber}-${idx}`,
+          dayId: `day-${d.dayNumber}`,
+          placeId: null,
+          title: it.title,
+          notes: null,
+          sortOrder: it.order,
+          type: "ACTIVITY" as const,
+          startTime: it.startTime || null,
+          endTime: it.endTime || null,
+          durationMinutes: it.durationMinutes || null,
+          status: "PLANNED" as const,
+          placeNameSnapshot: it.placeName || null,
+          placeAddressSnapshot: null,
+          latSnapshot: null,
+          lngSnapshot: null,
+          version: 1,
+          warnings: [],
+        })),
+      })),
+    };
+    const mockTrip: TripResponse = {
+      id: trip.tripId || post.id,
+      name: trip.name,
+      destinationName: trip.destinationName,
+      destinationPlaceId: null,
+      startDate: trip.startDate || new Date().toISOString().split("T")[0],
+      endDate: trip.endDate || new Date().toISOString().split("T")[0],
+      status: "CONFIRMED",
+      displayStatus: "UPCOMING",
+      visibility: "PUBLIC",
+      ownerId: post.author.id,
+      travelerCount: null,
+      budgetAmount: null,
+      budgetCurrency: null,
+      notes: null,
+      coverImageUrl: trip.coverImageUrl || null,
+      version: 1,
+      createdAt: (post as any).publishedAt || new Date().toISOString(),
+      updatedAt: (post as any).publishedAt || new Date().toISOString(),
+    };
+    downloadTripIcs(mockTrip, convertedItinerary);
+  };
+
   return (
     <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
       <section className="border-b border-border p-5 sm:p-6">
@@ -311,22 +367,32 @@ export function SharedTripDetailView({
                   Bản đã đóng băng · revision {publication.publicationRevision}
                 </p>
               </div>
-              {detail?.canManagePublication && (
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-full"
-                  onClick={previewLatest}
-                  disabled={previewing}
+                  className="rounded-full gap-1.5"
+                  onClick={handleExportIcs}
                 >
-                  {previewing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}{" "}
-                  Cập nhật bản chia sẻ
+                  <FileDown className="h-4 w-4" /> Xuất file .ics
                 </Button>
-              )}
+                {detail?.canManagePublication && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={previewLatest}
+                    disabled={previewing}
+                  >
+                    {previewing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}{" "}
+                    Cập nhật bản chia sẻ
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="mt-5 space-y-6">
               {publication.days.map((day) => (

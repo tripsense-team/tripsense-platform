@@ -24,11 +24,12 @@ import {
 
 interface UserBookingsViewProps {
   onExploreStays?: () => void;
+  hideHeader?: boolean;
 }
 
 type FilterTab = "all" | "held" | "confirmed" | "history";
 
-export function UserBookingsView({ onExploreStays }: UserBookingsViewProps) {
+export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBookingsViewProps) {
   const { t } = useTranslation();
   const [bookings, setBookings] = useState<HotelBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,38 +188,40 @@ export function UserBookingsView({ onExploreStays }: UserBookingsViewProps) {
   return (
     <div className="space-y-6">
       {/* 1. Header & Quick Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground">
-            {t("trip.hotels.myBookings", { defaultValue: "Đơn đặt phòng của tôi" })}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {t("trip.hotels.myBookingsSubtitle", {
-              defaultValue: "Theo dõi trạng thái, thanh toán và quản lý các chuyến lưu trú của bạn",
-            })}
-          </p>
-        </div>
+      {!hideHeader && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              {t("trip.hotels.myBookings", { defaultValue: "Đơn đặt phòng của tôi" })}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t("trip.hotels.myBookingsSubtitle", {
+                defaultValue: "Theo dõi trạng thái, thanh toán và quản lý các chuyến lưu trú của bạn",
+              })}
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loading || busy}
-            onClick={() => void loadBookings()}
-            className="gap-1.5"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>{t("common.refresh", { defaultValue: "Làm mới" })}</span>
-          </Button>
-
-          {onExploreStays && (
-            <Button size="sm" onClick={onExploreStays} className="gap-1.5 shadow-2xs">
-              <Building2 className="h-3.5 w-3.5" />
-              <span>{t("trip.hotels.exploreMore", { defaultValue: "Đặt thêm phòng" })}</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading || busy}
+              onClick={() => void loadBookings()}
+              className="gap-1.5"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              <span>{t("common.refresh", { defaultValue: "Làm mới" })}</span>
             </Button>
-          )}
+
+            {onExploreStays && (
+              <Button size="sm" onClick={onExploreStays} className="gap-1.5 shadow-2xs">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>{t("trip.hotels.exploreMore", { defaultValue: "Đặt thêm phòng" })}</span>
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
@@ -262,15 +265,30 @@ export function UserBookingsView({ onExploreStays }: UserBookingsViewProps) {
         </div>
 
         {/* Search Input */}
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("trip.hotels.searchBookingPlaceholder", { defaultValue: "Tìm theo tên khách sạn..." })}
-            className="h-8 w-full rounded-full border border-border bg-card pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-ring"
-          />
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("trip.hotels.searchBookingPlaceholder", { defaultValue: "Tìm theo tên khách sạn..." })}
+              className="h-8 w-full rounded-full border border-border bg-card pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          {hideHeader && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading || busy}
+              onClick={() => void loadBookings()}
+              className="h-8 gap-1.5 text-xs shrink-0"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{t("common.refresh", { defaultValue: "Làm mới" })}</span>
+            </Button>
+          )}
         </div>
       </div>
 

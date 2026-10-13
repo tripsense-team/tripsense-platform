@@ -204,7 +204,15 @@ chatRouter.get("/chats/:id/context", async (c) => {
   const chatId = c.req.param("id");
   const userId = userIdFrom(c);
   const chat = await ownedChat(chatId, userId);
-  if (!chat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+  if (!chat) {
+    const [foreignChat] = await db
+      .select({ id: chats.id })
+      .from(chats)
+      .where(eq(chats.id, chatId))
+      .limit(1);
+    if (foreignChat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+    return c.json({ chatId, trip: null, committedSourceRefs: [] });
+  }
   if (!chat.tripId) {
     return c.json({ chatId, trip: null, committedSourceRefs: [] });
   }
@@ -415,7 +423,34 @@ chatRouter.put("/chats/:id/trip", async (c) => {
     return safeError(c, 400, "INVALID_CHAT_TRIP_LINK", "Trip link payload is invalid");
   }
   const chat = await ownedChat(chatId, userId);
-  if (!chat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+  if (!chat) {
+    const [foreignChat] = await db
+      .select({ id: chats.id })
+      .from(chats)
+      .where(eq(chats.id, chatId))
+      .limit(1);
+    if (foreignChat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+
+    const tripResponse = await fetchTripResource(
+      `/api/trips/${parsed.data.tripId}/edit-access`,
+      authorization,
+    );
+    if (tripResponse.status === 403) {
+      return safeError(c, 403, "TRIP_ACCESS_DENIED", "You cannot edit this trip");
+    }
+    if (!tripResponse.ok) {
+      return safeError(c, 404, "TRIP_NOT_FOUND", "Trip not found");
+    }
+
+    await db.insert(chats).values({
+      id: chatId,
+      userId,
+      tripId: parsed.data.tripId,
+      title: "Kế hoạch chuyến đi của bạn",
+      tripLinkedAt: new Date(),
+    });
+    return c.json({ chatId, tripId: parsed.data.tripId, linked: true });
+  }
   const expectedTripId = parsed.data.expectedTripId ?? null;
   if ((chat.tripId ?? null) !== expectedTripId) {
     return safeError(c, 409, "CHAT_TRIP_LINK_CONFLICT", "Conversation trip link changed");

@@ -7,6 +7,7 @@ This knowledge base stores reusable planning, architecture, and review context f
 - [Feature Planning Workflow](workflows/multi-agent-feature-workflow.md)
 - [TripSense Architecture](architecture/tripsense-architecture.md)
 - [Service Boundaries](architecture/service-boundaries.md)
+- [Monetization & 3-Party Cash Flow Architecture](architecture/monetization-and-cash-flow.md)
 - [Services](services/index.md)
 - [Domains](domain/index.md)
 - [ADRs](adr/index.md)

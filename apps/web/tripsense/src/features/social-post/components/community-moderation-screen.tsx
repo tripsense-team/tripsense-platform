@@ -115,6 +115,15 @@ export function CommunityModerationScreen() {
                     <Badge>{report.targetType}</Badge>
                     <Badge variant="secondary">{report.reason}</Badge>
                   </div>
+                  {report.targetType === "PLACE_REVIEW" && report.reviewContent && (
+                    <div className="mt-2 rounded-xl bg-muted/50 p-2.5 text-xs text-foreground">
+                      <div className="font-semibold text-muted-foreground mb-1">
+                        {report.placeRef ? `Địa điểm: ${report.placeRef}` : "Đánh giá địa điểm"}
+                        {report.reviewRating ? ` (★ ${report.reviewRating})` : ""}
+                      </div>
+                      <p className="line-clamp-3 italic">&ldquo;{report.reviewContent}&rdquo;</p>
+                    </div>
+                  )}
                   <p className="mt-3 text-sm text-muted-foreground">
                     {report.details || t("social.moderationNoDetails")}
                   </p>
@@ -125,17 +134,31 @@ export function CommunityModerationScreen() {
                     )}
                   </p>
                 </div>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                >
-                  <Link href={`/community/posts/${report.postId}`}>
-                    <ExternalLink className="h-4 w-4" />{" "}
-                    {t("social.moderationViewContent")}
-                  </Link>
-                </Button>
+                {report.postId ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                  >
+                    <Link href={`/community/posts/${report.postId}`}>
+                      <ExternalLink className="h-4 w-4" />{" "}
+                      {t("social.moderationViewContent")}
+                    </Link>
+                  </Button>
+                ) : report.placeRef ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                  >
+                    <Link href={`/places?selected=${encodeURIComponent(report.placeRef)}`}>
+                      <ExternalLink className="h-4 w-4" />{" "}
+                      {t("places.viewPlace", { defaultValue: "Xem địa điểm" })}
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
               <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
                 <Button

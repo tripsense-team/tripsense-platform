@@ -1,26 +1,32 @@
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  BellRing,
   Briefcase,
   Calendar,
   Check,
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
+  Copy,
   Edit3,
   File,
+  FileDown,
   GripVertical,
   Info,
   Lightbulb,
   Link2,
+  ListTodo,
   Mic,
   Plus,
   Send,
   Share,
+  Shield,
   Sparkles,
   Trash2,
   Users,
@@ -38,6 +44,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import { TripMembersDialog } from "./trip-members-dialog";
+import { PrintItineraryDialog } from "./print-itinerary-dialog";
+import { TripChecklistModal } from "./trip-checklist-modal";
+import { TripActivityPollModal } from "./trip-activity-poll-modal";
+import { TripSafetyGuideModal } from "./trip-safety-guide-modal";
+import { TripReminderModal } from "./trip-reminder-modal";
+import { cloneTrip } from "../utils/clone-trip";
 import type {
   ItineraryDayResponse,
   ItineraryItemResponse,
@@ -119,6 +131,32 @@ export function TripDetailScreen({
     React.useState<TripDetailPanel>("overview");
   const [copiedInviteLink, setCopiedInviteLink] = React.useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = React.useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
+  const [checklistOpen, setChecklistOpen] = React.useState(false);
+  const [pollOpen, setPollOpen] = React.useState(false);
+  const [safetyOpen, setSafetyOpen] = React.useState(false);
+  const [reminderOpen, setReminderOpen] = React.useState(false);
+  const [cloning, setCloning] = React.useState(false);
+  const router = useRouter();
+
+  const handleCloneTrip = async () => {
+    if (!trip || cloning) return;
+    try {
+      setCloning(true);
+      const cloned = await cloneTrip(
+        trip,
+        {
+          newName: `${trip.name} (Bản sao)`,
+        },
+        itinerary,
+      );
+      router.push(`/trips/${cloned.id}`);
+    } catch {
+      // Ignore
+    } finally {
+      setCloning(false);
+    }
+  };
 
   const mapPlaces: Place[] = React.useMemo(() => {
     const places: Place[] = [];
@@ -250,8 +288,34 @@ export function TripDetailScreen({
                 <Users className="h-5 w-5" />
                 Manage co-travelers
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={cloning}
+                className="gap-3 rounded-xl px-3 py-3 text-base cursor-pointer"
+                onSelect={handleCloneTrip}
+              >
+                <Copy className="h-5 w-5" />
+                {cloning ? "Cloning trip..." : "Clone this trip"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-3 rounded-xl px-3 py-3 text-base cursor-pointer"
+                onSelect={() => setPrintDialogOpen(true)}
+              >
+                <FileDown className="h-5 w-5" />
+                Export & Print (.ics / PDF)
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant="outline"
+            className="h-10 rounded-full px-3 text-sm font-bold shadow-xs hover:bg-accent gap-1.5"
+            onClick={() => setPrintDialogOpen(true)}
+            title="Export & Print"
+          >
+            <FileDown className="h-4 w-4 text-primary" />
+            <span className="hidden sm:inline">Export</span>
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -373,15 +437,15 @@ export function TripDetailScreen({
           {activePanel === "overview" ? (
             <>
               <div className="grid gap-6 md:grid-cols-2">
-                <ActionTile icon={Lightbulb} label="Ideas" />
+                <ActionTile icon={Lightbulb} label="Ideas & Poll" onClick={() => setPollOpen(true)} />
                 <ActionTile
                   icon={ClipboardCheck}
                   label="Itinerary"
                   onClick={() => setActivePanel("itinerary")}
                 />
-                <ActionTile icon={Calendar} label="Bookings" />
-                <ActionTile icon={File} label="Media" />
-                <ActionTile icon={Info} label="Trip preferences" badge="4" />
+                <ActionTile icon={ListTodo} label="Checklist" onClick={() => setChecklistOpen(true)} />
+                <ActionTile icon={Shield} label="Safety Guide" onClick={() => setSafetyOpen(true)} />
+                <ActionTile icon={BellRing} label="Reminders" onClick={() => setReminderOpen(true)} />
                 <ActionTile icon={Calendar} label="Calendar" href="/calendar" />
               </div>
               <MapPreview
@@ -408,6 +472,47 @@ export function TripDetailScreen({
       <TripMembersDialog
         open={membersDialogOpen}
         onOpenChange={setMembersDialogOpen}
+        tripId={trip.id}
+        tripName={title}
+      />
+
+      <PrintItineraryDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        trip={trip}
+        itinerary={itinerary}
+      />
+
+      <TripChecklistModal
+        open={checklistOpen}
+        onOpenChange={setChecklistOpen}
+        tripId={trip.id}
+        tripName={title}
+      />
+
+      <TripActivityPollModal
+        open={pollOpen}
+        onOpenChange={setPollOpen}
+        tripId={trip.id}
+        tripName={title}
+        itinerary={itinerary}
+        onPinToDay={(dayId) => {
+          const day = itinerary?.days.find((d) => d.id === dayId);
+          if (day) {
+            onAddItem(day);
+          }
+        }}
+      />
+
+      <TripSafetyGuideModal
+        open={safetyOpen}
+        onOpenChange={setSafetyOpen}
+        destination={destination}
+      />
+
+      <TripReminderModal
+        open={reminderOpen}
+        onOpenChange={setReminderOpen}
         tripId={trip.id}
         tripName={title}
       />

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   addMonths,
   subMonths,
@@ -19,6 +19,7 @@ import {
   parseISO,
 } from "date-fns";
 import { ModalBackdrop } from "./modal-backdrop";
+import { useTranslation } from "@/i18n";
 
 type WhenModalProps = {
   isOpen: boolean;
@@ -32,9 +33,8 @@ type WhenModalProps = {
     flexiblePeriod?: string;
     flexibleMonths?: string[];
   }) => void;
+  zIndexClassName?: string;
 };
-
-const DAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 export function WhenModal({
   isOpen,
@@ -42,7 +42,9 @@ export function WhenModal({
   initialStartDate,
   initialEndDate,
   onSave,
+  zIndexClassName,
 }: WhenModalProps) {
+  const { t, locale } = useTranslation();
   const [activeTab, setActiveTab] = React.useState<"dates" | "flexible">("dates");
   const today = React.useMemo(() => startOfToday(), []);
 
@@ -62,6 +64,14 @@ export function WhenModal({
   // Flexible tab state
   const [flexiblePeriod, setFlexiblePeriod] = React.useState<string>("1week");
   const [selectedMonths, setSelectedMonths] = React.useState<string[]>([]);
+
+  const dayLabels = React.useMemo(
+    () =>
+      locale === "vi"
+        ? ["CN", "T2", "T3", "T4", "T5", "T6", "T7"]
+        : ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+    [locale]
+  );
 
   React.useEffect(() => {
     if (initialStartDate) setStartDate(parseISO(initialStartDate));
@@ -111,11 +121,18 @@ export function WhenModal({
     onClose();
   };
 
+  const formatMonthTitle = (monthDate: Date) => {
+    if (locale === "vi") {
+      return `Tháng ${format(monthDate, "M yyyy")}`;
+    }
+    return format(monthDate, "MMMM yyyy");
+  };
+
   // Helper to render month days grid
   const renderMonthCalendar = (monthDate: Date, showPrevArrow: boolean, showNextArrow: boolean) => {
     const monthStart = startOfMonth(monthDate);
     const monthEnd = endOfMonth(monthDate);
-    const startDateGrid = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday start (CN)
+    const startDateGrid = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday start
     const endDateGrid = endOfWeek(monthEnd, { weekStartsOn: 0 });
 
     const allDays = eachDayOfInterval({ start: startDateGrid, end: endDateGrid });
@@ -138,7 +155,7 @@ export function WhenModal({
           )}
 
           <span className="font-semibold text-sm tracking-tight text-foreground">
-            {format(monthDate, "MMMM yyyy")}
+            {formatMonthTitle(monthDate)}
           </span>
 
           {showNextArrow ? (
@@ -157,7 +174,7 @@ export function WhenModal({
 
         {/* Weekday headers: CN, T2, T3, T4, T5, T6, T7 */}
         <div className="grid grid-cols-7 gap-1 text-center mb-2">
-          {DAY_LABELS.map((label) => (
+          {dayLabels.map((label) => (
             <div
               key={label}
               className="text-[11px] font-medium text-muted-foreground/80 py-1"
@@ -210,7 +227,7 @@ export function WhenModal({
                       : "cursor-pointer"
                   } ${
                     isSelected
-                      ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                      ? "bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900 font-semibold shadow-xs"
                       : isPast
                       ? ""
                       : "text-foreground hover:bg-muted"
@@ -230,8 +247,9 @@ export function WhenModal({
     <ModalBackdrop
       isOpen={isOpen}
       onClose={onClose}
-      title="When"
+      title={t("trip.intakeWhenTitle") || "When"}
       maxWidth="max-w-2xl"
+      zIndexClassName={zIndexClassName}
     >
       <div className="flex flex-col space-y-6">
         {/* Segmented Pill Tabs: Dates | Flexible */}
@@ -242,22 +260,22 @@ export function WhenModal({
               onClick={() => setActiveTab("dates")}
               className={`rounded-full px-5 py-1.5 font-semibold transition-all cursor-pointer ${
                 activeTab === "dates"
-                  ? "bg-white dark:bg-card text-foreground shadow-xs"
+                  ? "bg-card text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Dates
+              {t("trip.intakeDates") || "Dates"}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("flexible")}
               className={`rounded-full px-5 py-1.5 font-semibold transition-all cursor-pointer ${
                 activeTab === "flexible"
-                  ? "bg-white dark:bg-card text-foreground shadow-xs"
+                  ? "bg-card text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Flexible
+              {t("trip.intakeFlexible") || "Flexible"}
             </button>
           </div>
         </div>
@@ -274,13 +292,13 @@ export function WhenModal({
           <div className="flex flex-col space-y-6 py-2 px-4">
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-3 text-center">
-                Stay for how long?
+                {t("trip.intakeStayDuration") || "Stay for how long?"}
               </h4>
               <div className="flex flex-wrap justify-center gap-2">
                 {[
-                  { id: "weekend", label: "Weekend" },
-                  { id: "1week", label: "A week" },
-                  { id: "1month", label: "A month" },
+                  { id: "weekend", label: t("trip.intakeWeekend") || "Weekend" },
+                  { id: "1week", label: t("trip.intakeWeek") || "A week" },
+                  { id: "1month", label: t("trip.intakeMonth") || "A month" },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -288,7 +306,7 @@ export function WhenModal({
                     onClick={() => setFlexiblePeriod(item.id)}
                     className={`px-4 py-2 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
                       flexiblePeriod === item.id
-                        ? "bg-black text-white dark:bg-white dark:text-black border-transparent shadow-xs"
+                        ? "bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900 border-transparent shadow-xs"
                         : "border-border/80 bg-background text-foreground hover:bg-muted"
                     }`}
                   >
@@ -297,57 +315,17 @@ export function WhenModal({
                 ))}
               </div>
             </div>
-
-            <div>
-              <h4 className="text-sm font-semibold text-foreground mb-3 text-center">
-                Go anytime
-              </h4>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-w-md mx-auto">
-                {Array.from({ length: 6 }).map((_, idx) => {
-                  const m = addMonths(today, idx);
-                  const mKey = format(m, "yyyy-MM");
-                  const isSelected = selectedMonths.includes(mKey);
-
-                  return (
-                    <button
-                      key={mKey}
-                      type="button"
-                      onClick={() => {
-                        setSelectedMonths((prev) =>
-                          isSelected
-                            ? prev.filter((k) => k !== mKey)
-                            : [...prev, mKey]
-                        );
-                      }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer ${
-                        isSelected
-                          ? "border-black bg-neutral-100 dark:border-white dark:bg-neutral-800"
-                          : "border-border/60 hover:border-foreground/40 bg-card"
-                      }`}
-                    >
-                      <CalendarIcon className="size-4 mb-1 text-muted-foreground" />
-                      <span className="text-xs font-semibold text-foreground">
-                        {format(m, "MMM")}
-                      </span>
-                      <span className="text-micro text-muted-foreground">
-                        {format(m, "yyyy")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         )}
 
-        {/* Footer: Update button aligned to right matching Mindtrip screenshot */}
+        {/* Footer: Update button aligned to right matching Screenshot 6 */}
         <div className="flex justify-end pt-4 border-t border-border/40">
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-full bg-black hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 px-8 py-2.5 text-sm font-semibold transition-all shadow-xs cursor-pointer"
+            className="rounded-full bg-neutral-800 hover:bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-white px-8 py-2.5 text-sm font-semibold transition-all shadow-xs cursor-pointer"
           >
-            Update
+            {t("common.update") || "Update"}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Minus, Plus } from "lucide-react";
 import { ModalBackdrop } from "./modal-backdrop";
+import { useTranslation } from "@/i18n";
 
 type WhoModalProps = {
   isOpen: boolean;
@@ -19,6 +20,7 @@ type WhoModalProps = {
     infants: number;
     pets: number;
   }) => void;
+  zIndexClassName?: string;
 };
 
 const DEFAULT_COUNTS = {
@@ -33,7 +35,9 @@ export function WhoModal({
   onClose,
   initialCounts = DEFAULT_COUNTS,
   onSave,
+  zIndexClassName,
 }: WhoModalProps) {
+  const { t, locale } = useTranslation();
   const [counts, setCounts] = React.useState(initialCounts);
 
   React.useEffect(() => {
@@ -67,8 +71,14 @@ export function WhoModal({
 
   // Traveler summary text
   const totalTravelers = counts.adults + counts.children;
-  const travelerText =
-    totalTravelers === 1 ? "1 traveler" : `${totalTravelers} travelers`;
+  const travelerText = React.useMemo(() => {
+    if (locale === "vi") {
+      const base = `${totalTravelers} khách`;
+      return counts.pets > 0 ? `${base}, ${counts.pets} thú cưng` : base;
+    }
+    const base = totalTravelers === 1 ? "1 traveler" : `${totalTravelers} travelers`;
+    return counts.pets > 0 ? `${base}, ${counts.pets} pet${counts.pets > 1 ? "s" : ""}` : base;
+  }, [totalTravelers, counts.pets, locale]);
 
   const handleSave = () => {
     onSave(counts);
@@ -79,9 +89,10 @@ export function WhoModal({
     <ModalBackdrop
       isOpen={isOpen}
       onClose={onClose}
-      title="Who"
+      title={t("trip.intakeWhoTitle") || "Who"}
       subtitle={travelerText}
       maxWidth="max-w-md"
+      zIndexClassName={zIndexClassName}
     >
       <div className="flex flex-col space-y-4">
         {/* Counter Rows */}
@@ -89,9 +100,11 @@ export function WhoModal({
           {/* Adults */}
           <div className="flex items-center justify-between py-4">
             <div>
-              <div className="font-semibold text-sm text-foreground">Adults</div>
+              <div className="font-semibold text-sm text-foreground">
+                {t("trip.intakeAdults") || "Adults"}
+              </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Ages 13 or above
+                {t("trip.intakeAdultsAge") || "Ages 13 or above"}
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -121,9 +134,11 @@ export function WhoModal({
           {/* Children */}
           <div className="flex items-center justify-between py-4">
             <div>
-              <div className="font-semibold text-sm text-foreground">Children</div>
+              <div className="font-semibold text-sm text-foreground">
+                {t("trip.intakeChildren") || "Children"}
+              </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Ages 2–12
+                {t("trip.intakeChildrenAge") || "Ages 2–12"}
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -153,8 +168,12 @@ export function WhoModal({
           {/* Infants */}
           <div className="flex items-center justify-between py-4">
             <div>
-              <div className="font-semibold text-sm text-foreground">Infants</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Under 2</div>
+              <div className="font-semibold text-sm text-foreground">
+                {t("trip.intakeInfants") || "Infants"}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {t("trip.intakeInfantsAge") || "Under 2"}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -183,14 +202,12 @@ export function WhoModal({
           {/* Pets */}
           <div className="flex items-center justify-between py-4">
             <div>
-              <div className="font-semibold text-sm text-foreground">Pets</div>
-              <a
-                href="#service-animal"
-                onClick={(e) => e.preventDefault()}
-                className="text-xs text-muted-foreground underline hover:text-foreground transition-colors mt-0.5 inline-block"
-              >
-                Bringing a service animal?
-              </a>
+              <div className="font-semibold text-sm text-foreground">
+                {t("trip.intakePets") || "Pets"}
+              </div>
+              <span className="text-xs text-muted-foreground underline mt-0.5 inline-block">
+                {t("trip.intakeServiceAnimal") || "Bringing a service animal?"}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -217,14 +234,14 @@ export function WhoModal({
           </div>
         </div>
 
-        {/* Footer: Update button aligned to right matching Mindtrip screenshot */}
+        {/* Footer: Update button aligned to right matching Screenshot 7 */}
         <div className="flex justify-end pt-4">
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-full bg-black hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 px-8 py-2.5 text-sm font-semibold transition-all shadow-xs cursor-pointer"
+            className="rounded-full bg-neutral-800 hover:bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-white px-8 py-2.5 text-sm font-semibold transition-all shadow-xs cursor-pointer"
           >
-            Update
+            {t("common.update") || "Update"}
           </button>
         </div>
       </div>
