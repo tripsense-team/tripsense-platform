@@ -266,7 +266,7 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
                   <div className="space-y-2 flex-1">
                     <div className="flex items-center justify-between sm:justify-start gap-2.5">
                       <h3 className="text-base font-bold text-foreground">
-                        {item.businessNameSnapshot}
+                        {item.businessName || item.businessNameSnapshot}
                       </h3>
                       {renderBadge(item.state)}
                     </div>

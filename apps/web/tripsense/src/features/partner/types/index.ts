@@ -450,6 +450,7 @@ export interface RestaurantReservationDto {
   id: string;
   businessId: string;
   businessName: string;
+  businessNameSnapshot?: string | null;
   customerId: string;
   customerEmail?: string | null;
   customerName?: string | null;

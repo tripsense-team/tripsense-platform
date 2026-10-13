@@ -4,15 +4,11 @@ import * as React from "react";
 import {
   Sparkles,
   UploadCloud,
-  ImageIcon,
   Loader2,
   Check,
   AlertCircle,
   Trash2,
-  Plus,
-  RefreshCw,
   X,
-  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,7 +181,7 @@ export function RestaurantMenuAiUploadModal({
   const handleApply = () => {
     const chosen = extractedItems
       .filter((it) => it.selected)
-      .map(({ selected, ...rest }) => rest);
+      .map(({ selected: _selected, ...rest }) => rest);
 
     if (chosen.length === 0) {
       setError(t("partner.restaurant.aiNoSelectedToApply", { defaultValue: "Vui lòng chọn ít nhất 1 món ăn để áp dụng." }));
@@ -327,7 +323,7 @@ export function RestaurantMenuAiUploadModal({
                 </p>
                 <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
                   <li>Chụp thực đơn ở góc thẳng đứng, đủ ánh sáng, chữ không bị lóa hoặc mờ.</li>
-                  <li>Nếu thực đơn có nhiều trang, bạn có thể quét từng trang một rồi bấm "Thêm vào thực đơn hiện có".</li>
+                  <li>Nếu thực đơn có nhiều trang, bạn có thể quét từng trang một rồi bấm &quot;Thêm vào thực đơn hiện có&quot;.</li>
                 </ul>
               </div>
             </div>
@@ -403,7 +399,7 @@ export function RestaurantMenuAiUploadModal({
 
                       <div className="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs">
                         <div className="sm:col-span-5">
-                          <label className="text-[10px] text-muted-foreground block mb-0.5 font-medium">Tên món</label>
+                          <label className="text-micro text-muted-foreground block mb-0.5 font-medium">Tên món</label>
                           <Input
                             value={item.name}
                             onChange={(e) => handleItemChange(idx, "name", e.target.value)}
@@ -412,7 +408,7 @@ export function RestaurantMenuAiUploadModal({
                         </div>
 
                         <div className="sm:col-span-4">
-                          <label className="text-[10px] text-muted-foreground block mb-0.5 font-medium">Danh mục</label>
+                          <label className="text-micro text-muted-foreground block mb-0.5 font-medium">Danh mục</label>
                           <Input
                             value={item.category || ""}
                             onChange={(e) => handleItemChange(idx, "category", e.target.value)}
@@ -422,7 +418,7 @@ export function RestaurantMenuAiUploadModal({
                         </div>
 
                         <div className="sm:col-span-3">
-                          <label className="text-[10px] text-muted-foreground block mb-0.5 font-medium">Giá (VND)</label>
+                          <label className="text-micro text-muted-foreground block mb-0.5 font-medium">Giá (VND)</label>
                           <Input
                             type="number"
                             step="1000"

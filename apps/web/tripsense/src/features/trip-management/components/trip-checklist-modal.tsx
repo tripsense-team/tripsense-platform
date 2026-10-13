@@ -60,7 +60,7 @@ export function TripChecklistModal({
     DEFAULT_PRESETS.map((p, idx) => ({
       id: `item-preset-${idx}`,
       ...p,
-      checked: false,
+      completed: false,
     }))
   );
   const [newItemText, setNewItemText] = React.useState("");

@@ -54,7 +54,7 @@ export function UnifiedReservationsHub({
                 <CalendarCheck className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-tight">
                   {t("nav.myReservations", { defaultValue: "Đơn đặt của tôi" })}
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">

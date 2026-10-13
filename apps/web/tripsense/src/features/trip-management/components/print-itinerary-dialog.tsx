@@ -3,14 +3,11 @@
 import * as React from "react";
 import {
   Calendar,
-  Compass,
-  Download,
   FileDown,
   MapPin,
   Printer,
   Users,
   Wallet,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +15,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useTranslation } from "@/i18n";
@@ -126,7 +122,7 @@ export function PrintItineraryDialog({
 
             {trip.notes && (
               <p className="text-xs text-muted-foreground italic bg-muted/40 p-3 rounded-xl border border-border/40 mt-2">
-                "{trip.notes}"
+                &ldquo;{trip.notes}&rdquo;
               </p>
             )}
           </div>

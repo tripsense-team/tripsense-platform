@@ -159,7 +159,7 @@ export function PlaceDetailOverlay({
       .then((results) => {
         if (cancelled) return;
         const normPlaceName = place.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-        let match = results.find((r) => {
+        const match = results.find((r) => {
           const normRName = r.displayName.toLowerCase().replace(/[^a-z0-9]/g, "");
           return normRName.includes(normPlaceName) || normPlaceName.includes(normRName);
         });

@@ -121,7 +121,7 @@ export function CommunityModerationScreen() {
                         {report.placeRef ? `Địa điểm: ${report.placeRef}` : "Đánh giá địa điểm"}
                         {report.reviewRating ? ` (★ ${report.reviewRating})` : ""}
                       </div>
-                      <p className="line-clamp-3 italic">"{report.reviewContent}"</p>
+                      <p className="line-clamp-3 italic">&ldquo;{report.reviewContent}&rdquo;</p>
                     </div>
                   )}
                   <p className="mt-3 text-sm text-muted-foreground">

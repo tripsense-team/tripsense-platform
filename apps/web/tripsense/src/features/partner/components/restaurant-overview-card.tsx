@@ -118,7 +118,7 @@ export function RestaurantOverviewCard({
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-foreground truncate">{dish.name}</p>
                       {dish.category && (
-                        <p className="text-[10px] text-muted-foreground">{dish.category}</p>
+                        <p className="text-micro text-muted-foreground">{dish.category}</p>
                       )}
                     </div>
                     <span className="font-semibold text-foreground text-xs whitespace-nowrap">

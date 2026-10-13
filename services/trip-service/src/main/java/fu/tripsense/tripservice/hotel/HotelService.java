@@ -256,7 +256,7 @@ public class HotelService {
       BigDecimal calculatedTotal = total.multiply(BigDecimal.valueOf(in.quantity()));
       db.update("""
           INSERT INTO hotel_booking(id,property_id,business_id,room_type_id,customer_id,customer_email,request_key,check_in,check_out,quantity,guests,total,subtotal,discount_amount,voucher_code,property_name,room_name,time_zone,status,payment_method,expires_at,free_cancellation_until,no_show_after)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,null,?,?,?,?,'HELD',?,clock_timestamp()+interval '10 minutes',?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,null,?,?,?,'HELD',?,clock_timestamp()+interval '10 minutes',?,?)
           """,bid,pid,bizId,in.roomTypeId(),u.id(),u.email(),key,in.checkIn(),in.checkOut(),in.quantity(),in.guests(),calculatedTotal,calculatedTotal,p.get("name"),r.get("name"),p.get("time_zone"),payosEnabled?"PAYOS":demoPaymentsEnabled?"DEMO_ONLINE":"PAY_AT_PROPERTY",java.sql.Timestamp.from(freeCancelUntil),java.sql.Timestamp.from(noShowAfter));
       metrics.counter("hotel.holds.created").increment(); return booking(bid);
     });

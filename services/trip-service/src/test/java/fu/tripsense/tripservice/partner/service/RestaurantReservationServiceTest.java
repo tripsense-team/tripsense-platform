@@ -155,6 +155,7 @@ class RestaurantReservationServiceTest {
     } catch (Exception ignored) {}
 
     when(reservationRepository.findByCustomerIdAndRequestKey(customerId, "req-key-dup"))
+        .thenReturn(Optional.empty())
         .thenReturn(Optional.of(existing));
 
     RestaurantReservationDto result =

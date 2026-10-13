@@ -203,7 +203,7 @@ export function RestaurantReservationDialog({
                 <label className="font-semibold block">
                   {t("partner.restaurant.dateAndTime", { defaultValue: "Thời gian đến dùng bữa *" })}
                 </label>
-                <span className="text-[10px] text-muted-foreground font-mono">
+                <span className="text-micro text-muted-foreground font-mono">
                   {t("partner.restaurant.timeZoneLabel", { defaultValue: "Múi giờ" })}: Asia/Ho_Chi_Minh (UTC+7)
                 </span>
               </div>
