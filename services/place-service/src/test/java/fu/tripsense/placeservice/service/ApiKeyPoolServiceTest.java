@@ -241,4 +241,52 @@ class ApiKeyPoolServiceTest {
     assertThat(result.get("status")).isEqualTo("INVALID");
     assertThat((String) result.get("failureReason")).contains("Không thể giải mã API Key");
   }
+
+  @Test
+  void markExhaustedAndRotate_cyclesBackToOldestExhaustedKey_whenNoStandbyRemaining() {
+    ApiKeyPoolItem lastActiveKey =
+        ApiKeyPoolItem.builder()
+            .id("id-3")
+            .provider(ApiKeyProvider.GEMINI)
+            .rawKey("key-3")
+            .encryptedKey(cryptoService.encrypt("key-3"))
+            .keyHash(cryptoService.hashKey("key-3"))
+            .status(ApiKeyStatus.ACTIVE)
+            .build();
+
+    ApiKeyPoolItem firstExhaustedKey =
+        ApiKeyPoolItem.builder()
+            .id("id-1")
+            .provider(ApiKeyProvider.GEMINI)
+            .rawKey("key-1")
+            .encryptedKey(cryptoService.encrypt("key-1"))
+            .keyHash(cryptoService.hashKey("key-1"))
+            .status(ApiKeyStatus.EXHAUSTED)
+            .build();
+
+    when(repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(
+            ApiKeyProvider.GEMINI, ApiKeyStatus.ACTIVE))
+        .thenReturn(Optional.of(lastActiveKey));
+    when(repository.save(any(ApiKeyPoolItem.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // No standby INACTIVE keys left
+    when(repository.findFirstByProviderAndStatusInOrderByCreatedAtAsc(
+            eq(ApiKeyProvider.GEMINI), any()))
+        .thenReturn(Optional.empty());
+
+    // Oldest exhausted key is key-1
+    when(repository.findFirstByProviderAndStatusOrderByExhaustedAtAsc(
+            ApiKeyProvider.GEMINI, ApiKeyStatus.EXHAUSTED))
+        .thenReturn(Optional.of(firstExhaustedKey));
+    when(repository.findById("id-1")).thenReturn(Optional.of(firstExhaustedKey));
+    when(mongoTemplate.findAndModify(any(Query.class), any(Update.class), any(FindAndModifyOptions.class), eq(ApiKeyPoolItem.class)))
+        .thenReturn(firstExhaustedKey);
+
+    Optional<ApiKeyPoolItem> rotated =
+        service.markExhaustedAndRotate(
+            ApiKeyProvider.GEMINI, "key-3", ApiKeyStatus.EXHAUSTED, "Quota exceeded");
+
+    assertThat(rotated).isPresent();
+    assertThat(rotated.get().getId()).isEqualTo("id-1");
+  }
 }

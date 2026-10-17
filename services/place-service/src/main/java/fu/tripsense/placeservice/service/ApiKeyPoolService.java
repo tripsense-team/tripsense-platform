@@ -220,14 +220,18 @@ public class ApiKeyPoolService {
       throw new IllegalArgumentException(
           "API Key này đang bị vô hiệu hóa (DISABLED). Vui lòng chuyển sang INACTIVE trước khi kích hoạt.");
     }
-    if (target.getStatus() == ApiKeyStatus.INVALID) {
-      throw new IllegalArgumentException("API Key này không hợp lệ (INVALID), không thể kích hoạt.");
-    }
-
     String rawKey = resolveRawKey(target);
     if (rawKey == null || rawKey.isBlank()) {
       throw new IllegalArgumentException(
           "Không thể giải mã API Key này để kích hoạt. Vui lòng kiểm tra lại cấu hình mã hóa.");
+    }
+    if (target.getStatus() == ApiKeyStatus.INVALID) {
+      // Re-validate against provider before refusing activation
+      KeyValidationResult validation = validateKeyWithDetails(provider, rawKey);
+      if (!validation.isValid()) {
+        throw new IllegalArgumentException(
+            "API Key này không hợp lệ (" + validation.failureReason() + "), không thể kích hoạt.");
+      }
     }
 
     // 1. Demote any currently ACTIVE keys of this provider to INACTIVE
@@ -376,6 +380,7 @@ public class ApiKeyPoolService {
   }
 
   private Optional<ApiKeyPoolItem> promoteNextStandbyKey(ApiKeyProvider provider) {
+    // 1. Try to find the next INACTIVE / AVAILABLE standby key (1 -> 2 -> 3 ...)
     Optional<ApiKeyPoolItem> nextStandby =
         repository.findFirstByProviderAndStatusInOrderByCreatedAtAsc(
             provider, List.of(ApiKeyStatus.INACTIVE, ApiKeyStatus.AVAILABLE));
@@ -383,6 +388,26 @@ public class ApiKeyPoolService {
     if (nextStandby.isPresent()) {
       ApiKeyPoolItem next = nextStandby.get();
       return Optional.of(setActiveKey(next.getId()));
+    }
+
+    // 2. Circular Round-Robin Ring: If all standby keys are exhausted, cycle back to the oldest exhausted key (Last -> 1)
+    Optional<ApiKeyPoolItem> oldestExhausted =
+        repository.findFirstByProviderAndStatusOrderByExhaustedAtAsc(
+            provider, ApiKeyStatus.EXHAUSTED);
+
+    if (oldestExhausted.isEmpty()) {
+      oldestExhausted =
+          repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(
+              provider, ApiKeyStatus.EXHAUSTED);
+    }
+
+    if (oldestExhausted.isPresent()) {
+      ApiKeyPoolItem recycled = oldestExhausted.get();
+      log.info(
+          "[ApiKeyPool] All standby keys exhausted for provider {}. Circular ring recycling oldest key back to ACTIVE: {}",
+          provider,
+          recycled.getMaskedKey());
+      return Optional.of(setActiveKey(recycled.getId()));
     }
 
     log.error("[ApiKeyPool] All keys in pool are exhausted/unavailable for provider={}!", provider);
@@ -558,8 +583,7 @@ public class ApiKeyPoolService {
   }
 
   /**
-   * Resets ONLY EXHAUSTED keys for a provider back to INACTIVE standby.
-   * Never modifies DISABLED or INVALID keys.
+   * Resets EXHAUSTED keys (and any keys misclassified as INVALID with quota errors) back to INACTIVE standby.
    */
   public synchronized int resetQuotaAll(ApiKeyProvider provider) {
     List<ApiKeyPoolItem> exhausted =
@@ -573,11 +597,25 @@ public class ApiKeyPoolService {
       count++;
     }
 
+    // Also heal any keys previously misclassified as INVALID with quota/rate-limit reasons
+    List<ApiKeyPoolItem> invalidList =
+        repository.findByProviderAndStatus(provider, ApiKeyStatus.INVALID);
+    for (ApiKeyPoolItem item : invalidList) {
+      String reason = item.getFailureReason();
+      if (reason != null && reason.toLowerCase().matches(".*(quota|rate limit|exhausted|limit:).*")) {
+        item.setStatus(ApiKeyStatus.INACTIVE);
+        item.setFailureReason(null);
+        item.setExhaustedAt(null);
+        repository.save(item);
+        count++;
+      }
+    }
+
     if (repository.countByProviderAndStatus(provider, ApiKeyStatus.ACTIVE) == 0) {
       getActiveKeyItem(provider);
     }
     invalidateCache(provider);
-    log.info("[ApiKeyPool] Reset quota for {} EXHAUSTED keys of provider {}", count, provider);
+    log.info("[ApiKeyPool] Reset quota for {} keys of provider {}", count, provider);
     return count;
   }
 

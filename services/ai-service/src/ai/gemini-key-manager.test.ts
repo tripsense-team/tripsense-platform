@@ -10,7 +10,7 @@ test("GeminiKeyManager.maskKey masks long API keys properly", () => {
 
 test("GeminiKeyManager falls back to config key when place-service is unreachable", async () => {
   // Test instance with unreachable port
-  const manager = new GeminiKeyManager(1000);
+  const manager = new GeminiKeyManager(1000, "http://localhost:59999");
   
   // getActiveKey should gracefully fallback without throwing
   const key = await manager.getActiveKey();
@@ -19,7 +19,7 @@ test("GeminiKeyManager falls back to config key when place-service is unreachabl
 });
 
 test("GeminiKeyManager invalidates cache on reportFailure", async () => {
-  const manager = new GeminiKeyManager(1000);
+  const manager = new GeminiKeyManager(1000, "http://localhost:59999");
   await manager.getActiveKey();
   assert.ok(manager.getCachedState() !== null);
 

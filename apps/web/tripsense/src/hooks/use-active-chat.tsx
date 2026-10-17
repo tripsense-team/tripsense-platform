@@ -152,6 +152,14 @@ export function ActiveChatProvider({
     id: chatId,
     generateId: generateUUID,
     onError: (error) => {
+      console.error("[useChat onError]", error);
+      const qc = getQueryClient();
+      void qc.invalidateQueries({ queryKey: aiChatQueryKeys.all });
+      if (resolvedChatId || chatId) {
+        void qc.invalidateQueries({
+          queryKey: aiChatQueryKeys.detail(resolvedChatId || chatId),
+        });
+      }
       const msg = error.message || "";
       if (msg.includes("429") || msg.includes("quota") || msg.includes("Quota exceeded")) {
         toast.error("Hệ thống AI đạt giới hạn lượt yêu cầu miễn phí (Free Tier). Vui lòng đợi khoảng 30-60 giây rồi thử lại!");

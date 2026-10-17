@@ -1,4 +1,4 @@
-export const DEFAULT_CHAT_MODEL = "gemini-3.6-flash";
+export const DEFAULT_CHAT_MODEL = "gemini-3.5-flash-lite";
 
 export type ChatModel = {
   id: string;
@@ -27,7 +27,6 @@ export const chatModels: ChatModel[] = [
     name: "Gemini 3.6 Flash",
     provider: "google",
     description: "Phản hồi siêu tốc • Khuyên dùng cho hội thoại mượt",
-    badge: "Khuyên dùng",
   },
   {
     id: "gemini-3.5-flash",
@@ -40,7 +39,7 @@ export const chatModels: ChatModel[] = [
     name: "Gemini 3.5 Flash Lite",
     provider: "google",
     description: "Bản rút gọn siêu tiết kiệm token, tốc độ cao",
-    badge: "Tiết kiệm",
+    badge: "Mặc định",
   },
   {
     id: "gemini-3.1-flash-lite",
