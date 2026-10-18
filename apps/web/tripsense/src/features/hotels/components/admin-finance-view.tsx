@@ -428,7 +428,7 @@ export function AdminFinanceView() {
             <Building className="h-4 w-4" />
             <span>Yêu cầu Rút tiền Đối tác ({withdrawals.length})</span>
             {overview && overview.pendingWithdrawalCount > 0 && (
-              <Badge className="h-5 px-1.5 text-[10px] bg-amber-500 text-white hover:bg-amber-500">
+              <Badge className="h-5 px-1.5 text-micro bg-amber-500 text-white hover:bg-amber-500">
                 {overview.pendingWithdrawalCount}
               </Badge>
             )}
@@ -444,7 +444,7 @@ export function AdminFinanceView() {
             <User className="h-4 w-4" />
             <span>Hàng đợi Hoàn tiền Khách hàng ({refunds.length})</span>
             {overview && overview.pendingRefundCount > 0 && (
-              <Badge className="h-5 px-1.5 text-[10px] bg-destructive text-white hover:bg-destructive">
+              <Badge className="h-5 px-1.5 text-micro bg-destructive text-white hover:bg-destructive">
                 {overview.pendingRefundCount}
               </Badge>
             )}
@@ -507,7 +507,7 @@ export function AdminFinanceView() {
                       <tr key={w.id} className="hover:bg-muted/20">
                         <td className="p-3.5 whitespace-nowrap text-muted-foreground">
                           {new Date(w.created_at).toLocaleString("vi-VN")}
-                          <div className="font-mono text-[10px] text-muted-foreground/70">#{w.id.slice(0, 8)}</div>
+                          <div className="font-mono text-micro text-muted-foreground/70">#{w.id.slice(0, 8)}</div>
                         </td>
                         <td className="p-3.5">
                           <div className="font-mono text-[11px] text-foreground">ID: {w.business_id.slice(0, 8)}</div>
@@ -535,22 +535,22 @@ export function AdminFinanceView() {
                         </td>
                         <td className="p-3.5 whitespace-nowrap">
                           {(w.status === "PENDING" || w.status === "PENDING_REVIEW" || w.status === "PROCESSING") && (
-                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]">
+                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-micro">
                               <Clock className="mr-1 h-3 w-3" /> Chờ admin duyệt
                             </Badge>
                           )}
                           {(w.status === "APPROVED" || w.status === "COMPLETED") && (
-                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-micro">
                               <CheckCircle2 className="mr-1 h-3 w-3" /> Đã chi trả
                             </Badge>
                           )}
                           {w.status === "REJECTED" && (
-                            <Badge variant="destructive" className="text-[10px]">
+                            <Badge variant="destructive" className="text-micro">
                               <XCircle className="mr-1 h-3 w-3" /> Đã từ chối
                             </Badge>
                           )}
                           {w.bank_reference_code && (
-                            <div className="font-mono text-[10px] text-muted-foreground mt-1">Ref: {w.bank_reference_code}</div>
+                            <div className="font-mono text-micro text-muted-foreground mt-1">Ref: {w.bank_reference_code}</div>
                           )}
                         </td>
                         <td className="p-3.5 text-right whitespace-nowrap">
@@ -632,7 +632,7 @@ export function AdminFinanceView() {
                       <tr key={r.id} className="hover:bg-muted/20">
                         <td className="p-3.5 whitespace-nowrap text-muted-foreground">
                           {new Date(r.created_at).toLocaleString("vi-VN")}
-                          <div className="font-mono text-[10px] text-muted-foreground/70">#{r.id.slice(0, 8)}</div>
+                          <div className="font-mono text-micro text-muted-foreground/70">#{r.id.slice(0, 8)}</div>
                         </td>
                         <td className="p-3.5">
                           <div className="font-semibold text-foreground">{r.property_name || "Đặt phòng"}</div>
@@ -661,17 +661,17 @@ export function AdminFinanceView() {
                         </td>
                         <td className="p-3.5 whitespace-nowrap">
                           {(r.status === "PENDING" || r.status === "PENDING_REVIEW" || r.status === "PROCESSING") && (
-                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]">
+                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-micro">
                               <Clock className="mr-1 h-3 w-3" /> Chờ hoàn tiền
                             </Badge>
                           )}
                           {(r.status === "COMPLETED" || r.status === "REFUNDED") && (
-                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-micro">
                               <CheckCircle2 className="mr-1 h-3 w-3" /> Đã hoàn tiền
                             </Badge>
                           )}
                           {r.status === "REJECTED" && (
-                            <Badge variant="destructive" className="text-[10px]">
+                            <Badge variant="destructive" className="text-micro">
                               <XCircle className="mr-1 h-3 w-3" /> Từ chối
                             </Badge>
                           )}
@@ -739,7 +739,7 @@ export function AdminFinanceView() {
                             {new Date(entry.created_at).toLocaleString("vi-VN")}
                           </td>
                           <td className="p-3.5">
-                            <Badge variant="outline" className="font-mono text-[10px]">
+                            <Badge variant="outline" className="font-mono text-micro">
                               {entry.entry_type}
                             </Badge>
                           </td>

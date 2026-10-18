@@ -187,21 +187,37 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
   const money = (val: number, cur = "VND") =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: cur }).format(val);
 
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-28 rounded-2xl bg-muted/40" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-32 rounded-2xl bg-muted/30" />
-          <div className="h-32 rounded-2xl bg-muted/30" />
-          <div className="h-32 rounded-2xl bg-muted/30" />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
+      {/* Top Banner / Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+            <Wallet className="h-6 w-6 text-primary" />
+            <span>Ví Đối tác & Báo cáo doanh thu Khách sạn</span>
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Minh bạch dòng tiền: Tiền khách thanh toán được bảo lưu an toàn trong Escrow và tự động quyết toán 90% về ví khi khách hoàn tất lưu trú.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing || loading} className="h-9 gap-1.5 text-xs">
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            <span>Làm mới</span>
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setWithdrawModalOpen(true)}
+            disabled={!wallet || wallet.available_balance <= 0}
+            className="h-9 gap-1.5 text-xs font-semibold shadow-xs"
+          >
+            <ArrowUpRight className="h-4 w-4" />
+            <span>Yêu cầu rút tiền</span>
+          </Button>
+        </div>
+      </div>
+
       {/* Notifications */}
       {error && (
         <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -223,34 +239,16 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
         </div>
       )}
 
-      {/* Top Banner / Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <Wallet className="h-6 w-6 text-primary" />
-            <span>Ví Đối tác & Doanh thu Khách sạn</span>
-          </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Minh bạch dòng tiền: Tiền khách thanh toán được bảo lưu an toàn trong Escrow và tự động quyết toán 90% về ví khi khách hoàn tất lưu trú.
-          </p>
+      {loading && (
+        <div className="space-y-6 animate-pulse">
+          <div className="h-28 rounded-2xl bg-muted/40" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="h-32 rounded-2xl bg-muted/30" />
+            <div className="h-32 rounded-2xl bg-muted/30" />
+            <div className="h-32 rounded-2xl bg-muted/30" />
+          </div>
         </div>
-
-        <div className="flex items-center gap-2.5">
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="h-9 gap-1.5 text-xs">
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            <span>Làm mới</span>
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setWithdrawModalOpen(true)}
-            disabled={!wallet || wallet.available_balance <= 0}
-            className="h-9 gap-1.5 text-xs font-semibold shadow-xs"
-          >
-            <ArrowUpRight className="h-4 w-4" />
-            <span>Yêu cầu rút tiền</span>
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* KPI Balances */}
       {wallet && (
@@ -323,7 +321,7 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-foreground text-sm">Tài khoản Ngân hàng nhận thanh toán (Payout)</h3>
                 {wallet?.payout_account?.is_verified && (
-                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-micro">
                     <ShieldCheck className="mr-1 h-3 w-3" /> Đã xác thực
                   </Badge>
                 )}
@@ -428,17 +426,17 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
                         </td>
                         <td className="p-3.5 whitespace-nowrap">
                           {(w.status === "PENDING" || w.status === "PENDING_REVIEW" || w.status === "PROCESSING") && (
-                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]">
+                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-micro">
                               <Clock className="mr-1 h-3 w-3" /> Chờ admin duyệt
                             </Badge>
                           )}
                           {(w.status === "APPROVED" || w.status === "COMPLETED") && (
-                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-micro">
                               <CheckCircle2 className="mr-1 h-3 w-3" /> Đã chuyển khoản
                             </Badge>
                           )}
                           {w.status === "REJECTED" && (
-                            <Badge variant="destructive" className="text-[10px]">
+                            <Badge variant="destructive" className="text-micro">
                               <XCircle className="mr-1 h-3 w-3" /> Từ chối
                             </Badge>
                           )}
@@ -501,7 +499,7 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
                             {new Date(entry.created_at).toLocaleString("vi-VN")}
                           </td>
                           <td className="p-3.5">
-                            <Badge variant="outline" className="font-mono text-[10px]">
+                            <Badge variant="outline" className="font-mono text-micro">
                               {entry.entry_type}
                             </Badge>
                           </td>
@@ -568,11 +566,11 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
                         </td>
                         <td className="p-3.5 whitespace-nowrap">
                           {s.settlement_state === "SETTLED" ? (
-                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-micro">
                               <CheckCircle2 className="mr-1 h-3 w-3" /> Đã về ví
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px]">
+                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-micro">
                               <Clock className="mr-1 h-3 w-3" /> Tạm giữ Escrow
                             </Badge>
                           )}
@@ -632,7 +630,7 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-6 text-[10px] px-2"
+                    className="h-6 text-micro px-2"
                     onClick={() => setWithdrawAmount(Math.min(wallet.available_balance, 50000).toString())}
                   >
                     50.000đ
@@ -641,7 +639,7 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-6 text-[10px] px-2"
+                    className="h-6 text-micro px-2"
                     onClick={() => setWithdrawAmount(Math.min(wallet.available_balance, 500000).toString())}
                   >
                     500.000đ
@@ -650,7 +648,7 @@ export function PartnerFinanceView({ businessId }: { businessId?: string }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-6 text-[10px] px-2"
+                    className="h-6 text-micro px-2"
                     onClick={() => setWithdrawAmount(wallet.available_balance.toString())}
                   >
                     Tất cả ({money(wallet.available_balance, wallet.currency)})

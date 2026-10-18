@@ -154,7 +154,7 @@ export function HotelCheckoutReview({
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Vui lòng chọn phòng ở danh sách bên dưới và bấm nút <strong>"Đặt ngay"</strong> để tạo đơn mới và chuyển đến trang thanh toán.
+          Vui lòng chọn phòng ở danh sách bên dưới và bấm nút <strong>&quot;Đặt ngay&quot;</strong> để tạo đơn mới và chuyển đến trang thanh toán.
         </p>
       </section>
     );
