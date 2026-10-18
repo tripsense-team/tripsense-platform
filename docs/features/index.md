@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `financial-flow-and-withdrawals` | APPROVED | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./financial-flow-and-withdrawals.md) |
 | `group-c-product-expansion` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; identity remains in `user-service` | [Docs](./group-c-product-expansion.md) |
 | `group-b-feature-completion` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/social-service` | [Docs](./group-b-feature-completion.md) |
 | `trip-export-pdf-ics` | IMPLEMENTED | `apps/web/tripsense` | [Docs](./trip-export-pdf-ics.md) |

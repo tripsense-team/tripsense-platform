@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   BedDouble,
   BookOpen,
+  DollarSign,
   ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -268,6 +269,16 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
               >
                 <Link href={`/partner/businesses/${business.id}/hotel`}>
                   <BedDouble className="mr-1.5 h-3.5 w-3.5" /> Quản lý khách sạn
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex-1 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+              >
+                <Link href={`/partner/businesses/${business.id}/hotel/commerce`}>
+                  <DollarSign className="mr-1.5 h-3.5 w-3.5" /> Đối soát & Rút tiền
                 </Link>
               </Button>
             </>

@@ -190,3 +190,132 @@ export interface MindtripHotel {
   faqs?: HotelFAQ[];
   reviews?: HotelReview[];
 }
+
+export interface PartnerPayoutAccount {
+  id: string;
+  business_id: string;
+  bank_code: string;
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string;
+  branch_name?: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerWalletSummary {
+  id: string;
+  business_id: string;
+  currency: string;
+  available_balance: number;
+  locked_balance: number;
+  total_earned: number;
+  total_withdrawn: number;
+  completed_bookings_count: number;
+  pending_escrow_gross: number;
+  pending_escrow_net: number;
+  payout_account?: PartnerPayoutAccount;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerWithdrawalRequest {
+  id: string;
+  business_id: string;
+  amount: number;
+  currency: string;
+  bank_code: string;
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PENDING_REVIEW" | "PROCESSING" | "COMPLETED" | string;
+  partner_notes?: string;
+  admin_notes?: string;
+  rejection_reason?: string;
+  bank_reference_code?: string;
+  receipt_image_url?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+}
+
+export interface CustomerRefundRequest {
+  id: string;
+  booking_id: string;
+  user_id: string;
+  property_name?: string;
+  room_name?: string;
+  amount: number;
+  currency: string;
+  bank_code: string;
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string;
+  cancellation_reason?: string;
+  status: "PENDING" | "COMPLETED" | "REJECTED" | "PENDING_REVIEW" | "PROCESSING" | "REFUNDED" | string;
+  admin_notes?: string;
+  rejection_reason?: string;
+  bank_reference_code?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+}
+
+export interface FinancialLedgerEntry {
+  id: string;
+  business_id?: string;
+  booking_id?: string;
+  withdrawal_id?: string;
+  refund_id?: string;
+  entry_type: string;
+  amount: number;
+  currency: string;
+  balance_after?: number;
+  description?: string;
+  created_at: string;
+}
+
+export interface AdminFinanceOverview {
+  totalGmv: number;
+  escrowHolding: number;
+  platformRevenue: number;
+  partnerPayable: number;
+  pendingWithdrawalCount: number;
+  pendingWithdrawalAmount: number;
+  pendingRefundCount: number;
+  pendingRefundAmount: number;
+}
+
+export const POPULAR_BANKS = [
+  { code: "MB", name: "MBBank (Ngan hang Quan Doi)", shortName: "MBBank" },
+  { code: "VCB", name: "Vietcombank (Ngoai thuong Viet Nam)", shortName: "Vietcombank" },
+  { code: "TCB", name: "Techcombank (Ky thuong Viet Nam)", shortName: "Techcombank" },
+  { code: "BIDV", name: "BIDV (Dau tu va Phat trien)", shortName: "BIDV" },
+  { code: "CTG", name: "VietinBank (Cong thuong Viet Nam)", shortName: "VietinBank" },
+  { code: "ACB", name: "ACB (A Chau)", shortName: "ACB" },
+  { code: "VPB", name: "VPBank (Viet Nam Thinh Vuong)", shortName: "VPBank" },
+  { code: "TPB", name: "TPBank (Tien Phong)", shortName: "TPBank" },
+  { code: "STB", name: "Sacombank (Sai Gon Thuong Tin)", shortName: "Sacombank" },
+  { code: "HDB", name: "HDBank (Phat trien TP.HCM)", shortName: "HDBank" },
+  { code: "VIB", name: "VIB (Quoc Te)", shortName: "VIB" },
+  { code: "MSB", name: "MSB (Hang Hai)", shortName: "MSB" },
+  { code: "SHB", name: "SHB (Sai Gon - Ha Noi)", shortName: "SHB" },
+  { code: "OCB", name: "OCB (Phuong Dong)", shortName: "OCB" },
+];
+
+export function buildVietQrUrl({
+  bankCode,
+  accountNumber,
+  accountName,
+  amount,
+  description,
+}: {
+  bankCode: string;
+  accountNumber: string;
+  accountName: string;
+  amount: number;
+  description: string;
+}) {
+  return `https://img.vietqr.io/image/${bankCode}-${accountNumber}-compact.png?amount=${Math.round(amount)}&addInfo=${encodeURIComponent(description)}&accountName=${encodeURIComponent(accountName)}`;
+}

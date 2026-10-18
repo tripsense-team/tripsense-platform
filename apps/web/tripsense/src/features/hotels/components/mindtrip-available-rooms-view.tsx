@@ -24,7 +24,8 @@ import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { HotelCheckoutReview } from "./hotel-checkout-review";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { createDirectHold, bookingIntentKey, clearBookingIntent, searchRealHotels } from "../services/hotel-service-adapter";
-import type { MindtripHotel, HotelRoomData, HotelBooking } from "../types";
+import { hotelApi } from "../services/hotels-api";
+import type { MindtripHotel, HotelRoomData, HotelBooking, PayOsPaymentResult } from "../types";
 
 export interface MindtripAvailableRoomsViewProps {
   hotel: MindtripHotel;
@@ -106,10 +107,28 @@ export function MindtripAvailableRoomsView({
         guests: guestCount,
         quantity,
       };
-      const booking = await createDirectHold(criteria,bookingIntentKey(actorId,criteria));
-      setHeldRoom(room); setHeldBooking(booking);
-      if (["CANCELLED","EXPIRED"].includes(booking.status)) clearBookingIntent(actorId,criteria);
-      if (booking.status === "CONFIRMED") setConfirmedBooking({booking,room});
+
+      // Always clear any stale cached intent key and generate a fresh UUID
+      clearBookingIntent(actorId, criteria);
+      const freshKey = crypto.randomUUID();
+      const booking = await createDirectHold(criteria, freshKey);
+      
+      setHeldRoom(room);
+      setHeldBooking(booking);
+
+      if (booking.status === "HELD" && booking.payment_method === "PAYOS") {
+        try {
+          const result = await hotelApi<PayOsPaymentResult>(`/bookings/${booking.id}/payos-payment`, "POST");
+          if (result.payment?.checkoutUrl && result.payment.checkoutUrl.startsWith("https://")) {
+            window.location.assign(result.payment.checkoutUrl);
+            return;
+          }
+        } catch (payErr) {
+          console.error("Auto PayOS redirect failed:", payErr);
+        }
+      } else if (booking.status === "CONFIRMED") {
+        setConfirmedBooking({ booking, room });
+      }
     } catch (err: unknown) {
       const safeMsg = getSafeErrorMessage(
         err,
@@ -147,13 +166,29 @@ export function MindtripAvailableRoomsView({
 
   return (
     <div className="min-h-full w-full bg-background text-foreground p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 animate-in fade-in-0 duration-200">
-      {heldBooking && <HotelCheckoutReview key={heldBooking.id} booking={heldBooking} onUpdated={booking=>{
-        if (["CONFIRMED","CANCELLED","EXPIRED"].includes(booking.status)) {
-          clearBookingIntent(actorId,{roomTypeId:booking.room_type_id,checkIn:booking.check_in,checkOut:booking.check_out,guests:booking.guests,quantity:booking.quantity});
-          void refreshRooms();
-        }
-        setHeldBooking(booking); if(booking.status === "CONFIRMED" && heldRoom) setConfirmedBooking({booking,room:heldRoom});
-      }} />}
+      {heldBooking && (
+        <HotelCheckoutReview
+          key={heldBooking.id}
+          booking={heldBooking}
+          onDismiss={() => setHeldBooking(null)}
+          onUpdated={(booking) => {
+            if (["CONFIRMED", "CANCELLED", "EXPIRED", "CHECKED_OUT"].includes(booking.status)) {
+              clearBookingIntent(actorId, {
+                roomTypeId: booking.room_type_id,
+                checkIn: booking.check_in,
+                checkOut: booking.check_out,
+                guests: booking.guests,
+                quantity: booking.quantity,
+              });
+              void refreshRooms();
+            }
+            setHeldBooking(booking);
+            if (booking.status === "CONFIRMED" && heldRoom) {
+              setConfirmedBooking({ booking, room: heldRoom });
+            }
+          }}
+        />
+      )}
       {/* 1. Header Bar: Back Arrow, Hotel Mini Card, Date Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         {/* Left: Back button + Hotel Info */}

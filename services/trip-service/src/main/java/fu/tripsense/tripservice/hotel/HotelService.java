@@ -26,6 +26,10 @@ public class HotelService {
   private final JdbcTemplate db;
   private final TransactionTemplate tx;
   private final MeterRegistry metrics;
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  @org.springframework.context.annotation.Lazy
+  private HotelFinanceService hotelFinanceService;
+
   public HotelService(JdbcTemplate db, PlatformTransactionManager transactions, MeterRegistry metrics) {
     this.db=db; this.tx=new TransactionTemplate(transactions); this.tx.setTimeout(15); this.metrics=metrics;
   }
@@ -514,6 +518,9 @@ public class HotelService {
       check("CHECKED_IN".equals(state), "HOTEL_INVALID_STATE");
       db.update("UPDATE hotel_booking SET status='CHECKED_OUT', check_out_at=clock_timestamp(), version=version+1 WHERE id=?", id);
       event(id, "BOOKING_CHECKED_OUT", p, b);
+      if (hotelFinanceService != null) {
+        hotelFinanceService.settleBooking(id);
+      }
       return booking(id);
     });
   }

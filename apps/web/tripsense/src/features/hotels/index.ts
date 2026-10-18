@@ -3,6 +3,8 @@ export { UserBookingsView } from "./components/user-bookings-view";
 export { PartnerHotelWorkspace } from "./components/partner-hotel-workspace";
 export { HotelManagement } from "./components/hotel-management";
 export { HotelCommerce } from "./components/hotel-commerce";
+export { AdminFinanceView } from "./components/admin-finance-view";
+export { PartnerFinanceView } from "./components/partner-finance-view";
 export { MindtripStaysDiscovery } from "./components/mindtrip-stays-discovery";
 export { MindtripHotelCard } from "./components/mindtrip-hotel-card";
 export { MindtripHotelDetailOverlay } from "./components/mindtrip-hotel-detail-overlay";
