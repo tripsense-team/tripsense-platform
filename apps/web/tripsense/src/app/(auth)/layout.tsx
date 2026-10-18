@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Compass } from "lucide-react";
 import { siteConfig } from "@/config/site";
-import { useAuth, isUserAdmin } from "@/features/auth";
+import { useAuth, isUserAdmin, isUserPartner } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
 import { isSafeInternalUrl } from "@/lib/url-utils";
 
@@ -21,7 +21,7 @@ export default function AuthLayout({
     isLoading || status === "checking" || status === "initializing";
 
   // Authenticated User Route Rule:
-  // If user is already authenticated, redirect to /admin if admin, otherwise /explore or returnUrl
+  // If user is already authenticated, redirect to /admin if admin, /partner if partner, otherwise /explore or returnUrl
   React.useEffect(() => {
     if (!isChecking && isAuthenticated) {
       const rawParam =
@@ -30,7 +30,7 @@ export default function AuthLayout({
           : null;
       const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
       const destination =
-        safeReturn || (isUserAdmin(user) ? "/admin" : "/explore");
+        safeReturn || (isUserAdmin(user) ? "/admin" : isUserPartner(user) ? "/partner" : "/explore");
       router.replace(destination);
     }
   }, [isChecking, isAuthenticated, user, router]);

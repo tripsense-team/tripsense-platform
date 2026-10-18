@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Store,
   Building2,
+  DollarSign,
   LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,11 @@ const adminNavGroups: AdminNavGroup[] = [
         title: "Hotel Listings",
         href: "/admin/hotels",
         icon: Building2,
+      },
+      {
+        title: "Finance & Payouts",
+        href: "/admin/hotels/commerce",
+        icon: DollarSign,
       },
     ],
   },

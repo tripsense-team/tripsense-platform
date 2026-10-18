@@ -12,4 +12,5 @@ export * from "./tooltip";
 export * from "./popover";
 export * from "./dropdown-menu";
 export * from "./sheet";
+export * from "./label";
 export * from "./switch";
