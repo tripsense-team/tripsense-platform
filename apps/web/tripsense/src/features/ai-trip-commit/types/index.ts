@@ -20,7 +20,13 @@ export interface ChatTripContext {
 
 export type TripPlanningBrief = {
   where?: { destinationText: string; destinationPlaceRef?: string | null };
-  when?: { startDate: string; endDate: string };
+  when?: {
+    startDate?: string;
+    endDate?: string;
+    type?: "dates" | "flexible";
+    durationDays?: number;
+    flexibleMonths?: string[];
+  };
   who?: { adults: number; children: number; infants: number; pets: number };
   budget?:
     | { mode: "FLEXIBLE" }

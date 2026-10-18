@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, Calendar } from "lucide-react";
 import {
   addMonths,
   subMonths,
@@ -26,12 +26,14 @@ type WhenModalProps = {
   onClose: () => void;
   initialStartDate?: string;
   initialEndDate?: string;
+  initialDurationDays?: number;
+  initialFlexibleMonths?: string[];
   onSave: (data: {
     type: "dates" | "flexible";
     startDate?: string;
     endDate?: string;
-    flexiblePeriod?: string;
     flexibleMonths?: string[];
+    durationDays?: number;
   }) => void;
   zIndexClassName?: string;
 };
@@ -41,6 +43,8 @@ export function WhenModal({
   onClose,
   initialStartDate,
   initialEndDate,
+  initialDurationDays,
+  initialFlexibleMonths,
   onSave,
   zIndexClassName,
 }: WhenModalProps) {
@@ -62,8 +66,39 @@ export function WhenModal({
   const [hoverDate, setHoverDate] = React.useState<Date | null>(null);
 
   // Flexible tab state
-  const [flexiblePeriod, setFlexiblePeriod] = React.useState<string>("1week");
-  const [selectedMonths, setSelectedMonths] = React.useState<string[]>([]);
+  const [durationDays, setDurationDays] = React.useState<number>(
+    initialDurationDays || 3
+  );
+  const [selectedMonths, setSelectedMonths] = React.useState<string[]>(
+    initialFlexibleMonths || []
+  );
+
+  const monthsScrollRef = React.useRef<HTMLDivElement>(null);
+
+  const availableMonths = React.useMemo(() => {
+    const list: { id: string; label: string }[] = [];
+    for (let i = 0; i < 12; i++) {
+      const d = addMonths(today, i);
+      const mNum = format(d, "M");
+      const label = locale === "vi" ? `Tháng ${mNum}` : format(d, "MMM yyyy");
+      list.push({ id: `Tháng ${mNum}`, label });
+    }
+    return list;
+  }, [today, locale]);
+
+  const handleToggleMonth = (monthId: string) => {
+    setSelectedMonths((prev) =>
+      prev.includes(monthId)
+        ? prev.filter((m) => m !== monthId)
+        : [...prev, monthId]
+    );
+  };
+
+  const handleScrollMonthsRight = () => {
+    if (monthsScrollRef.current) {
+      monthsScrollRef.current.scrollBy({ left: 180, behavior: "smooth" });
+    }
+  };
 
   const dayLabels = React.useMemo(
     () =>
@@ -76,7 +111,9 @@ export function WhenModal({
   React.useEffect(() => {
     if (initialStartDate) setStartDate(parseISO(initialStartDate));
     if (initialEndDate) setEndDate(parseISO(initialEndDate));
-  }, [initialStartDate, initialEndDate, isOpen]);
+    if (initialDurationDays) setDurationDays(initialDurationDays);
+    if (initialFlexibleMonths) setSelectedMonths(initialFlexibleMonths);
+  }, [initialStartDate, initialEndDate, initialDurationDays, initialFlexibleMonths, isOpen]);
 
   const handlePrevMonth = () => {
     setBaseMonth((prev) => subMonths(prev, 1));
@@ -114,7 +151,7 @@ export function WhenModal({
     } else {
       onSave({
         type: "flexible",
-        flexiblePeriod,
+        durationDays,
         flexibleMonths: selectedMonths,
       });
     }
@@ -288,31 +325,73 @@ export function WhenModal({
             {renderMonthCalendar(nextMonth, false, true)}
           </div>
         ) : (
-          /* Tab 2: Flexible Picker */
-          <div className="flex flex-col space-y-6 py-2 px-4">
-            <div>
-              <h4 className="text-sm font-semibold text-foreground mb-3 text-center">
-                {t("trip.intakeStayDuration") || "Stay for how long?"}
+          /* Tab 2: Flexible Picker matching Mindtrip Screenshot */
+          <div className="flex flex-col space-y-8 py-3 px-2 sm:px-6">
+            {/* Section 1: How many days? */}
+            <div className="flex flex-col items-center">
+              <h4 className="text-base font-semibold text-foreground mb-4 text-center">
+                How many days?
               </h4>
-              <div className="flex flex-wrap justify-center gap-2">
-                {[
-                  { id: "weekend", label: t("trip.intakeWeekend") || "Weekend" },
-                  { id: "1week", label: t("trip.intakeWeek") || "A week" },
-                  { id: "1month", label: t("trip.intakeMonth") || "A month" },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setFlexiblePeriod(item.id)}
-                    className={`px-4 py-2 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
-                      flexiblePeriod === item.id
-                        ? "bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900 border-transparent shadow-xs"
-                        : "border-border/80 bg-background text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setDurationDays((prev) => Math.max(1, prev - 1))}
+                  className="size-9 rounded-full border border-border/80 flex items-center justify-center text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                  title="Giảm số ngày"
+                >
+                  <Minus className="size-4" />
+                </button>
+                <div className="min-w-[100px] text-center px-6 py-2 rounded-full border border-border/80 bg-background text-lg font-semibold text-foreground shadow-2xs">
+                  {durationDays}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDurationDays((prev) => Math.min(60, prev + 1))}
+                  className="size-9 rounded-full border border-border/80 flex items-center justify-center text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                  title="Tăng số ngày"
+                >
+                  <Plus className="size-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Section 2: Travel anytime (Month picker) */}
+            <div className="flex flex-col">
+              <h4 className="text-base font-semibold text-foreground mb-4 text-center">
+                Travel anytime
+              </h4>
+              <div className="relative flex items-center">
+                <div
+                  ref={monthsScrollRef}
+                  className="flex items-center gap-3 overflow-x-auto no-scrollbar scroll-smooth py-1 px-1 w-full"
+                >
+                  {availableMonths.map((m) => {
+                    const isSelected = selectedMonths.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => handleToggleMonth(m.id)}
+                        className={`flex flex-col items-center justify-center min-w-[100px] h-28 rounded-2xl border p-3 transition-all cursor-pointer shrink-0 ${
+                          isSelected
+                            ? "border-foreground bg-muted/60 text-foreground shadow-2xs font-semibold"
+                            : "border-border/60 bg-card hover:border-border hover:bg-muted/30 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <Calendar className="size-6 mb-2.5 opacity-80" />
+                        <span className="text-xs font-medium">{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleScrollMonthsRight}
+                  className="size-8 rounded-full border border-border/80 bg-background/90 shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground ml-2 shrink-0 cursor-pointer"
+                  title="Xem thêm các tháng tiếp theo"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
               </div>
             </div>
           </div>

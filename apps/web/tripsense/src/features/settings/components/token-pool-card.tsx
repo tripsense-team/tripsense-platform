@@ -559,9 +559,16 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                         </div>
                       )}
                       {k.status === "INVALID" && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
-                          {t("settings.tokenPool.statusInvalid")}
-                        </span>
+                        <div>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
+                            {t("settings.tokenPool.statusInvalid")}
+                          </span>
+                          {k.failureReason && (
+                            <p className="mt-0.5 text-micro text-red-500 truncate max-w-[200px]" title={k.failureReason}>
+                              {k.failureReason}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-3 py-3 font-semibold text-foreground">
@@ -584,7 +591,7 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                           <button
                             type="button"
                             onClick={() => handleActivate(k.id)}
-                            disabled={actionKeyId === k.id || k.status === "INVALID"}
+                            disabled={actionKeyId === k.id}
                             className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary shadow-xs transition hover:bg-primary/20 disabled:opacity-50"
                           >
                             {actionKeyId === k.id ? (
@@ -631,20 +638,18 @@ export function TokenPoolCard({ onKeyUpdated }: TokenPoolCardProps) {
                         )}
 
                         {/* Test button */}
-                        {k.status !== "INVALID" && (
-                          <button
-                            type="button"
-                            onClick={() => handleTest(k.id)}
-                            disabled={actionKeyId === k.id}
-                            title={t("settings.tokenPool.testKey")}
-                            className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-background/80 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-xs transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
-                          >
-                            {actionKeyId === k.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : null}
-                            <span>{t("settings.tokenPool.testKey")}</span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleTest(k.id)}
+                          disabled={actionKeyId === k.id}
+                          title={t("settings.tokenPool.testKey")}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border/70 bg-background/80 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-xs transition hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                        >
+                          {actionKeyId === k.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : null}
+                          <span>{t("settings.tokenPool.testKey")}</span>
+                        </button>
 
                         {/* Delete button */}
                         <button
