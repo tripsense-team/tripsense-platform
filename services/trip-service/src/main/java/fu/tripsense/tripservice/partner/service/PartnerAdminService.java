@@ -471,11 +471,17 @@ public class PartnerAdminService {
   }
 
   private ApplicationDetailDto toApplicationDetailDto(PartnerApplication a) {
-    Long bizVer =
-        businessRepository.findById(a.getBusinessId()).map(PartnerBusiness::getVersion).orElse(0L);
+    var bizOpt = businessRepository.findById(a.getBusinessId());
+    Long bizVer = bizOpt.map(PartnerBusiness::getVersion).orElse(0L);
+    String bizName = bizOpt.map(PartnerBusiness::getDisplayName).orElse(null);
+    String bizKind = bizOpt.map(b -> b.getKind().name()).orElse(null);
+    UUID ownerId = bizOpt.map(PartnerBusiness::getOwnerUserId).orElse(null);
     return ApplicationDetailDto.builder()
         .id(a.getId())
         .businessId(a.getBusinessId())
+        .businessName(bizName)
+        .businessKind(bizKind)
+        .ownerUserId(ownerId)
         .revision(a.getRevision())
         .profileSnapshot(a.getProfileSnapshot())
         .checklistId(a.getChecklistId())

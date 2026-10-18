@@ -31,6 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTranslation } from "@/i18n";
 
 interface UserItem {
   id: string;
@@ -103,6 +104,7 @@ const initialUsers: UserItem[] = [
 ];
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation();
   const [users, setUsers] = React.useState<UserItem[]>(initialUsers);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState<string>("ALL");
@@ -140,19 +142,19 @@ export default function AdminUsersPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-              <Users className="h-3.5 w-3.5 mr-1" /> Directory
+              <Users className="h-3.5 w-3.5 mr-1" /> {t("admin.users.directory") || "Directory"}
             </Badge>
-            <span className="text-xs text-muted-foreground">User Management</span>
+            <span className="text-xs text-muted-foreground">{t("admin.users.management") || "User Management"}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">User Accounts</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("admin.users.title") || "User Accounts"}</h1>
           <p className="text-sm text-muted-foreground">
-            Manage user roles, verify accounts, and oversee platform access.
+            {t("admin.users.subtitle") || "Manage user roles, verify accounts, and oversee platform access."}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Badge className="bg-primary text-primary-foreground font-mono text-xs px-3 py-1">
-            Total: {users.length} Users
+            {t("admin.users.totalUsers", { count: users.length }) || `Total: ${users.length} Users`}
           </Badge>
         </div>
       </div>
@@ -166,7 +168,7 @@ export default function AdminUsersPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name or email..."
+            placeholder={t("admin.users.searchPlaceholder") || "Search by name or email..."}
             className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           />
         </div>
@@ -174,7 +176,7 @@ export default function AdminUsersPage() {
         {/* Filter Pills */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1 bg-muted p-1 rounded-lg text-xs">
-            <span className="text-muted-foreground px-2 font-medium">Role:</span>
+            <span className="text-muted-foreground px-2 font-medium">{t("admin.users.roleFilter") || "Role:"}</span>
             {["ALL", "USER", "PARTNER", "ADMIN"].map((role) => (
               <button
                 key={role}
@@ -185,13 +187,19 @@ export default function AdminUsersPage() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {role}
+                {role === "ALL"
+                  ? (t("admin.users.all") || "ALL")
+                  : role === "ADMIN"
+                  ? (t("admin.users.roles.admin") || "Admin")
+                  : role === "PARTNER"
+                  ? (t("admin.users.roles.partner") || "Partner")
+                  : (t("admin.users.roles.user") || "User")}
               </button>
             ))}
           </div>
 
           <div className="flex items-center gap-1 bg-muted p-1 rounded-lg text-xs">
-            <span className="text-muted-foreground px-2 font-medium">Status:</span>
+            <span className="text-muted-foreground px-2 font-medium">{t("admin.users.statusFilter") || "Status:"}</span>
             {["ALL", "ACTIVE", "SUSPENDED"].map((st) => (
               <button
                 key={st}
@@ -202,7 +210,11 @@ export default function AdminUsersPage() {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {st}
+                {st === "ALL"
+                  ? (t("admin.users.all") || "ALL")
+                  : st === "ACTIVE"
+                  ? (t("admin.users.status.active") || "ACTIVE")
+                  : (t("admin.users.status.suspended") || "SUSPENDED")}
               </button>
             ))}
           </div>
@@ -215,20 +227,20 @@ export default function AdminUsersPage() {
           <table className="w-full text-left text-xs">
             <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase text-micro tracking-wider font-semibold">
               <tr>
-                <th className="p-4">User</th>
-                <th className="p-4">Role</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Verified</th>
-                <th className="p-4">Trips</th>
-                <th className="p-4">Joined Date</th>
-                <th className="p-4 text-right">Actions</th>
+                <th className="p-4">{t("admin.users.table.user") || "User"}</th>
+                <th className="p-4">{t("admin.users.table.role") || "Role"}</th>
+                <th className="p-4">{t("admin.users.table.status") || "Status"}</th>
+                <th className="p-4">{t("admin.users.status.verified") || "Verified"}</th>
+                <th className="p-4">{t("admin.users.table.trips") || "Trips"}</th>
+                <th className="p-4">{t("admin.users.table.joined") || "Joined Date"}</th>
+                <th className="p-4 text-right">{t("admin.users.table.actions") || "Actions"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                    No users match your criteria.
+                    {t("admin.users.empty") || "No users match your criteria."}
                   </td>
                 </tr>
               ) : (
@@ -262,7 +274,11 @@ export default function AdminUsersPage() {
                             : "bg-muted text-muted-foreground border-border"
                         }
                       >
-                        {user.role}
+                        {user.role === "ADMIN"
+                          ? t("admin.users.roles.admin")
+                          : user.role === "PARTNER"
+                          ? t("admin.users.roles.partner")
+                          : t("admin.users.roles.user")}
                       </Badge>
                     </td>
 
@@ -274,18 +290,20 @@ export default function AdminUsersPage() {
                             : "bg-destructive/10 text-destructive border-destructive/20"
                         }
                       >
-                        {user.status}
+                        {user.status === "ACTIVE"
+                          ? t("admin.users.status.active")
+                          : t("admin.users.status.suspended")}
                       </Badge>
                     </td>
 
                     <td className="p-4">
                       {user.verified ? (
                         <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                          <CheckCircle2 className="h-3.5 w-3.5" /> {t("admin.users.status.verified") || "Verified"}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-muted-foreground">
-                          <XCircle className="h-3.5 w-3.5" /> Unverified
+                          <XCircle className="h-3.5 w-3.5" /> {t("admin.users.status.unverified") || "Unverified"}
                         </span>
                       )}
                     </td>
@@ -312,11 +330,11 @@ export default function AdminUsersPage() {
                           >
                             {user.status === "ACTIVE" ? (
                               <span className="flex items-center gap-2 text-destructive">
-                                <UserX className="h-4 w-4" /> Suspend Account
+                                <UserX className="h-4 w-4" /> {t("admin.users.actions.suspend") || "Suspend Account"}
                               </span>
                             ) : (
                               <span className="flex items-center gap-2 text-emerald-600">
-                                <UserCheck className="h-4 w-4" /> Reactivate Account
+                                <UserCheck className="h-4 w-4" /> {t("admin.users.actions.reactivate") || t("admin.users.actions.activate") || "Reactivate Account"}
                               </span>
                             )}
                           </DropdownMenuItem>
@@ -325,19 +343,19 @@ export default function AdminUsersPage() {
                             onClick={() => changeUserRole(user.id, "USER")}
                             className="cursor-pointer"
                           >
-                            Make Standard User
+                            {t("admin.users.actions.makeUser") || "Make Standard User"}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => changeUserRole(user.id, "PARTNER")}
                             className="cursor-pointer"
                           >
-                            Make Partner
+                            {t("admin.users.actions.makePartner") || "Make Partner"}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => changeUserRole(user.id, "ADMIN")}
                             className="cursor-pointer font-semibold text-purple-600"
                           >
-                            Make Administrator
+                            {t("admin.users.actions.makeAdmin") || "Make Administrator"}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

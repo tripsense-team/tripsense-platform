@@ -48,11 +48,17 @@ public class PartnerAdminController {
         list.stream()
             .map(
                 a -> {
-                  Long bizVer =
-                      businessRepository.findById(a.getBusinessId()).map(fu.tripsense.tripservice.partner.entity.PartnerBusiness::getVersion).orElse(0L);
+                  var bizOpt = businessRepository.findById(a.getBusinessId());
+                  Long bizVer = bizOpt.map(fu.tripsense.tripservice.partner.entity.PartnerBusiness::getVersion).orElse(0L);
+                  String bizName = bizOpt.map(fu.tripsense.tripservice.partner.entity.PartnerBusiness::getDisplayName).orElse(null);
+                  String bizKind = bizOpt.map(b -> b.getKind().name()).orElse(null);
+                  UUID ownerId = bizOpt.map(fu.tripsense.tripservice.partner.entity.PartnerBusiness::getOwnerUserId).orElse(null);
                   return ApplicationDetailDto.builder()
                       .id(a.getId())
                       .businessId(a.getBusinessId())
+                      .businessName(bizName)
+                      .businessKind(bizKind)
+                      .ownerUserId(ownerId)
                       .revision(a.getRevision())
                       .profileSnapshot(a.getProfileSnapshot())
                       .checklistId(a.getChecklistId())

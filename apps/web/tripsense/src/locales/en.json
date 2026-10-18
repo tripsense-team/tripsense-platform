@@ -1,4 +1,353 @@
 {
+  "admin": {
+    "analytics": {
+      "aiEfficiency": "AI Efficiency",
+      "dailyActivityDesc": "Number of completed AI trip generation and recommendation sessions per day.",
+      "dailyActivityTitle": "Daily AI Itinerary Generation Activity",
+      "dataIntelligence": "Data Intelligence",
+      "days": {
+        "fri": "Fri",
+        "mon": "Mon",
+        "sat": "Sat",
+        "sun": "Sun",
+        "thu": "Thu",
+        "tue": "Tue",
+        "wed": "Wed"
+      },
+      "denseVectorSim": "Dense vector cosine similarity",
+      "gatewayLatency": "AI Gateway Route Latency",
+      "gatewaySla": "99.99% within 50ms SLA",
+      "generatedTrips": "Generated Trips",
+      "infrastructureDesc": "End-to-end latency benchmarks across TripSense AI Agent and Gateway pipelines",
+      "infrastructurePerformance": "Infrastructure Performance & SLA",
+      "kpi": {
+        "aiItineraries": "AI Itineraries Generated",
+        "aiItinerariesSub": "98.2% completion rate",
+        "avgAiLatency": "Avg. AI Latency",
+        "avgAiLatencySub": "Faster than target SLA",
+        "destinationsExplored": "Destinations Explored",
+        "destinationsExploredSub": "Across 48 countries",
+        "monthlyTravelers": "Monthly Active Travelers",
+        "monthlyTravelersSub": "vs. previous month"
+      },
+      "llmPipeline": "LLM Generation Pipeline",
+      "peakFriday": "Peak: Friday (5,200 requests)",
+      "placeSearchEngine": "Place Search Engine (Qdrant)",
+      "share": "Share",
+      "streamingTime": "Streaming response time",
+      "subtitle": "Comprehensive metrics on user growth, travel planning trends, and AI infrastructure efficiency.",
+      "telemetry": "Telemetry",
+      "title": "Platform Analytics",
+      "topDestinations": "Top Trending Destinations",
+      "topDestinationsSub": "Based on itinerary generation and place bookmarking volume",
+      "visits": "Visits"
+    },
+    "dashboard": {
+      "badge": "Admin Dashboard",
+      "controlCenter": "TripSense Control Center",
+      "description": "Monitor real-time system performance, user activity, and microservice status.",
+      "metrics": {
+        "activeTrips": "Active Trips Planned",
+        "eurekaStatusUp": "Eureka Status UP",
+        "gatewayTraffic": "Gateway Traffic (24h)",
+        "liveServices": "3 / 3 Live",
+        "reqsProcessed": "reqs processed",
+        "systemServices": "System Microservices",
+        "totalUsers": "Total Registered Users",
+        "vsLastMonth": "vs. last month"
+      },
+      "recentActivities": {
+        "act1Action": "Verified Email & Activated Account",
+        "act1Time": "2 mins ago",
+        "act2Action": "Generated 5-day Tokyo AI Itinerary",
+        "act2Time": "15 mins ago",
+        "act3Action": "Saved Place: Da Nang Dragon Bridge",
+        "act3Time": "32 mins ago",
+        "act4Action": "Eureka Discovery Heartbeat Sync",
+        "act4Time": "1 hour ago",
+        "description": "Real-time user authentication and platform events.",
+        "statusSuccess": "Success",
+        "statusSystem": "System",
+        "title": "Recent Activity Logs"
+      },
+      "servicesHealth": {
+        "description": "Spring Cloud Netflix Eureka Service Discovery & API Gateway routes status.",
+        "eurekaActive": "Eureka Discovery Active",
+        "latency": "Latency",
+        "title": "Microservices System Health",
+        "uptime": "Uptime"
+      },
+      "title": "Platform Overview"
+    },
+    "header": {
+      "allServicesOperational": "All Services Operational",
+      "degradedServices": "Degraded Services",
+      "exitToMain": "Exit to Main Site",
+      "notifications": "Admin Notifications",
+      "searchPlaceholder": "Search users, places, trips, or service logs...",
+      "serviceStatusMonitor": "Service Status Monitor",
+      "systemAdmin": "System Admin"
+    },
+    "partners": {
+      "address": "Address",
+      "approve": "Approve Application",
+      "businessId": "Business ID: {{id}}",
+      "businessInfoTitle": "Business & Applicant Profile",
+      "businessKind": "Business Type",
+      "businessName": "Business / Partner Name",
+      "checklistCode": "Checklist: {{id}} (v{{version}})",
+      "checklistTitle": "Verification Checklist:",
+      "claims": {
+        "approveClaim": "Approve Claim (Transfer Ownership)",
+        "claimant": "Claimant",
+        "currentOwner": "Current Owner",
+        "desc": "Separated dual-side review workspace: Admin reviews evidence from both Claimant and current Owner without cross-exposure of documents.",
+        "dispute": "Ownership Dispute",
+        "reason": "Claim Reason",
+        "rejectClaim": "Reject Claim",
+        "title": "Business Management Claims (MANAGEMENT_CLAIM)"
+      },
+      "contactInfo": "Contact Information",
+      "description": "Description",
+      "destination": "Destination",
+      "detailsTitle": "Application Details #{{id}}",
+      "email": "Email",
+      "emptyQueue": "No applications currently pending review.",
+      "kinds": {
+        "HOTEL": "Hotel & Resort",
+        "RESTAURANT": "Restaurant & Dining",
+        "TOUR_GUIDE": "Tour Guide",
+        "UNKNOWN": "Partner Business"
+      },
+      "ownerAccount": "Owner Account ID",
+      "phone": "Phone",
+      "queueTitle": "Application Queue ({{count}})",
+      "reasonRequiredChanges": "Please enter a reason when requesting additional information.",
+      "reasonRequiredReject": "Please enter a reason when rejecting an application.",
+      "reject": "Reject",
+      "requestChanges": "Request Changes",
+      "requestedCapabilities": "Requested Capabilities:",
+      "reviewNotesLabel": "Review Notes / Decision Reason:",
+      "reviewNotesPlaceholder": "Notes on document verification or reasons for requested changes...",
+      "selectPrompt": "Select an application on the left to view and review.",
+      "subtitle": "Queue for reviewing partner applications, verifying credentials, and resolving management claims.",
+      "title": "Partner & Business Verification",
+      "versionInfo": "Version {{revision}} • Submitted {{date}}",
+      "website": "Website"
+    },
+    "places": {
+      "addPlace": "Add Place",
+      "catalog": "Catalog",
+      "categories": {
+        "all": "All",
+        "attraction": "Attraction",
+        "culture": "Culture",
+        "hotel": "Hotel",
+        "restaurant": "Restaurant"
+      },
+      "empty": "No places match your search.",
+      "inspect": "Inspect",
+      "management": "Places Management",
+      "provider": "Provider: {{name}}",
+      "reviewsCount": "({{count}} reviews)",
+      "searchPlaceholder": "Search by place name, city, or provider...",
+      "subtitle": "Browse, verify, and curate points of interest across global destinations.",
+      "title": "Destinations & Places",
+      "totalPlaces": "Total: {{count}} Places",
+      "unverified": "Unverified Place",
+      "verified": "Verified",
+      "verifiedOfficial": "Verified Official"
+    },
+    "reports": {
+      "actions": {
+        "banUser": "Ban User",
+        "deleteContent": "Delete Content",
+        "dismiss": "Dismiss",
+        "resolve": "Resolve"
+      },
+      "all": "All",
+      "cleanQueue": "No reports in this category. Queue is clean!",
+      "empty": "No moderation reports matching the selected filters.",
+      "filterSeverity": "Severity:",
+      "filterStatus": "Status:",
+      "moderation": "Moderation",
+      "openFlags": "{{count}} Open Flags",
+      "priority": "{{severity}} PRIORITY",
+      "reportedBy": "Reported by: {{user}} • {{time}}",
+      "searchPlaceholder": "Search by reason, target, or reporter...",
+      "severity": {
+        "high": "High",
+        "low": "Low",
+        "medium": "Medium"
+      },
+      "status": {
+        "dismissed": "Dismissed",
+        "pending": "Pending",
+        "resolved": "Resolved"
+      },
+      "subtitle": "Review user flags, spam reports, and community moderation items.",
+      "targetTypes": {
+        "comment": "Comment",
+        "communityPost": "Community Post",
+        "hotel": "Hotel",
+        "user": "User"
+      },
+      "title": "Reports & Flags",
+      "trustSafety": "Trust & Safety",
+      "violationReason": "Violation Reason:"
+    },
+    "reviews": {
+      "actions": {
+        "approve": "Approve",
+        "delete": "Delete",
+        "reject": "Reject"
+      },
+      "all": "All",
+      "approveBtn": "Approve Review",
+      "communityModeration": "Community Moderation",
+      "empty": "No reviews match your filter.",
+      "filterStatus": "Status:",
+      "pendingCount": "{{count}} Pending Verification",
+      "rejectBtn": "Reject Review",
+      "searchPlaceholder": "Search by reviewer, place, or review content...",
+      "status": {
+        "approved": "Approved",
+        "pending": "Pending",
+        "rejected": "Rejected"
+      },
+      "subtitle": "Moderate traveler reviews, verify authentic experiences, and maintain content quality.",
+      "title": "Reviews & Feedback",
+      "userFeedback": "User Feedback"
+    },
+    "services": {
+      "databasesDesc": "Distributed persistent layers and vector embeddings engine.",
+      "databasesTitle": "Databases, Cache & Container Engine",
+      "framework": "Framework: {{name}}",
+      "health": "Health",
+      "healthEndpoint": "Health Endpoint:",
+      "infrastructure": "Spring Cloud Infrastructure",
+      "latency": "Latency",
+      "onlineCount": "10 / 10 Online",
+      "port": "Port:",
+      "refresh": "Refresh Health Status",
+      "role": "Role",
+      "status": {
+        "degraded": "DEGRADED",
+        "down": "DOWN",
+        "up": "UP"
+      },
+      "statusHealthy": "HEALTHY",
+      "subtitle": "Real-time telemetry and health monitoring across the TripSense Spring Cloud infrastructure.",
+      "telemetry": "Telemetry",
+      "title": "Microservices System Health",
+      "uptime": "Uptime"
+    },
+    "sidebar": {
+      "analytics": "Analytics",
+      "apiKeysIntegrations": "API Keys & AI Services",
+      "brandSubtitle": "v1.0.0 • Control Center",
+      "brandTitle": "TripSense Admin",
+      "collapseSidebar": "Collapse Admin Sidebar",
+      "dashboard": "Dashboard",
+      "destinationsPlaces": "Destinations & Places",
+      "expandSidebar": "Expand Admin Sidebar",
+      "hotelListings": "Hotel Listings",
+      "management": "Management",
+      "microservicesHealth": "Microservices Health",
+      "moderation": "Moderation",
+      "newBadge": "New",
+      "overview": "Overview",
+      "partnerApprovals": "Partner Approvals",
+      "platformLabel": "TripSense Platform",
+      "reportsFlags": "Reports & Flags",
+      "reviewsFeedback": "Reviews & Feedback",
+      "systemInfrastructure": "System & Infrastructure",
+      "systemLogs": "System Logs",
+      "tripsItineraries": "Trips & Itineraries",
+      "userAccounts": "User Accounts"
+    },
+    "trips": {
+      "actions": {
+        "archive": "Archive Trip",
+        "restore": "Restore Trip",
+        "view": "View Itinerary"
+      },
+      "aiBadge": "AI Generated",
+      "aiCrafted": "AI Crafted",
+      "all": "All",
+      "daysPlanned": "{{count}} Days planned",
+      "empty": "No itineraries match your filter.",
+      "itineraries": "Itineraries",
+      "management": "Trip Management",
+      "manual": "Manual",
+      "searchPlaceholder": "Search by trip name, destination, or creator...",
+      "spotsCount": "{{count}} spots",
+      "status": {
+        "active": "Active",
+        "archived": "Archived"
+      },
+      "subtitle": "Monitor user-created and AI-generated travel itineraries across the platform.",
+      "table": {
+        "actions": "Actions",
+        "creator": "Creator",
+        "dates": "Dates",
+        "destination": "Destination",
+        "durationPlaces": "Duration & Places",
+        "status": "Status",
+        "tripName": "Trip Name",
+        "type": "Type",
+        "visibility": "Visibility"
+      },
+      "title": "Trips & Itineraries",
+      "totalTrips": "Total: {{count}} Trips",
+      "visibility": {
+        "private": "Private",
+        "public": "Public",
+        "shared": "Shared"
+      },
+      "visibilityFilter": "Visibility:"
+    },
+    "users": {
+      "actions": {
+        "activate": "Activate Account",
+        "makeAdmin": "Make Admin",
+        "makePartner": "Make Partner",
+        "makeUser": "Make User",
+        "reactivate": "Reactivate Account",
+        "sendEmail": "Send Email",
+        "suspend": "Suspend Account"
+      },
+      "all": "All",
+      "directory": "Directory",
+      "empty": "No users match your criteria.",
+      "management": "User Management",
+      "roleFilter": "Role:",
+      "roles": {
+        "admin": "Administrator",
+        "partner": "Partner",
+        "user": "User"
+      },
+      "searchPlaceholder": "Search by name or email...",
+      "status": {
+        "active": "Active",
+        "suspended": "Suspended",
+        "unverified": "Unverified",
+        "verified": "Verified"
+      },
+      "statusFilter": "Status:",
+      "subtitle": "Manage user roles, verify accounts, and oversee platform access.",
+      "table": {
+        "actions": "Actions",
+        "joined": "Joined",
+        "role": "Role",
+        "status": "Status",
+        "trips": "Trips",
+        "user": "User"
+      },
+      "title": "User Accounts",
+      "totalUsers": "Total: {{count}} Users"
+    }
+  },
   "aiPlanner": {
     "addedToTrip": "Added to trip",
     "addToTripConfirm": "Confirm adding to trip",
@@ -811,8 +1160,8 @@
       "title": "Production Database Places Overview",
       "totalPlaces": "Total Places"
     },
-    "subtitle": "Manage Token Pools (ZioMap & Gemini), monitor batch enrichment and vector sync",
-    "title": "Data Enrichment & Token Management",
+    "subtitle": "Manage API key pools (Gemini, ZioMap), monitor token quotas, and run place data enrichment",
+    "title": "API Keys & AI Model Infrastructure",
     "tokenCard": {
       "currentStatus": "Current Token",
       "description": "Configure the active API token for ZioMap Maps & Places API. Changing this updates place-service runtime immediately.",

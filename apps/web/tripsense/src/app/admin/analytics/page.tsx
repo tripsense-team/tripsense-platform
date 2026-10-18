@@ -20,37 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
-const kpiStats = [
-  {
-    title: "Monthly Active Travelers",
-    value: "42,890",
-    change: "+18.4%",
-    icon: Users,
-    subtext: "vs. previous month",
-  },
-  {
-    title: "AI Itineraries Generated",
-    value: "15,240",
-    change: "+32.1%",
-    icon: Sparkles,
-    subtext: "98.2% completion rate",
-  },
-  {
-    title: "Destinations Explored",
-    value: "1,892",
-    change: "+12.7%",
-    icon: Compass,
-    subtext: "Across 48 countries",
-  },
-  {
-    title: "Avg. AI Latency",
-    value: "1.24s",
-    change: "-14.5%",
-    icon: Zap,
-    subtext: "Faster than target SLA",
-  },
-];
+import { useTranslation } from "@/i18n";
 
 const topDestinations = [
   { name: "Tokyo, Japan", visits: "14,820", share: 34, growth: "+24%" },
@@ -60,18 +30,50 @@ const topDestinations = [
   { name: "Bangkok, Thailand", visits: "4,360", share: 10, growth: "+19%" },
 ];
 
-const trafficTrend = [
-  { day: "Mon", queries: 3200, height: "65%" },
-  { day: "Tue", queries: 4100, height: "82%" },
-  { day: "Wed", queries: 3800, height: "76%" },
-  { day: "Thu", queries: 4600, height: "92%" },
-  { day: "Fri", queries: 5200, height: "100%" },
-  { day: "Sat", queries: 4800, height: "95%" },
-  { day: "Sun", queries: 3900, height: "78%" },
-];
-
 export default function AdminAnalyticsPage() {
+  const { t } = useTranslation();
   const [timeRange, setTimeRange] = React.useState<"7d" | "30d" | "90d" | "1y">("30d");
+
+  const kpiStats = [
+    {
+      title: t("admin.analytics.kpi.monthlyTravelers") || "Monthly Active Travelers",
+      value: "42,890",
+      change: "+18.4%",
+      icon: Users,
+      subtext: t("admin.analytics.kpi.monthlyTravelersSub") || "vs. previous month",
+    },
+    {
+      title: t("admin.analytics.kpi.aiItineraries") || "AI Itineraries Generated",
+      value: "15,240",
+      change: "+32.1%",
+      icon: Sparkles,
+      subtext: t("admin.analytics.kpi.aiItinerariesSub") || "98.2% completion rate",
+    },
+    {
+      title: t("admin.analytics.kpi.destinationsExplored") || "Destinations Explored",
+      value: "1,892",
+      change: "+12.7%",
+      icon: Compass,
+      subtext: t("admin.analytics.kpi.destinationsExploredSub") || "Across 48 countries",
+    },
+    {
+      title: t("admin.analytics.kpi.avgAiLatency") || "Avg. AI Latency",
+      value: "1.24s",
+      change: "-14.5%",
+      icon: Zap,
+      subtext: t("admin.analytics.kpi.avgAiLatencySub") || "Faster than target SLA",
+    },
+  ];
+
+  const trafficTrend = [
+    { day: t("admin.analytics.days.mon") || "Mon", queries: 3200, height: "65%" },
+    { day: t("admin.analytics.days.tue") || "Tue", queries: 4100, height: "82%" },
+    { day: t("admin.analytics.days.wed") || "Wed", queries: 3800, height: "76%" },
+    { day: t("admin.analytics.days.thu") || "Thu", queries: 4600, height: "92%" },
+    { day: t("admin.analytics.days.fri") || "Fri", queries: 5200, height: "100%" },
+    { day: t("admin.analytics.days.sat") || "Sat", queries: 4800, height: "95%" },
+    { day: t("admin.analytics.days.sun") || "Sun", queries: 3900, height: "78%" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -80,13 +82,13 @@ export default function AdminAnalyticsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-              <TrendingUp className="h-3.5 w-3.5 mr-1" /> Analytics & Performance
+              <TrendingUp className="h-3.5 w-3.5 mr-1" /> {t("admin.analytics.telemetry") || "Analytics & Performance"}
             </Badge>
-            <span className="text-xs text-muted-foreground">Platform Intelligence</span>
+            <span className="text-xs text-muted-foreground">{t("admin.analytics.dataIntelligence") || "Platform Intelligence"}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">System Analytics</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("admin.analytics.title") || "Platform Analytics"}</h1>
           <p className="text-sm text-muted-foreground">
-            Traveler engagement, itinerary generation trends, and platform reach.
+            {t("admin.analytics.subtitle") || "Traveler engagement, itinerary generation trends, and platform reach."}
           </p>
         </div>
 
@@ -141,10 +143,11 @@ export default function AdminAnalyticsPage() {
         <Card className="lg:col-span-2 bg-card border-border shadow-2xs">
           <CardHeader>
             <CardTitle className="text-base font-bold text-foreground">
-              Daily AI Itinerary Generation Activity
+              {t("admin.analytics.dailyActivityTitle") || "Daily AI Itinerary Generation Activity"}
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Number of completed AI trip generation and recommendation sessions per day.
+              {t("admin.analytics.dailyActivityDesc") ||
+                "Number of completed AI trip generation and recommendation sessions per day."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -164,9 +167,12 @@ export default function AdminAnalyticsPage() {
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground mt-4 px-2">
               <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Generated Trips
+                <span className="h-2.5 w-2.5 rounded-full bg-primary" />{" "}
+                {t("admin.analytics.generatedTrips") || "Generated Trips"}
               </span>
-              <span className="font-mono">Peak: Friday (5,200 requests)</span>
+              <span className="font-mono">
+                {t("admin.analytics.peakFriday") || "Peak: Friday (5,200 requests)"}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -175,11 +181,13 @@ export default function AdminAnalyticsPage() {
         <Card className="bg-card border-border shadow-2xs">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-bold text-foreground">Top Destinations</CardTitle>
+              <CardTitle className="text-base font-bold text-foreground">
+                {t("admin.analytics.topDestinations") || "Top Destinations"}
+              </CardTitle>
               <Globe2 className="h-4 w-4 text-muted-foreground" />
             </div>
             <CardDescription className="text-xs text-muted-foreground">
-              Most planned cities by travelers this month
+              {t("admin.analytics.topDestinationsSub") || "Most planned cities by travelers this month"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -210,36 +218,45 @@ export default function AdminAnalyticsPage() {
       {/* Latency & Quality Metrics */}
       <Card className="bg-card border-border shadow-2xs">
         <CardHeader>
-          <CardTitle className="text-base font-bold text-foreground">Infrastructure Performance & SLA</CardTitle>
+          <CardTitle className="text-base font-bold text-foreground">
+            {t("admin.analytics.infrastructurePerformance") || "Infrastructure Performance & SLA"}
+          </CardTitle>
           <CardDescription className="text-xs text-muted-foreground">
-            End-to-end latency benchmarks across TripSense AI Agent and Gateway pipelines
+            {t("admin.analytics.infrastructureDesc") ||
+              "End-to-end latency benchmarks across TripSense AI Agent and Gateway pipelines"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>AI Gateway Route Latency</span>
+                <span>{t("admin.analytics.gatewayLatency") || "AI Gateway Route Latency"}</span>
                 <Clock className="h-3.5 w-3.5" />
               </div>
               <div className="text-2xl font-bold font-mono text-foreground">12.4ms</div>
-              <p className="text-micro text-emerald-600 dark:text-emerald-400">99.99% within 50ms SLA</p>
+              <p className="text-micro text-emerald-600 dark:text-emerald-400">
+                {t("admin.analytics.gatewaySla") || "99.99% within 50ms SLA"}
+              </p>
             </div>
             <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Place Search Engine (Qdrant)</span>
+                <span>{t("admin.analytics.placeSearchEngine") || "Place Search Engine (Qdrant)"}</span>
                 <Zap className="h-3.5 w-3.5" />
               </div>
               <div className="text-2xl font-bold font-mono text-foreground">34.8ms</div>
-              <p className="text-micro text-emerald-600 dark:text-emerald-400">Dense vector cosine similarity</p>
+              <p className="text-micro text-emerald-600 dark:text-emerald-400">
+                {t("admin.analytics.denseVectorSim") || "Dense vector cosine similarity"}
+              </p>
             </div>
             <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-1">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>LLM Generation Pipeline</span>
+                <span>{t("admin.analytics.llmPipeline") || "LLM Generation Pipeline"}</span>
                 <Sparkles className="h-3.5 w-3.5" />
               </div>
               <div className="text-2xl font-bold font-mono text-foreground">1.18s</div>
-              <p className="text-micro text-emerald-600 dark:text-emerald-400">Streaming response time</p>
+              <p className="text-micro text-emerald-600 dark:text-emerald-400">
+                {t("admin.analytics.streamingTime") || "Streaming response time"}
+              </p>
             </div>
           </div>
         </CardContent>

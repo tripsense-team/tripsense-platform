@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import {
   Users,
@@ -16,37 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-const metricCards = [
-  {
-    title: "Total Registered Users",
-    value: "2,845",
-    change: "+14.2%",
-    description: "vs. last month",
-    icon: Users,
-  },
-  {
-    title: "Active Trips Planned",
-    value: "1,420",
-    change: "+28.4%",
-    description: "vs. last month",
-    icon: Route,
-  },
-  {
-    title: "Gateway Traffic (24h)",
-    value: "184,290",
-    change: "+9.1%",
-    description: "reqs processed",
-    icon: Activity,
-  },
-  {
-    title: "System Microservices",
-    value: "3 / 3 Live",
-    change: "100%",
-    description: "Eureka Status UP",
-    icon: Server,
-  },
-];
+import { useTranslation } from "@/i18n";
 
 const microservicesStatus = [
   {
@@ -72,38 +44,87 @@ const microservicesStatus = [
   },
 ];
 
-const recentActivities = [
-  {
-    id: "act-1",
-    user: "giabaoworking362004@gmail.com",
-    action: "Verified Email & Activated Account",
-    timestamp: "2 mins ago",
-    status: "Success",
-  },
-  {
-    id: "act-2",
-    user: "alex.traveler@mindtrip.ai",
-    action: "Generated 5-day Tokyo AI Itinerary",
-    timestamp: "15 mins ago",
-    status: "Success",
-  },
-  {
-    id: "act-3",
-    user: "sarah.m@gmail.com",
-    action: "Saved Place: Da Nang Dragon Bridge",
-    timestamp: "32 mins ago",
-    status: "Success",
-  },
-  {
-    id: "act-4",
-    user: "system.gateway",
-    action: "Eureka Discovery Heartbeat Sync",
-    timestamp: "1 hour ago",
-    status: "System",
-  },
-];
-
 export default function AdminDashboardPage() {
+  const { t } = useTranslation();
+
+  const metricCards = [
+    {
+      title: t("admin.dashboard.metrics.totalUsers") || "Total Registered Users",
+      value: "2,845",
+      change: "+14.2%",
+      description: t("admin.dashboard.metrics.vsLastMonth") || "vs. last month",
+      icon: Users,
+    },
+    {
+      title: t("admin.dashboard.metrics.activeTrips") || "Active Trips Planned",
+      value: "1,420",
+      change: "+28.4%",
+      description: t("admin.dashboard.metrics.vsLastMonth") || "vs. last month",
+      icon: Route,
+    },
+    {
+      title: t("admin.dashboard.metrics.gatewayTraffic") || "Gateway Traffic (24h)",
+      value: "184,290",
+      change: "+9.1%",
+      description: t("admin.dashboard.metrics.reqsProcessed") || "reqs processed",
+      icon: Activity,
+    },
+    {
+      title: t("admin.dashboard.metrics.systemServices") || "System Microservices",
+      value: t("admin.dashboard.metrics.liveServices") || "3 / 3 Live",
+      change: "100%",
+      description: t("admin.dashboard.metrics.eurekaStatusUp") || "Eureka Status UP",
+      icon: Server,
+    },
+  ];
+
+  const recentActivities = [
+    {
+      id: "act-1",
+      user: "giabaoworking362004@gmail.com",
+      action:
+        t("admin.dashboard.recentActivities.act1Action") ||
+        "Verified Email & Activated Account",
+      timestamp:
+        t("admin.dashboard.recentActivities.act1Time") || "2 mins ago",
+      status:
+        t("admin.dashboard.recentActivities.statusSuccess") || "Success",
+    },
+    {
+      id: "act-2",
+      user: "alex.traveler@mindtrip.ai",
+      action:
+        t("admin.dashboard.recentActivities.act2Action") ||
+        "Generated 5-day Tokyo AI Itinerary",
+      timestamp:
+        t("admin.dashboard.recentActivities.act2Time") || "15 mins ago",
+      status:
+        t("admin.dashboard.recentActivities.statusSuccess") || "Success",
+    },
+    {
+      id: "act-3",
+      user: "sarah.m@gmail.com",
+      action:
+        t("admin.dashboard.recentActivities.act3Action") ||
+        "Saved Place: Da Nang Dragon Bridge",
+      timestamp:
+        t("admin.dashboard.recentActivities.act3Time") || "32 mins ago",
+      status:
+        t("admin.dashboard.recentActivities.statusSuccess") || "Success",
+    },
+    {
+      id: "act-4",
+      user: "system.gateway",
+      action:
+        t("admin.dashboard.recentActivities.act4Action") ||
+        "Eureka Discovery Heartbeat Sync",
+      timestamp:
+        t("admin.dashboard.recentActivities.act4Time") || "1 hour ago",
+      status:
+        t("admin.dashboard.recentActivities.statusSystem") || "System",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Top Banner / Welcome */}
@@ -114,18 +135,19 @@ export default function AdminDashboardPage() {
               variant="outline"
               className="bg-primary/10 text-primary border-primary/20 text-xs"
             >
-              <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Admin Dashboard
+              <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+              {t("admin.dashboard.badge") || "Admin Dashboard"}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              TripSense Control Center
+              {t("admin.dashboard.controlCenter") || "TripSense Control Center"}
             </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Platform Overview
+            {t("admin.dashboard.title") || "Platform Overview"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Monitor real-time system performance, user activity, and
-            microservice status.
+            {t("admin.dashboard.description") ||
+              "Monitor real-time system performance, user activity, and microservice status."}
           </p>
         </div>
       </div>
@@ -170,16 +192,18 @@ export default function AdminDashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base font-bold text-foreground">
-                Microservices System Health
+                {t("admin.dashboard.servicesHealth.title") ||
+                  "Microservices System Health"}
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Spring Cloud Netflix Eureka Service Discovery & API Gateway
-                routes status.
+                {t("admin.dashboard.servicesHealth.description") ||
+                  "Spring Cloud Netflix Eureka Service Discovery & API Gateway routes status."}
               </CardDescription>
             </div>
             <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Eureka Discovery
-              Active
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+              {t("admin.dashboard.servicesHealth.eurekaActive") ||
+                "Eureka Discovery Active"}
             </Badge>
           </div>
         </CardHeader>
@@ -200,9 +224,15 @@ export default function AdminDashboardPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>Uptime: {service.uptime}</span>
+                    <span>
+                      {t("admin.dashboard.servicesHealth.uptime") || "Uptime"}:{" "}
+                      {service.uptime}
+                    </span>
                     <span>•</span>
-                    <span>Latency: {service.latency}</span>
+                    <span>
+                      {t("admin.dashboard.servicesHealth.latency") || "Latency"}:{" "}
+                      {service.latency}
+                    </span>
                   </div>
                 </div>
                 <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-mono text-micro">
@@ -220,10 +250,12 @@ export default function AdminDashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base font-bold text-foreground">
-                Recent Activity Logs
+                {t("admin.dashboard.recentActivities.title") ||
+                  "Recent Activity Logs"}
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Real-time user authentication and platform events.
+                {t("admin.dashboard.recentActivities.description") ||
+                  "Real-time user authentication and platform events."}
               </CardDescription>
             </div>
           </div>

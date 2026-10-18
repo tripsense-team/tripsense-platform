@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/i18n";
 
 interface MicroserviceItem {
   name: string;
@@ -156,6 +157,7 @@ const infraList = [
 ];
 
 export default function AdminServicesPage() {
+  const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const handleRefresh = () => {
@@ -172,13 +174,13 @@ export default function AdminServicesPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
-              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> 10 / 10 Online
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> {t("admin.services.onlineCount") || "10 / 10 Online"}
             </Badge>
-            <span className="text-xs text-muted-foreground">Spring Cloud & Infrastructure</span>
+            <span className="text-xs text-muted-foreground">{t("admin.services.infrastructure") || "Spring Cloud Infrastructure"}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Microservices System Health</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("admin.services.title") || "Microservices System Health"}</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time status of backend microservices, API Gateway, Eureka Registry, and Databases.
+            {t("admin.services.subtitle") || "Real-time status of backend microservices, API Gateway, Eureka Registry, and Databases."}
           </p>
         </div>
 
@@ -189,7 +191,7 @@ export default function AdminServicesPage() {
           disabled={isRefreshing}
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          <span>Refresh Status</span>
+          <span>{t("admin.services.refresh") || "Refresh Status"}</span>
         </Button>
       </div>
 
@@ -220,9 +222,9 @@ export default function AdminServicesPage() {
 
               <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
                 <div className="flex items-center gap-3 text-muted-foreground font-mono">
-                  <span>Uptime: <strong className="text-foreground">{svc.uptime}</strong></span>
+                  <span>{t("admin.services.uptime") || "Uptime"}: <strong className="text-foreground">{svc.uptime}</strong></span>
                   <span>•</span>
-                  <span>Latency: <strong className="text-foreground">{svc.latency}</strong></span>
+                  <span>{t("admin.services.latency") || "Latency"}: <strong className="text-foreground">{svc.latency}</strong></span>
                 </div>
 
                 <a
@@ -231,7 +233,7 @@ export default function AdminServicesPage() {
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-primary hover:underline font-medium text-xs"
                 >
-                  <span>Health</span>
+                  <span>{t("admin.services.health") || "Health"}</span>
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
@@ -246,11 +248,11 @@ export default function AdminServicesPage() {
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-primary" />
             <CardTitle className="text-base font-bold text-foreground">
-              Databases, Cache & Container Engine
+              {t("admin.services.databasesTitle") || "Databases, Cache & Container Engine"}
             </CardTitle>
           </div>
           <CardDescription className="text-xs text-muted-foreground">
-            Distributed persistent layers and vector embeddings engine.
+            {t("admin.services.databasesDesc") || "Distributed persistent layers and vector embeddings engine."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -267,7 +269,7 @@ export default function AdminServicesPage() {
                   </div>
                 </div>
                 <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-micro">
-                  {infra.status}
+                  {t("admin.services.statusHealthy") || infra.status}
                 </Badge>
               </div>
             ))}

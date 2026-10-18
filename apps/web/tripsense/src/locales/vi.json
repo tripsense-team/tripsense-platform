@@ -1,4 +1,353 @@
 {
+  "admin": {
+    "analytics": {
+      "aiEfficiency": "Hiệu quả AI",
+      "dailyActivityDesc": "Số phiên tạo lịch trình và gợi ý của AI hoàn tất mỗi ngày.",
+      "dailyActivityTitle": "Hoạt động tạo lịch trình AI hàng ngày",
+      "dataIntelligence": "Thông tin dữ liệu",
+      "days": {
+        "fri": "T6",
+        "mon": "T2",
+        "sat": "T7",
+        "sun": "CN",
+        "thu": "T5",
+        "tue": "T3",
+        "wed": "T4"
+      },
+      "denseVectorSim": "Độ tương đồng cosine vector dày đặc",
+      "gatewayLatency": "Độ trễ định tuyến AI Gateway",
+      "gatewaySla": "99.99% đạt chuẩn SLA < 50ms",
+      "generatedTrips": "Chuyến đi đã tạo",
+      "infrastructureDesc": "Đo lường độ trễ toàn trình trên Agent AI TripSense và các tuyến Gateway",
+      "infrastructurePerformance": "Hiệu suất Hạ tầng & Cam kết SLA",
+      "kpi": {
+        "aiItineraries": "Lịch trình AI đã tạo",
+        "aiItinerariesSub": "Tỷ lệ hoàn thành 98.2%",
+        "avgAiLatency": "Độ trễ AI trung bình",
+        "avgAiLatencySub": "Nhanh hơn mục tiêu SLA",
+        "destinationsExplored": "Điểm đến đã khám phá",
+        "destinationsExploredSub": "Tại 48 quốc gia",
+        "monthlyTravelers": "Du khách hoạt động hàng tháng",
+        "monthlyTravelersSub": "so với tháng trước"
+      },
+      "llmPipeline": "Quy trình sinh nội dung LLM",
+      "peakFriday": "Đỉnh điểm: Thứ sáu (5.200 yêu cầu)",
+      "placeSearchEngine": "Công cụ tìm kiếm địa điểm (Qdrant)",
+      "share": "Thị phần",
+      "streamingTime": "Thời gian phản hồi dạng streaming",
+      "subtitle": "Số liệu toàn diện về tăng trưởng người dùng, xu hướng lập kế hoạch du lịch và hiệu suất hạ tầng AI.",
+      "telemetry": "Đo lường",
+      "title": "Phân tích nền tảng",
+      "topDestinations": "Điểm đến thịnh hành nhất",
+      "topDestinationsSub": "Dựa trên số lượt tạo lịch trình và lượt lưu địa điểm",
+      "visits": "Lượt ghé"
+    },
+    "dashboard": {
+      "badge": "Bảng điều khiển Admin",
+      "controlCenter": "Trung tâm điều hành TripSense",
+      "description": "Theo dõi hiệu năng hệ thống theo thời gian thực, hoạt động người dùng và trạng thái microservice.",
+      "metrics": {
+        "activeTrips": "Chuyến đi đang lên kế hoạch",
+        "eurekaStatusUp": "Trạng thái Eureka UP",
+        "gatewayTraffic": "Lưu lượng Gateway (24h)",
+        "liveServices": "3 / 3 Trực tuyến",
+        "reqsProcessed": "yêu cầu đã xử lý",
+        "systemServices": "Microservices hệ thống",
+        "totalUsers": "Tổng người dùng đăng ký",
+        "vsLastMonth": "so với tháng trước"
+      },
+      "recentActivities": {
+        "act1Action": "Xác thực email & Kích hoạt tài khoản",
+        "act1Time": "2 phút trước",
+        "act2Action": "Tạo lịch trình AI 5 ngày Tokyo",
+        "act2Time": "15 phút trước",
+        "act3Action": "Lưu địa điểm: Cầu Rồng Đà Nẵng",
+        "act3Time": "32 phút trước",
+        "act4Action": "Đồng bộ nhịp tim Eureka Discovery",
+        "act4Time": "1 giờ trước",
+        "description": "Sự kiện nền tảng và xác thực người dùng theo thời gian thực.",
+        "statusSuccess": "Thành công",
+        "statusSystem": "Hệ thống",
+        "title": "Nhật ký hoạt động gần đây"
+      },
+      "servicesHealth": {
+        "description": "Trạng thái khám phá dịch vụ Spring Cloud Netflix Eureka & định tuyến API Gateway.",
+        "eurekaActive": "Eureka Discovery hoạt động",
+        "latency": "Độ trễ",
+        "title": "Sức khỏe hệ thống Microservices",
+        "uptime": "Thời gian hoạt động"
+      },
+      "title": "Tổng quan nền tảng"
+    },
+    "header": {
+      "allServicesOperational": "Tất cả dịch vụ đang hoạt động",
+      "degradedServices": "Dịch vụ có sự cố",
+      "exitToMain": "Quay lại trang chính",
+      "notifications": "Thông báo quản trị",
+      "searchPlaceholder": "Tìm kiếm người dùng, địa điểm, chuyến đi, nhật ký...",
+      "serviceStatusMonitor": "Giám sát trạng thái dịch vụ",
+      "systemAdmin": "Quản trị viên hệ thống"
+    },
+    "partners": {
+      "address": "Địa chỉ",
+      "approve": "Phê duyệt hồ sơ",
+      "businessId": "Mã cơ sở: {{id}}",
+      "businessInfoTitle": "Thông tin Cơ sở & Người đại diện",
+      "businessKind": "Loại hình kinh doanh",
+      "businessName": "Tên cơ sở / Đối tác",
+      "checklistCode": "Mã checklist: {{id}} (v{{version}})",
+      "checklistTitle": "Checklist thẩm định:",
+      "claims": {
+        "approveClaim": "Chấp thuận yêu cầu (Chuyển quyền)",
+        "claimant": "Người yêu cầu",
+        "currentOwner": "Chủ sở hữu hiện tại",
+        "desc": "Giao diện phân lập thẩm định minh chứng hai bên: Admin đối soát tài liệu của Người yêu cầu (Claimant) và Chủ sở hữu hiện tại (Owner) mà không cấp quyền đọc tài liệu của nhau cho hai bên.",
+        "dispute": "Tranh chấp quyền sở hữu",
+        "reason": "Lý do tranh chấp",
+        "rejectClaim": "Bác bỏ yêu cầu",
+        "title": "Tranh chấp quyền quản lý cơ sở (MANAGEMENT_CLAIM)"
+      },
+      "contactInfo": "Thông tin liên hệ",
+      "description": "Mô tả cơ sở",
+      "destination": "Khu vực / Điểm đến",
+      "detailsTitle": "Chi tiết hồ sơ #{{id}}",
+      "email": "Email",
+      "emptyQueue": "Hiện không có hồ sơ nào đang chờ duyệt.",
+      "kinds": {
+        "HOTEL": "Khách sạn & Khu nghỉ dưỡng",
+        "RESTAURANT": "Nhà hàng & Ẩm thực",
+        "TOUR_GUIDE": "Hướng dẫn viên du lịch",
+        "UNKNOWN": "Cơ sở đối tác"
+      },
+      "ownerAccount": "Mã tài khoản chủ sở hữu",
+      "phone": "Số điện thoại",
+      "queueTitle": "Hàng đợi hồ sơ ({{count}})",
+      "reasonRequiredChanges": "Vui lòng nhập lý do khi yêu cầu bổ sung thông tin.",
+      "reasonRequiredReject": "Vui lòng nhập lý do khi từ chối hồ sơ.",
+      "reject": "Từ chối",
+      "requestChanges": "Yêu cầu bổ sung",
+      "requestedCapabilities": "Năng lực đề xuất phê duyệt:",
+      "reviewNotesLabel": "Ghi chú thẩm định / Lý do quyết định:",
+      "reviewNotesPlaceholder": "Ghi chú đối soát giấy tờ hoặc lý do cần bổ sung...",
+      "selectPrompt": "Chọn một hồ sơ bên trái để xem và thẩm định.",
+      "subtitle": "Hàng đợi xét duyệt hồ sơ đối tác, đối soát minh chứng và thẩm định tranh chấp quản lý cơ sở.",
+      "title": "Thẩm định Đối tác & Cơ sở Kinh doanh",
+      "versionInfo": "Phiên bản {{revision}} • Gửi ngày {{date}}",
+      "website": "Website"
+    },
+    "places": {
+      "addPlace": "Thêm địa điểm",
+      "catalog": "Danh mục",
+      "categories": {
+        "all": "Tất cả",
+        "attraction": "Điểm tham quan",
+        "culture": "Văn hóa & Di tích",
+        "hotel": "Khách sạn",
+        "restaurant": "Ẩm thực"
+      },
+      "empty": "Không tìm thấy địa điểm nào phù hợp.",
+      "inspect": "Xem chi tiết",
+      "management": "Quản lý địa điểm",
+      "provider": "Nguồn: {{name}}",
+      "reviewsCount": "({{count}} đánh giá)",
+      "searchPlaceholder": "Tìm kiếm theo tên địa điểm, thành phố hoặc nhà cung cấp...",
+      "subtitle": "Duyệt, xác thực và quản lý các địa điểm du lịch trên toàn thế giới.",
+      "title": "Điểm đến & Địa danh",
+      "totalPlaces": "Tổng số: {{count}} địa điểm",
+      "unverified": "Chưa xác thực",
+      "verified": "Đã xác thực",
+      "verifiedOfficial": "Đã xác thực chính thức"
+    },
+    "reports": {
+      "actions": {
+        "banUser": "Cấm người dùng",
+        "deleteContent": "Xóa nội dung",
+        "dismiss": "Bỏ qua",
+        "resolve": "Xử lý"
+      },
+      "all": "Tất cả",
+      "cleanQueue": "Không có báo cáo nào trong danh mục này. Hàng đợi sạch sẽ!",
+      "empty": "Không có báo cáo vi phạm nào phù hợp với bộ lọc.",
+      "filterSeverity": "Mức độ:",
+      "filterStatus": "Trạng thái:",
+      "moderation": "Kiểm duyệt",
+      "openFlags": "{{count}} Cờ chưa xử lý",
+      "priority": "MỨC ĐỘ {{severity}}",
+      "reportedBy": "Báo cáo bởi: {{user}} • {{time}}",
+      "searchPlaceholder": "Tìm kiếm theo lý do, mục tiêu hoặc người báo cáo...",
+      "severity": {
+        "high": "Nghiêm trọng",
+        "low": "Thấp",
+        "medium": "Trung bình"
+      },
+      "status": {
+        "dismissed": "Đã bỏ qua",
+        "pending": "Chờ xử lý",
+        "resolved": "Đã xử lý"
+      },
+      "subtitle": "Kiểm duyệt báo cáo vi phạm, nội dung rác và khiếu nại từ cộng đồng.",
+      "targetTypes": {
+        "comment": "Bình luận",
+        "communityPost": "Bài viết cộng đồng",
+        "hotel": "Khách sạn",
+        "user": "Người dùng"
+      },
+      "title": "Báo cáo & Khiếu nại",
+      "trustSafety": "Tin cậy & An toàn",
+      "violationReason": "Lý do vi phạm:"
+    },
+    "reviews": {
+      "actions": {
+        "approve": "Phê duyệt",
+        "delete": "Xóa",
+        "reject": "Từ chối"
+      },
+      "all": "Tất cả",
+      "approveBtn": "Phê duyệt đánh giá",
+      "communityModeration": "Kiểm duyệt cộng đồng",
+      "empty": "Không có đánh giá nào phù hợp với bộ lọc.",
+      "filterStatus": "Trạng thái:",
+      "pendingCount": "{{count}} Chờ xác minh",
+      "rejectBtn": "Từ chối đánh giá",
+      "searchPlaceholder": "Tìm kiếm theo người đánh giá, địa điểm hoặc nội dung...",
+      "status": {
+        "approved": "Đã duyệt",
+        "pending": "Chờ duyệt",
+        "rejected": "Đã từ chối"
+      },
+      "subtitle": "Kiểm duyệt đánh giá của du khách, xác thực trải nghiệm thực tế và bảo đảm chất lượng nội dung.",
+      "title": "Đánh giá & Phản hồi",
+      "userFeedback": "Phản hồi du khách"
+    },
+    "services": {
+      "databasesDesc": "Lớp lưu trữ dữ liệu phân tán và công cụ vector embedding.",
+      "databasesTitle": "Cơ sở dữ liệu, Cache & Bộ chứa Container",
+      "framework": "Framework: {{name}}",
+      "health": "Kiểm tra",
+      "healthEndpoint": "Điểm kiểm tra sức khỏe:",
+      "infrastructure": "Hạ tầng Spring Cloud",
+      "latency": "Độ trễ",
+      "onlineCount": "10 / 10 Trực tuyến",
+      "port": "Cổng:",
+      "refresh": "Làm mới trạng thái",
+      "role": "Vai trò",
+      "status": {
+        "degraded": "Giảm hiệu năng",
+        "down": "Ngừng hoạt động",
+        "up": "Hoạt động bình thường"
+      },
+      "statusHealthy": "HOẠT ĐỘNG",
+      "subtitle": "Giám sát vi dịch vụ và đo lường thời gian thực trên hạ tầng TripSense Spring Cloud.",
+      "telemetry": "Đo lường từ xa",
+      "title": "Sức khỏe hệ thống Microservices",
+      "uptime": "Thời gian hoạt động"
+    },
+    "sidebar": {
+      "analytics": "Phân tích số liệu",
+      "apiKeysIntegrations": "Khóa API & Dịch vụ AI",
+      "brandSubtitle": "v1.0.0 • Trung tâm điều hành",
+      "brandTitle": "TripSense Admin",
+      "collapseSidebar": "Thu gọn thanh điều hướng",
+      "dashboard": "Bảng điều khiển",
+      "destinationsPlaces": "Điểm đến & Địa danh",
+      "expandSidebar": "Mở rộng thanh điều hướng",
+      "hotelListings": "Danh sách khách sạn",
+      "management": "Quản lý",
+      "microservicesHealth": "Sức khỏe Microservices",
+      "moderation": "Kiểm duyệt",
+      "newBadge": "Mới",
+      "overview": "Tổng quan",
+      "partnerApprovals": "Thẩm định đối tác",
+      "platformLabel": "Nền tảng TripSense",
+      "reportsFlags": "Báo cáo & Khiếu nại",
+      "reviewsFeedback": "Đánh giá & Phản hồi",
+      "systemInfrastructure": "Hệ thống & Hạ tầng",
+      "systemLogs": "Nhật ký hệ thống",
+      "tripsItineraries": "Chuyến đi & Lịch trình",
+      "userAccounts": "Tài khoản người dùng"
+    },
+    "trips": {
+      "actions": {
+        "archive": "Lưu trữ chuyến đi",
+        "restore": "Khôi phục chuyến đi",
+        "view": "Xem lịch trình"
+      },
+      "aiBadge": "AI Tạo",
+      "aiCrafted": "AI Tạo",
+      "all": "Tất cả",
+      "daysPlanned": "{{count}} ngày lên kế hoạch",
+      "empty": "Không có hành trình nào phù hợp với bộ lọc.",
+      "itineraries": "Hành trình",
+      "management": "Quản lý chuyến đi",
+      "manual": "Thủ công",
+      "searchPlaceholder": "Tìm theo tên chuyến đi, điểm đến hoặc người tạo...",
+      "spotsCount": "{{count}} địa điểm",
+      "status": {
+        "active": "Đang hoạt động",
+        "archived": "Đã lưu trữ"
+      },
+      "subtitle": "Giám sát các hành trình du lịch do người dùng tạo và do AI đề xuất trên nền tảng.",
+      "table": {
+        "actions": "Thao tác",
+        "creator": "Người tạo",
+        "dates": "Thời gian",
+        "destination": "Điểm đến",
+        "durationPlaces": "Thời lượng & Địa điểm",
+        "status": "Trạng thái",
+        "tripName": "Chuyến đi",
+        "type": "Loại hình",
+        "visibility": "Phạm vi"
+      },
+      "title": "Chuyến đi & Lịch trình",
+      "totalTrips": "Tổng số: {{count}} chuyến đi",
+      "visibility": {
+        "private": "Riêng tư",
+        "public": "Công khai",
+        "shared": "Chia sẻ"
+      },
+      "visibilityFilter": "Phạm vi:"
+    },
+    "users": {
+      "actions": {
+        "activate": "Kích hoạt tài khoản",
+        "makeAdmin": "Chuyển thành Quản trị viên",
+        "makePartner": "Chuyển thành Đối tác",
+        "makeUser": "Chuyển thành Người dùng",
+        "reactivate": "Kích hoạt lại tài khoản",
+        "sendEmail": "Gửi email",
+        "suspend": "Khóa tài khoản"
+      },
+      "all": "Tất cả",
+      "directory": "Danh bạ",
+      "empty": "Không có người dùng nào khớp với tiêu chí tìm kiếm.",
+      "management": "Quản lý người dùng",
+      "roleFilter": "Vai trò:",
+      "roles": {
+        "admin": "Quản trị viên",
+        "partner": "Đối tác",
+        "user": "Người dùng"
+      },
+      "searchPlaceholder": "Tìm kiếm theo tên hoặc email...",
+      "status": {
+        "active": "Hoạt động",
+        "suspended": "Đã khóa",
+        "unverified": "Chưa xác thực",
+        "verified": "Đã xác thực"
+      },
+      "statusFilter": "Trạng thái:",
+      "subtitle": "Quản lý vai trò người dùng, xác thực tài khoản và kiểm soát quyền truy cập nền tảng.",
+      "table": {
+        "actions": "Hành động",
+        "joined": "Ngày tham gia",
+        "role": "Vai trò",
+        "status": "Trạng thái",
+        "trips": "Chuyến đi",
+        "user": "Người dùng"
+      },
+      "title": "Tài khoản người dùng",
+      "totalUsers": "Tổng số: {{count}} người dùng"
+    }
+  },
   "aiPlanner": {
     "addedToTrip": "Đã thêm vào trip",
     "addToTripConfirm": "Xác nhận thêm vào trip",
@@ -811,8 +1160,8 @@
       "title": "Tổng quan dữ liệu địa điểm trong DB",
       "totalPlaces": "Tổng số địa điểm"
     },
-    "subtitle": "Quản lý Token Pool (ZioMap & Gemini), giám sát tiến trình làm giàu và đồng bộ Vector",
-    "title": "Làm giàu dữ liệu & Quản lý Token",
+    "subtitle": "Quản lý xoay vòng API key (Gemini, ZioMap), giám sát hạn mức token và tiến trình làm giàu dữ liệu địa điểm",
+    "title": "Khóa API & Hạ tầng Mô hình AI",
     "tokenCard": {
       "currentStatus": "Token hiện tại",
       "description": "Cấu hình API token cho ZioMap Maps & Places API. Thay đổi sẽ cập nhật ngay vào runtime của place-service mà không cần khởi động lại.",

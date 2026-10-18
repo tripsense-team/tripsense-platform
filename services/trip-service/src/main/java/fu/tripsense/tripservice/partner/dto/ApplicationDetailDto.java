@@ -11,6 +11,9 @@ import lombok.Builder;
 public record ApplicationDetailDto(
     UUID id,
     UUID businessId,
+    String businessName,
+    String businessKind,
+    UUID ownerUserId,
     Integer revision,
     Map<String, Object> profileSnapshot,
     String checklistId,
