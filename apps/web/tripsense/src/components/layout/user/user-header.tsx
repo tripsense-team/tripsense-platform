@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Bell, Menu, Sparkles, Moon, Sun } from "lucide-react";
+import { Bell, Menu, Sparkles, Moon, Sun, Store } from "lucide-react";
 import { Logo } from "@/components/shared";
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { UserMenu } from "./user-menu";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/features/auth";
+import { useAuth, isUserPartner } from "@/features/auth";
 import { useTranslation } from "@/i18n";
 
 export interface UserHeaderProps {
@@ -61,6 +61,20 @@ export function UserHeader({
 
       {/* Right: Actions & User Menu */}
       <div className="flex items-center gap-2 md:gap-3">
+        {isUserPartner(authUser) && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-full text-xs font-semibold border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+          >
+            <Link href="/partner">
+              <Store className="h-3.5 w-3.5" />
+              <span>Kênh Đối tác</span>
+            </Link>
+          </Button>
+        )}
+
         <Button
           asChild
           variant="ghost"

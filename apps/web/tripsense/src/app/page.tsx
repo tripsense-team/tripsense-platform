@@ -12,7 +12,7 @@ import {
   LandingFeaturesGrid,
   LandingTestimonials,
 } from "@/features/explore";
-import { AuthModal, safeInternalReturnUrl, useAuth, isUserAdmin } from "@/features/auth";
+import { AuthModal, safeInternalReturnUrl, useAuth, isUserAdmin, isUserPartner } from "@/features/auth";
 import { AuthLoadingScreen } from "@/components/shared";
 
 function LandingContent() {
@@ -33,7 +33,7 @@ function LandingContent() {
   React.useEffect(() => {
     if (!isChecking && isAuthenticated) {
       const destination =
-        returnUrl || (isUserAdmin(user) ? "/admin" : "/explore");
+        returnUrl || (isUserAdmin(user) ? "/admin" : isUserPartner(user) ? "/partner" : "/explore");
       router.replace(destination);
     }
   }, [isChecking, isAuthenticated, user, returnUrl, router]);

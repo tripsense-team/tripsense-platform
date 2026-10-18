@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, Settings, LogOut, Bookmark, Database, Sparkles, ShieldCheck } from "lucide-react";
+import { User, Settings, LogOut, Bookmark, Database, Sparkles, ShieldCheck, Store } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth, LogoutModal, UserRole, isUserAdmin } from "@/features/auth";
+import { useAuth, LogoutModal, UserRole, isUserAdmin, isUserPartner } from "@/features/auth";
 import { useUserProfile } from "@/features/profile";
 import { useTranslation } from "@/i18n";
 
@@ -79,6 +79,17 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
                 >
                   <ShieldCheck className="h-4 w-4" />
                   <span>Admin Dashboard</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {isUserPartner(authUser) && (
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/partner"
+                  className="flex items-center gap-2 cursor-pointer font-semibold text-amber-600 dark:text-amber-400"
+                >
+                  <Store className="h-4 w-4" />
+                  <span>Trung tâm Đối tác (Partner Hub)</span>
                 </Link>
               </DropdownMenuItem>
             )}
