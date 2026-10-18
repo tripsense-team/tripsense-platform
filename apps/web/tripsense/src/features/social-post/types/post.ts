@@ -157,9 +157,12 @@ export interface ReportReceiptResponse {
 
 export interface ModerationReport {
   id: string;
-  targetType: "POST" | "COMMENT";
+  targetType: "POST" | "COMMENT" | "PLACE_REVIEW";
   targetId: string;
-  postId: string;
+  postId: string | null;
+  placeRef?: string | null;
+  reviewContent?: string | null;
+  reviewRating?: number | null;
   reporterId: string;
   reason: CommunityReportReason;
   details?: string | null;

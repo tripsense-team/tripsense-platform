@@ -257,14 +257,137 @@ public class HotelService {
       LocalTime checkInTime=LocalTime.parse((String)p.get("check_in_time"));
       Instant freeCancelUntil=in.checkIn().atTime(checkInTime).atZone(zone).toInstant();
       Instant noShowAfter=in.checkIn().plusDays(1).atTime(6,0).atZone(zone).toInstant();
+      BigDecimal calculatedTotal = total.multiply(BigDecimal.valueOf(in.quantity()));
       db.update("""
-          INSERT INTO hotel_booking(id,property_id,business_id,room_type_id,customer_id,customer_email,request_key,check_in,check_out,quantity,guests,total,property_name,room_name,time_zone,status,payment_method,expires_at,free_cancellation_until,no_show_after)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'HELD',?,clock_timestamp()+interval '10 minutes',?,?)
-          """,bid,pid,bizId,in.roomTypeId(),u.id(),u.email(),key,in.checkIn(),in.checkOut(),in.quantity(),in.guests(),total.multiply(BigDecimal.valueOf(in.quantity())),p.get("name"),r.get("name"),p.get("time_zone"),payosEnabled?"PAYOS":demoPaymentsEnabled?"DEMO_ONLINE":"PAY_AT_PROPERTY",java.sql.Timestamp.from(freeCancelUntil),java.sql.Timestamp.from(noShowAfter));
+          INSERT INTO hotel_booking(id,property_id,business_id,room_type_id,customer_id,customer_email,request_key,check_in,check_out,quantity,guests,total,subtotal,discount_amount,voucher_code,property_name,room_name,time_zone,status,payment_method,expires_at,free_cancellation_until,no_show_after)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,null,?,?,?,'HELD',?,clock_timestamp()+interval '10 minutes',?,?)
+          """,bid,pid,bizId,in.roomTypeId(),u.id(),u.email(),key,in.checkIn(),in.checkOut(),in.quantity(),in.guests(),calculatedTotal,calculatedTotal,p.get("name"),r.get("name"),p.get("time_zone"),payosEnabled?"PAYOS":demoPaymentsEnabled?"DEMO_ONLINE":"PAY_AT_PROPERTY",java.sql.Timestamp.from(freeCancelUntil),java.sql.Timestamp.from(noShowAfter));
       metrics.counter("hotel.holds.created").increment(); return booking(bid);
     });
   }
   private Map<String,Object> booking(UUID id) { return one("SELECT * FROM hotel_booking WHERE id=?",id); }
+
+  public List<Map<String, Object>> getAvailableVouchers() {
+    return db.queryForList("""
+        SELECT code, title, description, discount_type, discount_value, max_discount_amount, min_order_amount, currency, valid_from, valid_until, usage_limit, usage_count
+        FROM hotel_voucher
+        WHERE is_active = true AND now() BETWEEN valid_from AND valid_until AND usage_count < usage_limit
+        ORDER BY min_order_amount ASC, discount_value DESC
+        """);
+  }
+
+  public Map<String, Object> applyVoucher(AuthenticatedUser u, UUID bookingId, String rawCode) {
+    if (u == null) throw error("UNAUTHORIZED", HttpStatus.UNAUTHORIZED);
+    if (rawCode == null || rawCode.isBlank()) throw error("HOTEL_INVALID_VOUCHER_CODE", HttpStatus.BAD_REQUEST);
+    String code = rawCode.trim().toUpperCase(Locale.ROOT);
+
+    return tx.execute(s -> {
+      var b = one("SELECT * FROM hotel_booking WHERE id=? FOR UPDATE", bookingId);
+      if (!u.id().equals(b.get("customer_id"))) throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
+      check("HELD".equals(b.get("status")), "HOTEL_INVALID_STATE");
+
+      var pendingPayments = db.queryForList(
+          "SELECT * FROM hotel_payos_payment WHERE booking_id=?", bookingId);
+      if (!pendingPayments.isEmpty()) {
+        var p = pendingPayments.getFirst();
+        String pState = (String) p.get("state");
+        if ("PAID".equals(pState)) throw error("HOTEL_PAYMENT_ALREADY_CAPTURED", HttpStatus.CONFLICT);
+        if ("PENDING".equals(pState) || "CREATING".equals(pState)) {
+          throw error("HOTEL_PAYMENT_IN_PROGRESS", HttpStatus.CONFLICT);
+        }
+      }
+
+      var voucherList = db.queryForList("SELECT * FROM hotel_voucher WHERE upper(code)=? FOR UPDATE", code);
+      if (voucherList.isEmpty()) throw error("HOTEL_VOUCHER_NOT_FOUND", HttpStatus.NOT_FOUND);
+      var v = voucherList.getFirst();
+
+      if (!Boolean.TRUE.equals(v.get("is_active"))) throw error("HOTEL_VOUCHER_INACTIVE", HttpStatus.BAD_REQUEST);
+
+      Instant now = now();
+      Instant from = ((java.sql.Timestamp) v.get("valid_from")).toInstant();
+      Instant until = ((java.sql.Timestamp) v.get("valid_until")).toInstant();
+      if (now.isBefore(from) || now.isAfter(until)) throw error("HOTEL_VOUCHER_EXPIRED", HttpStatus.BAD_REQUEST);
+
+      int usageCount = number(v.get("usage_count"));
+      int usageLimit = number(v.get("usage_limit"));
+      if (usageCount >= usageLimit) throw error("HOTEL_VOUCHER_LIMIT_REACHED", HttpStatus.CONFLICT);
+
+      BigDecimal subtotal = (BigDecimal) b.get("subtotal");
+      if (subtotal == null) subtotal = (BigDecimal) b.get("total");
+
+      BigDecimal minOrder = (BigDecimal) v.get("min_order_amount");
+      if (minOrder != null && subtotal.compareTo(minOrder) < 0) {
+        throw error("HOTEL_VOUCHER_MIN_ORDER_NOT_MET", HttpStatus.BAD_REQUEST);
+      }
+
+      String discountType = (String) v.get("discount_type");
+      BigDecimal discountValue = (BigDecimal) v.get("discount_value");
+      BigDecimal maxDiscount = (BigDecimal) v.get("max_discount_amount");
+      BigDecimal discountAmount;
+
+      if ("PERCENT".equals(discountType)) {
+        discountAmount = subtotal.multiply(discountValue).divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+        if (maxDiscount != null && discountAmount.compareTo(maxDiscount) > 0) {
+          discountAmount = maxDiscount;
+        }
+      } else {
+        discountAmount = discountValue;
+      }
+
+      BigDecimal minPayable = new BigDecimal("1000");
+      if (subtotal.subtract(discountAmount).compareTo(minPayable) < 0) {
+        discountAmount = subtotal.subtract(minPayable);
+        if (discountAmount.compareTo(BigDecimal.ZERO) < 0) discountAmount = BigDecimal.ZERO;
+      }
+
+      BigDecimal finalTotal = subtotal.subtract(discountAmount);
+
+      db.update("UPDATE hotel_booking SET total=?, discount_amount=?, voucher_code=? WHERE id=?",
+          finalTotal, discountAmount, code, bookingId);
+
+      db.update("""
+          INSERT INTO hotel_voucher_redemption(id, voucher_code, booking_id, customer_id, discount_amount, state, updated_at)
+          VALUES (?, ?, ?, ?, ?, 'APPLIED', now())
+          ON CONFLICT (booking_id) DO UPDATE
+            SET voucher_code = EXCLUDED.voucher_code,
+                discount_amount = EXCLUDED.discount_amount,
+                state = 'APPLIED',
+                updated_at = now()
+          """, UUID.randomUUID(), code, bookingId, u.id(), discountAmount);
+
+      return booking(bookingId);
+    });
+  }
+
+  public Map<String, Object> removeVoucher(AuthenticatedUser u, UUID bookingId) {
+    if (u == null) throw error("UNAUTHORIZED", HttpStatus.UNAUTHORIZED);
+    return tx.execute(s -> {
+      var b = one("SELECT * FROM hotel_booking WHERE id=? FOR UPDATE", bookingId);
+      if (!u.id().equals(b.get("customer_id"))) throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
+      check("HELD".equals(b.get("status")), "HOTEL_INVALID_STATE");
+
+      var pendingPayments = db.queryForList(
+          "SELECT * FROM hotel_payos_payment WHERE booking_id=?", bookingId);
+      if (!pendingPayments.isEmpty()) {
+        var p = pendingPayments.getFirst();
+        String pState = (String) p.get("state");
+        if ("PAID".equals(pState)) throw error("HOTEL_PAYMENT_ALREADY_CAPTURED", HttpStatus.CONFLICT);
+        if ("PENDING".equals(pState) || "CREATING".equals(pState)) {
+          throw error("HOTEL_PAYMENT_IN_PROGRESS", HttpStatus.CONFLICT);
+        }
+      }
+
+      BigDecimal subtotal = (BigDecimal) b.get("subtotal");
+      if (subtotal == null) subtotal = (BigDecimal) b.get("total");
+
+      db.update("UPDATE hotel_booking SET total=?, discount_amount=0, voucher_code=null WHERE id=?",
+          subtotal, bookingId);
+
+      db.update("UPDATE hotel_voucher_redemption SET state='RELEASED', updated_at=now() WHERE booking_id=?", bookingId);
+
+      return booking(bookingId);
+    });
+  }
   public Map<String,Object> transition(AuthenticatedUser u,UUID id,boolean confirm) {
     var result=tx.execute(s -> transitionLocked(u,id,confirm,false));
     if(confirm && "EXPIRED".equals(result.get("status"))) throw error("HOTEL_HOLD_EXPIRED",HttpStatus.CONFLICT);
@@ -315,6 +438,21 @@ public class HotelService {
     db.update("UPDATE hotel_inventory SET held=held+?,booked=booked+? WHERE room_type_id=? AND stay_date>=? AND stay_date<?",
         held?-q:0,"CONFIRMED".equals(next)?q:held?0:-q,b.get("room_type_id"),b.get("check_in"),b.get("check_out"));
     db.update("UPDATE hotel_booking SET status=? WHERE id=?",next,b.get("id"));
+
+    String vcode = (String) b.get("voucher_code");
+    if (vcode != null) {
+      if ("CONFIRMED".equals(next)) {
+        db.update("UPDATE hotel_voucher SET usage_count = usage_count + 1 WHERE code = ?", vcode);
+        db.update("UPDATE hotel_voucher_redemption SET state = 'COMMITTED', updated_at = now() WHERE booking_id = ?", b.get("id"));
+      } else if (Set.of("CANCELLED", "EXPIRED").contains(next)) {
+        int committed = db.update("UPDATE hotel_voucher_redemption SET state = 'RELEASED', updated_at = now() WHERE booking_id = ? AND state = 'COMMITTED'", b.get("id"));
+        if (committed > 0) {
+          db.update("UPDATE hotel_voucher SET usage_count = GREATEST(0, usage_count - 1) WHERE code = ?", vcode);
+        } else {
+          db.update("UPDATE hotel_voucher_redemption SET state = 'RELEASED', updated_at = now() WHERE booking_id = ?", b.get("id"));
+        }
+      }
+    }
   }
   private void expireProperty(Map<String,Object> p) {
     for(var b:db.queryForList("SELECT * FROM hotel_booking WHERE property_id=? AND status='HELD' AND expires_at<=clock_timestamp() ORDER BY id FOR UPDATE",p.get("id"))) {
@@ -339,6 +477,11 @@ public class HotelService {
   public List<Map<String,Object>> notifications(AuthenticatedUser u) { return db.queryForList("SELECT * FROM hotel_notification WHERE recipient_id=? ORDER BY created_at DESC LIMIT 100",u.id()); }
   public void read(AuthenticatedUser u,UUID id) {
     if(db.update("UPDATE hotel_notification SET read_at=coalesce(read_at,clock_timestamp()) WHERE id=? AND recipient_id=?",id,u.id())==0) throw error("HOTEL_NOT_FOUND",HttpStatus.NOT_FOUND);
+  }
+  public void readAll(AuthenticatedUser u) {
+    if (u != null) {
+      db.update("UPDATE hotel_notification SET read_at=coalesce(read_at,clock_timestamp()) WHERE recipient_id=? AND read_at IS NULL", u.id());
+    }
   }
   public List<Map<String,Object>> deliveries(AuthenticatedUser u) {
     admin(u); return db.queryForList("""

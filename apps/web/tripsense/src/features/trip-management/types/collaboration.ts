@@ -23,6 +23,7 @@ export interface TripInvitation {
   tripId: string;
   tripName: string;
   inviterUserId: string;
+  inviterName?: string;
   inviteeEmail: string;
   role: TripMemberRole;
   status: TripInvitationStatus;

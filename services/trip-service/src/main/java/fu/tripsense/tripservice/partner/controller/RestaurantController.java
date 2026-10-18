@@ -47,6 +47,13 @@ public class RestaurantController {
     return ResponseEntity.ok(ApiResponse.success(dto));
   }
 
+  @GetMapping("/api/public/restaurants")
+  public ResponseEntity<ApiResponse<List<PublicRestaurantListingDto>>> searchPublicRestaurants(
+      @RequestParam(required = false) String query) {
+    List<PublicRestaurantListingDto> dtos = restaurantService.searchPublicRestaurants(query);
+    return ResponseEntity.ok(ApiResponse.success(dtos));
+  }
+
   @GetMapping("/api/partner-listings/{id}")
   public ResponseEntity<ApiResponse<PublicRestaurantListingDto>> getPartnerListing(
       @PathVariable UUID id) {

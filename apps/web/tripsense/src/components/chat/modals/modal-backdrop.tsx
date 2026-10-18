@@ -1,18 +1,21 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-type ModalBackdropProps = {
+export type ModalBackdropProps = {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title?: string;
   subtitle?: string;
   children: React.ReactNode;
   maxWidth?: string;
   backdropClassName?: string;
+  zIndexClassName?: string;
+  hideHeader?: boolean;
 };
 
 export function ModalBackdrop({
@@ -23,7 +26,15 @@ export function ModalBackdrop({
   children,
   maxWidth = "max-w-lg",
   backdropClassName,
+  zIndexClassName,
+  hideHeader = false,
 }: ModalBackdropProps) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -34,10 +45,10 @@ export function ModalBackdrop({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  return (
+  const modalTree = (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className={cn("fixed inset-0 flex items-center justify-center p-4", zIndexClassName || "z-50")}>
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -46,7 +57,7 @@ export function ModalBackdrop({
             transition={{ duration: 0.2 }}
             onClick={onClose}
             className={cn(
-              "fixed inset-0 bg-black/10 backdrop-blur-[2px] dark:bg-black/40",
+              "fixed inset-0 bg-black/40 backdrop-blur-[2px]",
               backdropClassName
             )}
           />
@@ -58,7 +69,7 @@ export function ModalBackdrop({
             exit={{ opacity: 0, scale: 0.96, y: 10 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              "relative z-10 w-full overflow-hidden rounded-3xl bg-background border border-border/60 p-6 md:p-8 shadow-2xl",
+              "relative z-10 w-full max-h-[92vh] overflow-y-auto rounded-3xl bg-background border border-border/80 p-6 md:p-8 shadow-2xl",
               maxWidth
             )}
           >
@@ -73,16 +84,18 @@ export function ModalBackdrop({
             </button>
 
             {/* Header: Centered Title & Subtitle */}
-            <div className="text-center mb-6 pt-1">
-              <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
-                {title}
-              </h2>
-              {subtitle && (
-                <p className="text-xs md:text-sm text-muted-foreground mt-1 font-normal">
-                  {subtitle}
-                </p>
-              )}
-            </div>
+            {!hideHeader && title && (
+              <div className="text-center mb-6 pt-1">
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
+                  {title}
+                </h2>
+                {subtitle && (
+                  <p className="text-xs md:text-sm text-muted-foreground mt-1 font-normal">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Content */}
             {children}
@@ -91,4 +104,10 @@ export function ModalBackdrop({
       )}
     </AnimatePresence>
   );
+
+  if (!mounted || typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(modalTree, document.body);
 }

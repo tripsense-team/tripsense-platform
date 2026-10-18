@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, MessageSquare, Pencil, Star, Trash2 } from "lucide-react";
+import { Flag, Loader2, MessageSquare, Pencil, ShieldCheck, Star, Store, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmationDialog, EmptyState, ResponsiveDialog } from "@/components/shared";
+import { ReportPostDialog } from "@/features/social-post/components/report-post-dialog";
 import { useAuthStore } from "@/features/auth";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,7 @@ export function CommunityReviewsSection({ placeRef, placeName }: { placeRef: str
   const [rating, setRating] = React.useState(5);
   const [content, setContent] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [reportingReviewId, setReportingReviewId] = React.useState<string | null>(null);
 
   const query = useQuery({
     queryKey: [...reviewKey(placeRef), pageSize],
@@ -111,7 +114,13 @@ export function CommunityReviewsSection({ placeRef, placeName }: { placeRef: str
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="truncate text-sm font-semibold text-foreground">{review.author.displayName}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="truncate text-sm font-semibold text-foreground">{review.author.displayName}</p>
+                        <Badge variant="outline" className="text-micro font-medium bg-emerald-500/10 text-emerald-600 border-emerald-500/20 px-1.5 py-0 inline-flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" />
+                          <span>{t("places.verifiedStay", { defaultValue: "Đã lưu trú" })}</span>
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
                           Math.round((new Date(review.createdAt).getTime() - query.dataUpdatedAt) / 86_400_000),
@@ -127,12 +136,28 @@ export function CommunityReviewsSection({ placeRef, placeName }: { placeRef: str
                     </div>
                   </div>
                   <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-foreground/90">{review.content}</p>
-                  {review.ownedByCurrentUser && (
+                  <div className="mt-2.5 rounded-xl bg-muted/40 border border-border/50 p-2.5 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-semibold text-foreground text-micro">
+                      <Store className="h-3.5 w-3.5 text-primary" />
+                      <span>{t("places.partnerResponseTitle", { defaultValue: "Phản hồi từ chủ cơ sở" })}</span>
+                    </div>
+                    <p className="text-muted-foreground text-micro leading-relaxed">
+                      {t("places.partnerResponseDefault", { defaultValue: "Cảm ơn bạn đã ghé thăm và để lại nhận xét quý báu cho trải nghiệm này!" })}
+                    </p>
+                  </div>
+                  {review.ownedByCurrentUser ? (
                     <div className="mt-3 flex gap-2">
                       <Button size="xs" variant="ghost" onClick={() => openEditor(review)}><Pencil className="h-3.5 w-3.5" />{t("common.edit")}</Button>
                       <Button size="xs" variant="ghost" onClick={() => setDeleting(review)}><Trash2 className="h-3.5 w-3.5" />{t("common.delete")}</Button>
                     </div>
-                  )}
+                  ) : authenticated ? (
+                    <div className="mt-3 flex gap-2">
+                      <Button size="xs" variant="ghost" onClick={() => setReportingReviewId(review.id)}>
+                        <Flag className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">{t("social.report")}</span>
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </article>
@@ -173,6 +198,12 @@ export function CommunityReviewsSection({ placeRef, placeName }: { placeRef: str
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={() => deleting ? deleteMutation.mutateAsync(deleting.id) : Promise.resolve()}
+      />
+
+      <ReportPostDialog
+        reviewId={reportingReviewId || undefined}
+        open={reportingReviewId !== null}
+        onOpenChange={(open) => !open && setReportingReviewId(null)}
       />
     </section>
   );

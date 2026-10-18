@@ -26,7 +26,13 @@ const statusSchema = z.enum([
 
 export type TripPlanningBrief = {
   where?: { destinationText: string; destinationPlaceRef?: string | null };
-  when?: { startDate: string; endDate: string };
+  when?: {
+    startDate?: string;
+    endDate?: string;
+    type?: "dates" | "flexible";
+    durationDays?: number;
+    flexibleMonths?: string[];
+  };
   who?: { adults: number; children: number; infants: number; pets: number };
   budget?:
     | { mode: "FLEXIBLE" }
@@ -58,7 +64,10 @@ export type PlanningRuntimeState = {
 };
 
 const inputSchema = z.object({
-  planningIntent: z.boolean().default(false),
+  planningIntent: z
+    .boolean()
+    .default(true)
+    .describe("Đặt true khi ghi nhận ý định lên kế hoạch du lịch"),
   cancel: z.boolean().default(false),
   where: z
     .object({
@@ -68,8 +77,11 @@ const inputSchema = z.object({
     .optional(),
   when: z
     .object({
-      startDate: z.string().date(),
-      endDate: z.string().date(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+      type: z.enum(["dates", "flexible"]).optional(),
+      durationDays: z.number().int().min(1).max(60).optional(),
+      flexibleMonths: z.array(z.string()).optional(),
     })
     .optional(),
   who: z
@@ -133,8 +145,10 @@ export async function loadLatestTripBrief(chatId: string): Promise<TripBriefPart
 }
 
 export function hasExplicitPlanningIntent(text: string): boolean {
+  if (!text) return false;
   return /\b(plan\s+(?:me\s+)?a\s+trip|create\s+(?:me\s+)?a\s+trip|build\s+(?:me\s+)?an?\s+itinerary)\b/i.test(text)
-    || /(?:lên|lập|tạo|xây dựng|thiết kế)\s+(?:giúp\s+(?:mình|tôi)\s+)?(?:một\s+)?(?:lịch trình|kế hoạch|chuyến đi)/i.test(text);
+    || /(?:lên|lập|tạo|xây dựng|thiết kế)\s+(?:giúp\s+(?:mình|tôi|em)\s+)?(?:một\s+)?(?:lịch trình|lộ trình|kế hoạch|chuyến đi)/i.test(text)
+    || /(?:lên kế hoạch|lên lịch|lộ trình|lịch trình|đi du lịch|đi chơi\s+\d+\s*ngày)/i.test(text);
 }
 
 export function hasCancellationIntent(text: string): boolean {
@@ -153,12 +167,22 @@ export function hasTravelerMention(text: string): boolean {
 export function missingFields(brief: TripPlanningBrief) {
   const missing: z.infer<typeof fieldSchema>[] = [];
   if (!brief.where?.destinationText) missing.push("WHERE");
-  if (!brief.when?.startDate || !brief.when.endDate) missing.push("WHEN");
-  const travelerCount = brief.who
-    ? brief.who.adults + brief.who.children + brief.who.infants
-    : 0;
-  if (!brief.who || travelerCount < 1 || travelerCount > 100) missing.push("WHO");
-  if (!brief.budget) missing.push("BUDGET");
+
+  const hasValidDates = Boolean(brief.when?.startDate && brief.when?.endDate);
+  const hasValidDuration = Boolean(brief.when?.durationDays && brief.when.durationDays > 0);
+  if (!brief.when || (!hasValidDates && !hasValidDuration)) {
+    missing.push("WHEN");
+  }
+
+  // If destination is missing OR time/duration is missing, we require full field list
+  if (!brief.where?.destinationText || (!hasValidDates && !hasValidDuration)) {
+    const travelerCount = brief.who
+      ? brief.who.adults + brief.who.children + brief.who.infants
+      : 0;
+    if (!brief.who || travelerCount < 1 || travelerCount > 100) missing.push("WHO");
+    if (!brief.budget) missing.push("BUDGET");
+  }
+
   return missing;
 }
 
@@ -195,13 +219,19 @@ export function getUpdateTripPlanningBriefTool(context: {
         return { accepted: false, reason: "BRIEF_VERSION_CONFLICT" };
       }
       const intentAllowed = hasExplicitPlanningIntent(context.userText);
-      if (!existing && (!input.planningIntent || !intentAllowed)) {
+      const isIntentValid =
+        context.isDirectPatch ||
+        intentAllowed ||
+        input.planningIntent ||
+        Boolean(input.where?.destinationText || input.when);
+
+      if (!existing && !isIntentValid) {
         return { accepted: false, reason: "NO_EXPLICIT_PLANNING_INTENT" };
       }
 
       const terminalExisting =
         existing?.status === "COMPLETED" || existing?.status === "CANCELLED";
-      if (terminalExisting && (!input.planningIntent || !intentAllowed)) {
+      if (terminalExisting && !isIntentValid) {
         return { accepted: false, reason: "PLANNING_RUN_NOT_ACTIVE" };
       }
 
@@ -230,7 +260,24 @@ export function getUpdateTripPlanningBriefTool(context: {
         ...(input.budget ? { budget: input.budget } : {}),
       };
 
-      if (input.when && input.when.startDate > input.when.endDate) {
+      // Auto-default who and budget when where and when are both satisfied
+      const hasValidDates = Boolean(merged.when?.startDate && merged.when?.endDate);
+      const hasValidDuration = Boolean(merged.when?.durationDays && merged.when.durationDays > 0);
+      if (merged.where?.destinationText && (hasValidDates || hasValidDuration)) {
+        if (!merged.who) {
+          merged.who = { adults: 1, children: 0, infants: 0, pets: 0 };
+        }
+        if (!merged.budget) {
+          merged.budget = { mode: "FLEXIBLE" };
+        }
+      }
+
+      if (
+        input.when &&
+        input.when.startDate &&
+        input.when.endDate &&
+        input.when.startDate > input.when.endDate
+      ) {
         return { accepted: false, reason: "INVALID_DATE_RANGE" };
       }
 
@@ -293,13 +340,32 @@ export function getUpdateTripPlanningBriefTool(context: {
         return { accepted: true, state };
       }
 
-      const who = merged.who!;
-      const budget = merged.budget!;
+      const who = merged.who || { adults: 1, children: 0, infants: 0, pets: 0 };
+      const budget = merged.budget || { mode: "FLEXIBLE" };
+
+      let startDate = merged.when?.startDate;
+      let endDate = merged.when?.endDate;
+      if (!startDate || !endDate) {
+        const days = merged.when?.durationDays || 3;
+        const now = new Date();
+        const start = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const end = new Date(start.getTime() + (days - 1) * 24 * 60 * 60 * 1000);
+        startDate = start.toISOString().split("T")[0];
+        endDate = end.toISOString().split("T")[0];
+        merged.when = {
+          ...merged.when,
+          type: "flexible",
+          durationDays: days,
+          startDate,
+          endDate,
+        };
+      }
+
       const tripDraft: TripDraft = {
         name: `Trip to ${merged.where!.destinationText}`,
         destinationName: merged.where!.destinationText,
-        startDate: merged.when!.startDate,
-        endDate: merged.when!.endDate,
+        startDate,
+        endDate,
         travelerCount: who.adults + who.children + who.infants,
         budgetAmount: budget.mode === "TOTAL" ? budget.amount : null,
         budgetCurrency: budget.mode === "TOTAL" ? budget.currency : null,

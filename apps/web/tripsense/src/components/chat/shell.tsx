@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import { useArtifact } from "@/hooks/use-artifact";
 import { useAuthStore, AuthModal } from "@/features/auth";
@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { ChatHeader } from "./chat-header";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { ChatArtifact } from "./artifact";
 import { TripDetailPanel } from "./trip-detail-panel";
 import { useAiDrawerStore } from "@/stores/use-ai-drawer-store";
 import {
@@ -36,6 +35,7 @@ import {
 import type { TripPlanningBrief } from "@/features/ai-trip-commit/types";
 
 export function ChatShell() {
+  const router = useRouter();
   const { locale, t } = useTranslation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const searchParams = useSearchParams();
@@ -168,6 +168,15 @@ export function ChatShell() {
     };
   }, [tripIdParam, activeTrip?.id]);
 
+  // Listen for open-trip-detail event from chat messages or intake card
+  useEffect(() => {
+    const handleOpenDetail = () => setIsTripDetailOpen(true);
+    window.addEventListener("tripsense:open-trip-detail", handleOpenDetail);
+    return () => {
+      window.removeEventListener("tripsense:open-trip-detail", handleOpenDetail);
+    };
+  }, []);
+
   // An explicit ?tripId selection links an unlinked chat, but never silently
   // replaces a different persisted mapping.
   useEffect(() => {
@@ -188,14 +197,30 @@ export function ChatShell() {
         }
         await linkChatToTrip(chatId, tripIdParam, null);
       })
-      .catch(() => {
-        toast.error(
-          locale === "vi"
-            ? "Không thể liên kết chuyến đi với đoạn chat này."
-            : "The trip could not be linked to this chat.",
-        );
+      .catch((err) => {
+        console.warn("Could not link trip to chat on mount:", err);
       });
   }, [chatId, isAuthenticated, locale, tripIdParam]);
+
+  // Auto-send initial prompt from trip creation handoff (Mindtrip flow)
+  const initialPromptDispatchedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !tripIdParam || initialPromptDispatchedRef.current) return;
+    const pendingPrompt = sessionStorage.getItem("tripsense:initial-ai-prompt");
+    if (!pendingPrompt) return;
+
+    initialPromptDispatchedRef.current = true;
+    sessionStorage.removeItem("tripsense:initial-ai-prompt");
+
+    const timer = setTimeout(() => {
+      sendMessage({
+        parts: [{ text: pendingPrompt.trim(), type: "text" }],
+        role: "user",
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [tripIdParam, sendMessage]);
 
   // Restore the trip linked to this AI conversation, including after an AI commit.
   useEffect(() => {
@@ -254,9 +279,20 @@ export function ChatShell() {
           const trip = await getTrip(response.trip.id);
           if (!isMounted) return;
           setActiveTrip(trip);
+          const brief = response.state?.brief;
           setTripPreferences({
             where: { location: trip.destinationName, isRoadTrip: false },
-            when: { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
+            when:
+              (brief?.when as any)?.type === "flexible" ||
+              (brief?.when as any)?.durationDays
+                ? {
+                    type: "flexible",
+                    durationDays: (brief?.when as any)?.durationDays,
+                    flexibleMonths: (brief?.when as any)?.flexibleMonths,
+                    startDate: trip.startDate,
+                    endDate: trip.endDate,
+                  }
+                : { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
             who: trip.travelerCount
               ? { adults: trip.travelerCount, children: 0, infants: 0, pets: 0 }
               : undefined,
@@ -283,9 +319,11 @@ export function ChatShell() {
             : undefined,
           when: brief?.when
             ? {
-                type: "dates",
+                type: (brief.when as any).type || (brief.when.startDate ? "dates" : "flexible"),
                 startDate: brief.when.startDate,
                 endDate: brief.when.endDate,
+                durationDays: (brief.when as any).durationDays,
+                flexibleMonths: (brief.when as any).flexibleMonths,
               }
             : undefined,
           who: brief?.who,
@@ -559,6 +597,7 @@ export function ChatShell() {
         onOpenWhen={() => setActiveModal("when")}
         onOpenWho={() => setActiveModal("who")}
         onOpenBudget={() => setActiveModal("budget")}
+        onOpenPreferences={() => router.push("/settings")}
         onCreateTripClick={handleOpenCreateTrip}
         activeTrip={activeTrip}
         isTripDetailOpen={isTripDetailOpen}
@@ -584,11 +623,25 @@ export function ChatShell() {
         onClose={() => setActiveModal(null)}
         initialStartDate={tripPreferences.when?.startDate}
         initialEndDate={tripPreferences.when?.endDate}
+        initialDurationDays={tripPreferences.when?.durationDays}
+        initialFlexibleMonths={tripPreferences.when?.flexibleMonths}
         onSave={(data) => {
           setTripPreferences((prev) => ({ ...prev, when: data }));
           if (data.type === "dates" && data.startDate && data.endDate) {
             void persistBriefPatch({
-              when: { startDate: data.startDate, endDate: data.endDate },
+              when: {
+                type: "dates",
+                startDate: data.startDate,
+                endDate: data.endDate,
+              },
+            });
+          } else if (data.type === "flexible") {
+            void persistBriefPatch({
+              when: {
+                type: "flexible",
+                durationDays: data.durationDays,
+                flexibleMonths: data.flexibleMonths,
+              },
             });
           }
         }}
@@ -678,9 +731,6 @@ export function ChatShell() {
             />
           </div>
         </div>
-
-        {/* Vercel-Style Side Artifact Drawer */}
-        <ChatArtifact />
 
         {/* Mindtrip Trip Detail Panel (Mounted side-by-side with messages below the full-width header) */}
         {activeTrip && isTripDetailOpen && (

@@ -10,6 +10,7 @@ type BudgetModalProps = {
   onClose: () => void;
   initialBudget?: BudgetTier;
   onSave: (budget: BudgetTier) => void;
+  zIndexClassName?: string;
 };
 
 const BUDGET_OPTIONS: { id: BudgetTier; label: string; prefix?: string }[] = [
@@ -25,6 +26,7 @@ export function BudgetModal({
   onClose,
   initialBudget = "any",
   onSave,
+  zIndexClassName,
 }: BudgetModalProps) {
   const [selectedBudget, setSelectedBudget] = React.useState<BudgetTier>(initialBudget);
 
@@ -44,6 +46,7 @@ export function BudgetModal({
       title="Budget"
       subtitle="Select your budget range"
       maxWidth="max-w-md"
+      zIndexClassName={zIndexClassName}
     >
       <div className="flex flex-col space-y-4">
         {/* Radio List */}

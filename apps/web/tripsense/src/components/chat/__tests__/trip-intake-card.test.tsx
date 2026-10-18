@@ -103,6 +103,32 @@ describe("TripIntakeCard Component", () => {
     expect(html).toContain("aiPlanner.intake.budgetFlexible");
   });
 
+  it("renders view itinerary action when proposal exists", () => {
+    const state: TripBriefState = {
+      type: "data-tripBrief",
+      runId: "run-1",
+      intentMessageId: "msg-1",
+      version: 5,
+      status: "TRIP_LINKED",
+      tripId: "trip-uuid-1",
+      brief: {
+        where: { destinationText: "Đà Nẵng" },
+        when: { startDate: "2026-10-10", endDate: "2026-10-12" },
+        who: { adults: 2, children: 0, infants: 0, pets: 0 },
+        budget: { mode: "FLEXIBLE" },
+      },
+      missingFields: [],
+    };
+
+    const html = renderToString(
+      <TripIntakeCard chatId="test-chat-1" initialState={state} hasProposal={true} />
+    );
+
+    expect(html).toContain("aiPlanner.intake.tripLinked");
+    expect(html).toContain("aiPlanner.intake.viewItinerary");
+    expect(html).not.toContain("aiPlanner.intake.generateAction");
+  });
+
   it("renders cancelled note when intake was cancelled", () => {
     const state: TripBriefState = {
       type: "data-tripBrief",

@@ -68,7 +68,7 @@ export function OtpInput({
   return (
     <div
       className={cn(
-        "flex items-center justify-center gap-2 sm:gap-3",
+        "flex items-center justify-center gap-1.5 sm:gap-2",
         className,
       )}
     >
@@ -87,7 +87,7 @@ export function OtpInput({
           onChange={(e) => handleChange(e, index)}
           onKeyDown={(e) => handleKeyDown(e, index)}
           onPaste={handlePaste}
-          className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl border border-input bg-card text-center text-xl font-bold text-foreground shadow-xs focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
+          className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl border border-input bg-card text-center text-xl font-bold text-foreground shadow-xs focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
         />
       ))}
     </div>

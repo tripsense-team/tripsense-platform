@@ -37,7 +37,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
   UUID businessId;
   LocalDate from,to;
   @BeforeEach void setup() {
-    db.execute("TRUNCATE hotel_payos_receipt,hotel_payos_payment,hotel_demo_ledger,hotel_demo_command,hotel_demo_payment,hotel_email_delivery,hotel_notification,hotel_outbox,hotel_booking,hotel_inventory,hotel_room_type,hotel_property,hotel_request_lock CASCADE");
+    db.execute("TRUNCATE hotel_voucher_redemption,hotel_voucher,hotel_payos_receipt,hotel_payos_payment,hotel_demo_ledger,hotel_demo_command,hotel_demo_payment,hotel_email_delivery,hotel_notification,hotel_outbox,hotel_booking,hotel_inventory,hotel_room_type,hotel_property,hotel_request_lock CASCADE");
     owner=user("USER");customer=user("USER");other=user("USER");admin=user("ROLE_ADMIN");
     from=LocalDate.now().plusDays(5);to=from.plusDays(2);
     businessId=UUID.randomUUID();
@@ -297,5 +297,86 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     assertEquals("CHECKED_IN", checkedIn.get("status"));
 
     assertThrows(TripServiceException.class, () -> service.hold(other, "req-suspend", input()));
+  }
+
+  @Test void voucherDiscountPercentAndCap() {
+    var id = hold(); // 2 nights * 500,000 = 1,000,000
+    db.update("""
+        INSERT INTO hotel_voucher(code, title, discount_type, discount_value, max_discount_amount, min_order_amount, valid_from, valid_until, usage_limit)
+        VALUES ('TESTPERCENT', 'Test Percent', 'PERCENT', 10, 80000, 200000, now() - interval '1 hour', now() + interval '1 day', 10)
+        ON CONFLICT (code) DO NOTHING
+        """);
+
+    var updated = service.applyVoucher(customer, id, "TESTPERCENT");
+    assertEquals(new BigDecimal("80000.00"), ((BigDecimal) updated.get("discount_amount")).setScale(2));
+    assertEquals(new BigDecimal("920000.00"), ((BigDecimal) updated.get("total")).setScale(2));
+    assertEquals(new BigDecimal("1000000.00"), ((BigDecimal) updated.get("subtotal")).setScale(2));
+    assertEquals("TESTPERCENT", updated.get("voucher_code"));
+  }
+
+  @Test void voucherDiscountFixedAndRemoval() {
+    var id = hold();
+    db.update("""
+        INSERT INTO hotel_voucher(code, title, discount_type, discount_value, max_discount_amount, min_order_amount, valid_from, valid_until, usage_limit)
+        VALUES ('TESTFIXED', 'Test Fixed', 'FIXED_AMOUNT', 50000, 50000, 200000, now() - interval '1 hour', now() + interval '1 day', 10)
+        ON CONFLICT (code) DO NOTHING
+        """);
+
+    var updated = service.applyVoucher(customer, id, "testfixed");
+    assertEquals(new BigDecimal("50000.00"), ((BigDecimal) updated.get("discount_amount")).setScale(2));
+    assertEquals(new BigDecimal("950000.00"), ((BigDecimal) updated.get("total")).setScale(2));
+
+    var restored = service.removeVoucher(customer, id);
+    assertEquals(new BigDecimal("0.00"), ((BigDecimal) restored.get("discount_amount")).setScale(2));
+    assertEquals(new BigDecimal("1000000.00"), ((BigDecimal) restored.get("total")).setScale(2));
+    assertNull(restored.get("voucher_code"));
+  }
+
+  @Test void voucherMinOrderAndExpiryRejection() {
+    var id = hold();
+    db.update("""
+        INSERT INTO hotel_voucher(code, title, discount_type, discount_value, min_order_amount, valid_from, valid_until, usage_limit)
+        VALUES ('TOOHIGH', 'High Min', 'FIXED_AMOUNT', 100000, 5000000, now() - interval '1 hour', now() + interval '1 day', 10),
+               ('EXPIREDVOUCHER', 'Expired', 'FIXED_AMOUNT', 100000, 100000, now() - interval '2 days', now() - interval '1 day', 10)
+        ON CONFLICT (code) DO NOTHING
+        """);
+
+    var exMin = assertThrows(TripServiceException.class, () -> service.applyVoucher(customer, id, "TOOHIGH"));
+    assertEquals("HOTEL_VOUCHER_MIN_ORDER_NOT_MET", exMin.code());
+
+    var exExp = assertThrows(TripServiceException.class, () -> service.applyVoucher(customer, id, "EXPIREDVOUCHER"));
+    assertEquals("HOTEL_VOUCHER_EXPIRED", exExp.code());
+  }
+
+  @Test void voucherUsageCountTracksConfirmationAndCancellation() {
+    var id = hold();
+    db.update("""
+        INSERT INTO hotel_voucher(code, title, discount_type, discount_value, min_order_amount, valid_from, valid_until, usage_limit, usage_count)
+        VALUES ('LIFECYCLE', 'Lifecycle', 'FIXED_AMOUNT', 50000, 100000, now() - interval '1 hour', now() + interval '1 day', 10, 0)
+        ON CONFLICT (code) DO UPDATE SET usage_count = 0
+        """);
+
+    service.applyVoucher(customer, id, "LIFECYCLE");
+    service.transition(customer, id, true);
+
+    int usageAfterConfirm = db.queryForObject("SELECT usage_count FROM hotel_voucher WHERE code='LIFECYCLE'", Integer.class);
+    assertEquals(1, usageAfterConfirm);
+
+    service.transition(customer, id, false);
+    int usageAfterCancel = db.queryForObject("SELECT usage_count FROM hotel_voucher WHERE code='LIFECYCLE'", Integer.class);
+    assertEquals(0, usageAfterCancel);
+  }
+
+  @Test void voucherRejectedWhenPaymentInProgress() {
+    var id = hold();
+    db.update("""
+        INSERT INTO hotel_voucher(code, title, discount_type, discount_value, min_order_amount, valid_from, valid_until, usage_limit)
+        VALUES ('INPROGRESS', 'In Progress', 'FIXED_AMOUNT', 50000, 100000, now() - interval '1 hour', now() + interval '1 day', 10)
+        ON CONFLICT (code) DO NOTHING
+        """);
+    db.update("INSERT INTO hotel_payos_payment(booking_id, amount, currency, state, expires_at) VALUES (?, 1000000, 'VND', 'PENDING', now() + interval '10 minutes')", id);
+
+    var ex = assertThrows(TripServiceException.class, () -> service.applyVoucher(customer, id, "INPROGRESS"));
+    assertEquals("HOTEL_PAYMENT_IN_PROGRESS", ex.code());
   }
 }

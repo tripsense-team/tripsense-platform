@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, Settings, LogOut, Bookmark, Database, Sparkles, ShieldCheck, Store } from "lucide-react";
+import { User, Settings, LogOut, Bookmark, Database, Sparkles, ShieldCheck, Store, CalendarCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -100,6 +100,15 @@ export function UserMenu({ user: customUser }: UserMenuProps) {
               >
                 <User className="h-4 w-4" />
                 <span>{t("nav.profile")}</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/reservations"
+                className="flex items-center gap-2 cursor-pointer font-medium"
+              >
+                <CalendarCheck className="h-4 w-4 text-primary" />
+                <span>{t("nav.myReservations", { defaultValue: "Đơn đặt của tôi" })}</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

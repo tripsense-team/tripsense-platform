@@ -1,10 +1,13 @@
 import * as React from "react";
 import Image from "next/image";
 import {
+  Bed,
   Check,
   ChevronDown,
   Clock3,
+  Compass,
   Loader2,
+  MapPin,
   Pencil,
   Plus,
   Search,
@@ -27,6 +30,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { searchPlaces } from "@/features/places/services/places-api";
+import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
+import { listSavedPlaces } from "@/features/place-actions/services/place-actions-api";
+import type { Place } from "@/features/places/types";
 import type {
   CreateItineraryItemRequest,
   ItineraryDayResponse,
@@ -45,10 +52,6 @@ import {
   titleCaseDestination,
   tripCoverOptions,
 } from "../utils/format";
-import {
-  itinerarySuggestions,
-  type ItinerarySuggestion,
-} from "../utils/itinerary-suggestions";
 import { todayIso } from "../utils/date";
 import {
   addMinutesToTime,
@@ -126,9 +129,95 @@ function TimeInput24h({
   );
 }
 
+function mapPlaceToItineraryType(
+  place: Place,
+  category: string,
+): ItineraryItemType {
+  const cats = (place.categories || []).map((c) => c.toLowerCase());
+  if (
+    category === "Restaurants" ||
+    cats.some(
+      (c) =>
+        c.includes("restaurant") ||
+        c.includes("food") ||
+        c.includes("cafe") ||
+        c.includes("ẩm thực") ||
+        c.includes("ăn"),
+    )
+  ) {
+    return "MEAL";
+  }
+  if (
+    category === "Stays" ||
+    cats.some(
+      (c) =>
+        c.includes("hotel") ||
+        c.includes("stay") ||
+        c.includes("resort") ||
+        c.includes("khách sạn"),
+    )
+  ) {
+    return "HOTEL";
+  }
+  if (
+    category === "Things to do" ||
+    cats.some(
+      (c) =>
+        c.includes("attraction") ||
+        c.includes("sight") ||
+        c.includes("museum") ||
+        c.includes("park") ||
+        c.includes("tour"),
+    )
+  ) {
+    return "ACTIVITY";
+  }
+  return "PLACE";
+}
+
+function PlaceCategoryIcon({
+  category,
+  className = "h-4 w-4",
+}: {
+  category?: string;
+  className?: string;
+}) {
+  const text = (category || "").toLowerCase();
+  if (
+    text.includes("restaurant") ||
+    text.includes("meal") ||
+    text.includes("food") ||
+    text.includes("cafe") ||
+    text.includes("ẩm thực") ||
+    text.includes("ăn")
+  ) {
+    return <Utensils className={cn(className, "shrink-0 text-amber-500")} />;
+  }
+  if (
+    text.includes("hotel") ||
+    text.includes("stay") ||
+    text.includes("resort") ||
+    text.includes("khách sạn")
+  ) {
+    return <Bed className={cn(className, "shrink-0 text-blue-500")} />;
+  }
+  if (
+    text.includes("activity") ||
+    text.includes("attraction") ||
+    text.includes("things to do") ||
+    text.includes("park") ||
+    text.includes("tour")
+  ) {
+    return <Compass className={cn(className, "shrink-0 text-emerald-500")} />;
+  }
+  return <MapPin className={cn(className, "shrink-0 text-primary")} />;
+}
+
 export function AddItemDialog({
   trip,
   day,
+  days,
+  onSelectDay,
   draft,
   error,
   submitting,
@@ -139,6 +228,8 @@ export function AddItemDialog({
 }: {
   trip: TripResponse | null;
   day: ItineraryDayResponse | null;
+  days?: ItineraryDayResponse[];
+  onSelectDay?: (day: ItineraryDayResponse) => void;
   draft: CreateItineraryItemRequest;
   error: string | null;
   submitting: boolean;
@@ -149,87 +240,263 @@ export function AddItemDialog({
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onQuickSubmit: (payload: CreateItineraryItemRequest) => void;
 }) {
+  const { t, locale } = useTranslation();
   const [tab, setTab] = React.useState<
     "search" | "ideas" | "saved" | "receipt" | "custom"
   >("search");
-  const suggestions = React.useMemo(
-    () => itinerarySuggestions(trip?.destinationName || ""),
-    [trip?.destinationName],
+  const [selectedCategory, setSelectedCategory] = React.useState("For you");
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [places, setPlaces] = React.useState<Place[]>([]);
+  const [savedPlaces, setSavedPlaces] = React.useState<Place[]>([]);
+  const [isLoadingPlaces, setIsLoadingPlaces] = React.useState(false);
+  const [addingPlaceId, setAddingPlaceId] = React.useState<string | null>(null);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  const categoryOptions = React.useMemo(
+    () => [
+      { id: "For you", label: locale === "vi" ? "Dành cho bạn" : "For you" },
+      { id: "Restaurants", label: locale === "vi" ? "Nhà hàng" : "Restaurants" },
+      { id: "Things to do", label: locale === "vi" ? "Hoạt động" : "Things to do" },
+      { id: "Stays", label: locale === "vi" ? "Lưu trú" : "Stays" },
+      { id: "Locations", label: locale === "vi" ? "Địa điểm" : "Locations" },
+    ],
+    [locale],
   );
 
-  function addSuggestion(suggestion: ItinerarySuggestion) {
-    const payload: CreateItineraryItemRequest = {
-      type: suggestion.type,
-      title: suggestion.title,
-      startTime: suggestion.startTime,
-      endTime: suggestion.endTime,
-      durationMinutes: suggestion.durationMinutes,
-      notes: suggestion.notes,
-    };
+  const tabsList = React.useMemo(
+    () => [
+      { id: "search", label: locale === "vi" ? "Tìm kiếm" : "Search" },
+      { id: "ideas", label: locale === "vi" ? "Gợi ý" : "Ideas" },
+      { id: "saved", label: locale === "vi" ? "Đã lưu" : "Saved" },
+      { id: "receipt", label: locale === "vi" ? "Hóa đơn / Đặt chỗ" : "Receipt" },
+      { id: "custom", label: locale === "vi" ? "Tùy chỉnh" : "Custom" },
+    ],
+    [locale],
+  );
 
-    onQuickSubmit(payload);
+  const executeSearch = React.useCallback(
+    async (queryOverride?: string) => {
+      if (!day) return;
+      const dest = trip?.destinationName?.trim() || "";
+      const rawQ = queryOverride !== undefined ? queryOverride : searchQuery;
+      let q = rawQ.trim();
+      if (!q) {
+        if (tab === "ideas") {
+          q = `${dest} điểm tham quan nổi bật`.trim();
+        } else if (selectedCategory === "For you") {
+          q = dest || "Việt Nam";
+        } else if (selectedCategory === "Restaurants") {
+          q = `nhà hàng ẩm thực ${dest}`.trim();
+        } else if (selectedCategory === "Things to do") {
+          q = `điểm tham quan vui chơi ${dest}`.trim();
+        } else if (selectedCategory === "Stays") {
+          q = `khách sạn ${dest}`.trim();
+        } else if (selectedCategory === "Locations") {
+          q = `địa điểm ${dest}`.trim();
+        } else {
+          q = `${selectedCategory} ${dest}`.trim();
+        }
+      }
+
+      try {
+        setIsLoadingPlaces(true);
+        const res = await searchPlaces({ q, limit: 12 });
+        setPlaces(res.data || []);
+      } catch {
+        setPlaces([]);
+      } finally {
+        setIsLoadingPlaces(false);
+      }
+    },
+    [day, trip?.destinationName, searchQuery, tab, selectedCategory],
+  );
+
+  // Fetch real places via ZioMap / Places API (never mock)
+  React.useEffect(() => {
+    if (!day || tab === "custom" || tab === "receipt") return;
+
+    if (tab === "saved") {
+      let active = true;
+      setIsLoadingPlaces(true);
+      listSavedPlaces({ size: 30 })
+        .then((res) => {
+          const list = (res.content || [])
+            .map((item) => item.place)
+            .filter((p): p is Place => Boolean(p));
+          if (active) setSavedPlaces(list);
+        })
+        .catch(() => {
+          if (active) setSavedPlaces([]);
+        })
+        .finally(() => {
+          if (active) setIsLoadingPlaces(false);
+        });
+      return () => {
+        active = false;
+      };
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    const dest = trip?.destinationName?.trim() || "";
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsLoadingPlaces(true);
+        let q = searchQuery.trim();
+        if (!q) {
+          if (tab === "ideas") {
+            q = `${dest} điểm tham quan nổi bật`.trim();
+          } else if (selectedCategory === "For you") {
+            q = dest || "Việt Nam";
+          } else if (selectedCategory === "Restaurants") {
+            q = `nhà hàng ẩm thực ${dest}`.trim();
+          } else if (selectedCategory === "Things to do") {
+            q = `điểm tham quan vui chơi ${dest}`.trim();
+          } else if (selectedCategory === "Stays") {
+            q = `khách sạn ${dest}`.trim();
+          } else if (selectedCategory === "Locations") {
+            q = `địa điểm ${dest}`.trim();
+          } else {
+            q = `${selectedCategory} ${dest}`.trim();
+          }
+        }
+
+        const res = await searchPlaces({
+          q,
+          limit: 12,
+          signal: controller.signal,
+        });
+        if (active) {
+          setPlaces(res.data || []);
+        }
+      } catch {
+        if (active) {
+          setPlaces([]);
+        }
+      } finally {
+        if (active) {
+          setIsLoadingPlaces(false);
+        }
+      }
+    }, searchQuery ? 300 : 0);
+
+    return () => {
+      active = false;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [day, tab, selectedCategory, searchQuery, trip?.destinationName]);
+
+  async function handleAddPlace(place: Place) {
+    if (!day || submitting || addingPlaceId) return;
+    setAddingPlaceId(place.id);
+    const type = mapPlaceToItineraryType(place, selectedCategory);
+    const duration = type === "MEAL" ? 90 : type === "HOTEL" ? 120 : 60;
+    const payload: CreateItineraryItemRequest = {
+      placeId: place.id,
+      placeRef: place.id,
+      type,
+      title: place.name,
+      startTime: null,
+      endTime: null,
+      durationMinutes: duration,
+      notes: place.address || null,
+    };
+    try {
+      await onQuickSubmit(payload);
+    } finally {
+      setAddingPlaceId(null);
+    }
   }
+
+  const displayList = tab === "saved" ? savedPlaces : places;
 
   return (
     <Dialog open={!!day} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[86vh] max-w-5xl overflow-hidden rounded-2xl border-border bg-popover p-0 text-popover-foreground shadow-md [&>button]:hidden">
-        <DialogHeader className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center border-b border-border px-6 py-5">
+      <DialogContent className="max-h-[88vh] max-w-5xl overflow-hidden rounded-3xl border-border bg-popover p-0 text-popover-foreground shadow-2xl [&>button]:hidden">
+        <DialogHeader className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center border-b border-border/80 px-6 py-5">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-full"
+            className="h-10 w-10 rounded-full hover:bg-muted"
             onClick={() => onOpenChange(false)}
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </Button>
           <DialogTitle className="text-center text-xl font-bold tracking-normal">
-            Add to trip
+            {t("places.addToTrip") || "Add to trip"}
           </DialogTitle>
           <span aria-hidden="true" />
         </DialogHeader>
 
-        <div className="max-h-[calc(86vh-5.5rem)] overflow-y-auto px-6 py-6">
+        <div className="max-h-[calc(88vh-5.5rem)] overflow-y-auto px-6 py-6">
+          {/* Tabs row matching Screenshot 12 */}
           <div className="flex gap-8 border-b border-border text-base font-bold">
-            {[
-              ["search", "Search"],
-              ["ideas", "Ideas"],
-              ["saved", "Saved"],
-              ["receipt", "Receipt"],
-              ["custom", "Custom"],
-            ].map(([value, label]) => (
+            {tabsList.map((item) => (
               <button
-                key={value}
+                key={item.id}
                 type="button"
                 className={cn(
-                  "border-b-2 px-1 pb-3 transition-colors duration-200",
-                  tab === value
+                  "border-b-2 px-1 pb-3 transition-colors duration-200 cursor-pointer",
+                  tab === item.id
                     ? "border-foreground text-foreground"
-                    : "border-transparent text-muted-foreground",
+                    : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
-                onClick={() => setTab(value as typeof tab)}
+                onClick={() => setTab(item.id as typeof tab)}
               >
-                {label}
+                {item.label}
               </button>
             ))}
           </div>
 
-          <div className="mt-8 flex items-center justify-between gap-4">
+          {/* Subheader: Destination + Adding to Day with optional multi-day selector */}
+          <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <DialogDescription className="text-3xl font-bold text-foreground">
-                {titleCaseDestination(trip?.destinationName || "Destination")}{" "}
-                <ChevronDown className="inline h-5 w-5" />
+              <DialogDescription className="text-3xl font-bold text-foreground flex items-center gap-2">
+                <span>{titleCaseDestination(trip?.destinationName || "Destination")}</span>
+                <ChevronDown className="inline h-6 w-6 text-muted-foreground" />
               </DialogDescription>
               <p className="mt-1 text-sm font-medium text-muted-foreground">
                 {day
-                  ? `Adding to Day ${day.dayNumber} - ${formatDate(day.date)}`
+                  ? locale === "vi"
+                    ? `Đang thêm vào Ngày ${day.dayNumber} · ${formatDate(day.date)}`
+                    : `Adding to Day ${day.dayNumber} · ${formatDate(day.date)}`
                   : "Choose a day first."}
               </p>
             </div>
+
+            {/* If trip has multiple days, show day selector right in dialog */}
+            {days && days.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-xs font-semibold text-muted-foreground mr-1">
+                  {locale === "vi" ? "Chuyển ngày:" : "Switch day:"}
+                </span>
+                {days.map((d) => {
+                  const isCurrentDay = d.id === day?.id;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => onSelectDay?.(d)}
+                      className={cn(
+                        "px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer",
+                        isCurrentDay
+                          ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground border border-border/60",
+                      )}
+                    >
+                      Day {d.dayNumber}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {tab !== "custom" ? (
+          {tab !== "custom" && tab !== "receipt" ? (
             <>
               {error && (
                 <div className="mt-5 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
@@ -237,90 +504,243 @@ export function AddItemDialog({
                 </div>
               )}
 
-              <div className="mt-6 flex gap-4">
-                <div className="flex h-12 flex-1 items-center gap-3 rounded-full bg-muted px-4 text-muted-foreground">
-                  <Search className="h-5 w-5" />
-                  <span className="text-lg font-medium">Search</span>
+              {/* Functional Search Bar with Clickable Search Button matching Screenshot 12 */}
+              <div className="mt-6 flex gap-3 items-center">
+                <div
+                  onClick={() => searchInputRef.current?.focus()}
+                  className="relative flex h-12 flex-1 items-center rounded-full bg-muted/80 border border-border/80 px-4 focus-within:border-foreground/50 focus-within:bg-background transition-all cursor-text"
+                >
+                  <Search className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void executeSearch();
+                      }
+                    }}
+                    placeholder={
+                      locale === "vi"
+                        ? `Tìm kiếm địa điểm tại ${titleCaseDestination(trip?.destinationName || "chuyến đi")}...`
+                        : `Search places in ${titleCaseDestination(trip?.destinationName || "destination")}...`
+                    }
+                    className="w-full bg-transparent px-3 text-sm md:text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
+                  />
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSearchQuery("");
+                        void executeSearch("");
+                        searchInputRef.current?.focus();
+                      }}
+                      className="p-1 rounded-full text-muted-foreground hover:text-foreground cursor-pointer mr-1"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+
+                  {/* Functional Search Button */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isLoadingPlaces}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void executeSearch();
+                    }}
+                    className="rounded-full px-4 text-xs font-bold gap-1.5 shrink-0 h-8 shadow-2xs cursor-pointer"
+                  >
+                    {isLoadingPlaces ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Search className="h-3.5 w-3.5" />
+                    )}
+                    <span>{t("common.search") || "Search"}</span>
+                  </Button>
                 </div>
+
                 <Button
                   variant="outline"
-                  className="h-12 rounded-full px-5 text-base font-bold"
+                  className="h-12 rounded-full px-5 text-sm font-bold gap-2 border-border/80 hover:bg-muted shrink-0"
+                  onClick={() => {
+                    setSelectedCategory((prev) =>
+                      prev === "Restaurants" ? "For you" : "Restaurants",
+                    );
+                  }}
                 >
-                  <SlidersHorizontal className="h-5 w-5" />
-                  Filters
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span>{t("common.filter") || "Filters"}</span>
                 </Button>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                {[
-                  "For you",
-                  "Restaurants",
-                  "Things to do",
-                  "Stays",
-                  "Locations",
-                ].map((label, index) => (
-                  <Button
-                    key={label}
-                    variant={index === 0 ? "default" : "ghost"}
-                    className="rounded-full px-5 text-sm font-bold"
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
+              {/* Category Filter Pills matching Screenshot 12 */}
+              {tab === "search" && (
+                <div className="mt-5 flex flex-wrap gap-2.5">
+                  {categoryOptions.map((cat) => (
+                    <Button
+                      key={cat.id}
+                      type="button"
+                      variant={selectedCategory === cat.id ? "default" : "outline"}
+                      size="sm"
+                      className={cn(
+                        "rounded-full px-4 text-xs font-semibold transition-all cursor-pointer",
+                        selectedCategory === cat.id
+                          ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs"
+                          : "border-border/70 text-muted-foreground hover:text-foreground",
+                      )}
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setSearchQuery("");
+                      }}
+                    >
+                      {cat.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
 
-              <h3 className="mt-10 text-xl font-bold tracking-normal">
-                Restaurants
+              {/* Section Header */}
+              <h3 className="mt-8 text-xl font-bold tracking-tight text-foreground">
+                {searchQuery.trim()
+                  ? locale === "vi"
+                    ? `Kết quả tìm kiếm cho "${searchQuery.trim()}"`
+                    : `Search results for "${searchQuery.trim()}"`
+                  : tab === "ideas"
+                  ? locale === "vi"
+                    ? "Gợi ý nổi bật"
+                    : "Popular Ideas"
+                  : tab === "saved"
+                  ? locale === "vi"
+                    ? "Địa điểm đã lưu"
+                    : "Saved Places"
+                  : categoryOptions.find((c) => c.id === selectedCategory)?.label ||
+                    selectedCategory}
               </h3>
-              <div className="mt-5 grid gap-5 md:grid-cols-3">
-                {suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion.title}
-                    type="button"
-                    className="group text-left"
-                    onClick={() => addSuggestion(suggestion)}
-                    disabled={submitting || !day}
-                  >
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
-                      <Image
-                        src={suggestion.imageUrl}
-                        alt={suggestion.title}
-                        fill
-                        sizes="(max-width: 768px) 80vw, 260px"
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      <span className="absolute right-3 top-3 flex h-9 items-center gap-1 rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground shadow-sm">
-                        {submitting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Plus className="h-4 w-4" />
-                        )}
-                        {submitting ? "Adding" : "Add"}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <h4 className="min-w-0 truncate text-base font-bold tracking-normal">
-                        {suggestion.title}
-                      </h4>
-                      <span className="flex items-center gap-1 text-sm font-bold">
-                        <Star className="h-4 w-4 fill-foreground" />
-                        {suggestion.rating}
-                      </span>
-                    </div>
-                    <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                      <Utensils className="h-4 w-4" />
-                      {suggestion.category}
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-muted-foreground">
-                      {suggestion.area}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-muted-foreground">
-                      $$
-                    </p>
-                  </button>
-                ))}
-              </div>
+
+              {/* Grid of Real Place Cards from ZioMap / Places API matching Screenshot 12 */}
+              {isLoadingPlaces ? (
+                <div className="flex items-center justify-center py-20 text-muted-foreground gap-2.5 text-sm">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span>{t("common.loading") || "Loading places from ZioMap..."}</span>
+                </div>
+              ) : displayList.length > 0 ? (
+                <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {displayList.map((place) => {
+                    const photoUrl = getPlacePhotoUrl(place);
+                    const categoryLabel = place.categories?.[0] || selectedCategory;
+                    const isAdding = addingPlaceId === place.id;
+
+                    return (
+                      <div
+                        key={place.id}
+                        className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-card p-3 shadow-xs transition-all duration-200 hover:shadow-md"
+                      >
+                        <div>
+                          {/* Image Thumbnail with Real CDN Photo or elegant gradient fallback */}
+                          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-muted">
+                            {photoUrl ? (
+                              <Image
+                                src={photoUrl}
+                                alt={place.name}
+                                fill
+                                sizes="(max-width: 768px) 100vw, 320px"
+                                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-muted to-muted/80 text-muted-foreground p-4">
+                                <div className="size-11 rounded-2xl bg-background/90 border border-border/60 shadow-2xs flex items-center justify-center text-primary mb-1.5">
+                                  <PlaceCategoryIcon
+                                    category={categoryLabel}
+                                    className="h-5 w-5"
+                                  />
+                                </div>
+                                <span className="text-[11px] font-semibold tracking-wide text-muted-foreground/80 truncate max-w-[140px]">
+                                  {categoryLabel}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Top-Right "+ Add" Button matching Screenshot 12 */}
+                            <button
+                              type="button"
+                              onClick={() => handleAddPlace(place)}
+                              disabled={submitting || isAdding || !day}
+                              className="absolute right-2.5 top-2.5 flex items-center gap-1.5 rounded-full bg-neutral-900/90 hover:bg-neutral-900 text-white dark:bg-white/95 dark:hover:bg-white dark:text-neutral-900 px-3.5 py-1.5 text-xs font-bold shadow-md backdrop-blur-xs transition-transform active:scale-95 cursor-pointer disabled:opacity-60"
+                            >
+                              {isAdding ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  <span>Adding</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="h-3.5 w-3.5" />
+                                  <span>Add</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Place Details */}
+                          <div className="mt-3 flex items-start justify-between gap-2">
+                            <h4
+                              className="min-w-0 font-bold text-base text-foreground truncate"
+                              title={place.name}
+                            >
+                              {place.name}
+                            </h4>
+                            {place.rating ? (
+                              <span className="flex items-center gap-1 text-xs font-bold text-foreground shrink-0 mt-0.5">
+                                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                {place.rating.toFixed(1)}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                            <PlaceCategoryIcon category={categoryLabel} />
+                            <span className="truncate">{categoryLabel}</span>
+                          </p>
+
+                          <p
+                            className="mt-0.5 text-xs text-muted-foreground truncate"
+                            title={place.address}
+                          >
+                            {place.address || place.city || trip?.destinationName}
+                          </p>
+
+                          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                            $$
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                  {tab === "saved"
+                    ? locale === "vi"
+                      ? "Bạn chưa lưu địa điểm nào. Hãy lưu địa điểm từ mục Khám phá để thấy tại đây."
+                      : "You have no saved places yet. Save places from Explore to see them here."
+                    : locale === "vi"
+                    ? "Không tìm thấy địa điểm nào. Thử tìm từ khóa khác hoặc tạo mục tùy chỉnh."
+                    : "No places found. Try another search or create a custom item."}
+                </div>
+              )}
             </>
+          ) : tab === "receipt" ? (
+            <div className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              {locale === "vi"
+                ? "Chưa có hóa đơn hoặc đặt chỗ nào cho chuyến đi này."
+                : "No receipts or reservations found for this trip."}
+            </div>
           ) : (
             <form
               id="add-itinerary-item-form"

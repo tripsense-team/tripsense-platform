@@ -34,6 +34,7 @@ export interface User {
   status: UserStatus;
   name?: string;
   avatar?: string;
+  hasPassword?: boolean;
 }
 
 export interface ApiResponse<T> {

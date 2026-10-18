@@ -1,11 +1,7 @@
 import { Hono } from "hono";
 import {
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-  toUIMessageStream,
   isStepCount,
   streamText,
-  smoothStream,
   generateText,
 } from "ai";
 import { eq, desc, asc, and, inArray } from "drizzle-orm";
@@ -79,7 +75,13 @@ const planningBriefPatchSchema = z.object({
       })
       .optional(),
     when: z
-      .object({ startDate: z.string().date(), endDate: z.string().date() })
+      .object({
+        type: z.enum(["dates", "flexible"]).optional(),
+        durationDays: z.number().int().min(1).max(60).optional(),
+        flexibleMonths: z.array(z.string()).max(12).optional(),
+        startDate: z.string().date().optional(),
+        endDate: z.string().date().optional(),
+      })
       .optional(),
     who: z
       .object({
@@ -127,6 +129,78 @@ async function fetchTripResource(path: string, authorization?: string) {
   return fetch(`${config.tripServiceUrl}${path}`, {
     headers: authorization ? { Authorization: authorization } : {},
   });
+}
+
+async function fetchUserProfile(
+  authorization?: string,
+): Promise<{ displayName?: string; preferences?: Record<string, any> }> {
+  if (!authorization) return {};
+  try {
+    const [userRes, prefRes] = await Promise.allSettled([
+      fetch(`${config.userServiceUrl}/api/users/me`, {
+        headers: { Authorization: authorization },
+        signal: AbortSignal.timeout(1500),
+      }),
+      fetch(`${config.userServiceUrl}/api/users/me/travel-preferences`, {
+        headers: { Authorization: authorization },
+        signal: AbortSignal.timeout(1500),
+      }),
+    ]);
+
+    let displayName: string | undefined;
+    let preferences: Record<string, any> | undefined;
+
+    if (userRes.status === "fulfilled" && userRes.value.ok) {
+      const userJson: any = await userRes.value.json();
+      displayName = userJson?.data?.displayName || userJson?.data?.name;
+    }
+
+    if (prefRes.status === "fulfilled" && prefRes.value.ok) {
+      const prefJson: any = await prefRes.value.json();
+      preferences = prefJson?.data?.preferences;
+    }
+
+    return { displayName, preferences };
+  } catch {
+    return {};
+  }
+}
+
+async function fetchTripSummary(
+  tripId?: string,
+  authorization?: string,
+): Promise<string | undefined> {
+  if (!tripId || !authorization) return undefined;
+  try {
+    const [tripRes, itinRes] = await Promise.allSettled([
+      fetchTripResource(`/api/trips/${tripId}`, authorization),
+      fetchTripResource(`/api/trips/${tripId}/itinerary`, authorization),
+    ]);
+
+    if (tripRes.status !== "fulfilled" || !tripRes.value.ok) return undefined;
+    const tripPayload: any = await tripRes.value.json();
+    const trip = tripPayload?.data;
+    if (!trip) return undefined;
+
+    let summary = `- Tên chuyến đi: "${trip.name}" | Điểm đến: ${trip.destinationName} | Thời gian: ${trip.startDate} đến ${trip.endDate} | Số người: ${trip.travelerCount || 1}`;
+
+    if (itinRes.status === "fulfilled" && itinRes.value.ok) {
+      const itinPayload: any = await itinRes.value.json();
+      const days = itinPayload?.data?.days;
+      if (Array.isArray(days) && days.length > 0) {
+        const lines = days.map((d: any) => {
+          const names = (d.items || [])
+            .map((it: any) => it.title || it.placeName)
+            .filter(Boolean);
+          return `  + Ngày ${d.dayNumber || 1}: ${names.length > 0 ? names.join(", ") : "Chưa có địa điểm"}`;
+        });
+        summary += `\n- Các địa điểm đã lưu trong lịch trình:\n${lines.join("\n")}`;
+      }
+    }
+    return summary;
+  } catch {
+    return undefined;
+  }
 }
 
 function sha256(value: string): string {
@@ -204,7 +278,15 @@ chatRouter.get("/chats/:id/context", async (c) => {
   const chatId = c.req.param("id");
   const userId = userIdFrom(c);
   const chat = await ownedChat(chatId, userId);
-  if (!chat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+  if (!chat) {
+    const [foreignChat] = await db
+      .select({ id: chats.id })
+      .from(chats)
+      .where(eq(chats.id, chatId))
+      .limit(1);
+    if (foreignChat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+    return c.json({ chatId, trip: null, committedSourceRefs: [] });
+  }
   if (!chat.tripId) {
     return c.json({ chatId, trip: null, committedSourceRefs: [] });
   }
@@ -415,7 +497,34 @@ chatRouter.put("/chats/:id/trip", async (c) => {
     return safeError(c, 400, "INVALID_CHAT_TRIP_LINK", "Trip link payload is invalid");
   }
   const chat = await ownedChat(chatId, userId);
-  if (!chat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+  if (!chat) {
+    const [foreignChat] = await db
+      .select({ id: chats.id })
+      .from(chats)
+      .where(eq(chats.id, chatId))
+      .limit(1);
+    if (foreignChat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
+
+    const tripResponse = await fetchTripResource(
+      `/api/trips/${parsed.data.tripId}/edit-access`,
+      authorization,
+    );
+    if (tripResponse.status === 403) {
+      return safeError(c, 403, "TRIP_ACCESS_DENIED", "You cannot edit this trip");
+    }
+    if (!tripResponse.ok) {
+      return safeError(c, 404, "TRIP_NOT_FOUND", "Trip not found");
+    }
+
+    await db.insert(chats).values({
+      id: chatId,
+      userId,
+      tripId: parsed.data.tripId,
+      title: "Kế hoạch chuyến đi của bạn",
+      tripLinkedAt: new Date(),
+    });
+    return c.json({ chatId, tripId: parsed.data.tripId, linked: true });
+  }
   const expectedTripId = parsed.data.expectedTripId ?? null;
   if ((chat.tripId ?? null) !== expectedTripId) {
     return safeError(c, 409, "CHAT_TRIP_LINK_CONFLICT", "Conversation trip link changed");
@@ -907,19 +1016,22 @@ function generateSmartTitle(userPrompt: string): string {
     .orderBy(asc(messages.createdAt))
     .limit(20);
 
-  const modelMessages = dbHistory.map((m) => {
-    let textContent = "";
-    if (Array.isArray(m.parts)) {
-      textContent = m.parts
-        .filter((p: any) => p && p.type === "text" && typeof p.text === "string")
-        .map((p: any) => p.text)
-        .join("\n");
-    }
-    return {
-      role: m.role as "user" | "assistant",
-      content: textContent || "",
-    };
-  });
+  const modelMessages = dbHistory
+    .map((m) => {
+      let textContent = "";
+      if (Array.isArray(m.parts)) {
+        textContent = m.parts
+          .filter((p: any) => p && p.type === "text" && typeof p.text === "string")
+          .map((p: any) => p.text.trim())
+          .filter(Boolean)
+          .join("\n");
+      }
+      return {
+        role: m.role as "user" | "assistant",
+        content: textContent || "",
+      };
+    })
+    .filter((m) => m.content.length > 0);
 
   const selectedModelId =
     body.selectedChatModel || body.selectedModel || DEFAULT_MODEL_ID;
@@ -949,114 +1061,122 @@ function generateSmartTitle(userPrompt: string): string {
   };
   const authorization = authorizationFrom(c);
 
-  // 4. Stream response using Vercel AI SDK v7 createUIMessageStream + createUIMessageStreamResponse
-  try {
-    const stream = createUIMessageStream({
-      execute: async ({ writer: dataStream }) => {
-        const { model, activeKey } = await resolveLanguageModel(selectedModelId);
+  // Fetch real-time temporal and user personalization context in parallel
+  const [userProfile, currentTripSummary] = await Promise.all([
+    fetchUserProfile(authorization),
+    fetchTripSummary(resolvedTripId, authorization),
+  ]);
 
-        const result = streamText({
-          model,
-          system: getSystemPrompt({
-            userId,
-            planningBrief: priorPlanningState?.brief,
-            planningStatus: priorPlanningState?.status,
-          }),
-          messages: modelMessages,
-          experimental_transform: smoothStream({ chunking: "word" }),
-          tools: {
-            getWeather,
-            searchPlaces,
-            updateTripPlanningBrief: getUpdateTripPlanningBriefTool({
-              chatId: activeChatId!,
-              userId,
-              userMessageId,
-              userText,
-              authorization,
-              runtime: planningRuntime,
-              isDirectPatch: false,
-            }),
-            createTripProposal: getCreateTripProposalTool({
-              chatId: activeChatId!,
-              userId,
-              authorization,
-              runtime: planningRuntime,
-            }),
-          },
-          stopWhen: [
-            isStepCount(5),
-            ({ steps }: { steps: any[] }) =>
-              shouldStopAfterBriefStep(steps, planningRuntime.state?.status),
-          ],
-          onError: async ({ error }) => {
-            console.error(">>> streamText ERROR:", error);
-            if (activeKey) {
-              const errStr = String((error as any)?.message || error);
-              const statusCode =
-                (error as any)?.status ||
-                (error as any)?.statusCode ||
-                (error as any)?.response?.status;
-              await geminiKeyManager.reportFailure(activeKey, statusCode, errStr);
-            }
-          },
-          onFinish: async ({ text, steps }) => {
-            if (activeKey) {
-              geminiKeyManager.reportSuccess(activeKey);
-            }
-            try {
-              const parts: any[] = [];
-              if (steps && steps.length > 0) {
-                for (const step of steps) {
-                  if (step.toolCalls && step.toolCalls.length > 0) {
-                    for (const tc of step.toolCalls) {
-                      const resultObj = step.toolResults?.find(
-                        (tr: any) => tr.toolCallId === tc.toolCallId
-                      );
-                      parts.push({
-                        type: `tool-${tc.toolName}`,
-                        toolCallId: tc.toolCallId,
-                        state: "output-available",
-                        input: (tc as any).args || (tc as any).input,
-                        output:
-                          (resultObj as any)?.result ||
-                          (resultObj as any)?.output,
-                      });
-                    }
-                  }
+  const currentDate = new Date().toLocaleDateString("vi-VN", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  // 4. Stream response using Vercel AI SDK streamText.toUIMessageStreamResponse
+  try {
+    const { model, activeKey } = await resolveLanguageModel(selectedModelId);
+
+    const result = streamText({
+      model,
+      system: getSystemPrompt({
+        userId,
+        userName: userProfile.displayName,
+        userPreferences: userProfile.preferences,
+        currentTripSummary,
+        currentDate,
+        planningBrief: priorPlanningState?.brief,
+        planningStatus: priorPlanningState?.status,
+      }),
+      messages: modelMessages,
+      tools: {
+        getWeather,
+        searchPlaces,
+        updateTripPlanningBrief: getUpdateTripPlanningBriefTool({
+          chatId: activeChatId!,
+          userId,
+          userMessageId,
+          userText,
+          authorization,
+          runtime: planningRuntime,
+          isDirectPatch: false,
+        }),
+        createTripProposal: getCreateTripProposalTool({
+          chatId: activeChatId!,
+          userId,
+          authorization,
+          runtime: planningRuntime,
+        }),
+      },
+      stopWhen: [
+        isStepCount(8),
+        ({ steps }: { steps: any[] }) =>
+          shouldStopAfterBriefStep(steps, planningRuntime.state?.status),
+      ],
+      onError: async ({ error }) => {
+        console.error(">>> streamText ERROR:", error);
+        if (activeKey) {
+          const errStr = String((error as any)?.message || error);
+          const statusCode =
+            (error as any)?.status ||
+            (error as any)?.statusCode ||
+            (error as any)?.response?.status;
+          await geminiKeyManager.reportFailure(activeKey, statusCode, errStr);
+        }
+      },
+      onFinish: async ({ text, steps }) => {
+        if (activeKey) {
+          geminiKeyManager.reportSuccess(activeKey);
+        }
+        try {
+          const parts: any[] = [];
+          if (steps && steps.length > 0) {
+            for (const step of steps) {
+              if (step.toolCalls && step.toolCalls.length > 0) {
+                for (const tc of step.toolCalls) {
+                  const resultObj = step.toolResults?.find(
+                    (tr: any) => tr.toolCallId === tc.toolCallId
+                  );
+                  parts.push({
+                    type: `tool-${tc.toolName}`,
+                    toolCallId: tc.toolCallId,
+                    state: "output-available",
+                    input: (tc as any).args || (tc as any).input,
+                    output:
+                      (resultObj as any)?.result ||
+                      (resultObj as any)?.output,
+                  });
                 }
               }
-              if (text) {
-                parts.push({ type: "text", text });
-              }
-
-              await db.insert(messages).values({
-                chatId: activeChatId!,
-                role: "assistant",
-                parts:
-                  parts.length > 0
-                    ? parts
-                    : [{ type: "text", text: text || "" }],
-              });
-            } catch (dbErr) {
-              console.error("Failed to persist assistant message to DB:", dbErr);
             }
-          },
-        });
+          }
+          if (text) {
+            parts.push({ type: "text", text });
+          }
 
-        dataStream.merge(
-          toUIMessageStream({
-            stream: result.stream,
-          })
-        );
+          await db.insert(messages).values({
+            chatId: activeChatId!,
+            role: "assistant",
+            parts:
+              parts.length > 0
+                ? parts
+                : [{ type: "text", text: text || "" }],
+          });
+        } catch (dbErr) {
+          console.error("Failed to persist assistant message to DB:", dbErr);
+        }
       },
-      generateId: () => crypto.randomUUID(),
     });
 
-    return createUIMessageStreamResponse({
-      stream,
+    return result.toUIMessageStreamResponse({
       headers: {
         "X-Chat-Id": activeChatId,
         "Access-Control-Expose-Headers": "X-Chat-Id",
+      },
+      onError: (err) => {
+        console.error(">>> toUIMessageStream ERROR:", err);
+        return String((err as any)?.message || err || "AI stream error");
       },
     });
   } catch (err: any) {

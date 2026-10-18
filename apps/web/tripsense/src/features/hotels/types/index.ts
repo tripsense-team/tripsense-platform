@@ -55,9 +55,27 @@ export type HotelBooking = {
   quantity: number;
   guests: number;
   total: number;
+  subtotal?: number;
+  discount_amount?: number;
+  voucher_code?: string | null;
   currency: string;
   status: string;
   expires_at: string;
+};
+
+export type VoucherDto = {
+  code: string;
+  title: string;
+  description?: string;
+  discount_type: "PERCENT" | "FIXED_AMOUNT";
+  discount_value: number;
+  max_discount_amount?: number;
+  min_order_amount: number;
+  currency: string;
+  valid_from: string;
+  valid_until: string;
+  usage_limit: number;
+  usage_count: number;
 };
 
 export type PayOsPayment = {
@@ -89,6 +107,7 @@ export type HotelNotification = {
   id: string;
   event_type: string;
   aggregate_id: string;
+  message?: string;
   read_at: string | null;
   created_at: string;
 };

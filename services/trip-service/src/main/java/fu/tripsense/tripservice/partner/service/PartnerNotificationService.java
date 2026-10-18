@@ -58,6 +58,21 @@ public class PartnerNotificationService {
     return toDto(notification);
   }
 
+  @Transactional
+  public void markAllAsRead(AuthenticatedUser user) {
+    if (user == null) {
+      throw new TripServiceException(
+          "UNAUTHORIZED", "Authentication required", HttpStatus.UNAUTHORIZED);
+    }
+    List<PartnerNotification> list =
+        notificationRepository.findByRecipientIdAndReadAtIsNullOrderByCreatedAtDesc(user.id());
+    Instant now = Instant.now();
+    for (PartnerNotification n : list) {
+      n.setReadAt(now);
+    }
+    notificationRepository.saveAll(list);
+  }
+
   private PartnerNotificationDto toDto(PartnerNotification n) {
     return PartnerNotificationDto.builder()
         .id(n.getId())

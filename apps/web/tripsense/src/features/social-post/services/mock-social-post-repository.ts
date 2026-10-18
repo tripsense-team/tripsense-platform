@@ -611,6 +611,19 @@ export class MockSocialPostRepository implements ISocialPostRepository {
     };
   }
 
+  async submitReviewReport(
+    _reviewId: string,
+    _payload: SubmitCommunityReportRequest,
+  ): Promise<ReportReceiptResponse> {
+    void _reviewId;
+    void _payload;
+    return {
+      id: crypto.randomUUID(),
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    };
+  }
+
   async listModerationReports(
     _status: "PENDING" | "DISMISSED" | "ACTIONED" = "PENDING",
   ): Promise<ModerationReportPage> {

@@ -5,5 +5,10 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public record RestaurantMenuBatchRequest(
-    @NotNull @Valid List<RestaurantMenuItemDto> items
-) {}
+    @NotNull @Valid List<RestaurantMenuItemDto> items,
+    Long expectedVersion
+) {
+  public RestaurantMenuBatchRequest(List<RestaurantMenuItemDto> items) {
+    this(items, null);
+  }
+}

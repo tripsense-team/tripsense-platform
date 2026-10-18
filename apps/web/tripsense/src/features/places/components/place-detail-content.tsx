@@ -547,6 +547,13 @@ export function PlaceDetailContent({
                   )}
                 </div>
 
+                {/* On mobile / tablet screens (<lg), show overviewAside prominently right after description */}
+                {overviewAside && (
+                  <div className="block lg:hidden pt-2">
+                    {overviewAside}
+                  </div>
+                )}
+
                 {/* Structured Details Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8 pt-5 border-t border-border/60">
                   {/* Address */}
@@ -633,9 +640,9 @@ export function PlaceDetailContent({
                 </div>
               </div>
 
-              {/* Aside column (e.g. Booking widget for hotel) */}
+              {/* Aside column (e.g. Booking widget for hotel or restaurant) on desktop */}
               {overviewAside && (
-                <div className="lg:col-span-5">
+                <div className="hidden lg:block lg:col-span-5">
                   <div className="sticky top-28">{overviewAside}</div>
                 </div>
               )}

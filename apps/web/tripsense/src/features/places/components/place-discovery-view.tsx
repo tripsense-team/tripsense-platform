@@ -284,26 +284,33 @@ export function PlaceDiscoveryView() {
           return;
         }
         const nextPlaces = response.items.map((item) => item.place);
+        
+        setPlaces(nextPlaces);
+        setCurrentPage(1);
+        
         if (nextPlaces.length > 0) {
-          setPlaces(nextPlaces);
-          setCurrentPage(1);
           cacheCategoryResult(
             `${currentDestination.id}:for-you:${submittedQuery.trim()}`,
             nextPlaces,
           );
-          setSelectedPlaceId((previous) =>
-            previous && nextPlaces.some((place) => place.id === previous)
-              ? previous
-              : null,
-          );
-          setRecommendationMeta({
-            recommendationId: response.recommendationId,
-            ranks: Object.fromEntries(
-              response.items.map((item) => [item.place.id, item.rank]),
-            ),
-            fallbackLevel: response.fallbackLevel,
-            stale: response.stale,
-          });
+        }
+        
+        setSelectedPlaceId((previous) =>
+          previous && nextPlaces.some((place) => place.id === previous)
+            ? previous
+            : null,
+        );
+        
+        setRecommendationMeta({
+          recommendationId: response.recommendationId,
+          ranks: Object.fromEntries(
+            response.items.map((item) => [item.place.id, item.rank]),
+          ),
+          fallbackLevel: response.fallbackLevel,
+          stale: response.stale,
+        });
+        
+        if (nextPlaces.length > 0) {
           feedbackKeysRef.current.clear();
         }
         setShowExploreAreaBtn(false);
@@ -331,17 +338,17 @@ export function PlaceDiscoveryView() {
         }
       }
     }, [
-      isAuthenticated,
-      authStatus,
-      currentDestination.id,
-      sessionId,
-      cacheCategoryResult,
-      setIsLoading,
-      setPlaces,
-      setRecommendationMeta,
-      setSelectedPlaceId,
-      setShowExploreAreaBtn,
-    ],
+    isAuthenticated,
+    authStatus,
+    currentDestination.id,
+    sessionId,
+    cacheCategoryResult,
+    setIsLoading,
+    setPlaces,
+    setRecommendationMeta,
+    setSelectedPlaceId,
+    setShowExploreAreaBtn,
+  ],
   );
 
   const executeForYouRef = React.useRef(executeForYou);

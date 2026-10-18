@@ -67,6 +67,8 @@ export const config = {
   openaiBaseUrl: process.env.AI_MODEL_BASE_URL || "",
   placeServiceUrl: process.env.PLACE_SERVICE_URL || "http://localhost:8083",
   tripServiceUrl: process.env.TRIP_SERVICE_URL || "http://localhost:8084",
+  userServiceUrl: process.env.USER_SERVICE_URL || "http://localhost:8081",
+  contextServiceUrl: process.env.CONTEXT_SERVICE_URL || "http://localhost:8087",
   aiTripCommitSecret: process.env.AI_TRIP_COMMIT_SECRET || "",
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || "",
   allowedOrigins: (process.env.AI_ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://127.0.0.1:3000")

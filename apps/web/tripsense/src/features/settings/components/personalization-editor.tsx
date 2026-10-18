@@ -28,6 +28,7 @@ import {
   type OnboardingProfile,
   type UpdateOnboardingRequest,
 } from "@/features/onboarding";
+import { ApiError } from "@/services/api-client";
 
 export function PersonalizationEditor() {
   const { t } = useTranslation();
@@ -60,7 +61,18 @@ export function PersonalizationEditor() {
     try {
       setLoading(true);
       setErrorMessage(null);
-      const data = await onboardingApi.get();
+      let data: OnboardingProfile;
+      try {
+        data = await onboardingApi.get();
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          // Auto-start if it doesn't exist
+          data = await onboardingApi.start();
+        } else {
+          throw error;
+        }
+      }
+      
       setProfile(data);
 
       // Home city parsing: handles JSON { name, placeRef } or raw string

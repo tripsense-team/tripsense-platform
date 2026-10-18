@@ -13,10 +13,12 @@ import {
   Plus,
   Minus,
   ArrowRight,
+  ArrowUpRight,
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { useActiveChat } from "@/hooks/use-active-chat";
+import { useArtifact } from "@/hooks/use-artifact";
 import {
   patchPlanningBrief,
   cancelPlanningBrief,
@@ -34,6 +36,7 @@ interface TripIntakeCardProps {
   chatId?: string;
   initialState: TripBriefState;
   isLatestMessage?: boolean;
+  hasProposal?: boolean;
 }
 
 const POPULAR_DESTINATIONS = [
@@ -84,14 +87,30 @@ export function TripIntakeCard({
   chatId: propChatId,
   initialState,
   isLatestMessage = true,
+  hasProposal = false,
 }: TripIntakeCardProps) {
   const { t } = useTranslation();
   const { chatId: activeChatId, sendMessage } = useActiveChat();
+  const { artifact, showProposal, openArtifact } = useArtifact();
   const resolvedChatId = propChatId || activeChatId;
 
   const [state, setState] = useState<TripBriefState>(initialState);
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const proposalExists =
+    hasProposal ||
+    Boolean(artifact.proposal?.proposalId && artifact.proposal?.days?.length > 0) ||
+    state.status === "COMPLETED";
+
+  const handleViewItinerary = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("tripsense:open-trip-detail"));
+    if (artifact.proposal?.proposalId) {
+      showProposal(artifact.proposal);
+    } else {
+      openArtifact();
+    }
+  }, [artifact.proposal, showProposal, openArtifact]);
 
   // Active question step
   const determineInitialStep = (): IntakeStep => {
@@ -197,25 +216,38 @@ export function TripIntakeCard({
             <span>{t("aiPlanner.intake.tripLinked")}</span>
           </div>
 
-          {state.status === "TRIP_LINKED" && isLatestMessage && (
+          {proposalExists ? (
             <Button
               size="sm"
-              onClick={() => {
-                sendMessage({
-                  parts: [
-                    {
-                      type: "text",
-                      text: t("aiPlanner.intake.generatePrompt"),
-                    },
-                  ],
-                  role: "user",
-                });
-              }}
-              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-xs"
+              variant="outline"
+              onClick={handleViewItinerary}
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-xs border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors cursor-pointer"
             >
-              <Sparkles className="size-3.5 mr-1.5" />
-              <span>{t("aiPlanner.intake.generateAction")}</span>
+              <Calendar className="size-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
+              <span>{t("aiPlanner.intake.viewItinerary")}</span>
+              <ArrowUpRight className="size-3.5 ml-1 text-emerald-600 dark:text-emerald-400" />
             </Button>
+          ) : (
+            state.status === "TRIP_LINKED" && isLatestMessage && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  sendMessage({
+                    parts: [
+                      {
+                        type: "text",
+                        text: t("aiPlanner.intake.generatePrompt"),
+                      },
+                    ],
+                    role: "user",
+                  });
+                }}
+                className="rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+              >
+                <Sparkles className="size-3.5 mr-1.5" />
+                <span>{t("aiPlanner.intake.generateAction")}</span>
+              </Button>
+            )
           )}
         </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

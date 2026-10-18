@@ -78,6 +78,7 @@ public class UserServiceImpl implements UserService {
         .roles(user.getRoles())
         .partnerEnrolled(user.isPartnerEnrolled())
         .status(user.getStatus())
+        .hasPassword(user.getPassword() != null)
         .build();
   }
 

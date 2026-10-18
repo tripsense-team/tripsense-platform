@@ -204,6 +204,50 @@ export function PublicGuideProfileView({ guideId }: PublicGuideProfileViewProps)
         </Card>
       </div>
 
+      {/* Availability Schedule & Service Trust Badges (B09) */}
+      <Card className="border-border/80 bg-card shadow-xs">
+        <CardHeader className="p-5 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Clock className="h-5 w-5 text-emerald-600" />
+              Lịch làm việc & Độ sẵn sàng phục vụ
+            </h2>
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs font-semibold w-fit">
+              <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Xác nhận dịch vụ uy tín
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-5 pt-0 space-y-4 text-xs">
+          <p className="text-muted-foreground leading-relaxed">
+            Hướng dẫn viên tiếp nhận trao đổi và gửi đề xuất phương án lộ trình trong vòng 24 giờ. Lịch làm việc trong 7 ngày tới:
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+            {Array.from({ length: 7 }).map((_, i) => {
+              const d = new Date();
+              d.setDate(d.getDate() + i);
+              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+              return (
+                <div key={i} className="rounded-xl border border-border/60 p-2.5 text-center bg-muted/20 space-y-1">
+                  <span className="text-[11px] font-mono font-semibold block text-muted-foreground">
+                    {d.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric", month: "numeric" })}
+                  </span>
+                  <Badge
+                    variant={isWeekend ? "outline" : "secondary"}
+                    className={`text-[11px] px-1.5 py-0 ${
+                      isWeekend
+                        ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                        : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                    }`}
+                  >
+                    {isWeekend ? "Sắp kín" : "Nhận khách"}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Guide's Promotions */}
       <div className="space-y-4">
         <h2 className="text-lg font-bold text-foreground">

@@ -28,6 +28,7 @@ class CommunityModerationServiceTest {
   private SocialPostRepository posts;
   private SocialReportRepository reports;
   private SocialModerationAuditRepository audits;
+  private fu.tripsense.socialservice.repository.PlaceReviewRepository reviews;
   private CommunityModerationService service;
   private final AuthenticatedUser reporter =
       new AuthenticatedUser(UUID.randomUUID(), "reporter@tripsense.app", "ROLE_USER");
@@ -37,13 +38,15 @@ class CommunityModerationServiceTest {
     posts = mock(SocialPostRepository.class);
     reports = mock(SocialReportRepository.class);
     audits = mock(SocialModerationAuditRepository.class);
+    reviews = mock(fu.tripsense.socialservice.repository.PlaceReviewRepository.class);
     service =
         new CommunityModerationService(
             posts,
             mock(SocialCommentRepository.class),
             mock(SocialTripShareRepository.class),
             reports,
-            audits);
+            audits,
+            reviews);
   }
 
   @Test
@@ -174,5 +177,78 @@ class CommunityModerationServiceTest {
         .createdAt(Instant.now())
         .updatedAt(Instant.now())
         .build();
+  }
+
+  @Test
+  void reportPlaceReviewCreatesReportWithNullPostId() {
+    UUID reviewId = UUID.randomUUID();
+    UUID authorId = UUID.randomUUID();
+    var review = fu.tripsense.socialservice.entity.PlaceReview.builder()
+        .id(reviewId).authorUserId(authorId).placeRef("google:abc")
+        .rating((short) 3).content("Test review content").status("PUBLISHED")
+        .createdAt(Instant.now()).updatedAt(Instant.now()).build();
+    when(reviews.lockById(reviewId)).thenReturn(Optional.of(review));
+    when(reports.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+
+    var receipt = service.reportReview(reviewId, reporter, new SubmitReportRequest("SPAM", null));
+
+    assertThat(receipt.status()).isEqualTo("PENDING");
+    verify(reports).saveAndFlush(argThat(report ->
+        "PLACE_REVIEW".equals(report.getTargetType())
+        && report.getPostId() == null
+        && report.getTargetId().equals(reviewId)));
+  }
+
+  @Test
+  void cannotReportOwnReview() {
+    UUID reviewId = UUID.randomUUID();
+    var review = fu.tripsense.socialservice.entity.PlaceReview.builder()
+        .id(reviewId).authorUserId(reporter.id()).placeRef("google:abc")
+        .rating((short) 5).content("My own great review").status("PUBLISHED")
+        .createdAt(Instant.now()).updatedAt(Instant.now()).build();
+    when(reviews.lockById(reviewId)).thenReturn(Optional.of(review));
+
+    assertThatThrownBy(() -> service.reportReview(reviewId, reporter, new SubmitReportRequest("SPAM", null)))
+        .isInstanceOf(SocialException.class)
+        .hasMessageContaining("cannot report your own");
+  }
+
+  @Test
+  void cannotReportDeletedReview() {
+    UUID reviewId = UUID.randomUUID();
+    var review = fu.tripsense.socialservice.entity.PlaceReview.builder()
+        .id(reviewId).authorUserId(UUID.randomUUID()).placeRef("google:abc")
+        .rating((short) 4).content("Deleted review").status("REMOVED")
+        .createdAt(Instant.now()).updatedAt(Instant.now()).deletedAt(Instant.now()).build();
+    when(reviews.lockById(reviewId)).thenReturn(Optional.of(review));
+
+    assertThatThrownBy(() -> service.reportReview(reviewId, reporter, new SubmitReportRequest("SPAM", null)))
+        .isInstanceOf(SocialException.class)
+        .hasMessageContaining("not found");
+  }
+
+  @Test
+  void moderatorRemovalSoftDeletesReviewAndCreatesAudit() {
+    UUID reportId = UUID.randomUUID();
+    UUID reviewId = UUID.randomUUID();
+    var review = fu.tripsense.socialservice.entity.PlaceReview.builder()
+        .id(reviewId).authorUserId(UUID.randomUUID()).placeRef("google:abc")
+        .rating((short) 2).content("Bad review").status("PUBLISHED")
+        .createdAt(Instant.now()).updatedAt(Instant.now()).build();
+    SocialReport report = SocialReport.builder()
+        .id(reportId).targetType("PLACE_REVIEW").targetId(reviewId).postId(null)
+        .reporterId(reporter.id()).reason("SPAM").status("PENDING").createdAt(Instant.now())
+        .build();
+    AuthenticatedUser moderator = new AuthenticatedUser(UUID.randomUUID(), "mod@tripsense.app", "ROLE_MODERATOR");
+    when(reports.lockById(reportId)).thenReturn(Optional.of(report));
+    when(reviews.lockById(reviewId)).thenReturn(Optional.of(review));
+
+    var result = service.decide(reportId, moderator, new ModerationDecisionRequest("REMOVE_CONTENT", "Spam review"));
+
+    assertThat(result.status()).isEqualTo("ACTIONED");
+    assertThat(review.getDeletedAt()).isNotNull();
+    assertThat(review.getStatus()).isEqualTo("REMOVED");
+    verify(audits).save(argThat(audit ->
+        "REMOVE_CONTENT".equals(audit.getAction()) && "PLACE_REVIEW".equals(audit.getTargetType())));
   }
 }

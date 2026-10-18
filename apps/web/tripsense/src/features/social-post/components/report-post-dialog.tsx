@@ -18,11 +18,13 @@ import { useTranslation } from "@/i18n";
 export function ReportPostDialog({
   postId,
   commentId,
+  reviewId,
   open,
   onOpenChange,
 }: {
-  postId: string;
+  postId?: string;
   commentId?: string;
+  reviewId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -51,13 +53,15 @@ export function ReportPostDialog({
     setError(null);
     try {
       const payload = { reason, details: details.trim() || undefined };
-      if (commentId) {
+      if (reviewId) {
+        await socialPostRepository.submitReviewReport(reviewId, payload);
+      } else if (commentId && postId) {
         await socialPostRepository.submitCommentReport(
           postId,
           commentId,
           payload,
         );
-      } else {
+      } else if (postId) {
         await socialPostRepository.submitPostReport(postId, payload);
       }
       setSubmitted(true);
@@ -87,7 +91,11 @@ export function ReportPostDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-600" />
-            {commentId ? t("social.reportComment") : t("social.reportPost")}
+            {reviewId
+              ? t("places.reportReview")
+              : commentId
+              ? t("social.reportComment")
+              : t("social.reportPost")}
           </DialogTitle>
           <DialogDescription>{t("social.reportDescription")}</DialogDescription>
         </DialogHeader>

@@ -5,6 +5,12 @@ Track every feature that enters the multi-agent workflow.
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
 | `financial-flow-and-withdrawals` | APPROVED | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./financial-flow-and-withdrawals.md) |
+| `group-c-product-expansion` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; identity remains in `user-service` | [Docs](./group-c-product-expansion.md) |
+| `group-b-feature-completion` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/social-service` | [Docs](./group-b-feature-completion.md) |
+| `trip-export-pdf-ics` | IMPLEMENTED | `apps/web/tripsense` | [Docs](./trip-export-pdf-ics.md) |
+| `unified-notification-center` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/social-service` | [Docs](./unified-notification-center.md) |
+| `hotel-booking-vouchers` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense` | [Docs](./hotel-booking-vouchers.md) |
+| `group-a-product-completion` | IMPLEMENTED | `apps/web/tripsense`, existing social/trip/user/place/context/AI services and Gateway | [Docs](./group-a-product-completion.md) |
 | `shared-place-templates-and-partner-workspaces` | DONE | `apps/web/tripsense`, `services/trip-service`; existing Gateway routes | [Docs](./shared-place-templates-and-partner-workspaces.md) |
 | `hotel-payos-payment` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-payos-payment.md) |
 | `hotel-demo-commerce-and-pr66-remediation` | DONE | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-demo-commerce-and-pr66-remediation.md) |
@@ -57,6 +63,8 @@ Track every feature that enters the multi-agent workflow.
 | `community-destination-weather` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./community-destination-weather.md) |
 | `chat-notifications-and-unread-badge` | DONE | `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./chat-notifications-and-unread-badge.md) |
 | `profile-password-management` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/user-service`, `services/mail-service` | [Docs](./profile-password-management.md) |
+| `mindtrip-trip-creation-handoff` | APPROVED | `apps/web/tripsense`, `services/trip-service`, `services/ai-service` | [Docs](./mindtrip-trip-creation-handoff.md) |
+| `restaurant-menu-ai-extraction-and-reservation-integration` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/ai-service`, `services/api-gateway` | [Docs](./restaurant-menu-ai-extraction-and-reservation-integration.md) |
 
 ## Statuses
 
