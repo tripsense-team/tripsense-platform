@@ -80,7 +80,8 @@ public class PartnerAdminService {
           HttpStatus.CONFLICT);
     }
 
-    if ("APPROVE".equalsIgnoreCase(request.decision())) checklistService.validateApproval(application,business,request);
+    if ("APPROVE".equalsIgnoreCase(request.decision()))
+      checklistService.validateApproval(application, business, request);
     // Save checklist results only after approval invariants pass.
     if (request.checklistResults() != null) {
       for (AdminReviewDecisionRequest.ChecklistResultDto res : request.checklistResults()) {
@@ -104,7 +105,8 @@ public class PartnerAdminService {
       // Validate and grant requested capabilities
       Set<PartnerCapability> grantedCaps = new HashSet<>();
       if (request.capabilityDecisions() != null) {
-        for (AdminReviewDecisionRequest.CapabilityDecisionDto capDec : request.capabilityDecisions()) {
+        for (AdminReviewDecisionRequest.CapabilityDecisionDto capDec :
+            request.capabilityDecisions()) {
           if (capDec.grant()) {
             grantedCaps.add(capDec.capability());
           }
@@ -136,7 +138,9 @@ public class PartnerAdminService {
     } else if ("REQUEST_CHANGES".equals(decision)) {
       if (request.reason() == null || request.reason().isBlank()) {
         throw new TripServiceException(
-            "REASON_REQUIRED", "Reason is required when requesting changes", HttpStatus.BAD_REQUEST);
+            "REASON_REQUIRED",
+            "Reason is required when requesting changes",
+            HttpStatus.BAD_REQUEST);
       }
       application.setState(ApplicationState.CHANGES_REQUIRED);
       application.setDecidedAt(now);
@@ -144,14 +148,18 @@ public class PartnerAdminService {
     } else if ("REJECT".equals(decision)) {
       if (request.reason() == null || request.reason().isBlank()) {
         throw new TripServiceException(
-            "REASON_REQUIRED", "Reason is required when rejecting application", HttpStatus.BAD_REQUEST);
+            "REASON_REQUIRED",
+            "Reason is required when rejecting application",
+            HttpStatus.BAD_REQUEST);
       }
       application.setState(ApplicationState.REJECTED);
       application.setDecidedAt(now);
 
     } else {
       throw new TripServiceException(
-          "INVALID_DECISION", "Decision must be APPROVE, REQUEST_CHANGES, or REJECT", HttpStatus.BAD_REQUEST);
+          "INVALID_DECISION",
+          "Decision must be APPROVE, REQUEST_CHANGES, or REJECT",
+          HttpStatus.BAD_REQUEST);
     }
 
     application = applicationRepository.save(application);
@@ -179,17 +187,23 @@ public class PartnerAdminService {
         applicationId,
         outboxType,
         Map.of(
-            "businessId", businessId.toString(),
-            "ownerId", business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
-            "applicationId", applicationId.toString(),
-            "decision", decision,
-            "reason", request.reason() != null ? request.reason() : ""));
+            "businessId",
+            businessId.toString(),
+            "ownerId",
+            business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
+            "applicationId",
+            applicationId.toString(),
+            "decision",
+            decision,
+            "reason",
+            request.reason() != null ? request.reason() : ""));
 
     return toApplicationDetailDto(application);
   }
 
   @Transactional
-  public void suspendBusiness(AuthenticatedUser admin, UUID businessId, AdminSuspensionRequest request) {
+  public void suspendBusiness(
+      AuthenticatedUser admin, UUID businessId, AdminSuspensionRequest request) {
     requireAdmin(admin);
     PartnerBusiness business = getBusiness(businessId);
 
@@ -222,7 +236,8 @@ public class PartnerAdminService {
         "PartnerBusinessSuspended",
         Map.of(
             "businessId", businessId.toString(),
-            "ownerId", business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
+            "ownerId",
+                business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
             "suspensionVersion", business.getSuspensionVersion(),
             "suspendedAt", business.getSuspendedAt().toString(),
             "reason", request.reason()));
@@ -263,7 +278,8 @@ public class PartnerAdminService {
         "PartnerBusinessReinstated",
         Map.of(
             "businessId", businessId.toString(),
-            "ownerId", business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
+            "ownerId",
+                business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
             "reinstatedAt", business.getReinstatedAt().toString(),
             "reason", request.reason()));
   }
@@ -343,7 +359,8 @@ public class PartnerAdminService {
         "PartnerCapabilitiesRevoked",
         Map.of(
             "businessId", businessId.toString(),
-            "ownerId", business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
+            "ownerId",
+                business.getOwnerUserId() != null ? business.getOwnerUserId().toString() : "",
             "reason", request.reason(),
             "revokedCapabilities", toRevoke.stream().map(Enum::name).toList()));
   }
@@ -474,7 +491,7 @@ public class PartnerAdminService {
     var bizOpt = businessRepository.findById(a.getBusinessId());
     Long bizVer = bizOpt.map(PartnerBusiness::getVersion).orElse(0L);
     String bizName = bizOpt.map(PartnerBusiness::getDisplayName).orElse(null);
-    String bizKind = bizOpt.map(b -> b.getKind().name()).orElse(null);
+    String bizKind = bizOpt.map(b -> b.getKind() != null ? b.getKind().name() : null).orElse(null);
     UUID ownerId = bizOpt.map(PartnerBusiness::getOwnerUserId).orElse(null);
     return ApplicationDetailDto.builder()
         .id(a.getId())

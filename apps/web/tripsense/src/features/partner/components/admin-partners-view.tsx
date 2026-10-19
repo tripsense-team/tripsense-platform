@@ -421,7 +421,7 @@ export function AdminPartnersView() {
                     )}
                     {selectedDescription && (
                       <div className="md:col-span-2 pt-1 border-t border-border/40 text-[11px] leading-relaxed italic text-foreground/80">
-                        "{selectedDescription}"
+                        &ldquo;{selectedDescription}&rdquo;
                       </div>
                     )}
                   </div>

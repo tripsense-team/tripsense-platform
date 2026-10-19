@@ -26,5 +26,4 @@ public record ApplicationDetailDto(
     Instant submittedAt,
     Instant decidedAt,
     Instant createdAt,
-    Instant updatedAt
-) {}
+    Instant updatedAt) {}

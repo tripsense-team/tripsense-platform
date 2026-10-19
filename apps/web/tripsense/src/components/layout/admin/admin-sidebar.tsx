@@ -78,7 +78,7 @@ const adminNavGroups: AdminNavGroup[] = [
       {
         titleKey: "admin.sidebar.financePayouts",
         defaultTitle: "Finance & Payouts",
-        href: "/admin/hotels/commerce",
+        href: "/admin/finance",
         icon: DollarSign,
       },
     ],
@@ -174,10 +174,10 @@ export function AdminSidebar({
                     if (pathname === item.href) return true;
                     if (item.href === "/admin") return false;
 
-                    // Match alternative finance route if navigated directly
+                    // Match legacy finance route if navigated directly
                     if (
-                      item.href === "/admin/hotels/commerce" &&
-                      (pathname === "/admin/finance" || pathname.startsWith("/admin/finance/"))
+                      item.href === "/admin/finance" &&
+                      (pathname === "/admin/hotels/commerce" || pathname.startsWith("/admin/hotels/commerce/"))
                     ) {
                       return true;
                     }
