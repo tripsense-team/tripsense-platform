@@ -292,7 +292,7 @@ export function AdminPartnersView() {
                         <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5">
                           <span className="font-mono text-muted-foreground/80">#{app.id.slice(0, 8)}</span>
                           <span>•</span>
-                          <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal">
+                          <Badge variant="outline" className="text-micro py-0 px-1 font-normal">
                             {t(`admin.partners.kinds.${bizKind}`) || bizKind}
                           </Badge>
                           <span>•</span>
@@ -412,7 +412,7 @@ export function AdminPartnersView() {
                       </div>
                     )}
                     {selectedApp.ownerUserId && (
-                      <div className="flex items-center gap-1.5 truncate md:col-span-2 font-mono text-[10px]">
+                      <div className="flex items-center gap-1.5 truncate md:col-span-2 font-mono text-micro">
                         <span className="font-medium text-foreground font-sans text-[11px]">
                           {t("admin.partners.ownerAccount")}:
                         </span>
