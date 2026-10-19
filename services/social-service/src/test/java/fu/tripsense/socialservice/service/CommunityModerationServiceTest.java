@@ -247,7 +247,7 @@ class CommunityModerationServiceTest {
     var result = service.decide(reportId, moderator, new ModerationDecisionRequest("REMOVE_CONTENT", "Spam review"));
 
     assertThat(result.status()).isEqualTo("ACTIONED");
-    assertThat(result.placeReviewContent()).isEqualTo("Bad review");
+    assertThat(result.reviewContent()).isEqualTo("Bad review");
     assertThat(result.placeRef()).isEqualTo("google:abc");
     assertThat(review.getDeletedAt()).isNotNull();
     assertThat(review.getStatus()).isEqualTo("REMOVED");
