@@ -49,6 +49,7 @@ export function RestaurantReservationDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [createdReservation, setCreatedReservation] =
     React.useState<RestaurantReservationDto | null>(null);
+  const requestKeyRef = React.useRef<string | null>(null);
 
   // Set default datetime to tomorrow at 19:00
   React.useEffect(() => {
@@ -88,7 +89,10 @@ export function RestaurantReservationDialog({
     try {
       setSubmitting(true);
       setError(null);
-      const requestKey = `res-${businessId}-${Date.now()}`;
+      if (!requestKeyRef.current) {
+        requestKeyRef.current = `res-${businessId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      }
+      const requestKey = requestKeyRef.current;
       const res = await createRestaurantReservation(
         businessId,
         {
@@ -101,6 +105,7 @@ export function RestaurantReservationDialog({
         requestKey,
       );
       setCreatedReservation(res);
+      requestKeyRef.current = null;
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError")));
     } finally {
@@ -110,6 +115,7 @@ export function RestaurantReservationDialog({
 
   const handleClose = () => {
     onOpenChange(false);
+    requestKeyRef.current = null;
     if (createdReservation) {
       setTimeout(() => {
         setCreatedReservation(null);

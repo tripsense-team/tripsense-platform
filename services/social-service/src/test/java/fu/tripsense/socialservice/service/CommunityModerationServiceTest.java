@@ -242,10 +242,13 @@ class CommunityModerationServiceTest {
     AuthenticatedUser moderator = new AuthenticatedUser(UUID.randomUUID(), "mod@tripsense.app", "ROLE_MODERATOR");
     when(reports.lockById(reportId)).thenReturn(Optional.of(report));
     when(reviews.lockById(reviewId)).thenReturn(Optional.of(review));
+    when(reviews.findById(reviewId)).thenReturn(Optional.of(review));
 
     var result = service.decide(reportId, moderator, new ModerationDecisionRequest("REMOVE_CONTENT", "Spam review"));
 
     assertThat(result.status()).isEqualTo("ACTIONED");
+    assertThat(result.reviewContent()).isEqualTo("Bad review");
+    assertThat(result.placeRef()).isEqualTo("google:abc");
     assertThat(review.getDeletedAt()).isNotNull();
     assertThat(review.getStatus()).isEqualTo("REMOVED");
     verify(audits).save(argThat(audit ->

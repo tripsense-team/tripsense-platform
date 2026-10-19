@@ -177,6 +177,7 @@ public class RestaurantService {
     }
 
     return businesses.stream()
+        .limit(50)
         .map(b -> {
           try {
             return getPublicRestaurant(b.getId());

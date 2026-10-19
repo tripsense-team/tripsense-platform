@@ -207,6 +207,10 @@ export async function apiClient<T>(
     ...(customHeaders as Record<string, string>),
   };
 
+  if (typeof FormData !== "undefined" && customOptions.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
+
   // Get in-memory RAM Access Token from Zustand store
   const { accessToken: currentToken } = useAuthStore.getState();
 
