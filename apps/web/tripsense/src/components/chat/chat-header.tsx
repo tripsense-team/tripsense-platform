@@ -39,7 +39,6 @@ type ChatHeaderProps = {
   onOpenWhen?: () => void;
   onOpenWho?: () => void;
   onOpenBudget?: () => void;
-  onOpenPreferences?: () => void;
   onCreateTripClick?: () => void;
   activeTrip?: TripResponse | null;
   isTripDetailOpen?: boolean;
@@ -55,7 +54,6 @@ export function ChatHeader({
   onOpenWhen,
   onOpenWho,
   onOpenBudget,
-  onOpenPreferences,
   onCreateTripClick,
   activeTrip,
   isTripDetailOpen,
@@ -231,15 +229,6 @@ export function ChatHeader({
             }`}
           >
             {budgetLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onOpenPreferences}
-            className={`px-3.5 py-1 hover:text-foreground transition-colors font-medium cursor-pointer ${
-              tripPreferences?.preferences?.length ? "text-foreground font-semibold" : ""
-            }`}
-          >
-            Preferences
           </button>
         </div>
 

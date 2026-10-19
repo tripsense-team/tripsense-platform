@@ -817,7 +817,6 @@ export function ChatShell() {
         onOpenWhen={() => setActiveModal("when")}
         onOpenWho={() => setActiveModal("who")}
         onOpenBudget={() => setActiveModal("budget")}
-        onOpenPreferences={() => router.push("/settings")}
         onCreateTripClick={handleOpenCreateTrip}
         activeTrip={activeTrip}
         isTripDetailOpen={isTripDetailOpen}
