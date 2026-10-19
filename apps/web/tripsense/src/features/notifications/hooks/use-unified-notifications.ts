@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { useTranslation } from "@/i18n";
 import { notificationsApi } from "../services/notifications-api";
 import type { UnifiedNotificationItem } from "../types";
 
 export function useUnifiedNotifications() {
+  const { t, locale } = useTranslation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [items, setItems] = React.useState<UnifiedNotificationItem[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -30,11 +32,17 @@ export function useUnifiedNotifications() {
 
       // 1. Trip Invitations
       tripInvs.forEach((inv) => {
+        const inviter = inv.inviterName || (locale === "vi" ? "Thành viên" : "A member");
+        const tripTitle = inv.tripName || (locale === "vi" ? "Chuyến đi mới" : "New trip");
         normalized.push({
           id: `trip-inv-${inv.id}`,
           category: "TRIP",
-          title: "Lời mời tham gia chuyến đi",
-          message: `${inv.inviterName || "Thành viên"} đã mời bạn tham gia cộng tác chuyến đi "${inv.tripName || "Chuyến đi mới"}".`,
+          title: t("notifications.tripInvitationTitle", { defaultValue: "Lời mời tham gia chuyến đi" }),
+          message: t("notifications.tripInvitationMsg", {
+            inviter,
+            tripTitle,
+            defaultValue: `${inviter} đã mời bạn tham gia cộng tác chuyến đi "${tripTitle}".`,
+          }),
           createdAt: inv.createdAt || new Date().toISOString(),
           read: false,
           targetUrl: inv.tripId ? `/trips/${inv.tripId}` : "/trips",
@@ -45,18 +53,18 @@ export function useUnifiedNotifications() {
 
       // 2. Hotel Notifications
       hotelNotifs.forEach((h) => {
-        let label = "Cập nhật đặt phòng khách sạn";
-        if (h.event_type === "BOOKING_CONFIRMED") label = "Đặt phòng đã xác nhận thành công";
-        if (h.event_type === "BOOKING_CANCELLED") label = "Đặt phòng đã được hủy";
-        if (h.event_type === "BOOKING_EXPIRED") label = "Thời gian giữ phòng đã hết hạn";
-        if (h.event_type === "BOOKING_CHECKED_IN") label = "Đã làm thủ tục nhận phòng";
-        if (h.event_type === "BOOKING_CHECKED_OUT") label = "Đã làm thủ tục trả phòng";
+        let label = t("notifications.hotelUpdate", { defaultValue: "Cập nhật đặt phòng khách sạn" });
+        if (h.event_type === "BOOKING_CONFIRMED") label = t("notifications.hotelBookingConfirmed", { defaultValue: "Đặt phòng đã xác nhận thành công" });
+        if (h.event_type === "BOOKING_CANCELLED") label = t("notifications.hotelBookingCancelled", { defaultValue: "Đặt phòng đã được hủy" });
+        if (h.event_type === "BOOKING_EXPIRED") label = t("notifications.hotelBookingExpired", { defaultValue: "Thời gian giữ phòng đã hết hạn" });
+        if (h.event_type === "BOOKING_CHECKED_IN") label = t("notifications.hotelCheckedIn", { defaultValue: "Đã làm thủ tục nhận phòng" });
+        if (h.event_type === "BOOKING_CHECKED_OUT") label = t("notifications.hotelCheckedOut", { defaultValue: "Đã làm thủ tục trả phòng" });
 
         normalized.push({
           id: `hotel-${h.id}`,
           category: "HOTEL",
           title: label,
-          message: h.message || "Kiểm tra chi tiết trong mục đặt phòng của bạn.",
+          message: h.message || t("notifications.hotelCheckDetails", { defaultValue: "Kiểm tra chi tiết trong mục đặt phòng của bạn." }),
           createdAt: h.created_at || new Date().toISOString(),
           read: Boolean(h.read_at),
           targetUrl: "/hotels/bookings",
@@ -65,23 +73,23 @@ export function useUnifiedNotifications() {
 
       // 3. Partner Notifications
       partnerNotifs.forEach((p) => {
-        let title = p.title || "Thông báo kênh đối tác";
+        let title = p.title || t("notifications.partnerNotice", { defaultValue: "Thông báo kênh đối tác" });
         let targetUrl = p.targetUri || "/partner";
 
         if (p.eventType === "RESTAURANT_RESERVATION_PLACED") {
-          title = "Đã gửi yêu cầu đặt bàn";
+          title = t("notifications.restaurantPlaced", { defaultValue: "Đã gửi yêu cầu đặt bàn" });
           targetUrl = "/restaurants/reservations";
         } else if (p.eventType === "RESTAURANT_RESERVATION_CONFIRMED") {
-          title = "Đặt bàn đã được xác nhận";
+          title = t("notifications.restaurantConfirmed", { defaultValue: "Đặt bàn đã được xác nhận" });
           targetUrl = "/restaurants/reservations";
         } else if (p.eventType === "RESTAURANT_RESERVATION_REJECTED") {
-          title = "Yêu cầu đặt bàn bị từ chối";
+          title = t("notifications.restaurantRejected", { defaultValue: "Yêu cầu đặt bàn bị từ chối" });
           targetUrl = "/restaurants/reservations";
         } else if (p.eventType === "RESTAURANT_RESERVATION_CANCELLED") {
-          title = "Yêu cầu đặt bàn đã hủy";
+          title = t("notifications.restaurantCancelled", { defaultValue: "Yêu cầu đặt bàn đã hủy" });
           targetUrl = "/restaurants/reservations";
         } else if (p.eventType === "RESTAURANT_RESERVATION_REQUESTED") {
-          title = "Yêu cầu đặt bàn mới";
+          title = t("notifications.restaurantRequested", { defaultValue: "Yêu cầu đặt bàn mới" });
           targetUrl = p.businessId
             ? `/partner/businesses/${p.businessId}/restaurant-menu`
             : "/partner";
@@ -103,8 +111,12 @@ export function useUnifiedNotifications() {
         normalized.push({
           id: "chat-summary",
           category: "CHAT",
-          title: "Tin nhắn chưa đọc",
-          message: `Bạn có ${chatSummary.unreadConversationsCount} cuộc trò chuyện chưa đọc (${chatSummary.totalUnreadMessages} tin nhắn).`,
+          title: t("notifications.chatUnreadTitle", { defaultValue: "Tin nhắn chưa đọc" }),
+          message: t("notifications.chatUnreadMsg", {
+            convCount: chatSummary.unreadConversationsCount,
+            msgCount: chatSummary.totalUnreadMessages,
+            defaultValue: `Bạn có ${chatSummary.unreadConversationsCount} cuộc trò chuyện chưa đọc (${chatSummary.totalUnreadMessages} tin nhắn).`,
+          }),
           createdAt: new Date().toISOString(),
           read: false,
           targetUrl: "/chat",

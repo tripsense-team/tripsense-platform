@@ -119,7 +119,6 @@ public class RestaurantReservationService {
         .state("REQUESTED")
         .requestKey(requestKey != null && !requestKey.isBlank() ? requestKey.trim() : null)
         .requestHash(hash)
-        .version(0L)
         .createdAt(now)
         .updatedAt(now)
         .build();

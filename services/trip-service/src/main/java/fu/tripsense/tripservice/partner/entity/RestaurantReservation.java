@@ -63,8 +63,7 @@ public class RestaurantReservation {
 
   @Version
   @Column(nullable = false)
-  @Builder.Default
-  private Long version = 0L;
+  private Long version;
 
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;

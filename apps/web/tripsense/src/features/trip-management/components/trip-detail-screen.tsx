@@ -44,6 +44,7 @@ import {
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
+import { toast } from "sonner";
 import { useAiChatSessions, fetchChatMessagesQueryFn, type ChatSession } from "@/hooks/use-ai-chats";
 import type { ChatMessage } from "@/lib/types";
 import { TripMembersDialog } from "./trip-members-dialog";
@@ -175,7 +176,7 @@ export function TripDetailScreen({
   onCreateTrip: () => void;
   onRequestDeleteTrip?: (trip: TripResponse) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
 
   const [activePanel, setActivePanel] = React.useState<TripDetailPanel>("overview");
@@ -266,16 +267,26 @@ export function TripDetailScreen({
     if (!trip || cloning) return;
     try {
       setCloning(true);
+      const copySuffix = locale === "vi" ? "(Bản sao)" : "(Copy)";
       const cloned = await cloneTrip(
         trip,
         {
-          newName: `${trip.name} (Bản sao)`,
+          newName: `${trip.name} ${copySuffix}`,
         },
         itinerary,
       );
+      toast.success(
+        t("trip.cloneSuccess", {
+          defaultValue: locale === "vi" ? "Đã sao chép chuyến đi thành công!" : "Trip cloned successfully!",
+        }),
+      );
       router.push(`/trips/${cloned.id}`);
     } catch {
-      // Ignore
+      toast.error(
+        t("trip.cloneFailed", {
+          defaultValue: locale === "vi" ? "Không thể sao chép chuyến đi. Vui lòng thử lại." : "Could not clone trip. Please try again.",
+        }),
+      );
     } finally {
       setCloning(false);
     }
@@ -861,7 +872,7 @@ export function TripDetailScreen({
                     {t("trip.itinerary", { defaultValue: "Itinerary" })}
                   </h3>
                   <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    {countTripDays(trip)} days · {itineraryPlacesCount} spots
+                    {countTripDays(trip)} {t("trip.daysCount", { defaultValue: "days" })} · {itineraryPlacesCount} {t("trip.spotsCount", { defaultValue: "spots" })}
                   </span>
                 </div>
 
@@ -907,7 +918,7 @@ export function TripDetailScreen({
                       onClick={() => setSelectedDayNumber(day.dayNumber)}
                       className="h-7 rounded-full px-3 text-xs font-semibold cursor-pointer shrink-0"
                     >
-                      Day {day.dayNumber} ({formatDate(day.date)})
+                      {t("trip.day", { number: day.dayNumber })} ({formatDate(day.date)})
                     </Button>
                   ))}
                 </div>
@@ -929,7 +940,7 @@ export function TripDetailScreen({
                         <div className="flex items-center justify-between border-b border-border/50 pb-2">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-xs text-foreground">
-                              Day {day.dayNumber}
+                              {t("trip.day", { number: day.dayNumber })}
                             </span>
                             <span className="text-[11px] text-muted-foreground font-medium">
                               · {formatDate(day.date)}
