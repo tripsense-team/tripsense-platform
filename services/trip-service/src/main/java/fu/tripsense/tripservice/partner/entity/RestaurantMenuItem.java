@@ -32,6 +32,9 @@ public class RestaurantMenuItem {
   @Column(name = "description", length = 500)
   private String description;
 
+  @Column(name = "image_public_id", length = 255)
+  private String imagePublicId;
+
   @Column(name = "price", nullable = false, precision = 16, scale = 2)
   private BigDecimal price;
 

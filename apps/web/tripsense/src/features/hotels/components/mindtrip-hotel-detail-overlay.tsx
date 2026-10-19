@@ -16,6 +16,7 @@ import type { MindtripHotel } from "../types";
 import { MindtripBookStayModal } from "./mindtrip-book-stay-modal";
 import { MindtripAvailableRoomsView } from "./mindtrip-available-rooms-view";
 import { fetchDirectOffersForPlace } from "../services/hotel-service-adapter";
+import { getExistingHotelPhotos, loadHotelPhotoGallery } from "../services/hotel-photo-enrichment";
 
 export interface MindtripHotelDetailOverlayProps {
   hotel: MindtripHotel;
@@ -53,6 +54,16 @@ export function MindtripHotelDetailOverlay({
   const [isBookModalOpen, setIsBookModalOpen] = React.useState(false);
   const [isAvailableRoomsViewOpen, setIsAvailableRoomsViewOpen] = React.useState(false);
   const [priceAlertActive, setPriceAlertActive] = React.useState(false);
+  const [loadedPhotos, setLoadedPhotos] = React.useState(hotel.photoGallery ?? []);
+
+  React.useEffect(() => {
+    if (getExistingHotelPhotos(hotel).length > 0) return;
+    let active = true;
+    void loadHotelPhotoGallery(hotel).then((photos) => {
+      if (active && photos.length > 0) setLoadedPhotos(photos);
+    });
+    return () => { active = false; };
+  }, [hotel]);
 
   const [directBooking, setDirectBooking] = React.useState<{
     hasDirectBooking: true;
@@ -159,17 +170,11 @@ export function MindtripHotelDetailOverlay({
   }, [hotel, directBooking]);
 
   const place: Place = React.useMemo(() => {
-    const photos = hotel.photos.length > 0 ? hotel.photos : [];
-    const photoGallery = photos.map((url) => ({
-      url,
-      source: "database",
-      attribution: [],
-      fetchedAt: new Date().toISOString(),
-      displayApproved: true,
-    }));
+    const photoGallery = loadedPhotos.length > 0 ? loadedPhotos : getExistingHotelPhotos(hotel);
+    const photos = photoGallery.map((photo) => photo.url);
 
     return {
-      id: hotel.id,
+      id: hotel.placeId || hotel.id,
       name: hotel.name,
       rating: hotel.rating,
       userRatingCount: hotel.reviewCount,
@@ -191,7 +196,7 @@ export function MindtripHotelDetailOverlay({
         relativeTimeDescription: r.stayDuration || r.date,
       })),
     };
-  }, [hotel]);
+  }, [hotel, loadedPhotos]);
 
   // If user chose to see Available Rooms
   if (isAvailableRoomsViewOpen) {
@@ -321,8 +326,8 @@ export function MindtripHotelDetailOverlay({
   // Amenities section (rendered when hotel has amenities)
   const hasAmenities = Boolean(
     (hotel.amenities?.popular && hotel.amenities.popular.length > 0) ||
-      (hotel.amenities?.room && hotel.amenities.room.length > 0) ||
-      (hotel.amenities?.services && hotel.amenities.services.length > 0)
+    (hotel.amenities?.room && hotel.amenities.room.length > 0) ||
+    (hotel.amenities?.services && hotel.amenities.services.length > 0)
   );
 
   const amenitiesSection = hasAmenities ? (

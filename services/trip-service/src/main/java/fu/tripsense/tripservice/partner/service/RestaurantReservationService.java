@@ -31,6 +31,10 @@ public class RestaurantReservationService {
   private final RestaurantReservationRepository reservationRepository;
   private final RestaurantReservationTransitionRepository transitionRepository;
   private final PartnerNotificationRepository notificationRepository;
+  private final PartnerNotificationOutboxService outboxService;
+  private final RestaurantAvailabilityRepository availabilityRepository;
+  private final RestaurantOpeningIntervalRepository openingIntervalRepository;
+  private final RestaurantAvailabilityEngine availabilityEngine;
 
   @Transactional
   public RestaurantReservationDto createRequest(
@@ -79,10 +83,6 @@ public class RestaurantReservationService {
       throw new TripServiceException("INVALID_START_TIME", "Reservation time must be in the future", HttpStatus.BAD_REQUEST);
     }
 
-    if (req.startAt().isAfter(now.plus(180, ChronoUnit.DAYS))) {
-      throw new TripServiceException("INVALID_START_TIME", "Reservation cannot be more than 180 days in advance", HttpStatus.BAD_REQUEST);
-    }
-
     try {
       ZoneId.of(req.timeZone());
     } catch (DateTimeException e) {
@@ -103,6 +103,16 @@ public class RestaurantReservationService {
       }
     }
 
+    RestaurantAvailability availability = availabilityRepository.lockByBusinessId(businessId)
+        .orElseThrow(() -> new TripServiceException(
+            "RESTAURANT_AVAILABILITY_NOT_CONFIGURED", "Restaurant availability is not configured", HttpStatus.CONFLICT));
+    Instant endsAt = req.startAt().plus(availability.getReservationDurationMinutes(), ChronoUnit.MINUTES);
+    List<RestaurantReservation> activeReservations = reservationRepository.findActiveOverlappingReservations(
+        businessId, req.startAt(), endsAt, now);
+    availabilityEngine.validateCandidate(availability,
+        openingIntervalRepository.findByBusinessIdOrderByDayOfWeekAscOpensAtAsc(businessId),
+        req.startAt(), endsAt, req.adults() + req.children(), now, activeReservations, null);
+
     UUID resId = UUID.randomUUID();
     RestaurantReservation reservation = RestaurantReservation.builder()
         .id(resId)
@@ -112,7 +122,9 @@ public class RestaurantReservationService {
         .customerName(user.email() != null && user.email().contains("@") ? user.email().split("@")[0] : "Customer")
         .businessNameSnapshot(business.getDisplayName())
         .startAt(req.startAt())
-        .timeZone(req.timeZone())
+        .timeZone(availability.getTimeZone())
+        .endsAt(endsAt)
+        .holdExpiresAt(now.plus(availability.getPendingHoldMinutes(), ChronoUnit.MINUTES))
         .adults(req.adults())
         .children(req.children())
         .notes(req.notes() != null && !req.notes().isBlank() ? req.notes().trim() : null)
@@ -152,48 +164,44 @@ public class RestaurantReservationService {
         .build());
 
     // Notify business owners and managers
-    try {
-      List<PartnerBusinessMember> activeMembers =
-          memberRepository.findByIdBusinessIdAndState(businessId, MembershipState.ACTIVE);
-      for (PartnerBusinessMember member : activeMembers) {
-        if (member.getRole() == MembershipRole.OWNER || member.getRole() == MembershipRole.MANAGER) {
-          String msg = String.format(
-              "Yêu cầu đặt bàn mới từ %s (%d khách) vào lúc %s.",
-              reservation.getCustomerName() != null ? reservation.getCustomerName() : "Khách hàng",
-              req.adults() + req.children(),
-              req.startAt());
-          notificationRepository.save(
-              PartnerNotification.builder()
-                  .id(UUID.randomUUID())
-                  .eventId(resId)
-                  .recipientId(member.getId().getUserId())
-                  .eventType("RESTAURANT_RESERVATION_REQUESTED")
-                  .businessId(businessId)
-                  .message(msg)
-                  .createdAt(now)
-                  .build());
-        }
+    List<PartnerBusinessMember> activeMembers =
+        memberRepository.findByIdBusinessIdAndState(businessId, MembershipState.ACTIVE);
+    for (PartnerBusinessMember member : activeMembers) {
+      if (member.getRole() == MembershipRole.OWNER || member.getRole() == MembershipRole.MANAGER) {
+        String msg = String.format(
+            "Yêu cầu đặt bàn mới từ %s (%d khách) vào lúc %s.",
+            reservation.getCustomerName() != null ? reservation.getCustomerName() : "Khách hàng",
+            req.adults() + req.children(),
+            req.startAt());
+        outboxService.saveNotificationWithOutbox(
+            PartnerNotification.builder()
+                .id(UUID.randomUUID())
+                .eventId(resId)
+                .recipientId(member.getId().getUserId())
+                .eventType("RESTAURANT_RESERVATION_REQUESTED")
+                .businessId(businessId)
+                .message(msg)
+                .createdAt(now)
+                .build());
       }
-
-      // Also notify the customer that request was placed
-      String customerMsg = String.format(
-          "Yêu cầu đặt bàn tại %s (%d khách) vào lúc %s đã được gửi thành công. Vui lòng chờ quán xác nhận.",
-          reservation.getBusinessNameSnapshot(),
-          req.adults() + req.children(),
-          req.startAt());
-      notificationRepository.save(
-          PartnerNotification.builder()
-              .id(UUID.randomUUID())
-              .eventId(UUID.randomUUID())
-              .recipientId(user.id())
-              .eventType("RESTAURANT_RESERVATION_PLACED")
-              .businessId(businessId)
-              .message(customerMsg)
-              .createdAt(now)
-              .build());
-    } catch (Exception ex) {
-      log.warn("Failed to dispatch restaurant reservation notification: {}", ex.getMessage());
     }
+
+    // Also notify the customer that request was placed
+    String customerMsg = String.format(
+        "Yêu cầu đặt bàn tại %s (%d khách) vào lúc %s đã được gửi thành công. Vui lòng chờ quán xác nhận.",
+        reservation.getBusinessNameSnapshot(),
+        req.adults() + req.children(),
+        req.startAt());
+    outboxService.saveNotificationWithOutbox(
+        PartnerNotification.builder()
+            .id(UUID.randomUUID())
+            .eventId(UUID.randomUUID())
+            .recipientId(user.id())
+            .eventType("RESTAURANT_RESERVATION_PLACED")
+            .businessId(businessId)
+            .message(customerMsg)
+            .createdAt(now)
+            .build());
 
     return toDto(reservation);
   }
@@ -297,12 +305,21 @@ public class RestaurantReservationService {
       RestaurantReservationDecisionRequest req) {
     requireMember(user, businessId, Set.of(MembershipRole.OWNER, MembershipRole.MANAGER));
 
-    RestaurantReservation reservation = reservationRepository.lockById(reservationId).orElseThrow(
+    RestaurantReservation initial = reservationRepository.findById(reservationId).orElseThrow(
         () -> new TripServiceException("RESERVATION_NOT_FOUND", "Reservation not found", HttpStatus.NOT_FOUND));
 
-    if (!businessId.equals(reservation.getBusinessId())) {
+    if (!businessId.equals(initial.getBusinessId())) {
       throw new TripServiceException("RESERVATION_NOT_FOUND", "Reservation not found", HttpStatus.NOT_FOUND);
     }
+
+    RestaurantAvailability availability = null;
+    if ("CONFIRM".equalsIgnoreCase(req.decision())) {
+      availability = availabilityRepository.lockByBusinessId(businessId)
+          .orElseThrow(() -> new TripServiceException(
+              "RESTAURANT_AVAILABILITY_NOT_CONFIGURED", "Restaurant availability is not configured", HttpStatus.CONFLICT));
+    }
+    RestaurantReservation reservation = reservationRepository.lockById(reservationId).orElseThrow(
+        () -> new TripServiceException("RESERVATION_NOT_FOUND", "Reservation not found", HttpStatus.NOT_FOUND));
 
     if (!Objects.equals(reservation.getVersion(), req.expectedVersion())) {
       throw new TripServiceException("VERSION_CONFLICT", "Reservation was modified by another party", HttpStatus.CONFLICT);
@@ -316,6 +333,18 @@ public class RestaurantReservationService {
       if (!"REQUESTED".equals(fromState)) {
         throw new TripServiceException("INVALID_STATE_TRANSITION", "Can only confirm a requested reservation", HttpStatus.BAD_REQUEST);
       }
+      if (reservation.getHoldExpiresAt() == null || !reservation.getHoldExpiresAt().isAfter(now)) {
+        throw new TripServiceException("RESERVATION_HOLD_EXPIRED", "Reservation request hold has expired", HttpStatus.CONFLICT);
+      }
+      Instant endsAt = reservation.getEndsAt() != null ? reservation.getEndsAt()
+          : reservation.getStartAt().plus(availability.getReservationDurationMinutes(), ChronoUnit.MINUTES);
+      List<RestaurantReservation> activeReservations = reservationRepository.findActiveOverlappingReservations(
+          businessId, reservation.getStartAt(), endsAt, now);
+      availabilityEngine.validateCandidate(availability,
+          openingIntervalRepository.findByBusinessIdOrderByDayOfWeekAscOpensAtAsc(businessId),
+          reservation.getStartAt(), endsAt, reservation.getAdults() + reservation.getChildren(), now,
+          activeReservations, reservation.getId());
+      reservation.setEndsAt(endsAt);
       reservation.setState("CONFIRMED");
       reservation.setDecisionReason(req.reason() != null && !req.reason().isBlank() ? req.reason().trim() : null);
     } else if ("REJECT".equals(decision)) {
@@ -349,38 +378,34 @@ public class RestaurantReservationService {
         .build());
 
     // Notify customer about reservation decision
-    try {
-      String decisionMsg;
-      String eventType;
-      if ("CONFIRMED".equals(reservation.getState())) {
-        decisionMsg = String.format("Nhà hàng %s đã XÁC NHẬN yêu cầu đặt bàn của bạn vào lúc %s.",
-            reservation.getBusinessNameSnapshot(), reservation.getStartAt());
-        eventType = "RESTAURANT_RESERVATION_CONFIRMED";
-      } else if ("REJECTED".equals(reservation.getState())) {
-        decisionMsg = String.format("Nhà hàng %s đã TỪ CHỐI yêu cầu đặt bàn của bạn.%s",
-            reservation.getBusinessNameSnapshot(),
-            req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
-        eventType = "RESTAURANT_RESERVATION_REJECTED";
-      } else {
-        decisionMsg = String.format("Nhà hàng %s đã HỦY yêu cầu đặt bàn của bạn.%s",
-            reservation.getBusinessNameSnapshot(),
-            req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
-        eventType = "RESTAURANT_RESERVATION_CANCELLED";
-      }
-
-      notificationRepository.save(
-          PartnerNotification.builder()
-              .id(UUID.randomUUID())
-              .eventId(UUID.randomUUID())
-              .recipientId(reservation.getCustomerId())
-              .eventType(eventType)
-              .businessId(businessId)
-              .message(decisionMsg)
-              .createdAt(now)
-              .build());
-    } catch (Exception ex) {
-      log.warn("Failed to dispatch restaurant reservation decision notification: {}", ex.getMessage());
+    String decisionMsg;
+    String eventType;
+    if ("CONFIRMED".equals(reservation.getState())) {
+      decisionMsg = String.format("Nhà hàng %s đã XÁC NHẬN yêu cầu đặt bàn của bạn vào lúc %s.",
+          reservation.getBusinessNameSnapshot(), reservation.getStartAt());
+      eventType = "RESTAURANT_RESERVATION_CONFIRMED";
+    } else if ("REJECTED".equals(reservation.getState())) {
+      decisionMsg = String.format("Nhà hàng %s đã TỪ CHỐI yêu cầu đặt bàn của bạn.%s",
+          reservation.getBusinessNameSnapshot(),
+          req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
+      eventType = "RESTAURANT_RESERVATION_REJECTED";
+    } else {
+      decisionMsg = String.format("Nhà hàng %s đã HỦY yêu cầu đặt bàn của bạn.%s",
+          reservation.getBusinessNameSnapshot(),
+          req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
+      eventType = "RESTAURANT_RESERVATION_CANCELLED";
     }
+
+    outboxService.saveNotificationWithOutbox(
+        PartnerNotification.builder()
+            .id(UUID.randomUUID())
+            .eventId(UUID.randomUUID())
+            .recipientId(reservation.getCustomerId())
+            .eventType(eventType)
+            .businessId(businessId)
+            .message(decisionMsg)
+            .createdAt(now)
+            .build());
 
     return toDto(reservation);
   }

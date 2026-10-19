@@ -1,3 +1,6 @@
+
+import type { Location, PlacePhotoEvidence } from "@/features/places/types";
+
 export type HotelProperty = {
   business_id: string;
   id: string;
@@ -130,7 +133,6 @@ export interface HotelRoomData {
   amenities: string[];
   description?: string;
 }
-
 export interface HotelOTAOption {
   id: string;
   name: string;
@@ -156,6 +158,8 @@ export interface HotelReview {
 
 export interface MindtripHotel {
   id: string;
+  /** Stable Place Service ID; property IDs are not valid Place Details IDs. */
+  placeId?: string;
   name: string;
   rating?: number;
   reviewCount?: number;
@@ -168,6 +172,9 @@ export interface MindtripHotel {
   website?: string;
   description?: string;
   photos: string[];
+  primaryPhoto?: PlacePhotoEvidence;
+  photoGallery?: PlacePhotoEvidence[];
+  location?: Location;
   /**
    * Indicates whether this hotel is registered with real-time direct booking in TripSense.
    * If false, the UI will truthfully indicate that online booking is not yet available,

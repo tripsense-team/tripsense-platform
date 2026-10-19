@@ -7,9 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useTranslation } from "@/i18n";
 import { hotelApi } from "@/features/hotels/services/hotels-api";
+import { HotelAmPmTimeField } from "@/features/hotels/components/hotel-ampm-time-field";
+import { formatHotelTime } from "@/features/hotels/utils/hotel-time";
 import { getBusinessApplications } from "@/features/partner/services/partner-api";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { CheckCircle2, Clock, MapPin, RefreshCw, AlertTriangle } from "lucide-react";
+import { PartnerWizardModal } from "@/features/partner/components/partner-wizard-modal";
 
 export default function PartnerHotelPropertyPage() {
   const { t } = useTranslation();
@@ -17,6 +20,7 @@ export default function PartnerHotelPropertyPage() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState("");
+  const [profileEditorOpen, setProfileEditorOpen] = React.useState(false);
 
   const approvedProfile = business?.draftProfile ?? {};
   const destination = String(approvedProfile.destination ?? "");
@@ -81,6 +85,12 @@ export default function PartnerHotelPropertyPage() {
 
   return (
     <div className="space-y-6">
+      {business?.requiresReverification && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200" role="status">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{t("partner.profileUpdate.waitingReview")}</span>
+        </div>
+      )}
       {error && (
         <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive" role="alert">
           {error}
@@ -108,16 +118,28 @@ export default function PartnerHotelPropertyPage() {
               </div>
 
               {isOwner && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSyncApproved}
-                  disabled={busy}
-                  className="gap-1.5 text-xs self-start sm:self-auto"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
-                  <span>{t("trip.hotels.syncApproved", { defaultValue: "Đồng bộ từ hồ sơ duyệt" })}</span>
-                </Button>
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  {business?.approvalValidity === "VALID" && business.latestApplicationState !== "SUBMITTED" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setProfileEditorOpen(true)}
+                      className="gap-1.5 text-xs"
+                    >
+                      {t(business.requiresReverification ? "partner.profileUpdate.resume" : "partner.profileUpdate.edit")}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSyncApproved}
+                    disabled={busy || Boolean(business?.requiresReverification)}
+                    className="gap-1.5 text-xs"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+                    <span>{t("trip.hotels.syncApproved", { defaultValue: "Đồng bộ từ hồ sơ duyệt" })}</span>
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>
@@ -138,7 +160,7 @@ export default function PartnerHotelPropertyPage() {
                 <div className="space-y-0.5">
                   <span className="text-micro text-muted-foreground font-semibold uppercase block">Chính sách nhận / trả phòng</span>
                   <p className="font-medium text-foreground">
-                    Check-in: {property.check_in_time} · Check-out: {property.check_out_time}
+                    Check-in: {formatHotelTime(property.check_in_time)} · Check-out: {formatHotelTime(property.check_out_time)}
                   </p>
                   <p className="text-xs text-muted-foreground">Múi giờ: {property.time_zone}</p>
                 </div>
@@ -174,7 +196,7 @@ export default function PartnerHotelPropertyPage() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">Tỉnh / Thành phố điểm đến</label>
-                  <Input name="destination" defaultValue={destination} required placeholder="Ví dụ: Đà Nẵng" />
+                  <Input name="destination" defaultValue={destination} required readOnly placeholder="Ví dụ: Đà Nẵng" />
                 </div>
 
                 <div className="space-y-1">
@@ -184,18 +206,20 @@ export default function PartnerHotelPropertyPage() {
 
                 <div className="space-y-1 sm:col-span-2">
                   <label className="text-xs font-semibold text-muted-foreground">Địa chỉ chi tiết</label>
-                  <Input name="address" defaultValue={address} required placeholder="Số nhà, tên đường, quận/huyện" />
+                  <Input name="address" defaultValue={address} required readOnly placeholder="Số nhà, tên đường, quận/huyện" />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Giờ nhận phòng (Check-in)</label>
-                  <Input name="checkInTime" type="time" defaultValue="14:00" required />
-                </div>
+                <HotelAmPmTimeField
+                  name="checkInTime"
+                  label={t("trip.hotels.checkInTime")}
+                  defaultValue="14:00"
+                />
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Giờ trả phòng (Check-out)</label>
-                  <Input name="checkOutTime" type="time" defaultValue="11:00" required />
-                </div>
+                <HotelAmPmTimeField
+                  name="checkOutTime"
+                  label={t("trip.hotels.checkOutTime")}
+                  defaultValue="11:00"
+                />
 
                 <div className="sm:col-span-2 pt-2">
                   <Button type="submit" disabled={busy} className="w-full sm:w-auto">
@@ -211,6 +235,14 @@ export default function PartnerHotelPropertyPage() {
             )}
           </CardContent>
         </Card>
+      )}
+      {business && (
+        <PartnerWizardModal
+          open={profileEditorOpen}
+          onOpenChange={setProfileEditorOpen}
+          editBusiness={business}
+          onSuccess={() => { void refresh(); }}
+        />
       )}
     </div>
   );

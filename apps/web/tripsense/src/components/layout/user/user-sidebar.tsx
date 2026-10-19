@@ -19,6 +19,8 @@ import {
   Store,
   MapPin,
   CalendarCheck,
+  Utensils,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -339,32 +341,41 @@ export function UserSidebar({
               <nav className={cn("space-y-0.5 w-full", collapsed && "flex flex-col items-center")}>
                 {(() => {
                   const partnerHref = "/partner";
+                  const isPartner = isUserPartner(user);
+                  const isServicesActive =
+                    pathname === "/partner/services" || pathname?.startsWith("/partner/services/");
+                  const isAnalyticsActive = pathname === "/partner/analytics" || pathname?.startsWith("/partner/analytics/");
                   const isPartnerActive =
-                    pathname === partnerHref || pathname?.startsWith(`${partnerHref}/`);
+                    (pathname === partnerHref || pathname?.startsWith(`${partnerHref}/`)) &&
+                    !isServicesActive && !isAnalyticsActive;
                   const partnerTitle = isUserPartner(user)
                     ? "Trung tâm Đối tác"
                     : "Trở thành đối tác";
+                  const servicesTitle = t("nav.partnerServices");
+                  const analyticsTitle = t("nav.partnerAnalytics");
+                  const partnerLinkClass = cn(
+                    "flex min-h-[38px] items-center gap-3 rounded-full px-3 py-2 text-[13px] transition-all duration-150 group",
+                    collapsed && "justify-center p-0 w-9 h-9 min-h-9 mx-auto shrink-0",
+                  );
+                  const partnerIconClass = (active: boolean) => cn(
+                    "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-105",
+                    active
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-sidebar-foreground/75 group-hover:text-foreground",
+                  );
 
                   const partnerElement = (
                     <Link
                       href={partnerHref}
+                      aria-current={isPartnerActive ? "page" : undefined}
                       className={cn(
-                        "flex min-h-[38px] items-center gap-3 rounded-full px-3 py-2 text-[13px] transition-all duration-150 group",
+                        partnerLinkClass,
                         isPartnerActive
                           ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
                           : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
-                        collapsed &&
-                          "justify-center p-0 w-9 h-9 min-h-9 mx-auto shrink-0",
                       )}
                     >
-                      <Store
-                        className={cn(
-                          "h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-105",
-                          isPartnerActive
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-sidebar-foreground/75 group-hover:text-foreground",
-                        )}
-                      />
+                      <Store className={partnerIconClass(isPartnerActive)} />
                       {!collapsed && (
                         <div className="flex-1 min-w-0">
                           <span className="truncate block font-medium">
@@ -375,17 +386,75 @@ export function UserSidebar({
                     </Link>
                   );
 
+                  const servicesElement = (
+                    <Link
+                      href="/partner/services"
+                      aria-current={isServicesActive ? "page" : undefined}
+                      className={cn(
+                        partnerLinkClass,
+                        isServicesActive
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
+                          : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
+                      )}
+                    >
+                      <Utensils className={partnerIconClass(isServicesActive)} />
+                      {!collapsed && (
+                        <span className="block min-w-0 flex-1 truncate font-medium">
+                          {servicesTitle}
+                        </span>
+                      )}
+                    </Link>
+                  );
+
+                  const analyticsElement = (
+                    <Link
+                      href="/partner/analytics"
+                      aria-current={isAnalyticsActive ? "page" : undefined}
+                      className={cn(
+                        partnerLinkClass,
+                        isAnalyticsActive
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
+                          : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
+                      )}
+                    >
+                      <BarChart3 className={partnerIconClass(isAnalyticsActive)} />
+                      {!collapsed && <span className="block min-w-0 flex-1 truncate font-medium">{analyticsTitle}</span>}
+                    </Link>
+                  );
+
                   if (collapsed) {
                     return (
-                      <Tooltip>
-                        <TooltipTrigger asChild>{partnerElement}</TooltipTrigger>
-                        <TooltipContent side="right" sideOffset={12}>
-                          <span>{partnerTitle}</span>
-                        </TooltipContent>
-                      </Tooltip>
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>{partnerElement}</TooltipTrigger>
+                          <TooltipContent side="right" sideOffset={12}>
+                            <span>{partnerTitle}</span>
+                          </TooltipContent>
+                        </Tooltip>
+                        {isPartner && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>{servicesElement}</TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={12}>
+                              <span>{servicesTitle}</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {isPartner && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>{analyticsElement}</TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={12}><span>{analyticsTitle}</span></TooltipContent>
+                          </Tooltip>
+                        )}
+                      </>
                     );
                   }
-                  return partnerElement;
+                  return (
+                    <>
+                      {partnerElement}
+                      {isPartner && servicesElement}
+                      {isPartner && analyticsElement}
+                    </>
+                  );
                 })()}
               </nav>
             </div>

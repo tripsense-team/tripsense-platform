@@ -33,13 +33,17 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getAutocomplete, getPlaceDetails } from "@/features/places/services/places-api";
 import type { AutocompleteSuggestion, Place } from "@/features/places/types";
+import { POPULAR_DESTINATIONS } from "@/features/onboarding/constants";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import {
   createBusinessDraft,
+  declareBusinessMaterialChange,
+  getBusinessApplications,
   submitBusinessApplication,
   createManagementClaim,
   searchBusinessCandidates,
+  updateBusinessDraft,
 } from "../services/partner-api";
 import type {
   BusinessDetailDto,
@@ -52,12 +56,14 @@ interface PartnerWizardModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (business: BusinessDetailDto) => void;
+  editBusiness?: BusinessDetailDto;
 }
 
 export function PartnerWizardModal({
   open,
   onOpenChange,
   onSuccess,
+  editBusiness,
 }: PartnerWizardModalProps) {
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [kind, setKind] = React.useState<BusinessKind>("TOUR_GUIDE");
@@ -70,6 +76,7 @@ export function PartnerWizardModal({
   ]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const errorAlertRef = React.useRef<HTMLDivElement>(null);
 
   // --- Place / Location Search state ---
   const [placeQuery, setPlaceQuery] = React.useState("");
@@ -85,6 +92,8 @@ export function PartnerWizardModal({
   const [isSearchingPlaces, setIsSearchingPlaces] = React.useState(false);
   const [selectedPlace, setSelectedPlace] = React.useState<Place | null>(null);
   const [customAddress, setCustomAddress] = React.useState("");
+  const [selectedCity, setSelectedCity] = React.useState("");
+  const [customCity, setCustomCity] = React.useState("");
   const [conflictCandidate, setConflictCandidate] = React.useState<PartnerCandidateDto | null>(null);
   const [isCheckingConflict, setIsCheckingConflict] = React.useState(false);
 
@@ -122,10 +131,41 @@ export function PartnerWizardModal({
   }, [open, kind, step, isClaimMode]);
 
   React.useEffect(() => {
+    if (editBusiness) return;
     setSelectedPlace(null);
     setPlaceQuery("");
     setCustomAddress("");
-  }, [kind]);
+  }, [kind, editBusiness]);
+
+  React.useEffect(() => {
+    if (!open || !editBusiness) return;
+    const profile = editBusiness.draftProfile ?? {};
+    setStep(2);
+    setKind(editBusiness.kind);
+    setDisplayName(editBusiness.displayName);
+    setDescription(String(profile.bio ?? profile.description ?? ""));
+    setCustomAddress(String(profile.address ?? ""));
+    const existingDestination = String(profile.destination ?? "").trim();
+    const knownDestination = POPULAR_DESTINATIONS.find(
+      (destination) => destination.name.toLocaleLowerCase() === existingDestination.toLocaleLowerCase(),
+    );
+    setSelectedCity(knownDestination?.name ?? "");
+    setCustomCity("");
+    setTaxCode(String(profile.taxCode ?? ""));
+    setLicenseNumber(String(profile.licenseNumber ?? ""));
+    setLegalRepresentative(String(profile.legalRepresentative ?? ""));
+    setContactPhone(String(profile.contactPhone ?? ""));
+    setProofDocumentUrl(String(profile.proofDocumentUrl ?? ""));
+    setSelectedCapabilities(editBusiness.capabilities ?? []);
+    setError(null);
+  }, [open, editBusiness]);
+
+  React.useEffect(() => {
+    const alert = errorAlertRef.current;
+    if (error && typeof alert?.scrollIntoView === "function") {
+      alert.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [error]);
 
   // Debounced autocomplete; abort guards also protect against stale responses.
   React.useEffect(() => {
@@ -165,7 +205,8 @@ export function PartnerWizardModal({
     const name = selectedPlace?.name || displayName.trim();
     setConflictCandidate(null);
     setIsCheckingConflict(false);
-    if (!open || isClaimMode || isResolvingPlace || name.length < 3) return;
+    // Editing an existing business must never be treated as a duplicate claim.
+    if (!open || editBusiness || isClaimMode || isResolvingPlace || name.length < 3) return;
 
     const timer = setTimeout(async () => {
       setIsCheckingConflict(true);
@@ -184,7 +225,7 @@ export function PartnerWizardModal({
     }, 500);
 
     return () => { active = false; clearTimeout(timer); };
-  }, [displayName, kind, selectedPlace, open, isClaimMode, isResolvingPlace]);
+  }, [displayName, kind, selectedPlace, open, editBusiness, isClaimMode, isResolvingPlace]);
 
   // Debounced Business Candidate Search (for Claim / Appeal)
   React.useEffect(() => {
@@ -225,6 +266,8 @@ export function PartnerWizardModal({
     setConflictCandidate(null);
     setIsCheckingConflict(false);
     setCustomAddress("");
+    setSelectedCity("");
+    setCustomCity("");
     setTaxCode("");
     setLicenseNumber("");
     setLegalRepresentative("");
@@ -296,7 +339,7 @@ export function PartnerWizardModal({
         throw new Error();
       }
       setSelectedPlace(place);
-      setDisplayName(place.name);
+      if (!editBusiness) setDisplayName(place.name);
       setCustomAddress(place.address || suggestion.subtitle || "");
       setPlaceQuery("");
       setPlaceResults([]);
@@ -316,8 +359,14 @@ export function PartnerWizardModal({
       return;
     }
 
-    if ((kind === "HOTEL" || kind === "RESTAURANT") && !selectedPlace && !customAddress.trim()) {
-      setError("Vui lòng tìm kiếm chọn địa điểm hoặc nhập địa chỉ cơ sở.");
+    const destination = selectedCity === "__custom__" ? customCity.trim() : selectedCity.trim();
+    const isPlaceBusiness = kind === "HOTEL" || kind === "RESTAURANT";
+    if (isPlaceBusiness && (!destination || !customAddress.trim())) {
+      setError(t("partner.profileUpdate.citySelectionRequired"));
+      return;
+    }
+    if (isPlaceBusiness && (!editBusiness || placeQuery.trim()) && !selectedPlace) {
+      setError(t("partner.profileUpdate.locationSelectionRequired"));
       return;
     }
 
@@ -325,21 +374,86 @@ export function PartnerWizardModal({
       setLoading(true);
       setError(null);
 
+      const originalProfile = editBusiness?.draftProfile ?? {};
+      const nextDestination = destination;
+      const nextAddress = customAddress.trim();
+      const locationChanged = isPlaceBusiness && (
+        String(originalProfile.destination ?? "") !== nextDestination ||
+        String(originalProfile.address ?? "") !== nextAddress
+      );
       const draftProfile: Record<string, unknown> = {
+        ...originalProfile,
         bio: description.trim(),
         description: description.trim(),
-        destination: selectedPlace?.city || customAddress.trim(),
-        address: customAddress.trim() || selectedPlace?.address,
-        placeId: selectedPlace?.id || selectedPlace?.providerPlaceId,
-        placeName: selectedPlace?.name || displayName.trim(),
-        lat: selectedPlace?.location?.lat,
-        lng: selectedPlace?.location?.lng,
+        ...(isPlaceBusiness ? {
+          destination: nextDestination,
+          address: nextAddress,
+          ...(selectedPlace ? {
+            placeId: selectedPlace.id || selectedPlace.providerPlaceId,
+            placeName: selectedPlace.name,
+            lat: selectedPlace.location?.lat,
+            lng: selectedPlace.location?.lng,
+          } : locationChanged ? { placeId: null, placeName: null, lat: null, lng: null } : {}),
+        } : {}),
         taxCode: taxCode.trim(),
         licenseNumber: licenseNumber.trim(),
         legalRepresentative: legalRepresentative.trim(),
         contactPhone: contactPhone.trim(),
         proofDocumentUrl: proofDocumentUrl.trim(),
       };
+
+      if (editBusiness) {
+        const hasChanges =
+          displayName.trim() !== editBusiness.displayName ||
+          Object.entries(draftProfile).some(([key, value]) => {
+            const current = editBusiness.draftProfile?.[key];
+            const normalize = (entry: unknown) => entry == null || entry === "" ? null : entry;
+            return JSON.stringify(normalize(value)) !== JSON.stringify(normalize(current));
+          });
+        if (!hasChanges) {
+          setError(t("partner.profileUpdate.noChanges"));
+          return;
+        }
+        const updatedDraft = await updateBusinessDraft(editBusiness.id, {
+          expectedVersion: editBusiness.version,
+          displayName: displayName.trim(),
+          draftProfile,
+        });
+
+        let currentBusiness = updatedDraft;
+        if (!editBusiness.requiresReverification) {
+          currentBusiness = await declareBusinessMaterialChange(editBusiness.id, {
+            expectedVersion: updatedDraft.version,
+            kind: locationChanged ? "LOCATION" : "REPRESENTATION",
+            reason: locationChanged
+              ? t("partner.profileUpdate.locationChangeReason")
+              : t("partner.profileUpdate.profileChangeReason"),
+          });
+        }
+
+        const applications = await getBusinessApplications(editBusiness.id);
+        const approvedApplication = applications.find((application) => application.id === editBusiness.approvedRevisionId);
+        const requestedCapabilities = editBusiness.capabilities?.length
+          ? editBusiness.capabilities
+          : kind === "HOTEL"
+            ? ["HOTEL_LISTING", "HOTEL_INVENTORY", "HOTEL_BOOKING"] as PartnerCapability[]
+            : kind === "RESTAURANT"
+              ? ["RESTAURANT_LISTING", "RESTAURANT_MENU"] as PartnerCapability[]
+              : ["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"] as PartnerCapability[];
+
+        await submitBusinessApplication(editBusiness.id, {
+          expectedVersion: currentBusiness.version,
+          requestedCapabilities,
+          checklistId: `CHK-${kind === "TOUR_GUIDE" ? "GUIDE" : kind}-V1`,
+          checklistVersion: "1.0",
+          profileSnapshot: { ...draftProfile, displayName: displayName.trim() },
+          ...(approvedApplication?.documentIds?.length ? { documentIds: approvedApplication.documentIds } : {}),
+        });
+        onSuccess?.(currentBusiness);
+        onOpenChange(false);
+        resetForm();
+        return;
+      }
 
       // 1. Create Business Draft
       const draft = await createBusinessDraft({
@@ -364,7 +478,7 @@ export function PartnerWizardModal({
       onOpenChange(false);
       resetForm();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra khi tạo hồ sơ");
+      setError(getSafeErrorMessage(err, t("partner.profileUpdate.submitFailed")));
     } finally {
       setLoading(false);
     }
@@ -425,7 +539,7 @@ export function PartnerWizardModal({
                 : step === 1
                   ? "Bước 1: Chọn loại hình đối tác"
                   : step === 2
-                    ? "Bước 2: Thông tin cơ sở & minh chứng địa điểm"
+                    ? editBusiness ? t("partner.profileUpdate.title") : "Bước 2: Thông tin cơ sở & minh chứng địa điểm"
                     : "Bước 3: Nhu cầu năng lực vận hành"}
             </DialogTitle>
           </div>
@@ -435,13 +549,13 @@ export function PartnerWizardModal({
               : step === 1
                 ? "Bạn muốn cung cấp dịch vụ gì trên nền tảng TripSense?"
                 : step === 2
-                  ? "Tìm kiếm địa điểm, khai báo thông tin pháp lý và minh chứng chủ sở hữu."
+                    ? editBusiness ? t("partner.profileUpdate.description") : "Tìm kiếm địa điểm, khai báo thông tin pháp lý và minh chứng chủ sở hữu."
                   : "Chọn các chức năng nghiệp vụ bạn muốn xin cấp phép."}
           </DialogDescription>
         </DialogHeader>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive">
+          <div ref={errorAlertRef} role="alert" className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span className="flex-1">{error}</span>
           </div>
@@ -660,7 +774,7 @@ export function PartnerWizardModal({
           /* ------------------------------------------------------------- */
           <>
             {/* Step 1: Select Kind */}
-            {step === 1 && (
+            {!editBusiness && step === 1 && (
               <div className="grid grid-cols-1 gap-3 py-3">
                 <button
                   type="button"
@@ -863,7 +977,7 @@ export function PartnerWizardModal({
                     )}
 
                     {/* Conflict / Appeal Notice: ONLY when another partner already claimed this place */}
-                    {conflictCandidate && (
+                    {!editBusiness && conflictCandidate && (
                       <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs space-y-2 animate-in fade-in-50">
                         <div className="flex items-start gap-2.5">
                           <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -919,7 +1033,39 @@ export function PartnerWizardModal({
 
                 {/* Custom Address (if hotel/restaurant) */}
                 {(kind === "HOTEL" || kind === "RESTAURANT") && (
+                  <>
                   <div>
+                    <label className="text-xs font-medium text-foreground mb-1 block">
+                      {t("partner.profileUpdate.destination")}
+                    </label>
+                    <select
+                      value={selectedCity}
+                      onChange={(event) => setSelectedCity(event.target.value)}
+                      required
+                      aria-label={t("partner.profileUpdate.destination")}
+                      className="flex h-10 w-full rounded-xl border border-input bg-background px-3.5 py-2 text-control shadow-2xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                    >
+                      <option value="">{t("partner.profileUpdate.selectCity")}</option>
+                      {POPULAR_DESTINATIONS.map((destination) => (
+                        <option key={destination.id} value={destination.name}>
+                          {destination.name}
+                        </option>
+                      ))}
+                      <option value="__custom__">{t("partner.profileUpdate.customCity")}</option>
+                    </select>
+                    {selectedCity === "__custom__" && (
+                      <Input
+                        value={customCity}
+                        onChange={(event) => setCustomCity(event.target.value)}
+                        maxLength={120}
+                        placeholder={t("partner.profileUpdate.customCityPlaceholder")}
+                        className="mt-2 text-xs"
+                        required
+                      />
+                    )}
+                    <p className="mt-1 text-[11px] text-muted-foreground">{t("partner.profileUpdate.selectCityHint")}</p>
+                  </div>
+                  <div className="mt-3">
                     <label className="text-xs font-medium text-foreground mb-1 block">
                       Địa chỉ chi tiết cơ sở
                     </label>
@@ -931,6 +1077,7 @@ export function PartnerWizardModal({
                       className="text-xs"
                     />
                   </div>
+                  </>
                 )}
 
                 {/* Legal & Ownership Proof (HOTEL / RESTAURANT) */}
@@ -1021,7 +1168,7 @@ export function PartnerWizardModal({
             )}
 
             {/* Step 3: Capabilities */}
-            {step === 3 && (
+            {!editBusiness && step === 3 && (
               <div className="space-y-3 py-3">
                 <p className="text-xs text-muted-foreground mb-2">
                   Các năng lực này sẽ được Admin đối soát với hồ sơ minh chứng của bạn khi xét duyệt:
@@ -1162,7 +1309,7 @@ export function PartnerWizardModal({
             )}
 
             <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
-              {step > 1 ? (
+              {!editBusiness && step > 1 ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -1176,7 +1323,7 @@ export function PartnerWizardModal({
                 <div />
               )}
 
-              {step < 3 ? (
+              {!editBusiness && step < 3 ? (
                 <Button
                   type="button"
                   size="sm"
@@ -1187,8 +1334,8 @@ export function PartnerWizardModal({
                         setError("Vui lòng nhập tên hiển thị");
                         return;
                       }
-                      if ((kind === "HOTEL" || kind === "RESTAURANT") && !selectedPlace && !customAddress.trim()) {
-                        setError("Vui lòng tìm kiếm chọn địa điểm hoặc nhập địa chỉ cơ sở");
+                      if ((kind === "HOTEL" || kind === "RESTAURANT") && (!selectedPlace?.city?.trim() || !customAddress.trim())) {
+                        setError(t("partner.profileUpdate.citySelectionRequired"));
                         return;
                       }
                     }
@@ -1203,9 +1350,9 @@ export function PartnerWizardModal({
                   type="button"
                   size="sm"
                   onClick={handleSubmit}
-                  disabled={loading || isResolvingPlace || selectedCapabilities.length === 0}
+                  disabled={loading || isResolvingPlace || (!editBusiness && selectedCapabilities.length === 0)}
                 >
-                  {loading ? "Đang gửi hồ sơ..." : "Nộp hồ sơ xét duyệt"}
+                  {loading ? t("partner.profileUpdate.submitting") : editBusiness ? t("partner.profileUpdate.submit") : "Nộp hồ sơ xét duyệt"}
                 </Button>
               )}
             </DialogFooter>

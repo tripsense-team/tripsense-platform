@@ -31,6 +31,10 @@ class RestaurantReservationServiceTest {
   @Mock private RestaurantReservationRepository reservationRepository;
   @Mock private RestaurantReservationTransitionRepository transitionRepository;
   @Mock private PartnerNotificationRepository notificationRepository;
+  @Mock private PartnerNotificationOutboxService outboxService;
+  @Mock private RestaurantAvailabilityRepository availabilityRepository;
+  @Mock private RestaurantOpeningIntervalRepository openingIntervalRepository;
+  @Mock private RestaurantAvailabilityEngine availabilityEngine;
 
   @InjectMocks private RestaurantReservationService reservationService;
 
@@ -55,6 +59,15 @@ class RestaurantReservationServiceTest {
 
     businessId = UUID.randomUUID();
     approvedRevisionId = UUID.randomUUID();
+    RestaurantAvailability availability = RestaurantAvailability.builder()
+        .businessId(businessId).timeZone("Asia/Ho_Chi_Minh").capacityGuests(40)
+        .reservationDurationMinutes(90).slotIntervalMinutes(30).minimumLeadMinutes(0)
+        .maximumAdvanceDays(90).pendingHoldMinutes(30).version(1L).build();
+    lenient().when(availabilityRepository.lockByBusinessId(businessId)).thenReturn(Optional.of(availability));
+    lenient().when(openingIntervalRepository.findByBusinessIdOrderByDayOfWeekAscOpensAtAsc(businessId))
+        .thenReturn(List.of());
+    lenient().when(reservationRepository.findActiveOverlappingReservations(
+        eq(businessId), any(), any(), any())).thenReturn(List.of());
   }
 
   private PartnerBusiness createRestaurantBusiness(OperationState opState, boolean acceptingNew) {
@@ -194,6 +207,9 @@ class RestaurantReservationServiceTest {
         .businessId(businessId)
         .customerId(customerId)
         .state("REQUESTED")
+        .startAt(Instant.now().plus(2, ChronoUnit.DAYS))
+        .endsAt(Instant.now().plus(2, ChronoUnit.DAYS).plus(90, ChronoUnit.MINUTES))
+        .holdExpiresAt(Instant.now().plus(20, ChronoUnit.MINUTES))
         .version(1L)
         .createdAt(Instant.now())
         .updatedAt(Instant.now())
@@ -223,6 +239,9 @@ class RestaurantReservationServiceTest {
         .businessId(businessId)
         .customerId(customerId)
         .state("REQUESTED")
+        .startAt(Instant.now().plus(2, ChronoUnit.DAYS))
+        .endsAt(Instant.now().plus(2, ChronoUnit.DAYS).plus(90, ChronoUnit.MINUTES))
+        .holdExpiresAt(Instant.now().plus(20, ChronoUnit.MINUTES))
         .version(2L)
         .createdAt(Instant.now())
         .updatedAt(Instant.now())
@@ -236,6 +255,7 @@ class RestaurantReservationServiceTest {
     when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, ownerId))
         .thenReturn(Optional.of(member));
 
+    when(reservationRepository.findById(resId)).thenReturn(Optional.of(res));
     when(reservationRepository.lockById(resId)).thenReturn(Optional.of(res));
     when(reservationRepository.save(any(RestaurantReservation.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -272,6 +292,7 @@ class RestaurantReservationServiceTest {
     when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, ownerId))
         .thenReturn(Optional.of(member));
 
+    when(reservationRepository.findById(resId)).thenReturn(Optional.of(res));
     when(reservationRepository.lockById(resId)).thenReturn(Optional.of(res));
 
     assertThatThrownBy(() -> reservationService.decideByPartner(

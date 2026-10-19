@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +28,45 @@ public class RestaurantService {
   private final PartnerApplicationRepository applicationRepository;
   private final RestaurantMenuItemRepository menuRepository;
   private final ObjectMapper objectMapper;
+  private final RestaurantMenuImageStorage imageStorage;
+
+  public RestaurantMenuImageUploadDto uploadMenuImage(
+      AuthenticatedUser user, UUID businessId, org.springframework.web.multipart.MultipartFile file) {
+    requireMember(user, businessId, Set.of(MembershipRole.OWNER, MembershipRole.MANAGER));
+    PartnerBusiness business = getBusiness(businessId);
+    if (business.getKind() != BusinessKind.RESTAURANT) {
+      throw new TripServiceException("RESTAURANT_NOT_FOUND", "Restaurant not found", HttpStatus.NOT_FOUND);
+    }
+    if (business.getOperationState() == OperationState.SUSPENDED) {
+      throw new TripServiceException("BUSINESS_SUSPENDED", "Business is suspended", HttpStatus.FORBIDDEN);
+    }
+    requireCapability(businessId, PartnerCapability.RESTAURANT_MENU);
+    try {
+      return imageStorage.upload(businessId, file);
+    } catch (IllegalArgumentException exception) {
+      throw new TripServiceException("INVALID_MENU_IMAGE", "Image is not valid", HttpStatus.BAD_REQUEST);
+    } catch (IllegalStateException exception) {
+      throw new TripServiceException("MENU_IMAGE_UPLOAD_FAILED", "Image upload is unavailable", HttpStatus.BAD_GATEWAY);
+    }
+  }
+
+  @Transactional(readOnly = true)
+  public void deleteUnreferencedMenuImage(AuthenticatedUser user, UUID businessId, String imagePublicId) {
+    requireMember(user, businessId, Set.of(MembershipRole.OWNER, MembershipRole.MANAGER));
+    requireCapability(businessId, PartnerCapability.RESTAURANT_MENU);
+    if (imagePublicId == null || imagePublicId.isBlank()
+        || !imageStorage.isValidReference(businessId, imagePublicId)) {
+      throw new TripServiceException("INVALID_MENU_IMAGE", "Image reference is not valid", HttpStatus.BAD_REQUEST);
+    }
+    if (menuRepository.existsByBusinessIdAndImagePublicId(businessId, imagePublicId)) {
+      throw new TripServiceException("MENU_IMAGE_IN_USE", "Image is still used by a menu item", HttpStatus.CONFLICT);
+    }
+    try {
+      imageStorage.delete(businessId, imagePublicId);
+    } catch (Exception exception) {
+      throw new TripServiceException("MENU_IMAGE_DELETE_FAILED", "Image could not be removed", HttpStatus.BAD_GATEWAY);
+    }
+  }
 
   @Transactional(readOnly = true)
   public List<RestaurantMenuItemDto> getMenu(AuthenticatedUser user, UUID businessId) {
@@ -54,12 +95,20 @@ public class RestaurantService {
     requireCapability(businessId, PartnerCapability.RESTAURANT_MENU);
 
     // Replace menu items
+    Set<String> previousImageIds = new HashSet<>();
+    menuRepository.findByBusinessIdOrderByDisplayOrderAscNameAsc(businessId).stream()
+        .map(RestaurantMenuItem::getImagePublicId)
+        .filter(Objects::nonNull)
+        .forEach(previousImageIds::add);
     menuRepository.deleteByBusinessId(businessId);
 
     List<RestaurantMenuItem> entities = new ArrayList<>();
     if (request.items() != null) {
       int order = 0;
       for (RestaurantMenuItemDto item : request.items()) {
+        if (!imageStorage.isValidReference(businessId, item.imagePublicId())) {
+          throw new TripServiceException("INVALID_MENU_IMAGE", "Image reference is not valid", HttpStatus.BAD_REQUEST);
+        }
         entities.add(
             RestaurantMenuItem.builder()
                 .id(UUID.randomUUID())
@@ -67,6 +116,7 @@ public class RestaurantService {
                 .name(item.name())
                 .category(item.category())
                 .description(item.description())
+                .imagePublicId(item.imagePublicId())
                 .price(item.price())
                 .currency(item.currency() != null ? item.currency() : "VND")
                 .tags(item.tags() != null ? item.tags() : Collections.emptyList())
@@ -77,6 +127,26 @@ public class RestaurantService {
     }
 
     List<RestaurantMenuItem> saved = menuRepository.saveAll(entities);
+    Set<String> currentImageIds = saved.stream()
+        .map(RestaurantMenuItem::getImagePublicId)
+        .filter(Objects::nonNull)
+        .collect(java.util.stream.Collectors.toSet());
+    previousImageIds.removeAll(currentImageIds);
+    if (!previousImageIds.isEmpty() && TransactionSynchronizationManager.isSynchronizationActive()) {
+      Set<String> obsoleteImageIds = Set.copyOf(previousImageIds);
+      TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+        @Override
+        public void afterCommit() {
+          obsoleteImageIds.forEach(imageId -> {
+            try {
+              imageStorage.delete(businessId, imageId);
+            } catch (Exception exception) {
+              log.warn("Could not clean up an unreferenced restaurant menu image");
+            }
+          });
+        }
+      });
+    }
     return saved.stream().map(this::toDto).toList();
   }
 
@@ -195,6 +265,8 @@ public class RestaurantService {
         .name(item.getName())
         .category(item.getCategory())
         .description(item.getDescription())
+        .imagePublicId(item.getImagePublicId())
+        .imageUrl(imageStorage.imageUrl(item.getImagePublicId()))
         .price(item.getPrice())
         .currency(item.getCurrency())
         .tags(item.getTags() != null ? item.getTags() : Collections.emptyList())

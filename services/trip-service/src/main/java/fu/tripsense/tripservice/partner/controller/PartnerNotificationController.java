@@ -17,6 +17,20 @@ import org.springframework.web.bind.annotation.*;
 public class PartnerNotificationController {
 
   private final PartnerNotificationService notificationService;
+  private final fu.tripsense.tripservice.partner.service.PartnerNotificationRealtime realtime;
+
+  @GetMapping(value = "/events", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+  public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribeEvents(
+      @AuthenticationPrincipal AuthenticatedUser user,
+      jakarta.servlet.http.HttpServletResponse response) {
+    if (user == null) {
+      throw new fu.tripsense.tripservice.exception.TripServiceException(
+          "UNAUTHORIZED", "Authentication required", org.springframework.http.HttpStatus.UNAUTHORIZED);
+    }
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Accel-Buffering", "no");
+    return realtime.connect(user.id());
+  }
 
   @GetMapping
   public ResponseEntity<ApiResponse<List<PartnerNotificationDto>>> getMyNotifications(

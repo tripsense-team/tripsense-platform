@@ -183,6 +183,19 @@ class GatewayRoutesConfig {
                                 .setResponseHeader("X-Accel-Buffering", "no"))
                     .uri(TRIP_SERVICE_URI))
         .route(
+            "partner-notifications-stream",
+            route ->
+                route
+                    .path("/api/partners/notifications/events")
+                    .and()
+                    .method(HttpMethod.GET)
+                    .filters(
+                        filters ->
+                            filters
+                                .setResponseHeader("Cache-Control", "no-store")
+                                .setResponseHeader("X-Accel-Buffering", "no"))
+                    .uri(TRIP_SERVICE_URI))
+        .route(
             TRIP_PLACE_WRITES_ROUTE_ID,
             route ->
                 route
@@ -198,6 +211,28 @@ class GatewayRoutesConfig {
                                   config.setDenyEmptyKey(true);
                                 }))
                     .uri(TRIP_SERVICE_URI))
+        .route(
+            "partner-restaurant-menu-image-upload",
+            route -> route
+                .path("/api/partners/businesses/*/restaurant-menu/images")
+                .and()
+                .method(HttpMethod.POST)
+                .filters(filters -> filters.setRequestSize(6L * 1024 * 1024))
+                .uri(TRIP_SERVICE_URI))
+        .route(
+            "partner-restaurant-view-tracking",
+            route -> route
+                .path("/api/restaurants/*/views")
+                .and()
+                .method(HttpMethod.POST)
+                .filters(filters -> filters
+                    .setResponseHeader("Cache-Control", "no-store")
+                    .requestRateLimiter(config -> {
+                      config.setRateLimiter(placeRedisRateLimiter);
+                      config.setKeyResolver(clientIpKeyResolver);
+                      config.setDenyEmptyKey(true);
+                    }))
+                .uri(TRIP_SERVICE_URI))
         .route(
             TRIP_SERVICE_ROUTE_ID,
             route ->

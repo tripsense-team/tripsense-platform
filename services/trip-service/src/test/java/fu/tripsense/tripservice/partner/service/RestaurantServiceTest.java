@@ -32,6 +32,7 @@ class RestaurantServiceTest {
   @Mock private PartnerBusinessCapabilityRepository capabilityRepository;
   @Mock private PartnerApplicationRepository applicationRepository;
   @Mock private RestaurantMenuItemRepository menuRepository;
+  @Mock private RestaurantMenuImageStorage imageStorage;
   @Spy private ObjectMapper objectMapper = new ObjectMapper();
 
   @InjectMocks private RestaurantService restaurantService;
@@ -57,6 +58,9 @@ class RestaurantServiceTest {
 
     businessId = UUID.randomUUID();
     approvedRevisionId = UUID.randomUUID();
+    org.mockito.Mockito.lenient().when(
+        imageStorage.isValidReference(any(UUID.class), org.mockito.ArgumentMatchers.nullable(String.class)))
+        .thenReturn(true);
   }
 
   private PartnerBusiness createRestaurantBusiness(OperationState opState, PublicationState pubState, boolean revCheck) {
@@ -122,6 +126,37 @@ class RestaurantServiceTest {
     assertThatThrownBy(() -> restaurantService.getMenu(otherUser, businessId))
         .isInstanceOf(TripServiceException.class)
         .satisfies(ex -> assertThat(((TripServiceException) ex).code()).isEqualTo("FORBIDDEN"));
+  }
+
+  @Test
+  @DisplayName("uploadMenuImage: requires authorized restaurant membership and capability")
+  void uploadMenuImage_success() {
+    mockMembership(ownerId, MembershipRole.OWNER, MembershipState.ACTIVE);
+    when(businessRepository.findById(businessId))
+        .thenReturn(Optional.of(createRestaurantBusiness(OperationState.ACTIVE, PublicationState.PUBLISHED, false)));
+    when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.RESTAURANT_MENU))
+        .thenReturn(Optional.of(PartnerBusinessCapability.builder()
+            .id(new PartnerBusinessCapabilityId(businessId, PartnerCapability.RESTAURANT_MENU)).build()));
+    var upload = new RestaurantMenuImageUploadDto(
+        "tripsense/partners/" + businessId + "/restaurant-menu/a1",
+        "https://res.cloudinary.com/demo/image/upload/a1");
+    when(imageStorage.upload(eq(businessId), any())).thenReturn(upload);
+
+    var result = restaurantService.uploadMenuImage(ownerUser, businessId, null);
+
+    assertThat(result).isEqualTo(upload);
+    verify(imageStorage).upload(eq(businessId), any());
+  }
+
+  @Test
+  @DisplayName("uploadMenuImage: rejects a non-member before contacting image storage")
+  void uploadMenuImage_forbidden() {
+    when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, otherId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> restaurantService.uploadMenuImage(otherUser, businessId, null))
+        .isInstanceOf(TripServiceException.class)
+        .satisfies(ex -> assertThat(((TripServiceException) ex).code()).isEqualTo("FORBIDDEN"));
+    verifyNoInteractions(imageStorage);
   }
 
   @Test

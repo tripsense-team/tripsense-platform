@@ -202,10 +202,15 @@ export async function apiClient<T>(
     ? endpoint
     : `${API_GATEWAY_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
 
+  const isFormDataBody =
+    typeof FormData !== "undefined" && customOptions.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
     ...(customHeaders as Record<string, string>),
   };
+  if (isFormDataBody) {
+    delete headers["Content-Type"];
+  }
 
   if (typeof FormData !== "undefined" && customOptions.body instanceof FormData) {
     delete headers["Content-Type"];

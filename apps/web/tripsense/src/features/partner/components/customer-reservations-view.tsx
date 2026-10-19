@@ -87,7 +87,21 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
       });
       setReservations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       setCancellingItem(null);
-      setActionSuccess(t("partner.restaurant.cancelSuccess", { defaultValue: "Đã hủy yêu cầu đặt bàn thành công." }));
+      const cancelSuccessMsg = t("partner.restaurant.cancelSuccess", { defaultValue: "Đã hủy yêu cầu đặt bàn thành công." });
+      setActionSuccess(cancelSuccessMsg);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+        window.dispatchEvent(
+          new CustomEvent("app:notification-toast", {
+            detail: {
+              title: "Đã hủy yêu cầu đặt bàn",
+              body: "Yêu cầu đặt bàn của bạn đã được hủy thành công.",
+              clickActionUrl: "/reservations?tab=restaurants",
+            },
+          }),
+        );
+      }
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError", { defaultValue: "Không thể hủy yêu cầu đặt bàn." })));
     } finally {

@@ -20,21 +20,27 @@ import {
   BookOpen,
   DollarSign,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { updateIntakeState, updatePublicationState } from "../services/partner-api";
+import { PartnerWizardModal } from "./partner-wizard-modal";
+import { useTranslation } from "@/i18n";
 import type { BusinessDetailDto } from "../types";
 
 interface PartnerBusinessCardProps {
   business: BusinessDetailDto;
   onUpdated?: (updated: BusinessDetailDto) => void;
+  onProfileUpdateSubmitted?: () => void;
 }
 
-export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCardProps) {
+export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmitted }: PartnerBusinessCardProps) {
+  const { t } = useTranslation();
   const [loadingAction, setLoadingAction] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [profileEditorOpen, setProfileEditorOpen] = React.useState(false);
 
   const getKindIcon = () => {
     switch (business.kind) {
@@ -232,6 +238,18 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
       </CardContent>
 
       <CardFooter className="flex flex-col gap-2 border-t border-border/40 p-4 pt-3">
+        {isOwner && isApproved && (!business.requiresReverification || business.latestApplicationState !== "SUBMITTED") && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 w-full text-xs"
+            onClick={() => setProfileEditorOpen(true)}
+          >
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            {business.requiresReverification ? t("partner.profileUpdate.resume") : t("partner.profileUpdate.edit")}
+          </Button>
+        )}
         <div className="flex w-full items-center gap-2">
           {business.kind === "TOUR_GUIDE" && (
             <>
@@ -313,6 +331,12 @@ export function PartnerBusinessCard({ business, onUpdated }: PartnerBusinessCard
           )}
         </div>
       </CardFooter>
+      <PartnerWizardModal
+        open={profileEditorOpen}
+        onOpenChange={setProfileEditorOpen}
+        editBusiness={business}
+        onSuccess={() => onProfileUpdateSubmitted?.()}
+      />
     </Card>
   );
 }

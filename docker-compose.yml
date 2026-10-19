@@ -157,7 +157,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       SOCIAL_RATE_LIMIT_ENABLED: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       AI_RESPONSE_TIMEOUT: ${AI_RESPONSE_TIMEOUT:-300s}
@@ -175,7 +175,7 @@ services:
       recommendation-service:
         condition: service_started
     ports:
-      - "8085:8085"
+      - "8080:8080"
     restart: unless-stopped
 
   # =========================
@@ -191,11 +191,11 @@ services:
       - path: ./env/.env
         required: false
     environment:
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/tripsense_places}
+      MONGODB_URI: ${DOCKER_MONGODB_URI:-mongodb://mongodb:27017/tripsense_places}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-tripsense_places}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
@@ -233,9 +233,10 @@ services:
       RECOMMENDATION_DB_NAME: ${RECOMMENDATION_DB_NAME:-tripsense_recommendation}
       RECOMMENDATION_DB_USER: ${RECOMMENDATION_DB_USER:-postgres}
       RECOMMENDATION_DB_PASS: ${RECOMMENDATION_DB_PASS:-123456}
+      RECOMMENDATION_DATASOURCE_URL: ${DOCKER_RECOMMENDATION_DATASOURCE_URL:-jdbc:postgresql://recommendation-db:5432/tripsense_recommendation}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       PLACE_SERVICE_URL: http://place-service:8082
       CONTEXT_SERVICE_URL: http://context-service:8087
       TRIP_SERVICE_URL: http://trip-service:8084
@@ -311,7 +312,7 @@ services:
       - path: ./env/.env
         required: false
     environment:
-      USER_DATASOURCE_URL: ${USER_DATASOURCE_URL:-jdbc:postgresql://db:5432/tripsense_user}
+      USER_DATASOURCE_URL: ${DOCKER_USER_DATASOURCE_URL:-jdbc:postgresql://db:5432/tripsense_user}
       USER_DB_HOST: db
       USER_DB_PORT: "5432"
       USER_DB_USER: ${USER_DB_USER:-postgres}
@@ -357,7 +358,7 @@ services:
         required: false
     environment:
       CONTEXT_SERVICE_PORT: "8087"
-      CONTEXT_DATASOURCE_URL: ${CONTEXT_DATASOURCE_URL:-jdbc:postgresql://context-db:5432/tripsense_context}
+      CONTEXT_DATASOURCE_URL: ${DOCKER_CONTEXT_DATASOURCE_URL:-jdbc:postgresql://context-db:5432/tripsense_context}
       CONTEXT_DB_HOST: context-db
       CONTEXT_DB_PORT: "5432"
       CONTEXT_DB_NAME: ${CONTEXT_DB_NAME:-tripsense_context}
@@ -383,7 +384,7 @@ services:
       - path: ./env/.env
         required: false
     environment:
-      TRIP_DATASOURCE_URL: ${TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
+      TRIP_DATASOURCE_URL: ${DOCKER_TRIP_DATASOURCE_URL:-jdbc:postgresql://trip-db:5432/tripsense_trip}
       HOTEL_DEMO_PAYMENTS_ENABLED: ${HOTEL_DEMO_PAYMENTS_ENABLED:-false}
       PAYOS_ENABLED: ${PAYOS_ENABLED:-true}
       PAY_OS_CLIENT_ID: ${PAY_OS_CLIENT_ID:-}
@@ -395,9 +396,13 @@ services:
       TRIP_DB_PORT: "5432"
       TRIP_DB_USER: ${TRIP_DB_USER:-postgres}
       TRIP_DB_PASS: ${TRIP_DB_PASS:-123456}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_PARTNER_FOLDER: ${CLOUDINARY_PARTNER_FOLDER:-tripsense/partners}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
       AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
       PLACE_SERVICE_URL: http://place-service:8082
@@ -433,14 +438,14 @@ services:
       - path: ./env/.env
         required: true
     environment:
-      SOCIAL_DATASOURCE_URL: ${SOCIAL_DATASOURCE_URL:-jdbc:postgresql://social-db:5432/tripsense_social}
+      SOCIAL_DATASOURCE_URL: ${DOCKER_SOCIAL_DATASOURCE_URL:-jdbc:postgresql://social-db:5432/tripsense_social}
       SOCIAL_DB_HOST: social-db
       SOCIAL_DB_PORT: "5432"
       SOCIAL_DB_NAME: ${SOCIAL_DB_NAME:-tripsense_social}
       SOCIAL_DB_USER: ${SOCIAL_DB_USER:-postgres}
       SOCIAL_DB_PASS: ${SOCIAL_DB_PASS:-123456}
       REDIS_HOST: redis
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       USER_SERVICE_URL: http://user-service:8081
       TRIP_SERVICE_URL: http://trip-service:8084
       PLACE_SERVICE_URL: http://place-service:8082

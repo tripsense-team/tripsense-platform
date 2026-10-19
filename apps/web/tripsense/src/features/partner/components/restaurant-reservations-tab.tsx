@@ -82,6 +82,19 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
       });
       setReservations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       setActionSuccess(t("partner.restaurant.confirmSuccess", { defaultValue: "Đã xác nhận đặt bàn thành công!" }));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+        window.dispatchEvent(
+          new CustomEvent("app:notification-toast", {
+            detail: {
+              title: "Đã xác nhận đặt bàn thành công!",
+              body: `Đã xác nhận đặt bàn cho ${item.customerName || "khách hàng"} (${item.adults + item.children} khách).`,
+              clickActionUrl: `/partner/businesses/${businessId}/restaurant-menu`,
+            },
+          }),
+        );
+      }
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError", { defaultValue: "Không thể xác nhận đặt bàn" })));
     } finally {
@@ -109,6 +122,19 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
       setReservations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       setRejectModalOpen(false);
       setActionSuccess(t("partner.restaurant.rejectSuccess", { defaultValue: "Đã từ chối yêu cầu đặt bàn." }));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+        window.dispatchEvent(
+          new CustomEvent("app:notification-toast", {
+            detail: {
+              title: "Đã từ chối yêu cầu đặt bàn",
+              body: `Đã từ chối yêu cầu đặt bàn của ${targetReservation.customerName || "khách hàng"}.`,
+              clickActionUrl: `/partner/businesses/${businessId}/restaurant-menu`,
+            },
+          }),
+        );
+      }
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError", { defaultValue: "Không thể từ chối đặt bàn" })));
     } finally {

@@ -45,6 +45,42 @@ export interface PartnerContextDto {
   businesses: BusinessDetailDto[];
 }
 
+export interface PartnerAnalyticsRateDto { numerator: number; denominator: number; value: number }
+export interface PartnerAnalyticsMetricsDto {
+  views: number;
+  reservationRequests: number;
+  confirmationRate: PartnerAnalyticsRateDto;
+  cancellationRate: PartnerAnalyticsRateDto;
+}
+export interface PartnerAnalyticsSummaryDto {
+  businessId: string;
+  timeZone: string;
+  period: { days: number; from: string; toExclusive: string };
+  current: PartnerAnalyticsMetricsDto;
+  previous: PartnerAnalyticsMetricsDto;
+  expectedGuests: { count: number; from: string; toExclusive: string };
+  generatedAt: string;
+}
+export interface PartnerAnalyticsDashboardDto {
+  periodDays: number;
+  from: string;
+  toExclusive: string;
+  businesses: Array<{
+    businessId: string;
+    displayName: string;
+    kind: BusinessKind;
+    views: number;
+    viewsAvailable: boolean;
+    bookings: number;
+    expectedGuests: number;
+    confirmationRate?: PartnerAnalyticsRateDto | null;
+    cancellationRate?: PartnerAnalyticsRateDto | null;
+    settledPartnerEarnings: number;
+    revenueAvailable: boolean;
+    daily: Array<{ date: string; views: number; bookings: number; settledPartnerEarnings: number }>;
+  }>;
+}
+
 export interface PartnerCandidateDto {
   id: string;
   kind: BusinessKind;
@@ -422,11 +458,18 @@ export interface RestaurantMenuItemDto {
   name: string;
   category?: string;
   description?: string;
+  imagePublicId?: string;
+  imageUrl?: string;
   price: number;
   currency?: string;
   tags?: string[];
   available: boolean;
   displayOrder: number;
+}
+
+export interface RestaurantMenuImageUploadDto {
+  imagePublicId: string;
+  imageUrl: string;
 }
 
 export interface RestaurantMenuBatchRequest {

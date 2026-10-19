@@ -20,6 +20,8 @@ import {
   ArrowUpDown,
   Calendar,
   Sparkles,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,8 +47,15 @@ import {
   getRestaurantMenu,
   updateContactSharing,
   updateRestaurantMenu,
+  uploadRestaurantMenuImage,
+  deleteUnreferencedRestaurantMenuImage,
 } from "../services/partner-api";
 import type { BusinessDetailDto, RestaurantMenuItemDto } from "../types";
+import {
+  createPartnerImagePreview,
+  releasePartnerImagePreview,
+  validatePartnerImageFile,
+} from "../utils/partner-image-file";
 
 interface RestaurantMenuViewProps {
   businessId: string;
@@ -72,6 +81,14 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
   const [itemDescription, setItemDescription] = React.useState("");
   const [itemTags, setItemTags] = React.useState("");
   const [itemAvailable, setItemAvailable] = React.useState(true);
+  const [itemDraftId, setItemDraftId] = React.useState("");
+  const [itemImageFile, setItemImageFile] = React.useState<File | null>(null);
+  const [itemImagePreviewUrl, setItemImagePreviewUrl] = React.useState<string | null>(null);
+  const [itemImagePublicId, setItemImagePublicId] = React.useState<string | undefined>();
+  const pendingImageFilesRef = React.useRef<Record<string, File>>({});
+  const [itemFormError, setItemFormError] = React.useState<string | null>(null);
+  const dishImageInputRef = React.useRef<HTMLInputElement | null>(null);
+  const preserveItemPreviewOnClose = React.useRef(false);
 
   // Contact sharing
   const [savingConsent, setSavingConsent] = React.useState(false);
@@ -99,13 +116,21 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
   }, [loadData]);
 
   const handleOpenAddDialog = () => {
+    if (!items.some((item) => item.imageUrl === itemImagePreviewUrl)) {
+      releasePartnerImagePreview(itemImagePreviewUrl);
+    }
     setEditingIndex(null);
+    setItemDraftId(crypto.randomUUID());
     setItemName("");
     setItemCategory("");
     setItemPrice("");
     setItemDescription("");
     setItemTags("");
     setItemAvailable(true);
+    setItemImageFile(null);
+    setItemImagePreviewUrl(null);
+    setItemImagePublicId(undefined);
+    setItemFormError(null);
     setItemDialogOpen(true);
   };
 
@@ -134,14 +159,50 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
 
   const handleOpenEditDialog = (index: number) => {
     const item = items[index];
+    if (!items.some((current) => current.imageUrl === itemImagePreviewUrl)) {
+      releasePartnerImagePreview(itemImagePreviewUrl);
+    }
     setEditingIndex(index);
+    setItemDraftId(item.id || crypto.randomUUID());
     setItemName(item.name);
     setItemCategory(item.category || "");
     setItemPrice(String(item.price));
     setItemDescription(item.description || "");
     setItemTags((item.tags || []).join(", "));
     setItemAvailable(item.available);
+    setItemImageFile(null);
+    setItemImagePreviewUrl(item.imageUrl || null);
+    setItemImagePublicId(item.imagePublicId);
+    setItemFormError(null);
     setItemDialogOpen(true);
+  };
+
+  const handleSelectDishImage = (file?: File) => {
+    if (!file) return;
+    const validationError = validatePartnerImageFile(file, {
+      maxBytes: 5 * 1024 * 1024,
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    });
+    if (validationError) {
+      setItemFormError(t(
+        validationError === "tooLarge"
+          ? "partner.restaurant.dishImageTooLarge"
+          : "partner.restaurant.dishImageInvalid",
+      ));
+      return;
+    }
+    releasePartnerImagePreview(itemImagePreviewUrl);
+    setItemFormError(null);
+    setItemImageFile(file);
+    setItemImagePreviewUrl(createPartnerImagePreview(file));
+    setItemImagePublicId(undefined);
+  };
+
+  const handleRemoveDishImage = () => {
+    releasePartnerImagePreview(itemImagePreviewUrl);
+    setItemImageFile(null);
+    setItemImagePreviewUrl(null);
+    setItemImagePublicId(undefined);
   };
 
   const handleSaveItem = (e: React.FormEvent) => {
@@ -156,12 +217,16 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
       .map((tag) => tag.trim())
       .filter(Boolean);
 
+    const draftId = editingIndex !== null ? items[editingIndex].id || itemDraftId : itemDraftId;
     const newItem: RestaurantMenuItemDto = {
+      id: draftId,
       name: itemName.trim(),
       category: itemCategory.trim() || undefined,
       price: priceNum,
       currency: "VND",
       description: itemDescription.trim() || undefined,
+      imagePublicId: itemImagePublicId,
+      imageUrl: itemImagePreviewUrl || undefined,
       tags: tagsArray.length > 0 ? tagsArray : undefined,
       available: itemAvailable,
       displayOrder: editingIndex !== null ? items[editingIndex].displayOrder : items.length + 1,
@@ -172,11 +237,19 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
     } else {
       setItems((prev) => [...prev, newItem]);
     }
+    if (itemImageFile) pendingImageFilesRef.current[draftId] = itemImageFile;
+    else delete pendingImageFilesRef.current[draftId];
 
+    preserveItemPreviewOnClose.current = true;
     setItemDialogOpen(false);
   };
 
   const handleDeleteItem = (index: number) => {
+    const removed = items[index];
+    releasePartnerImagePreview(removed?.imageUrl);
+    if (removed?.id) {
+      delete pendingImageFilesRef.current[removed.id];
+    }
     setItems((prev) => prev.filter((_, idx) => idx !== index));
   };
 
@@ -203,20 +276,58 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
 
   const handleSaveMenu = async () => {
     if (!business) return;
+    const hasMissingLocalImage = items.some((item) =>
+      item.imageUrl?.startsWith("blob:")
+      && (!item.id || !pendingImageFilesRef.current[item.id]),
+    );
+    if (hasMissingLocalImage) {
+      setError(t("partner.restaurant.dishImagePendingError"));
+      return;
+    }
+
+    const newlyUploaded: string[] = [];
+    let menuCommitted = false;
     try {
       setSaving(true);
       setError(null);
       setSuccessMsg(null);
+      const itemsToSave: RestaurantMenuItemDto[] = [];
+      for (const item of items) {
+        const pendingFile = item.id ? pendingImageFilesRef.current[item.id] : undefined;
+        if (!pendingFile) {
+          const { imageUrl: _imageUrl, ...payload } = item;
+          itemsToSave.push(payload);
+          continue;
+        }
+        const uploaded = await uploadRestaurantMenuImage(businessId, pendingFile);
+        newlyUploaded.push(uploaded.imagePublicId);
+        const { imageUrl: _imageUrl, ...payload } = item;
+        itemsToSave.push({ ...payload, imagePublicId: uploaded.imagePublicId });
+      }
       const updated = await updateRestaurantMenu(businessId, {
-        items,
+        items: itemsToSave,
         expectedVersion: business.version,
       });
+      menuCommitted = true;
+      items.forEach((item) => releasePartnerImagePreview(item.imageUrl));
       setItems(updated);
+      pendingImageFilesRef.current = {};
       setSuccessMsg(t("partner.restaurant.savedSuccess", { defaultValue: "Đã lưu thực đơn thành công!" }));
       // Reload business to update version
-      const refreshedBiz = await getBusinessDetail(businessId);
-      setBusiness(refreshedBiz);
+      try {
+        const refreshedBiz = await getBusinessDetail(businessId);
+        setBusiness(refreshedBiz);
+      } catch {
+        // The menu save has committed; keep its successful state if this refresh fails.
+      }
     } catch (err: unknown) {
+      if (!menuCommitted) {
+        await Promise.allSettled(
+          newlyUploaded.map((imagePublicId) =>
+            deleteUnreferencedRestaurantMenuImage(businessId, imagePublicId),
+          ),
+        );
+      }
       setError(getSafeErrorMessage(err, t("partner.restaurant.saveFailed", { defaultValue: "Không thể lưu thực đơn." })));
     } finally {
       setSaving(false);
@@ -445,7 +556,19 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
                   key={index}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-border/70 bg-card hover:border-primary/40 transition-colors shadow-2xs"
                 >
-                  <div className="flex-1 space-y-1">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground">
+                      <ImagePlus className="h-5 w-5" aria-hidden="true" />
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt={t("partner.restaurant.dishImageAlt", { name: item.name })}
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(event) => { event.currentTarget.style.display = "none"; }}
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-semibold text-sm text-foreground">{item.name}</h4>
                       {item.category && (
@@ -490,6 +613,7 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
                           ))}
                         </div>
                       )}
+                    </div>
                     </div>
                   </div>
 
@@ -545,8 +669,18 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
       </Tabs>
 
       {/* Add / Edit Dish Dialog */}
-      <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+      <Dialog open={itemDialogOpen} onOpenChange={(open) => {
+        if (!open && itemImagePreviewUrl?.startsWith("blob:")) {
+          const originalUrl = editingIndex !== null ? items[editingIndex]?.imageUrl : undefined;
+          if (preserveItemPreviewOnClose.current) {
+            preserveItemPreviewOnClose.current = false;
+          } else if (itemImagePreviewUrl !== originalUrl) {
+            releasePartnerImagePreview(itemImagePreviewUrl);
+          }
+        }
+        setItemDialogOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto rounded-2xl">
           <form onSubmit={handleSaveItem}>
             <DialogHeader>
               <DialogTitle>
@@ -574,6 +708,48 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
                   placeholder="Ví dụ: Phở bò đặc biệt, Bánh mì kẹp thịt..."
                   className="h-9 text-xs"
                 />
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/30 p-3">
+                <div className="mb-2">
+                  <p className="font-semibold">{t("partner.restaurant.dishImageLabel", { defaultValue: "Ảnh món ăn (không bắt buộc)" })}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{t("partner.restaurant.dishImageHelp", { defaultValue: "Chọn ảnh JPEG, PNG hoặc WebP, tối đa 5 MB." })}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background text-muted-foreground">
+                    {!itemImagePreviewUrl && <ImagePlus className="h-6 w-6" aria-hidden="true" />}
+                    {itemImagePreviewUrl && (
+                      <img
+                        src={itemImagePreviewUrl}
+                        alt={itemName ? t("partner.restaurant.dishImageAlt", { name: itemName }) : t("partner.restaurant.dishImagePreview")}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(event) => { event.currentTarget.style.display = "none"; }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => dishImageInputRef.current?.click()}>
+                      <ImagePlus className="mr-2 h-4 w-4" />
+                      {t("partner.restaurant.chooseDishImage", { defaultValue: "Chọn ảnh" })}
+                    </Button>
+                    <input
+                      ref={dishImageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(event) => {
+                        handleSelectDishImage(event.target.files?.[0]);
+                        event.target.value = "";
+                      }}
+                    />
+                    {itemImagePreviewUrl && (
+                      <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDishImage}>
+                        <X className="mr-1 h-4 w-4" />{t("partner.restaurant.removeDishImage", { defaultValue: "Gỡ ảnh" })}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {itemFormError && <p role="alert" className="mt-2 text-xs text-destructive">{itemFormError}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
