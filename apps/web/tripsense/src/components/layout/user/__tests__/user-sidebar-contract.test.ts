@@ -47,4 +47,11 @@ describe("UserSidebar navigation contract", () => {
       '"h-20 pt-6 pb-2 transition-all duration-300 ease-in-out"',
     );
   });
+
+  it("renders both Partner links with the same full-width navigation shape", () => {
+    expect(sidebarSource).toContain('href="/partner/services"');
+    expect(sidebarSource).toContain("const partnerLinkClass = cn(");
+    expect(sidebarSource.match(/partnerLinkClass,/g)).toHaveLength(2);
+    expect(sidebarSource).not.toContain('"ml-3 pl-4"');
+  });
 });

@@ -106,6 +106,18 @@ export function RestaurantReservationDialog({
       );
       setCreatedReservation(res);
       requestKeyRef.current = null;
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+        window.dispatchEvent(
+          new CustomEvent("app:notification-toast", {
+            detail: {
+              title: "Đã gửi yêu cầu đặt bàn thành công!",
+              body: `Yêu cầu đặt bàn tại ${restaurantName} (${numAdults + numChildren} khách) đã được gửi. Đang giữ chỗ tạm thời trong 30 phút.`,
+              clickActionUrl: "/reservations?tab=restaurants",
+            },
+          }),
+        );
+      }
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError")));
     } finally {

@@ -15,6 +15,8 @@ public record RestaurantMenuItemDto(
     @NotBlank @Size(max = 160) String name,
     @Size(max = 80) String category,
     @Size(max = 500) String description,
+    @Size(max = 255) String imagePublicId,
+    String imageUrl,
     @NotNull @DecimalMin("0.01") BigDecimal price,
     @Size(max = 3) String currency,
     List<String> tags,

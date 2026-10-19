@@ -6,25 +6,42 @@ import {
   ArrowLeft,
   Clock,
   Compass,
-  ExternalLink,
   Loader2,
   Mail,
   MapPin,
   Phone,
   Store,
   Utensils,
+  ImagePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
-import { getPublicRestaurant } from "../services/partner-api";
+import { getPublicRestaurant, recordRestaurantView } from "../services/partner-api";
 import { RestaurantReservationDialog } from "./restaurant-reservation-dialog";
 import type { PublicRestaurantListingDto } from "../types";
 
 interface PublicRestaurantViewProps {
   businessId: string;
+}
+
+function DishPhoto({ imageUrl, dishName }: { imageUrl?: string; dishName: string }) {
+  const { t } = useTranslation();
+  if (!imageUrl) return null;
+  return (
+    <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-muted text-muted-foreground">
+      <ImagePlus className="h-7 w-7" aria-hidden="true" />
+      <img
+        src={imageUrl}
+        alt={t("partner.restaurant.dishImageAlt", { name: dishName })}
+        loading="lazy"
+        className="absolute inset-0 h-full w-full object-cover"
+        onError={(event) => { event.currentTarget.style.display = "none"; }}
+      />
+    </div>
+  );
 }
 
 export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) {
@@ -49,6 +66,21 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
     }
     load();
   }, [businessId, t]);
+
+  React.useEffect(() => {
+    if (!data || typeof window === "undefined") return;
+    try {
+      const storageKey = "tripsense:restaurant-view-session";
+      let sessionKey = window.sessionStorage.getItem(storageKey);
+      if (!sessionKey) {
+        sessionKey = window.crypto.randomUUID();
+        window.sessionStorage.setItem(storageKey, sessionKey);
+      }
+      void recordRestaurantView(businessId, sessionKey).catch(() => undefined);
+    } catch {
+      // View tracking is best-effort and must not disrupt the public restaurant page.
+    }
+  }, [businessId, data]);
 
   if (loading) {
     return (
@@ -230,6 +262,7 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {itemsList.map((dish, dIdx) => (
                     <Card key={dIdx} className="shadow-2xs border-border/70 hover:border-primary/40 transition-colors">
+                      <DishPhoto imageUrl={dish.imageUrl} dishName={dish.name} />
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-3">
                           <CardTitle className="text-sm font-semibold text-foreground">
@@ -278,6 +311,7 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {uncategorized.map((dish, dIdx) => (
                     <Card key={dIdx} className="shadow-2xs border-border/70 hover:border-primary/40 transition-colors">
+                      <DishPhoto imageUrl={dish.imageUrl} dishName={dish.name} />
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-3">
                           <CardTitle className="text-sm font-semibold text-foreground">

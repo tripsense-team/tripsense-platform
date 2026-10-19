@@ -25,6 +25,11 @@ import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { extractRestaurantMenuFromImage } from "../services/partner-api";
 import type { RestaurantMenuItemDto } from "../types";
+import {
+  createPartnerImagePreview,
+  releasePartnerImagePreview,
+  validatePartnerImageFile,
+} from "../utils/partner-image-file";
 
 interface RestaurantMenuAiUploadModalProps {
   open: boolean;
@@ -43,6 +48,7 @@ export function RestaurantMenuAiUploadModal({
 }: RestaurantMenuAiUploadModalProps) {
   const { t } = useTranslation();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const previewUrlRef = React.useRef<string | null>(null);
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
@@ -55,6 +61,8 @@ export function RestaurantMenuAiUploadModal({
   const [applyMode, setApplyMode] = React.useState<"append" | "replace">("append");
 
   const resetState = React.useCallback(() => {
+    releasePartnerImagePreview(previewUrlRef.current);
+    previewUrlRef.current = null;
     setSelectedFile(null);
     setImagePreview(null);
     setAnalyzing(false);
@@ -64,13 +72,15 @@ export function RestaurantMenuAiUploadModal({
     setStep("upload");
   }, []);
 
+  React.useEffect(() => () => releasePartnerImagePreview(previewUrlRef.current), []);
+
   const processFile = React.useCallback(
     (file: File) => {
-      const isImage =
-        file.type.startsWith("image/") ||
-        /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
-
-      if (!isImage) {
+      const validationError = validatePartnerImageFile(file, {
+        maxBytes: 15 * 1024 * 1024,
+        allowAnyImage: true,
+      });
+      if (validationError === "invalidType") {
         setError(
           t("partner.restaurant.aiInvalidFile", {
             defaultValue: "Vui lòng chọn tệp định dạng ảnh (PNG, JPG, WebP, Screenshot)",
@@ -79,7 +89,7 @@ export function RestaurantMenuAiUploadModal({
         return;
       }
 
-      if (file.size > 15 * 1024 * 1024) {
+      if (validationError === "tooLarge") {
         setError(
           t("partner.restaurant.aiFileTooLarge", {
             defaultValue: "Kích thước ảnh tối đa là 15MB",
@@ -90,11 +100,9 @@ export function RestaurantMenuAiUploadModal({
 
       setError(null);
       setSelectedFile(file);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      releasePartnerImagePreview(previewUrlRef.current);
+      previewUrlRef.current = createPartnerImagePreview(file);
+      setImagePreview(previewUrlRef.current);
     },
     [t],
   );

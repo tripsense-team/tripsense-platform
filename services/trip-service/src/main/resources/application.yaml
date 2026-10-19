@@ -12,6 +12,11 @@ spring:
     password: ${TRIP_DB_PASS}
     driver-class-name: org.postgresql.Driver
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -69,6 +74,12 @@ payos:
 
 ai:
   commit-secret: ${AI_TRIP_COMMIT_SECRET:}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  partner-folder-prefix: ${CLOUDINARY_PARTNER_FOLDER:tripsense/partners}
 
 mail-service:
   url: ${EMAIL_SERVICE_URL:http://localhost:${MAIL_SERVICE_PORT:8082}}

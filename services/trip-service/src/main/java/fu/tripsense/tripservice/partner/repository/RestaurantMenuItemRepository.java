@@ -13,6 +13,8 @@ public interface RestaurantMenuItemRepository extends JpaRepository<RestaurantMe
 
   List<RestaurantMenuItem> findByBusinessIdAndAvailableTrueOrderByDisplayOrderAscNameAsc(UUID businessId);
 
+  boolean existsByBusinessIdAndImagePublicId(UUID businessId, String imagePublicId);
+
   @Modifying
   @Query("DELETE FROM RestaurantMenuItem r WHERE r.businessId = :businessId")
   void deleteByBusinessId(@Param("businessId") UUID businessId);

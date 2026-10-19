@@ -34,6 +34,12 @@ public class RestaurantReservation {
   @Column(name = "start_at", nullable = false)
   private Instant startAt;
 
+  @Column(name = "ends_at")
+  private Instant endsAt;
+
+  @Column(name = "hold_expires_at")
+  private Instant holdExpiresAt;
+
   @Column(name = "time_zone", nullable = false, length = 80)
   private String timeZone;
 

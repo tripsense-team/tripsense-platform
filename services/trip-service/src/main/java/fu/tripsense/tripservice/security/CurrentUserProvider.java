@@ -18,6 +18,13 @@ public class CurrentUserProvider {
     return user;
   }
 
+  public AuthenticatedUser getIfAuthenticated() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    return authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser user
+        ? user
+        : null;
+  }
+
   public UUID userId() {
     return get().id();
   }

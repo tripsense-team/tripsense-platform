@@ -4,6 +4,7 @@ import * as React from "react";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { useTranslation } from "@/i18n";
 import { notificationsApi } from "../services/notifications-api";
+import { subscribePartnerNotificationEvents } from "../services/partner-notification-events";
 import type { UnifiedNotificationItem } from "../types";
 
 export function useUnifiedNotifications() {
@@ -11,6 +12,8 @@ export function useUnifiedNotifications() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [items, setItems] = React.useState<UnifiedNotificationItem[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const isInitialRef = React.useRef(true);
+  const knownIdsRef = React.useRef<Set<string>>(new Set());
 
   const fetchAll = React.useCallback(async () => {
     if (!isAuthenticated) {
@@ -78,16 +81,16 @@ export function useUnifiedNotifications() {
 
         if (p.eventType === "RESTAURANT_RESERVATION_PLACED") {
           title = t("notifications.restaurantPlaced", { defaultValue: "Đã gửi yêu cầu đặt bàn" });
-          targetUrl = "/restaurants/reservations";
+          targetUrl = "/reservations?tab=restaurants";
         } else if (p.eventType === "RESTAURANT_RESERVATION_CONFIRMED") {
           title = t("notifications.restaurantConfirmed", { defaultValue: "Đặt bàn đã được xác nhận" });
-          targetUrl = "/restaurants/reservations";
+          targetUrl = "/reservations?tab=restaurants";
         } else if (p.eventType === "RESTAURANT_RESERVATION_REJECTED") {
           title = t("notifications.restaurantRejected", { defaultValue: "Yêu cầu đặt bàn bị từ chối" });
-          targetUrl = "/restaurants/reservations";
+          targetUrl = "/reservations?tab=restaurants";
         } else if (p.eventType === "RESTAURANT_RESERVATION_CANCELLED") {
           title = t("notifications.restaurantCancelled", { defaultValue: "Yêu cầu đặt bàn đã hủy" });
-          targetUrl = "/restaurants/reservations";
+          targetUrl = "/reservations?tab=restaurants";
         } else if (p.eventType === "RESTAURANT_RESERVATION_REQUESTED") {
           title = t("notifications.restaurantRequested", { defaultValue: "Yêu cầu đặt bàn mới" });
           targetUrl = p.businessId
@@ -129,26 +132,85 @@ export function useUnifiedNotifications() {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
 
+      if (isInitialRef.current) {
+        isInitialRef.current = false;
+        knownIdsRef.current = new Set(normalized.map((it) => it.id));
+      } else {
+        // Detect newly arrived unread notifications
+        const incoming = normalized.filter(
+          (it) => !it.read && !knownIdsRef.current.has(it.id),
+        );
+
+        // Update known IDs
+        normalized.forEach((it) => knownIdsRef.current.add(it.id));
+
+        // Pop up toast for newest incoming notifications (top-right card)
+        incoming.slice(0, 3).forEach((item) => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("app:notification-toast", {
+                detail: {
+                  title: item.title,
+                  body: item.message,
+                  clickActionUrl: item.targetUrl,
+                },
+              }),
+            );
+          }
+        });
+      }
+
       setItems(normalized);
     } catch {
       // Background notifications failure should never crash the app
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, locale, t]);
 
   React.useEffect(() => {
     fetchAll();
 
-    // Auto-poll every 60s while page is visible
+    if (!isAuthenticated) return;
+
+    const controller = new AbortController();
+
+    // Subscribe to SSE real-time notifications
+    subscribePartnerNotificationEvents({
+      onChanged: () => {
+        fetchAll();
+      },
+      signal: controller.signal,
+    });
+
+    // Reconcile on window focus / visibility change or app action refresh
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchAll();
+      }
+    };
+    const handleAppRefresh = () => {
+      fetchAll();
+    };
+    window.addEventListener("focus", handleVisibility);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("app:notifications-refresh", handleAppRefresh);
+
+    // Safety fallback polling every 60s while page is visible
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") {
         fetchAll();
       }
     }, 60000);
 
-    return () => clearInterval(timer);
-  }, [fetchAll]);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("app:notifications-refresh", handleAppRefresh);
+      clearInterval(timer);
+    };
+  }, [fetchAll, isAuthenticated]);
 
   const unreadCount = React.useMemo(() => {
     return items.filter((it) => !it.read).length;

@@ -12,6 +12,30 @@ interface ToastData {
   clickActionUrl: string;
 }
 
+function playNotificationChime() {
+  try {
+    if (typeof window === "undefined") return;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.25);
+  } catch {
+    // Safely ignore if audio context is blocked
+  }
+}
+
 export function ChatNotificationToast() {
   const router = useRouter();
   const [toasts, setToasts] = React.useState<ToastData[]>([]);
@@ -27,13 +51,15 @@ export function ChatNotificationToast() {
       const detail = customEvent.detail;
       if (!detail) return;
 
+      playNotificationChime();
+
       const newToast: ToastData = {
         id: Math.random().toString(36).slice(2, 9),
         title: detail.title || "TripSense",
-        body: detail.body || "Bạn có tin nhắn mới",
+        body: detail.body || "Bạn có thông báo mới",
         clickActionUrl:
           detail.clickActionUrl ||
-          (detail.conversationId ? `/chat?t=${detail.conversationId}` : "/chat"),
+          (detail.conversationId ? `/chat?t=${detail.conversationId}` : "/partner"),
       };
 
       setToasts((prev) => [newToast, ...prev].slice(0, 3));
@@ -45,8 +71,10 @@ export function ChatNotificationToast() {
     }
 
     window.addEventListener("chat:notification-toast", handleToast);
+    window.addEventListener("app:notification-toast", handleToast);
     return () => {
       window.removeEventListener("chat:notification-toast", handleToast);
+      window.removeEventListener("app:notification-toast", handleToast);
     };
   }, []);
 

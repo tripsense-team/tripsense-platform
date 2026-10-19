@@ -117,6 +117,7 @@ export function isSameHotel(
 export function placeToMindtripHotel(place: Place): MindtripHotel {
   return {
     id: place.id,
+    placeId: place.id,
     name: place.name,
     rating: place.rating,
     reviewCount: place.userRatingCount,
@@ -129,6 +130,9 @@ export function placeToMindtripHotel(place: Place): MindtripHotel {
     website: place.website,
     description: place.description,
     photos: place.photos || [],
+    primaryPhoto: place.primaryPhoto,
+    photoGallery: place.photoGallery,
+    location: place.location,
     hasDirectBooking: false,
     reviews: place.reviews?.map((r) => ({
       authorName: r.authorName,
@@ -138,15 +142,6 @@ export function placeToMindtripHotel(place: Place): MindtripHotel {
     })),
   };
 }
-
-/**
- * Fallback hotel images to guarantee no card ever renders a blank or broken frame.
- */
-const FALLBACK_HOTEL_PHOTOS = [
-  "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1200&auto=format&fit=crop&q=80",
-];
 
 export function offersToHotel(offers: HotelOffer[], nights: number, quantity = 1): MindtripHotel {
   const first = offers[0];
@@ -158,7 +153,7 @@ export function offersToHotel(offers: HotelOffer[], nights: number, quantity = 1
     city: first.destination,
     destination: first.destination,
     category: "Hotel",
-    photos: FALLBACK_HOTEL_PHOTOS,
+    photos: [],
     hasDirectBooking: true,
     currency: first.currency,
     pricePerNight: Math.min(...offers.map((o) => o.total)) / nights / quantity,
@@ -206,7 +201,7 @@ export async function searchRealHotels(
   const nights = Math.max(
     Math.round(
       (new Date(effectiveCheckOut).getTime() - new Date(effectiveCheckIn).getTime()) /
-        (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24)
     ),
     1
   );
@@ -329,9 +324,11 @@ export async function searchRealHotels(
           )
         ) {
           const placeConverted = placeToMindtripHotel(foundPlace);
-          if (placeConverted.photos && placeConverted.photos.length > 0) {
-            propHotel.photos = placeConverted.photos;
-          }
+          propHotel.placeId = placeConverted.placeId;
+          propHotel.photos = placeConverted.photos;
+          propHotel.primaryPhoto = placeConverted.primaryPhoto;
+          propHotel.photoGallery = placeConverted.photoGallery;
+          propHotel.location = placeConverted.location;
           if (typeof placeConverted.rating === "number" && placeConverted.rating > 0) {
             propHotel.rating = placeConverted.rating;
             propHotel.reviewCount = placeConverted.reviewCount;
@@ -438,7 +435,7 @@ export async function fetchDirectOffersForPlace(
     const nights = Math.max(
       Math.round(
         (new Date(effectiveCheckOut).getTime() - new Date(effectiveCheckIn).getTime()) /
-          (1000 * 60 * 60 * 24)
+        (1000 * 60 * 60 * 24)
       ),
       1
     );

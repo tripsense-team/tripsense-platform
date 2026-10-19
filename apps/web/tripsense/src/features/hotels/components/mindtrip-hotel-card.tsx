@@ -5,6 +5,7 @@ import { useTranslation } from "@/i18n";
 import { MindtripPlaceCard } from "@/features/places/components/mindtrip-place-card";
 import type { Place } from "@/features/places/types";
 import type { MindtripHotel } from "../types";
+import { getExistingHotelPhotos, loadHotelPhotoGallery } from "../services/hotel-photo-enrichment";
 
 export interface MindtripHotelCardProps {
   hotel: MindtripHotel;
@@ -28,19 +29,49 @@ export function MindtripHotelCard({
   className,
 }: MindtripHotelCardProps) {
   const { locale } = useTranslation();
+  const visibilityRef = React.useRef<HTMLDivElement>(null);
+  const [loadedPhotos, setLoadedPhotos] = React.useState(hotel.photoGallery ?? []);
+
+  React.useEffect(() => {
+    if (getExistingHotelPhotos(hotel).length > 0) return;
+    const element = visibilityRef.current;
+    if (!element) return;
+
+    let active = true;
+    let requested = false;
+    const requestPhotos = () => {
+      if (requested) return;
+      requested = true;
+      void loadHotelPhotoGallery(hotel).then((photos) => {
+        if (active && photos.length > 0) setLoadedPhotos(photos);
+      });
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      requestPhotos();
+    } else {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          requestPhotos();
+          observer.disconnect();
+        }
+      }, { rootMargin: "200px" });
+      observer.observe(element);
+      return () => {
+        active = false;
+        observer.disconnect();
+      };
+    }
+
+    return () => { active = false; };
+  }, [hotel]);
 
   const place: Place = React.useMemo(() => {
-    const photos = hotel.photos.length > 0 ? hotel.photos : [];
-    const photoGallery = photos.map((url) => ({
-      url,
-      source: "database",
-      attribution: [],
-      fetchedAt: new Date().toISOString(),
-      displayApproved: true,
-    }));
+    const photoGallery = loadedPhotos.length > 0 ? loadedPhotos : getExistingHotelPhotos(hotel);
+    const photos = photoGallery.map((photo) => photo.url);
 
     return {
-      id: hotel.id,
+      id: hotel.placeId || hotel.id,
       name: hotel.name,
       rating: hotel.rating,
       userRatingCount: hotel.reviewCount,
@@ -55,7 +86,7 @@ export function MindtripHotelCard({
       primaryPhoto: photoGallery[0],
       photoGallery,
     };
-  }, [hotel]);
+  }, [hotel, loadedPhotos]);
 
   const priceLabel = React.useMemo(() => {
     if (hotel.hasDirectBooking && hotel.pricePerNight) {
@@ -79,16 +110,18 @@ export function MindtripHotelCard({
   }, [hotel.hasDirectBooking, hotel.pricePerNight, hotel.currency, locale]);
 
   return (
-    <MindtripPlaceCard
-      place={place}
-      isSelected={isSelected}
-      isFavorite={isFavorite}
-      isAddedToTrip={isAddedToTrip}
-      onClick={onClick}
-      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(hotel.id, !isFavorite) : undefined}
-      onAddToTrip={onAddToTrip ? () => onAddToTrip(hotel) : undefined}
-      priceLabel={priceLabel}
-      className={className}
-    />
+    <div ref={visibilityRef}>
+      <MindtripPlaceCard
+        place={place}
+        isSelected={isSelected}
+        isFavorite={isFavorite}
+        isAddedToTrip={isAddedToTrip}
+        onClick={onClick}
+        onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(hotel.id, !isFavorite) : undefined}
+        onAddToTrip={onAddToTrip ? () => onAddToTrip(hotel) : undefined}
+        priceLabel={priceLabel}
+        className={className}
+      />
+    </div>
   );
 }

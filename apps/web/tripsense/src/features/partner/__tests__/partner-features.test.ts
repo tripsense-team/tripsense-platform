@@ -6,6 +6,8 @@ import {
   updatePublicationState,
   updateIntakeState,
   revokeContactConsent,
+  uploadRestaurantMenuImage,
+  deleteUnreferencedRestaurantMenuImage,
 } from "../services/partner-api";
 import { apiClient } from "@/services/api-client";
 
@@ -215,6 +217,26 @@ describe("Partner Frontend API Service", () => {
       }),
     );
     expect(updated).toHaveLength(1);
+  });
+
+  it("uploads and discards a restaurant menu photo through the existing partner API client", async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: { imagePublicId: "tripsense/partners/biz-1/restaurant-menu/a1", imageUrl: "https://res.cloudinary.com/demo/image/upload/a1" },
+    } as any);
+    const file = new File(["image"], "dish.png", { type: "image/png" });
+    const result = await uploadRestaurantMenuImage("biz-1", file);
+    expect(result.imagePublicId).toContain("restaurant-menu");
+    const uploadRequest = vi.mocked(apiClient).mock.calls.at(-1)?.[1];
+    expect(uploadRequest?.method).toBe("POST");
+    expect(uploadRequest?.body).toBeInstanceOf(FormData);
+
+    vi.mocked(apiClient).mockResolvedValueOnce({ success: true, data: null } as any);
+    await deleteUnreferencedRestaurantMenuImage("biz-1", result.imagePublicId);
+    expect(apiClient).toHaveBeenLastCalledWith(
+      expect.stringContaining("/restaurant-menu/images?imagePublicId="),
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 
   it("updates contact sharing consent and retrieves public restaurant listing", async () => {

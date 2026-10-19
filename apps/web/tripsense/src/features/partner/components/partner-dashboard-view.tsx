@@ -188,6 +188,7 @@ export function PartnerDashboardView() {
                   key={business.id}
                   business={business}
                   onUpdated={handleBusinessUpdated}
+                  onProfileUpdateSubmitted={loadData}
                 />
               ))}
             </div>

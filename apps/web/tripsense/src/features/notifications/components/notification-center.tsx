@@ -128,7 +128,7 @@ export function NotificationCenter() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground ring-2 ring-background">
+            <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground ring-2 ring-background shadow-xs animate-pulse">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -175,6 +175,7 @@ export function NotificationCenter() {
               { id: "TRIP", label: t("notifications.filterTrips", { defaultValue: "Chuyến đi" }) },
               { id: "HOTEL", label: t("notifications.filterHotels", { defaultValue: "Đặt phòng" }) },
               { id: "CHAT", label: t("notifications.filterChat", { defaultValue: "Tin nhắn" }) },
+              { id: "PARTNER", label: t("notifications.filterPartner", { defaultValue: "Đối tác / Đặt bàn" }) },
             ] as const
           ).map((f) => (
             <button

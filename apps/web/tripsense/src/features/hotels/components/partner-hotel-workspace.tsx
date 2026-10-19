@@ -10,6 +10,8 @@ import { getBusinessApplications, getPartnerContext } from "@/features/partner/s
 import type { BusinessDetailDto } from "@/features/partner/types";
 import { hotelApi } from "../services/hotels-api";
 import { HotelCommerce } from "./hotel-commerce";
+import { HotelAmPmTimeField } from "./hotel-ampm-time-field";
+import { formatHotelTime } from "../utils/hotel-time";
 import type { HotelProperty, HotelRoom, HotelInventory, HotelBooking } from "../types";
 import {
   Building2,
@@ -350,7 +352,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                         </div>
                         <p className="text-xs text-muted-foreground">{p.destination} · {p.address}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {t("trip.hotels.checkInTime")}: {p.check_in_time} · {t("trip.hotels.checkOutTime")}: {p.check_out_time}
+                          {t("trip.hotels.checkInTime")}: {formatHotelTime(p.check_in_time)} · {t("trip.hotels.checkOutTime")}: {formatHotelTime(p.check_out_time)}
                         </p>
                       </div>
 
@@ -529,14 +531,18 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="space-y-1 text-xs font-medium">
-                    <span>{t("trip.hotels.checkInTime", { defaultValue: "Giờ nhận" })}</span>
-                    <Input name="checkInTime" type="time" required defaultValue="14:00" className="h-9 text-xs" />
-                  </label>
-                  <label className="space-y-1 text-xs font-medium">
-                    <span>{t("trip.hotels.checkOutTime", { defaultValue: "Giờ trả" })}</span>
-                    <Input name="checkOutTime" type="time" required defaultValue="11:00" className="h-9 text-xs" />
-                  </label>
+                  <HotelAmPmTimeField
+                    name="checkInTime"
+                    label={t("trip.hotels.checkInTime", { defaultValue: "Giờ nhận" })}
+                    defaultValue="14:00"
+                    compact
+                  />
+                  <HotelAmPmTimeField
+                    name="checkOutTime"
+                    label={t("trip.hotels.checkOutTime", { defaultValue: "Giờ trả" })}
+                    defaultValue="11:00"
+                    compact
+                  />
                 </div>
 
                 <div className="sm:col-span-2 pt-2">

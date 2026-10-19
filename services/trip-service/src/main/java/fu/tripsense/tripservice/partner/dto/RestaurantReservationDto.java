@@ -13,6 +13,8 @@ public record RestaurantReservationDto(
     String customerEmail,
     String customerName,
     Instant startAt,
+    Instant endsAt,
+    Instant holdExpiresAt,
     String timeZone,
     int adults,
     int children,

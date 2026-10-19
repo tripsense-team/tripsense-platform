@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { approvedAttributionUrl, approvedPhoto, approvedPhotoGallery, hasFreshPhotoLookup } from "./approved-photo";
 import type { Place } from "../types";
 
-const photo = { url: "https://lh3.googleusercontent.com/photo", source: "ziomap",
-  attribution: [], fetchedAt: "2026-09-19T00:00:00Z", displayApproved: true };
+const photo = {
+  url: "https://lh3.googleusercontent.com/photo", source: "ziomap",
+  attribution: [], fetchedAt: "2026-09-19T00:00:00Z", displayApproved: true
+};
 
 describe("approvedPhoto", () => {
   it("accepts only approved HTTPS URLs without credentials", () => {

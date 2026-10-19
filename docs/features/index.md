@@ -6,6 +6,12 @@ Track every feature that enters the multi-agent workflow.
 | --- | --- | --- | --- |
 | `financial-flow-and-withdrawals` | APPROVED | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./financial-flow-and-withdrawals.md) |
 | `group-c-product-expansion` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; identity remains in `user-service` | [Docs](./group-c-product-expansion.md) |
+| `restaurant-booking-availability-engine` | APPROVED | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-availability-engine.md) |
+| `partner-analytics` | IMPLEMENTING | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./partner-analytics.md) |
+| `hotel-live-place-photos` | DONE | `apps/web/tripsense`, existing `services/place-service` and `services/api-gateway` | [Docs](./hotel-live-place-photos.md) |
+| `partner-hotel-checkin-ampm` | IMPLEMENTING | `apps/web/tripsense`; existing hotel property API contracts | [Docs](./partner-hotel-checkin-ampm.md) |
+| `restaurant-booking-realtime-notifications` | DONE | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-realtime-notifications.md) |
+| `admin-system-logs` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/api-gateway`, deployment observability configuration | [Docs](./admin-system-logs.md) |
 | `group-b-feature-completion` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/social-service` | [Docs](./group-b-feature-completion.md) |
 | `trip-export-pdf-ics` | IMPLEMENTED | `apps/web/tripsense` | [Docs](./trip-export-pdf-ics.md) |
 | `unified-notification-center` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/social-service` | [Docs](./unified-notification-center.md) |
@@ -31,7 +37,11 @@ Track every feature that enters the multi-agent workflow.
 | `explore-search-autocomplete-dropdown` | DONE | `apps/web/tripsense` | [Docs](./explore-search-autocomplete-dropdown.md) |
 | `place-detail-map-overlay` | DONE | `apps/web/tripsense` | [Docs](./place-detail-map-overlay.md) |
 | `partner-location-autocomplete` | DONE | `apps/web/tripsense`; existing Gateway/Place APIs | [Docs](./partner-location-autocomplete.md) |
+| `partner-autocomplete-search-fallback` | WAITING_FOR_APPROVAL | `services/place-service`, `apps/web/tripsense`; existing API Gateway route | [Docs](./partner-autocomplete-search-fallback.md) |
+| `partner-services-hub-navigation` | DONE | `apps/web/tripsense`; existing Trip Service APIs | [Docs](./partner-services-hub-navigation.md) |
+| `restaurant-menu-dish-photos` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/api-gateway`, Cloudinary | [Docs](./restaurant-menu-dish-photos.md) |
 | `partner-onboarding-and-business-approval` | DONE | `services/user-service`, `services/trip-service` (partner/hotel/guide), `services/social-service` (Community), `services/mail-service`, `services/api-gateway`, `services/ai-service`, `apps/web/tripsense` | [Docs — onboarding, Community guide promotion & inquiries](./partner-onboarding-and-business-approval.md) |
+| `partner-approved-profile-update` | IMPLEMENTING | `apps/web/tripsense`, existing `services/trip-service`, existing `services/api-gateway` | [Docs](./partner-approved-profile-update.md) |
 | `hotel-management-and-booking` | SUPERSEDED; IMPLEMENTATION PAUSED | Inventory/hold invariants retained; Partner plan replaces onboarding/approval and extends fulfilment/support | [Docs](./hotel-management-and-booking.md) |
 | `hotel-availability-and-ota-redirect` | SUPERSEDED | External OTA integration deferred; first-party inventory is current direction | [Docs](./hotel-availability-and-ota-redirect.md) |
 | `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |

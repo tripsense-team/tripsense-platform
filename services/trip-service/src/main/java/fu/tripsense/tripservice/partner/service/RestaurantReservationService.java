@@ -31,6 +31,7 @@ public class RestaurantReservationService {
   private final RestaurantReservationRepository reservationRepository;
   private final RestaurantReservationTransitionRepository transitionRepository;
   private final PartnerNotificationRepository notificationRepository;
+  private final PartnerNotificationOutboxService outboxService;
 
   @Transactional
   public RestaurantReservationDto createRequest(
@@ -152,48 +153,44 @@ public class RestaurantReservationService {
         .build());
 
     // Notify business owners and managers
-    try {
-      List<PartnerBusinessMember> activeMembers =
-          memberRepository.findByIdBusinessIdAndState(businessId, MembershipState.ACTIVE);
-      for (PartnerBusinessMember member : activeMembers) {
-        if (member.getRole() == MembershipRole.OWNER || member.getRole() == MembershipRole.MANAGER) {
-          String msg = String.format(
-              "Yêu cầu đặt bàn mới từ %s (%d khách) vào lúc %s.",
-              reservation.getCustomerName() != null ? reservation.getCustomerName() : "Khách hàng",
-              req.adults() + req.children(),
-              req.startAt());
-          notificationRepository.save(
-              PartnerNotification.builder()
-                  .id(UUID.randomUUID())
-                  .eventId(resId)
-                  .recipientId(member.getId().getUserId())
-                  .eventType("RESTAURANT_RESERVATION_REQUESTED")
-                  .businessId(businessId)
-                  .message(msg)
-                  .createdAt(now)
-                  .build());
-        }
+    List<PartnerBusinessMember> activeMembers =
+        memberRepository.findByIdBusinessIdAndState(businessId, MembershipState.ACTIVE);
+    for (PartnerBusinessMember member : activeMembers) {
+      if (member.getRole() == MembershipRole.OWNER || member.getRole() == MembershipRole.MANAGER) {
+        String msg = String.format(
+            "Yêu cầu đặt bàn mới từ %s (%d khách) vào lúc %s.",
+            reservation.getCustomerName() != null ? reservation.getCustomerName() : "Khách hàng",
+            req.adults() + req.children(),
+            req.startAt());
+        outboxService.saveNotificationWithOutbox(
+            PartnerNotification.builder()
+                .id(UUID.randomUUID())
+                .eventId(resId)
+                .recipientId(member.getId().getUserId())
+                .eventType("RESTAURANT_RESERVATION_REQUESTED")
+                .businessId(businessId)
+                .message(msg)
+                .createdAt(now)
+                .build());
       }
-
-      // Also notify the customer that request was placed
-      String customerMsg = String.format(
-          "Yêu cầu đặt bàn tại %s (%d khách) vào lúc %s đã được gửi thành công. Vui lòng chờ quán xác nhận.",
-          reservation.getBusinessNameSnapshot(),
-          req.adults() + req.children(),
-          req.startAt());
-      notificationRepository.save(
-          PartnerNotification.builder()
-              .id(UUID.randomUUID())
-              .eventId(UUID.randomUUID())
-              .recipientId(user.id())
-              .eventType("RESTAURANT_RESERVATION_PLACED")
-              .businessId(businessId)
-              .message(customerMsg)
-              .createdAt(now)
-              .build());
-    } catch (Exception ex) {
-      log.warn("Failed to dispatch restaurant reservation notification: {}", ex.getMessage());
     }
+
+    // Also notify the customer that request was placed
+    String customerMsg = String.format(
+        "Yêu cầu đặt bàn tại %s (%d khách) vào lúc %s đã được gửi thành công. Vui lòng chờ quán xác nhận.",
+        reservation.getBusinessNameSnapshot(),
+        req.adults() + req.children(),
+        req.startAt());
+    outboxService.saveNotificationWithOutbox(
+        PartnerNotification.builder()
+            .id(UUID.randomUUID())
+            .eventId(UUID.randomUUID())
+            .recipientId(user.id())
+            .eventType("RESTAURANT_RESERVATION_PLACED")
+            .businessId(businessId)
+            .message(customerMsg)
+            .createdAt(now)
+            .build());
 
     return toDto(reservation);
   }
@@ -349,38 +346,34 @@ public class RestaurantReservationService {
         .build());
 
     // Notify customer about reservation decision
-    try {
-      String decisionMsg;
-      String eventType;
-      if ("CONFIRMED".equals(reservation.getState())) {
-        decisionMsg = String.format("Nhà hàng %s đã XÁC NHẬN yêu cầu đặt bàn của bạn vào lúc %s.",
-            reservation.getBusinessNameSnapshot(), reservation.getStartAt());
-        eventType = "RESTAURANT_RESERVATION_CONFIRMED";
-      } else if ("REJECTED".equals(reservation.getState())) {
-        decisionMsg = String.format("Nhà hàng %s đã TỪ CHỐI yêu cầu đặt bàn của bạn.%s",
-            reservation.getBusinessNameSnapshot(),
-            req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
-        eventType = "RESTAURANT_RESERVATION_REJECTED";
-      } else {
-        decisionMsg = String.format("Nhà hàng %s đã HỦY yêu cầu đặt bàn của bạn.%s",
-            reservation.getBusinessNameSnapshot(),
-            req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
-        eventType = "RESTAURANT_RESERVATION_CANCELLED";
-      }
-
-      notificationRepository.save(
-          PartnerNotification.builder()
-              .id(UUID.randomUUID())
-              .eventId(UUID.randomUUID())
-              .recipientId(reservation.getCustomerId())
-              .eventType(eventType)
-              .businessId(businessId)
-              .message(decisionMsg)
-              .createdAt(now)
-              .build());
-    } catch (Exception ex) {
-      log.warn("Failed to dispatch restaurant reservation decision notification: {}", ex.getMessage());
+    String decisionMsg;
+    String eventType;
+    if ("CONFIRMED".equals(reservation.getState())) {
+      decisionMsg = String.format("Nhà hàng %s đã XÁC NHẬN yêu cầu đặt bàn của bạn vào lúc %s.",
+          reservation.getBusinessNameSnapshot(), reservation.getStartAt());
+      eventType = "RESTAURANT_RESERVATION_CONFIRMED";
+    } else if ("REJECTED".equals(reservation.getState())) {
+      decisionMsg = String.format("Nhà hàng %s đã TỪ CHỐI yêu cầu đặt bàn của bạn.%s",
+          reservation.getBusinessNameSnapshot(),
+          req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
+      eventType = "RESTAURANT_RESERVATION_REJECTED";
+    } else {
+      decisionMsg = String.format("Nhà hàng %s đã HỦY yêu cầu đặt bàn của bạn.%s",
+          reservation.getBusinessNameSnapshot(),
+          req.reason() != null && !req.reason().isBlank() ? " Lý do: " + req.reason().trim() : "");
+      eventType = "RESTAURANT_RESERVATION_CANCELLED";
     }
+
+    outboxService.saveNotificationWithOutbox(
+        PartnerNotification.builder()
+            .id(UUID.randomUUID())
+            .eventId(UUID.randomUUID())
+            .recipientId(reservation.getCustomerId())
+            .eventType(eventType)
+            .businessId(businessId)
+            .message(decisionMsg)
+            .createdAt(now)
+            .build());
 
     return toDto(reservation);
   }

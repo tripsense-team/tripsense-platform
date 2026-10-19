@@ -21,12 +21,15 @@ import type {
   ManagementClaimDecisionRequest,
   ManagementClaimDto,
   PartnerCandidateDto,
+  PartnerAnalyticsSummaryDto,
+  PartnerAnalyticsDashboardDto,
   PartnerContextDto,
   ProposalDecisionRequest,
   PublicGuideProfileDto,
   PublicRestaurantListingDto,
   PublicationRequest,
   RestaurantMenuBatchRequest,
+  RestaurantMenuImageUploadDto,
   RestaurantMenuItemDto,
   RestaurantReservationDecisionRequest,
   RestaurantReservationDto,
@@ -65,6 +68,26 @@ export async function getPartnerContext(): Promise<PartnerContextDto> {
   return request<PartnerContextDto>("/api/partners/businesses");
 }
 
+export async function getPartnerAnalytics(businessId: string, periodDays: 7 | 30 | 90 = 30): Promise<PartnerAnalyticsSummaryDto> {
+  return request<PartnerAnalyticsSummaryDto>(`/api/partners/businesses/${businessId}/analytics?periodDays=${periodDays}`);
+}
+
+export async function getPartnerAnalyticsDashboard(
+  periodDays: 7 | 30 | 90 = 30,
+  businessId?: string,
+): Promise<PartnerAnalyticsDashboardDto> {
+  const params = new URLSearchParams({ periodDays: String(periodDays) });
+  if (businessId) params.set("businessId", businessId);
+  return request<PartnerAnalyticsDashboardDto>(`/api/partners/analytics?${params.toString()}`);
+}
+
+export async function recordRestaurantView(businessId: string, sessionKey: string): Promise<void> {
+  await apiClient<void>(`/api/restaurants/${businessId}/views`, {
+    method: "POST",
+    body: JSON.stringify({ sessionKey }),
+  });
+}
+
 export async function adminGetApplicationChecklist(applicationId: string): Promise<{ code: string; label: string; required: boolean }[]> {
   return request(`/api/admin/partner-applications/${applicationId}/checklist`);
 }
@@ -84,10 +107,20 @@ export async function createBusinessDraft(
 
 export async function updateBusinessDraft(
   businessId: string,
-  req: { displayName?: string; draftProfile?: Record<string, unknown> },
+  req: { expectedVersion: number; displayName?: string; draftProfile?: Record<string, unknown> },
 ): Promise<BusinessDetailDto> {
   return request<BusinessDetailDto>(`/api/partners/businesses/${businessId}`, {
     method: "PATCH",
+    body: JSON.stringify(req),
+  });
+}
+
+export async function declareBusinessMaterialChange(
+  businessId: string,
+  req: { expectedVersion: number; kind: "LOCATION" | "REPRESENTATION" | "PROVIDER_IDENTITY"; reason: string },
+): Promise<BusinessDetailDto> {
+  return request<BusinessDetailDto>(`/api/partners/businesses/${businessId}/material-changes`, {
+    method: "POST",
     body: JSON.stringify(req),
   });
 }
@@ -363,6 +396,29 @@ export async function updateRestaurantMenu(
       method: "PUT",
       body: JSON.stringify(req),
     },
+  );
+}
+
+export async function uploadRestaurantMenuImage(
+  businessId: string,
+  file: File,
+): Promise<RestaurantMenuImageUploadDto> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<RestaurantMenuImageUploadDto>(
+    `/api/partners/businesses/${businessId}/restaurant-menu/images`,
+    { method: "POST", body: formData },
+  );
+}
+
+export async function deleteUnreferencedRestaurantMenuImage(
+  businessId: string,
+  imagePublicId: string,
+): Promise<void> {
+  const params = new URLSearchParams({ imagePublicId });
+  await request<void>(
+    `/api/partners/businesses/${businessId}/restaurant-menu/images?${params}`,
+    { method: "DELETE" },
   );
 }
 
