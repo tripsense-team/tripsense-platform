@@ -4,7 +4,6 @@ import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/features/auth";
 import {
-  listTrips,
   createTrip,
   updateTrip,
   deleteTrip,
@@ -18,10 +17,7 @@ import type {
 } from "../types";
 
 export async function fetchUserTripsQueryFn(): Promise<TripResponse[]> {
-  const page = await listTrips({ size: 50 });
-  const trips = page?.content || [];
-  // Keep Zustand store in sync
-  useTripStore.getState().setTrips(trips);
+  const trips = await useTripStore.getState().fetchTrips(true, 3);
   return trips;
 }
 

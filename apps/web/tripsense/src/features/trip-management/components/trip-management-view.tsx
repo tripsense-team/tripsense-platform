@@ -88,6 +88,10 @@ export function TripManagementView({
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const trips = useTripStore((state) => state.trips);
   const loadingTrips = useTripStore((state) => state.loading);
+  const loadingMoreTrips = useTripStore((state) => state.loadingMore);
+  const hasMoreTrips = useTripStore((state) => state.hasMore);
+  const totalTrips = useTripStore((state) => state.totalElements);
+  const loadMoreTrips = useTripStore((state) => state.loadMoreTrips);
   const fetchTrips = useTripStore((state) => state.fetchTrips);
   const updateTripInStore = useTripStore((state) => state.updateTripInStore);
   const [trip, setTrip] = React.useState<TripResponse | null>(null);
@@ -516,6 +520,10 @@ export function TripManagementView({
       <TripsScreen
         trips={trips}
         loading={loadingTrips}
+        loadingMore={loadingMoreTrips}
+        hasMore={hasMoreTrips}
+        totalElements={totalTrips}
+        onLoadMore={loadMoreTrips}
         error={error}
         submitting={submitting}
         onRetry={loadTrips}

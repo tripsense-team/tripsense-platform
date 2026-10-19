@@ -1,9 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { TripSharingWorkspace } from "@/features/social-post";
+import { TripManagementView } from "@/features/trip-management";
 
 export default function TripDetailPage() {
   const params = useParams<{ tripId: string }>();
-  return <TripSharingWorkspace initialTripId={params.tripId} />;
+  return <TripManagementView screen="detail" initialTripId={params.tripId} />;
 }
