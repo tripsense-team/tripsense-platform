@@ -73,8 +73,8 @@ export interface PartnerAnalyticsDashboardDto {
     viewsAvailable: boolean;
     bookings: number;
     expectedGuests: number;
-    confirmedBookings: number;
-    cancelledBookings: number;
+    confirmationRate?: PartnerAnalyticsRateDto | null;
+    cancellationRate?: PartnerAnalyticsRateDto | null;
     settledPartnerEarnings: number;
     revenueAvailable: boolean;
     daily: Array<{ date: string; views: number; bookings: number; settledPartnerEarnings: number }>;

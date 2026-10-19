@@ -81,7 +81,9 @@ public class PartnerAnalyticsService {
       for (LocalDate day = from; day.isBefore(today.plusDays(1)); day = day.plusDays(1)) {
         daily.add(new DailyAnalytics(day, 0, 0, BigDecimal.ZERO));
       }
-      long views = 0, bookings = 0, confirmed = 0, cancelled = 0, expected = 0;
+      long views = 0, bookings = 0, expected = 0;
+      PartnerAnalyticsDashboardDto.Rate confirmationRate = dashboardRate(0, 0);
+      PartnerAnalyticsDashboardDto.Rate cancellationRate = dashboardRate(0, 0);
       java.util.Map<LocalDate, long[]> counts = new java.util.HashMap<>();
       boolean viewsAvailable = business.getKind() == BusinessKind.RESTAURANT;
       boolean revenueAvailable = business.getKind() == BusinessKind.HOTEL;
@@ -94,17 +96,23 @@ public class PartnerAnalyticsService {
       if (business.getKind() == BusinessKind.RESTAURANT) {
         bookings = nvl(jdbc.queryForObject("SELECT COUNT(*) FROM restaurant_reservation_request WHERE business_id=? AND created_at>=? AND created_at<?", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
         expected = nvl(jdbc.queryForObject("SELECT COALESCE(SUM(adults+children),0) FROM restaurant_reservation_request WHERE business_id=? AND start_at>=now() AND start_at<now()+interval '30 days' AND (state='CONFIRMED' OR (state='REQUESTED' AND hold_expires_at>now()))", Long.class, business.getId()));
-        confirmed = nvl(jdbc.queryForObject("SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r JOIN restaurant_reservation_transition t ON t.reservation_id=r.id WHERE r.business_id=? AND r.created_at>=? AND r.created_at<? AND t.from_state='REQUESTED' AND t.to_state='CONFIRMED'", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
-        cancelled = nvl(jdbc.queryForObject("SELECT COUNT(*) FROM restaurant_reservation_request WHERE business_id=? AND created_at>=? AND created_at<? AND state='CANCELLED'", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        long confirmations = nvl(jdbc.queryForObject("SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r JOIN restaurant_reservation_transition t ON t.reservation_id=r.id WHERE r.business_id=? AND t.created_at>=? AND t.created_at<? AND t.from_state='REQUESTED' AND t.to_state='CONFIRMED'", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        long decisions = nvl(jdbc.queryForObject("SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r JOIN restaurant_reservation_transition t ON t.reservation_id=r.id WHERE r.business_id=? AND t.created_at>=? AND t.created_at<? AND t.from_state='REQUESTED' AND t.to_state IN ('CONFIRMED','REJECTED')", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        long cancellations = nvl(jdbc.queryForObject("SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r JOIN restaurant_reservation_transition t ON t.reservation_id=r.id WHERE r.business_id=? AND t.to_state='CANCELLED' AND t.created_at>=? AND t.created_at<?", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        long resolvedReservations = nvl(jdbc.queryForObject("SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r JOIN restaurant_reservation_transition t ON t.reservation_id=r.id WHERE r.business_id=? AND t.to_state IN ('CONFIRMED','REJECTED','CANCELLED') AND t.created_at>=? AND t.created_at<?", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        long confirmedInPeriod = nvl(jdbc.queryForObject("SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r JOIN restaurant_reservation_transition t ON t.reservation_id=r.id WHERE r.business_id=? AND t.from_state='REQUESTED' AND t.to_state='CONFIRMED' AND t.created_at>=? AND t.created_at<?", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        confirmationRate = dashboardRate(confirmations, decisions);
+        cancellationRate = dashboardRate(cancellations, resolvedReservations);
         jdbc.query("SELECT (created_at AT TIME ZONE ?)::date, COUNT(*) FROM restaurant_reservation_request WHERE business_id=? AND created_at>=? AND created_at<? GROUP BY 1", rs -> {
           while (rs.next()) counts.computeIfAbsent(rs.getDate(1).toLocalDate(), ignored -> new long[2])[1] = rs.getLong(2);
         }, zone.getId(), business.getId(), Timestamp.from(start), Timestamp.from(end));
       } else {
-        bookings = nvl(jdbc.queryForObject("SELECT COUNT(*) FROM hotel_booking WHERE business_id=? AND created_at>=? AND created_at<? AND status IN ('CONFIRMED','CHECKED_IN','CHECKED_OUT')", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
-        expected = nvl(jdbc.queryForObject("SELECT COALESCE(SUM(guests),0) FROM hotel_booking WHERE business_id=? AND status='CONFIRMED' AND check_in>=? AND check_in<?", Long.class, business.getId(), expectedToday, expectedToday.plusDays(30)));
-        confirmed = bookings;
-        cancelled = nvl(jdbc.queryForObject("SELECT COUNT(*) FROM hotel_booking WHERE business_id=? AND created_at>=? AND created_at<? AND status='CANCELLED'", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
-        jdbc.query("SELECT (created_at AT TIME ZONE ?)::date, COUNT(*) FROM hotel_booking WHERE business_id=? AND created_at>=? AND created_at<? AND status IN ('CONFIRMED','CHECKED_IN','CHECKED_OUT') GROUP BY 1", rs -> {
+        bookings = nvl(jdbc.queryForObject("SELECT COUNT(*) FROM hotel_booking b JOIN hotel_property p ON p.id=b.property_id WHERE p.business_id=? AND b.created_at>=? AND b.created_at<? AND b.status IN ('CONFIRMED','CHECKED_IN','CHECKED_OUT')", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        expected = nvl(jdbc.queryForObject("SELECT COALESCE(SUM(b.guests),0) FROM hotel_booking b JOIN hotel_property p ON p.id=b.property_id WHERE p.business_id=? AND b.status='CONFIRMED' AND b.check_in>=? AND b.check_in<?", Long.class, business.getId(), expectedToday, expectedToday.plusDays(30)));
+        long cancelledHotels = nvl(jdbc.queryForObject("SELECT COUNT(*) FROM hotel_booking b JOIN hotel_property p ON p.id=b.property_id WHERE p.business_id=? AND b.created_at>=? AND b.created_at<? AND b.status='CANCELLED'", Long.class, business.getId(), Timestamp.from(start), Timestamp.from(end)));
+        confirmationRate = dashboardRate(bookings, bookings + cancelledHotels);
+        cancellationRate = dashboardRate(cancelledHotels, bookings + cancelledHotels);
+        jdbc.query("SELECT (b.created_at AT TIME ZONE ?)::date, COUNT(*) FROM hotel_booking b JOIN hotel_property p ON p.id=b.property_id WHERE p.business_id=? AND b.created_at>=? AND b.created_at<? AND b.status IN ('CONFIRMED','CHECKED_IN','CHECKED_OUT') GROUP BY 1", rs -> {
           while (rs.next()) counts.computeIfAbsent(rs.getDate(1).toLocalDate(), ignored -> new long[2])[1] = rs.getLong(2);
         }, zone.getId(), business.getId(), Timestamp.from(start), Timestamp.from(end));
       }
@@ -124,7 +132,7 @@ public class PartnerAnalyticsService {
         filled = filled.stream().map(day -> new DailyAnalytics(day.date(), day.views(), day.bookings(), earningsByDate.getOrDefault(day.date(), BigDecimal.ZERO))).toList();
       }
       results.add(new BusinessAnalytics(business.getId(), business.getDisplayName(), business.getKind().name(), views,
-          viewsAvailable, bookings, expected, confirmed, cancelled, revenue, revenueAvailable, filled));
+          viewsAvailable, bookings, expected, confirmationRate, cancellationRate, revenue, revenueAvailable, filled));
     }
     return new PartnerAnalyticsDashboardDto(periodDays, LocalDate.now(DEFAULT_ZONE).minusDays(periodDays - 1L), LocalDate.now(DEFAULT_ZONE).plusDays(1), results);
   }
@@ -215,21 +223,18 @@ public class PartnerAnalyticsService {
         WHERE r.business_id = ? AND r.created_at >= ? AND r.created_at < ?
           AND t.from_state = 'REQUESTED' AND t.to_state IN ('CONFIRMED', 'REJECTED')
         """, Long.class, businessId, Timestamp.from(start), Timestamp.from(end));
-    Long cancellationDenominator = jdbc.queryForObject("""
-        SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r
-        JOIN restaurant_reservation_transition confirmed ON confirmed.reservation_id = r.id
-        WHERE r.business_id = ? AND confirmed.created_at >= ? AND confirmed.created_at < ?
-          AND confirmed.from_state = 'REQUESTED' AND confirmed.to_state = 'CONFIRMED'
-        """, Long.class, businessId, Timestamp.from(start), Timestamp.from(end));
     Long cancelled = jdbc.queryForObject("""
         SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r
-        JOIN restaurant_reservation_transition confirmed ON confirmed.reservation_id = r.id
         JOIN restaurant_reservation_transition cancelled ON cancelled.reservation_id = r.id
-        WHERE r.business_id = ? AND confirmed.created_at >= ? AND confirmed.created_at < ?
-          AND confirmed.from_state = 'REQUESTED' AND confirmed.to_state = 'CONFIRMED'
-          AND cancelled.from_state = 'CONFIRMED' AND cancelled.to_state = 'CANCELLED'
+        WHERE r.business_id = ? AND cancelled.to_state = 'CANCELLED'
           AND cancelled.created_at >= ? AND cancelled.created_at < ?
-        """, Long.class, businessId, Timestamp.from(start), Timestamp.from(end), Timestamp.from(start), Timestamp.from(end));
+        """, Long.class, businessId, Timestamp.from(start), Timestamp.from(end));
+    Long cancellationDenominator = jdbc.queryForObject("""
+        SELECT COUNT(DISTINCT r.id) FROM restaurant_reservation_request r
+        JOIN restaurant_reservation_transition decision ON decision.reservation_id = r.id
+        WHERE r.business_id = ? AND decision.to_state IN ('CONFIRMED', 'REJECTED', 'CANCELLED')
+          AND decision.created_at >= ? AND decision.created_at < ?
+        """, Long.class, businessId, Timestamp.from(start), Timestamp.from(end));
     return new Metrics(nvl(views), nvl(requests), rate(nvl(confirmed), nvl(decided)), rate(nvl(cancelled), nvl(cancellationDenominator)));
   }
 
@@ -248,6 +253,11 @@ public class PartnerAnalyticsService {
 
   private Rate rate(long numerator, long denominator) {
     return new Rate(numerator, denominator, denominator == 0 ? 0d : (double) numerator / denominator);
+  }
+
+  private PartnerAnalyticsDashboardDto.Rate dashboardRate(long numerator, long denominator) {
+    return new PartnerAnalyticsDashboardDto.Rate(
+        numerator, denominator, denominator == 0 ? 0d : (double) numerator / denominator);
   }
 
   private long nvl(Long value) { return value == null ? 0L : value; }

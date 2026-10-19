@@ -4,10 +4,12 @@ import fu.tripsense.tripservice.dto.response.ApiResponse;
 import fu.tripsense.tripservice.partner.dto.*;
 import fu.tripsense.tripservice.partner.service.RestaurantService;
 import fu.tripsense.tripservice.partner.service.PartnerAnalyticsService;
+import fu.tripsense.tripservice.partner.service.RestaurantAvailabilityService;
 import fu.tripsense.tripservice.security.CurrentUserProvider;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +22,27 @@ public class RestaurantController {
 
   private final RestaurantService restaurantService;
   private final PartnerAnalyticsService analyticsService;
+  private final RestaurantAvailabilityService availabilityService;
   private final CurrentUserProvider currentUserProvider;
+
+  @GetMapping("/api/partners/businesses/{id}/restaurant-availability")
+  public ResponseEntity<ApiResponse<RestaurantAvailabilityDto>> getRestaurantAvailabilitySettings(
+      @PathVariable UUID id) {
+    return ResponseEntity.ok(ApiResponse.success(availabilityService.getSettings(currentUserProvider.get(), id)));
+  }
+
+  @PutMapping("/api/partners/businesses/{id}/restaurant-availability")
+  public ResponseEntity<ApiResponse<RestaurantAvailabilityDto>> updateRestaurantAvailabilitySettings(
+      @PathVariable UUID id, @Valid @RequestBody UpdateRestaurantAvailabilityRequest request) {
+    return ResponseEntity.ok(ApiResponse.success(
+        availabilityService.updateSettings(currentUserProvider.get(), id, request)));
+  }
+
+  @GetMapping("/api/restaurants/{id}/availability")
+  public ResponseEntity<ApiResponse<RestaurantAvailabilityResponse>> getRestaurantAvailability(
+      @PathVariable UUID id, @RequestParam LocalDate date, @RequestParam int partySize) {
+    return ResponseEntity.ok(ApiResponse.success(availabilityService.getAvailableSlots(id, date, partySize)));
+  }
 
   @GetMapping("/api/partners/businesses/{id}/restaurant-menu")
   public ResponseEntity<ApiResponse<List<RestaurantMenuItemDto>>> getMenu(

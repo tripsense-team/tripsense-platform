@@ -18,11 +18,12 @@ public record PartnerAnalyticsDashboardDto(
       boolean viewsAvailable,
       long bookings,
       long expectedGuests,
-      long confirmedBookings,
-      long cancelledBookings,
+      Rate confirmationRate,
+      Rate cancellationRate,
       BigDecimal settledPartnerEarnings,
       boolean revenueAvailable,
       List<DailyAnalytics> daily) {}
 
   public record DailyAnalytics(LocalDate date, long views, long bookings, BigDecimal settledPartnerEarnings) {}
+  public record Rate(long numerator, long denominator, double value) {}
 }

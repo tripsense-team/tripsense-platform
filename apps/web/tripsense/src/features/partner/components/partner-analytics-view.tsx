@@ -6,6 +6,7 @@ import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { getPartnerAnalyticsDashboard, getPartnerContext } from "../services/partner-api";
 import type { BusinessDetailDto, PartnerAnalyticsDashboardDto } from "../types";
+import { aggregatePartnerRate } from "../utils/partner-analytics";
 
 type PeriodDays = 7 | 30 | 90;
 type AnalyticsBusiness = PartnerAnalyticsDashboardDto["businesses"][number];
@@ -89,6 +90,8 @@ export function PartnerAnalyticsView() {
 
   const selected = dashboard?.businesses ?? [];
   const restaurantMetrics = selected.filter((business) => business.kind === "RESTAURANT");
+  const confirmationRate = aggregatePartnerRate(restaurantMetrics.map((business) => business.confirmationRate));
+  const cancellationRate = aggregatePartnerRate(restaurantMetrics.map((business) => business.cancellationRate));
   const totals = React.useMemo(() => selected.reduce((acc, business) => ({
     views: acc.views + business.views,
     bookings: acc.bookings + business.bookings,
@@ -112,8 +115,8 @@ export function PartnerAnalyticsView() {
   const cards = [
     { title: t("partner.analytics.views"), value: totals.viewsAvailable ? integer(totals.views) : t("partner.analytics.unavailable"), Icon: Eye },
     { title: t("partner.analytics.requests"), value: integer(totals.bookings), Icon: CalendarDays },
-    { title: t("partner.analytics.confirmationRate"), value: restaurantMetrics.length ? percent(restaurantMetrics.reduce((sum, item) => sum + item.confirmedBookings, 0), restaurantMetrics.reduce((sum, item) => sum + item.bookings, 0)) : t("partner.analytics.unavailable"), Icon: BarChart3 },
-    { title: t("partner.analytics.cancellationRate"), value: restaurantMetrics.length ? percent(restaurantMetrics.reduce((sum, item) => sum + item.cancelledBookings, 0), restaurantMetrics.reduce((sum, item) => sum + item.confirmedBookings + item.cancelledBookings, 0)) : t("partner.analytics.unavailable"), Icon: CircleAlert },
+    { title: t("partner.analytics.confirmationRate"), value: confirmationRate ? percent(confirmationRate.numerator, confirmationRate.denominator) : t("partner.analytics.unavailable"), Icon: BarChart3 },
+    { title: t("partner.analytics.cancellationRate"), value: cancellationRate ? percent(cancellationRate.numerator, cancellationRate.denominator) : t("partner.analytics.unavailable"), Icon: CircleAlert },
   ];
 
   return (
