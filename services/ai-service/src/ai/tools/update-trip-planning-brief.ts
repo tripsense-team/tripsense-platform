@@ -186,6 +186,146 @@ export function missingFields(brief: TripPlanningBrief) {
   return missing;
 }
 
+export function formatLocalDateIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const ENGLISH_MONTHS: Record<string, number> = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
+};
+
+function inferYear(targetMonth: number, baseDate: Date): number {
+  const currentYear = baseDate.getFullYear();
+  const currentMonth = baseDate.getMonth() + 1;
+  if (targetMonth < currentMonth) {
+    return currentYear + 1;
+  }
+  return currentYear;
+}
+
+function getSafeStartDateInMonth(year: number, month: number, baseDate: Date): Date {
+  const currentYear = baseDate.getFullYear();
+  const currentMonth = baseDate.getMonth() + 1;
+  const currentDay = baseDate.getDate();
+
+  if (year === currentYear && month === currentMonth) {
+    const proposed = new Date(year, month - 1, currentDay + 3);
+    if (proposed.getMonth() + 1 === month) {
+      return proposed;
+    }
+    return new Date(year, month - 1, currentDay);
+  }
+
+  return new Date(year, month - 1, 1);
+}
+
+export function parseFlexibleMonth(monthStr: string, baseDate: Date = new Date()): Date | null {
+  if (!monthStr || typeof monthStr !== "string") return null;
+  const trimmed = monthStr.trim();
+
+  const yyyyMm = trimmed.match(/^(\d{4})-(\d{1,2})$/);
+  if (yyyyMm) {
+    const year = parseInt(yyyyMm[1], 10);
+    const month = parseInt(yyyyMm[2], 10);
+    if (month >= 1 && month <= 12) {
+      return getSafeStartDateInMonth(year, month, baseDate);
+    }
+  }
+
+  const monthWithYear = trimmed.match(/(?:tháng\s*|t\s*)?(\d{1,2})[\s/]+(\d{4})/i);
+  if (monthWithYear) {
+    const month = parseInt(monthWithYear[1], 10);
+    const year = parseInt(monthWithYear[2], 10);
+    if (month >= 1 && month <= 12) {
+      return getSafeStartDateInMonth(year, month, baseDate);
+    }
+  }
+
+  const englishMatch = trimmed.match(/([a-zA-Z]{3,9})(?:\s+(\d{4}))?/i);
+  if (englishMatch) {
+    const mName = englishMatch[1].toLowerCase();
+    const mNum = ENGLISH_MONTHS[mName];
+    if (mNum) {
+      const explicitYear = englishMatch[2] ? parseInt(englishMatch[2], 10) : undefined;
+      const year = explicitYear ?? inferYear(mNum, baseDate);
+      return getSafeStartDateInMonth(year, mNum, baseDate);
+    }
+  }
+
+  const vnMatch = trimmed.match(/(?:tháng\s*|t\s*)?(\d{1,2})/i);
+  if (vnMatch) {
+    const month = parseInt(vnMatch[1], 10);
+    if (month >= 1 && month <= 12) {
+      const year = inferYear(month, baseDate);
+      return getSafeStartDateInMonth(year, month, baseDate);
+    }
+  }
+
+  return null;
+}
+
+export function resolveFlexibleDates(
+  durationDays: number = 3,
+  flexibleMonths?: string[],
+  baseDate: Date = new Date()
+): { startDate: string; endDate: string } {
+  const safeDuration = Math.max(1, durationDays);
+
+  if (flexibleMonths && flexibleMonths.length > 0) {
+    for (const monthStr of flexibleMonths) {
+      const parsed = parseFlexibleMonth(monthStr, baseDate);
+      if (parsed) {
+        const start = parsed;
+        const end = new Date(start);
+        end.setDate(end.getDate() + safeDuration - 1);
+        return {
+          startDate: formatLocalDateIso(start),
+          endDate: formatLocalDateIso(end),
+        };
+      }
+    }
+  }
+
+  const start = new Date(baseDate);
+  start.setDate(start.getDate() + 7);
+  const end = new Date(start);
+  end.setDate(end.getDate() + safeDuration - 1);
+  return {
+    startDate: formatLocalDateIso(start),
+    endDate: formatLocalDateIso(end),
+  };
+}
+
+export function isDateInFlexibleMonth(
+  dateStr: string,
+  monthStr: string,
+  baseDate: Date = new Date()
+): boolean {
+  if (!dateStr || !monthStr) return false;
+  try {
+    const d = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`);
+    const parsed = parseFlexibleMonth(monthStr, baseDate);
+    if (!parsed) return false;
+    return d.getFullYear() === parsed.getFullYear() && d.getMonth() === parsed.getMonth();
+  } catch {
+    return false;
+  }
+}
+
 async function persistState(messageId: string, userText: string, state: TripBriefPart) {
   await db
     .update(messages)
@@ -260,13 +400,10 @@ export function getUpdateTripPlanningBriefTool(context: {
         ...(input.budget ? { budget: input.budget } : {}),
       };
 
-      // Auto-default who and budget when where and when are both satisfied
+      // Auto-default budget when where and when are both satisfied, but preserve unspecified who
       const hasValidDates = Boolean(merged.when?.startDate && merged.when?.endDate);
       const hasValidDuration = Boolean(merged.when?.durationDays && merged.when.durationDays > 0);
       if (merged.where?.destinationText && (hasValidDates || hasValidDuration)) {
-        if (!merged.who) {
-          merged.who = { adults: 1, children: 0, infants: 0, pets: 0 };
-        }
         if (!merged.budget) {
           merged.budget = { mode: "FLEXIBLE" };
         }
@@ -340,18 +477,25 @@ export function getUpdateTripPlanningBriefTool(context: {
         return { accepted: true, state };
       }
 
-      const who = merged.who || { adults: 1, children: 0, infants: 0, pets: 0 };
+      const who = merged.who;
       const budget = merged.budget || { mode: "FLEXIBLE" };
 
       let startDate = merged.when?.startDate;
       let endDate = merged.when?.endDate;
-      if (!startDate || !endDate) {
+      const isFlexible =
+        merged.when?.type === "flexible" ||
+        Boolean(merged.when?.durationDays && !merged.when?.startDate);
+      const flexibleMonths = merged.when?.flexibleMonths;
+
+      if (
+        !startDate ||
+        !endDate ||
+        (isFlexible && flexibleMonths && flexibleMonths.length > 0 && !isDateInFlexibleMonth(startDate, flexibleMonths[0]))
+      ) {
         const days = merged.when?.durationDays || 3;
-        const now = new Date();
-        const start = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const end = new Date(start.getTime() + (days - 1) * 24 * 60 * 60 * 1000);
-        startDate = start.toISOString().split("T")[0];
-        endDate = end.toISOString().split("T")[0];
+        const resolved = resolveFlexibleDates(days, flexibleMonths);
+        startDate = resolved.startDate;
+        endDate = resolved.endDate;
         merged.when = {
           ...merged.when,
           type: "flexible",
@@ -361,15 +505,23 @@ export function getUpdateTripPlanningBriefTool(context: {
         };
       }
 
+      const flexibleNote = isFlexible
+        ? `Travel preference: ${merged.when?.durationDays || 3} days flexible${
+            flexibleMonths && flexibleMonths.length > 0
+              ? ` (${flexibleMonths.join(", ")})`
+              : ""
+          }`
+        : null;
+
       const tripDraft: TripDraft = {
         name: `Trip to ${merged.where!.destinationText}`,
         destinationName: merged.where!.destinationText,
         startDate,
         endDate,
-        travelerCount: who.adults + who.children + who.infants,
+        travelerCount: who ? who.adults + who.children + who.infants : null,
         budgetAmount: budget.mode === "TOTAL" ? budget.amount : null,
         budgetCurrency: budget.mode === "TOTAL" ? budget.currency : null,
-        notes: null,
+        notes: flexibleNote,
       };
       state = { ...state, status: "CREATING_TRIP" };
       await persistState(context.userMessageId, context.userText, state);

@@ -99,8 +99,29 @@ describe("TripIntakeCard Component", () => {
     expect(html).toContain("aiPlanner.intake.tripLinked");
     expect(html).toContain("aiPlanner.intake.generateAction");
     expect(html).toContain("Đà Nẵng");
-    expect(html).toContain("2026-10-10");
+    expect(html).toContain("10 – 12 thg 10");
     expect(html).toContain("aiPlanner.intake.budgetFlexible");
+  });
+
+  it("renders flexible dates summary with month in intake card", () => {
+    const state: TripBriefState = {
+      type: "data-tripBrief",
+      runId: "run-flex",
+      intentMessageId: "msg-flex",
+      version: 1,
+      status: "TRIP_LINKED",
+      brief: {
+        where: { destinationText: "Đà Lạt" },
+        when: { type: "flexible", durationDays: 3, flexibleMonths: ["Tháng 12"] },
+      },
+      missingFields: [],
+    };
+
+    const html = renderToString(
+      <TripIntakeCard chatId="test-chat-flex" initialState={state} />
+    );
+
+    expect(html).toContain("3 ngày trong Tháng 12");
   });
 
   it("renders view itinerary action when proposal exists", () => {

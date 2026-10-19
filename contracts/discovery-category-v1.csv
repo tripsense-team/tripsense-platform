@@ -1,0 +1,17 @@
+category|name|categories|expected
+HOMESTAY|Seaside Hotel|hotel;lodging|false
+HOMESTAY|An Home Stay|lodging|true
+HOMESTAY|An HomeStay|hotel|true
+HOMESTAY|An|homestay|true
+HOMESTAY|HomestayEquipment|shop|false
+CAFE|A|cafe|true
+CAFE|A|coffee_shop;food|true
+CAFE|A|cafeteria_equipment|false
+CAFE|A|restaurant|false
+FOOD|A|restaurant|true
+FOOD|A|seafood_restaurant|true
+ATTRACTION|A|tourist_attraction|true
+ATTRACTION|A|beach|true
+ATTRACTION|Beach Hotel|hotel|false
+STAY|A|hotel|true
+STAY|An Homestay|lodging|true

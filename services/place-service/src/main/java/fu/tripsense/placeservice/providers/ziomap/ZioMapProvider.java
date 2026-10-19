@@ -8,6 +8,7 @@ import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlacePhotoDto;
+import fu.tripsense.placeservice.observability.RequestDiagnostics;
 import fu.tripsense.placeservice.providers.PlaceEnrichmentProvider;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
@@ -95,7 +96,8 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     if (isQuotaOrAuthError(ex)) {
       if (apiKeyPoolService != null) {
         String keyToRotate = StringUtils.hasText(failedKey) ? failedKey : getEffectiveApiKey();
-        ApiKeyStatus failureStatus = isAuthError(ex) ? ApiKeyStatus.INVALID : ApiKeyStatus.EXHAUSTED;
+        ApiKeyStatus failureStatus =
+            isAuthError(ex) ? ApiKeyStatus.INVALID : ApiKeyStatus.EXHAUSTED;
         java.util.Optional<ApiKeyPoolItem> nextKey =
             apiKeyPoolService.markExhaustedAndRotate(
                 ApiKeyProvider.ZIOMAP, keyToRotate, failureStatus, ex.getMessage());
@@ -138,6 +140,7 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
   private List<PlaceDto> textSearchWithRetry(
       String query, Double lat, Double lng, Integer radiusMeters, Integer limit, int retryCount) {
+    RequestDiagnostics.mark("provider_attempt", retryCount + 1);
     if (!StringUtils.hasText(query)) {
       return Collections.emptyList();
     }
@@ -167,13 +170,15 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       RestClient.RequestHeadersSpec<?> requestSpec =
           restClient.get().uri(uriBuilder.build().toUriString());
 
-      String effectiveKey = getEffectiveApiKey();
+      String effectiveKey =
+          RequestDiagnostics.measure("provider_key_lookup", this::getEffectiveApiKey);
       if (StringUtils.hasText(effectiveKey)) {
         requestSpec.header("x-api-key", effectiveKey);
       }
 
       ZioMapTextSearchResponse response =
-          requestSpec.retrieve().body(ZioMapTextSearchResponse.class);
+          RequestDiagnostics.measure(
+              "provider_http", () -> requestSpec.retrieve().body(ZioMapTextSearchResponse.class));
 
       if (response == null || response.getPlaces() == null) {
         return Collections.emptyList();
@@ -190,14 +195,17 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       return results;
     } catch (Exception ex) {
       String keyUsed = getEffectiveApiKey();
-      if (retryCount < 2 && handleQuotaErrorAndRotate(keyUsed, ex)) {
+      if (retryCount < 2
+          && RequestDiagnostics.measure(
+              "provider_key_rotation", () -> handleQuotaErrorAndRotate(keyUsed, ex))) {
         log.info(
-            "[ZioMapProvider] Retrying textSearch for query '{}' with rotated key (attempt {})",
-            query,
-            retryCount + 1);
+            "[ZioMapProvider] Retrying textSearch with rotated key (attempt {})", retryCount + 1);
         return textSearchWithRetry(query, lat, lng, radiusMeters, limit, retryCount + 1);
       }
-      log.error("Failed to execute ZioMap text search for query '{}': {}", query, ex.getMessage());
+      log.warn(
+          "ziomap_text_search_failed requestId={} errorType={}",
+          RequestDiagnostics.requestId(),
+          ex.getClass().getSimpleName());
       throw new PlaceProviderException("ZioMap text search is unavailable", ex);
     }
   }
@@ -600,6 +608,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         .city(city)
         .district(district)
         .categories(categories)
+        .primaryType(
+            fu.tripsense.placeservice.dto.DiscoveryCategory.normalizePrimaryType(
+                item.getPrimaryType()))
         .rating(item.getRating())
         .userRatingCount(item.getUserRatingCount())
         .photos(photoUrls)
@@ -772,6 +783,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
         .city(city)
         .district(district)
         .categories(categories)
+        .primaryType(
+            fu.tripsense.placeservice.dto.DiscoveryCategory.normalizePrimaryType(
+                item.getPrimaryType()))
         .rating(rating)
         .userRatingCount(userRatingCount)
         .photos(photoUrls)
@@ -935,7 +949,10 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       String msg = current.getMessage();
       if (msg != null) {
         String lower = msg.toLowerCase();
-        if (lower.contains("401") || lower.contains("403") || lower.contains("unauthorized") || lower.contains("forbidden")) {
+        if (lower.contains("401")
+            || lower.contains("403")
+            || lower.contains("unauthorized")
+            || lower.contains("forbidden")) {
           return true;
         }
       }

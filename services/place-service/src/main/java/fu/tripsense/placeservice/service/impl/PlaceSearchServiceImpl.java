@@ -10,6 +10,7 @@ import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.dto.PlaceRecommendationResult;
 import fu.tripsense.placeservice.dto.RetrievalEvidenceDto;
+import fu.tripsense.placeservice.observability.RequestDiagnostics;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
 import fu.tripsense.placeservice.service.PlaceCacheService;
@@ -218,15 +219,17 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
   @Override
   public PlaceRecommendationResult recommend(PlaceRecommendationRequest request) {
+    RequestDiagnostics.mark("provider_called", false);
+    RequestDiagnostics.mark("place_target_count", request.effectiveTargetCount());
+    RequestDiagnostics.mark(
+        "place_retrieval_window", retrievalWindow(request.effectiveTargetCount()));
+    RequestDiagnostics.mark("place_external_refresh_allowed", request.externalRefreshAllowed());
     String query = request.query().trim();
     String normalizedQuery = query.toLowerCase(Locale.ROOT);
     // A missing anchor cannot be replaced with the service's legacy Da Nang default.
     // Text-only local matches may be shown as evidence, but cannot establish geographic fit.
     if (request.lat() == null || request.lng() == null) {
-      List<PlaceDto> local =
-          findLocalPlaces(normalizedQuery, request.effectiveTargetCount()).stream()
-              .map(persistence::toDto)
-              .toList();
+      List<PlaceDto> local = loadLocalCandidates(normalizedQuery, request.effectiveTargetCount());
       local.forEach(
           place ->
               decorate(place, "LOCAL", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
@@ -249,6 +252,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               false,
               reasons.stream().distinct().toList(),
               assessed.rankingVersion());
+      traceEvidence("local", evidence);
+      RequestDiagnostics.mark("place_refresh_decision", "NO_ANCHOR");
       return new PlaceRecommendationResult(enrichPhotosForPlaces(local), evidence);
     }
     double lat = request.lat() != null ? request.lat() : properties.getDefaultLat();
@@ -258,7 +263,10 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     Instant retrievedAt = Instant.now();
 
     Optional<List<PlaceDto>> cached =
-        cache.getSearchResults(normalizedQuery, lat, lng, radius, target);
+        RequestDiagnostics.measure(
+            "redis_lookup",
+            () -> cache.getSearchResults(normalizedQuery, lat, lng, radius, target));
+    RequestDiagnostics.mark("cache_present", cached.isPresent());
     if (cached.isPresent() && !cached.get().isEmpty()) {
       List<PlaceDto> values =
           withinRadius(ranking.rank(cached.get(), query, lat, lng), lat, lng, radius);
@@ -266,57 +274,98 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
           place ->
               decorate(place, "CACHE", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
       RetrievalEvidenceDto evidence =
-          assess(values, request, Set.of("CACHE"), "NOT_CALLED", false, retrievedAt);
+          RequestDiagnostics.measure(
+              "cache_assessment",
+              () -> assess(values, request, Set.of("CACHE"), "NOT_CALLED", false, retrievedAt));
+      traceEvidence("cache", evidence);
       if ("SUFFICIENT".equals(evidence.status())) {
+        RequestDiagnostics.mark("place_refresh_decision", "USE_CACHE");
+        RequestDiagnostics.mark("served_from", "redis");
         return new PlaceRecommendationResult(
             enrichPhotosForPlaces(values.stream().limit(target).toList()), evidence);
       }
     }
 
+    List<PlaceDto> localCandidates = loadLocalCandidates(normalizedQuery, retrievalWindow(target));
     List<PlaceDto> local =
-        withinRadius(
-            ranking.rank(
-                // Text relevance alone can crowd nearby category matches out of a small page.
-                // Retrieve a wider bounded pool, then let deterministic geo/category ranking
-                // select the candidates returned to the recommendation service.
-                findLocalPlaces(normalizedQuery, retrievalWindow(target)).stream()
-                    .map(persistence::toDto)
-                    .toList(),
-                query,
-                lat,
-                lng),
-            lat,
-            lng,
-            radius);
+        RequestDiagnostics.measure(
+            "local_ranking",
+            () ->
+                withinRadius(
+                    ranking.rank(
+                        // Text relevance alone can crowd nearby category matches out of a small
+                        // page.
+                        // Retrieve a wider bounded pool, then let deterministic geo/category
+                        // ranking
+                        // select the candidates returned to the recommendation service.
+                        localCandidates, query, lat, lng),
+                    lat,
+                    lng,
+                    radius));
+    RequestDiagnostics.mark("local_candidates", local.size());
+    RequestDiagnostics.mark(
+        "place_local_removed_after_ranking_geo", localCandidates.size() - local.size());
     local.forEach(
         place ->
             decorate(place, "LOCAL", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
     RetrievalEvidenceDto localEvidence =
-        assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, retrievedAt);
+        RequestDiagnostics.measure(
+            "local_assessment",
+            () -> assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, retrievedAt));
+    traceEvidence("local", localEvidence);
     if ("SUFFICIENT".equals(localEvidence.status())) {
-      cache.putSearchResults(normalizedQuery, lat, lng, radius, target, local);
+      RequestDiagnostics.mark("place_refresh_decision", "USE_LOCAL");
+      RequestDiagnostics.mark("served_from", "mongo");
+      RequestDiagnostics.run(
+          "cache_put",
+          () -> cache.putSearchResults(normalizedQuery, lat, lng, radius, target, local));
       return new PlaceRecommendationResult(
           enrichPhotosForPlaces(local.stream().limit(target).toList()), localEvidence);
     }
     if (!request.externalRefreshAllowed()) {
+      RequestDiagnostics.mark("place_refresh_decision", "REFRESH_DISABLED");
       return new PlaceRecommendationResult(
           enrichPhotosForPlaces(local.stream().limit(target).toList()), localEvidence);
     }
 
     try {
+      RequestDiagnostics.mark("place_refresh_decision", "REFRESH_PROVIDER");
+      RequestDiagnostics.mark("provider_called", true);
       List<PlaceDto> external =
-          provider.textSearch(
-              enrichQueryForProvider(query, lat, lng), lat, lng, radius, retrievalWindow(target));
+          RequestDiagnostics.measure(
+              "provider_search",
+              () ->
+                  provider.textSearch(
+                      enrichQueryForProvider(query, lat, lng),
+                      lat,
+                      lng,
+                      radius,
+                      retrievalWindow(target)));
+      RequestDiagnostics.mark("provider_candidates", external.size());
       List<PlaceDto> persisted =
-          external.stream()
-              .map(item -> persistence.upsertProviderPlace(item, provider.getProviderName()))
-              .peek(
-                  item ->
-                      decorate(item, "PROVIDER", retrievedAt, request.effectiveMaximumAgeSeconds()))
-              .toList();
+          RequestDiagnostics.measure(
+              "provider_persistence",
+              () ->
+                  external.stream()
+                      .map(
+                          item -> persistence.upsertProviderPlace(item, provider.getProviderName()))
+                      .peek(
+                          item ->
+                              decorate(
+                                  item,
+                                  "PROVIDER",
+                                  retrievedAt,
+                                  request.effectiveMaximumAgeSeconds()))
+                      .toList());
       List<PlaceDto> merged =
-          withinRadius(
-              ranking.rank(mergeResults(persisted, local), query, lat, lng), lat, lng, radius);
+          RequestDiagnostics.measure(
+              "merge_ranking",
+              () ->
+                  withinRadius(
+                      ranking.rank(mergeResults(persisted, local), query, lat, lng),
+                      lat,
+                      lng,
+                      radius));
       RetrievalEvidenceDto evidence =
           assess(
               merged,
@@ -325,10 +374,15 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               "AVAILABLE",
               true,
               retrievedAt);
-      cache.putSearchResults(normalizedQuery, lat, lng, radius, target, merged);
+      traceEvidence("provider", evidence);
+      RequestDiagnostics.mark("served_from", "provider_merged");
+      RequestDiagnostics.run(
+          "cache_put",
+          () -> cache.putSearchResults(normalizedQuery, lat, lng, radius, target, merged));
       return new PlaceRecommendationResult(
           enrichPhotosForPlaces(merged.stream().limit(target).toList()), evidence);
     } catch (PlaceProviderException exception) {
+      RequestDiagnostics.mark("served_from", "local_provider_failed");
       RetrievalEvidenceDto evidence =
           assess(local, request, Set.of("LOCAL"), "UNAVAILABLE", true, retrievedAt);
       List<String> reasons = new ArrayList<>(evidence.reasonCodes());
@@ -348,9 +402,78 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               true,
               reasons.stream().distinct().toList(),
               evidence.rankingVersion());
+      traceEvidence("provider_failure", evidence);
       return new PlaceRecommendationResult(
           enrichPhotosForPlaces(local.stream().limit(target).toList()), evidence);
     }
+  }
+
+  private List<PlaceDto> loadLocalCandidates(String normalizedQuery, int limit) {
+    return RequestDiagnostics.measure(
+        "mongo_search",
+        () -> {
+          List<Place> entities =
+              RequestDiagnostics.measure(
+                  "mongo_fetch", () -> findLocalPlaces(normalizedQuery, limit));
+          RequestDiagnostics.mark("place_mongo_candidates", entities.size());
+          return RequestDiagnostics.measure(
+              "mongo_dto_mapping", () -> entities.stream().map(persistence::toDto).toList());
+        });
+  }
+
+  private void traceEvidence(String stage, RetrievalEvidenceDto evidence) {
+    String prefix = "place_" + stage + "_";
+    RequestDiagnostics.mark(prefix + "status", evidence.status());
+    RequestDiagnostics.mark(prefix + "candidate_count", evidence.candidateCount());
+    RequestDiagnostics.mark(prefix + "eligible_count", evidence.eligibleCount());
+    RequestDiagnostics.mark(prefix + "freshness", evidence.freshness());
+    RequestDiagnostics.mark(prefix + "geographic_coverage", evidence.geographicCoverage());
+    // Required-field names come from the request. Never log arbitrary input as a reason or key.
+    Set<String> fields =
+        Set.of(
+            "id",
+            "canonicalId",
+            "location",
+            "coordinates",
+            "openingHours",
+            "normalizedOpeningHours",
+            "businessStatus",
+            "category",
+            "categories",
+            "rating",
+            "price",
+            "priceAmount");
+    Set<String> reasons =
+        Set.of(
+            "TOO_FEW_CANDIDATES",
+            "WEAK_GEOGRAPHIC_COVERAGE",
+            "STALE_REQUIRED_EVIDENCE",
+            "LOCATION_ANCHOR_UNRESOLVED",
+            "PROVIDER_UNAVAILABLE");
+    List<String> safeReasons =
+        evidence.reasonCodes().stream()
+            .map(
+                reason -> {
+                  if (reasons.contains(reason)) return reason;
+                  String missing = "MANDATORY_FIELD_MISSING:";
+                  if (reason.startsWith(missing)) {
+                    String field = reason.substring(missing.length());
+                    return missing + (fields.contains(field) ? field : "UNSUPPORTED_FIELD");
+                  }
+                  return "OTHER";
+                })
+            .distinct()
+            .sorted()
+            .toList();
+    RequestDiagnostics.mark(
+        prefix + "reason_codes", safeReasons.isEmpty() ? "NONE" : String.join(",", safeReasons));
+    evidence
+        .requiredFieldCoverage()
+        .forEach(
+            (field, coverage) -> {
+              if (fields.contains(field))
+                RequestDiagnostics.mark(prefix + "coverage_" + field, coverage);
+            });
   }
 
   private RetrievalEvidenceDto assess(
@@ -556,21 +679,33 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
   }
 
   private List<Place> findLocalPlaces(String normalizedQuery, int limit) {
+    RequestDiagnostics.mark("place_mongo_query_limit", limit);
     if (System.currentTimeMillis() - lastLocalSearchFailureTime < 30_000) {
+      RequestDiagnostics.mark("place_search_method", "REGEX_COOLDOWN");
       try {
-        return repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit));
+        return RequestDiagnostics.measure(
+            "mongo_regex_query",
+            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)));
       } catch (Exception ex) {
         return Collections.emptyList();
       }
     }
+    RequestDiagnostics.mark("place_search_method", "TEXT");
     try {
-      return repository.searchByText(normalizedQuery, PageRequest.of(0, limit));
+      return RequestDiagnostics.measure(
+          "mongo_text_query",
+          () -> repository.searchByText(normalizedQuery, PageRequest.of(0, limit)));
     } catch (Exception exception) {
       lastLocalSearchFailureTime = System.currentTimeMillis();
+      RequestDiagnostics.mark("place_search_method", "REGEX_AFTER_TEXT_FAILURE");
       log.warn(
-          "Local MongoDB text search failed, falling back to regex: {}", exception.getMessage());
+          "place_text_search_failed requestId={} errorType={}",
+          RequestDiagnostics.requestId(),
+          exception.getClass().getSimpleName());
       try {
-        return repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit));
+        return RequestDiagnostics.measure(
+            "mongo_regex_query",
+            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)));
       } catch (Exception ex) {
         return Collections.emptyList();
       }
@@ -624,13 +759,15 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             if (place.getUserRatingCount() == null && local.getUserRatingCount() != null) {
               place.setUserRatingCount(local.getUserRatingCount());
             }
-            if (!StringUtils.hasText(place.getOpeningHours()) && StringUtils.hasText(local.getOpeningHours())) {
+            if (!StringUtils.hasText(place.getOpeningHours())
+                && StringUtils.hasText(local.getOpeningHours())) {
               place.setOpeningHours(local.getOpeningHours());
             }
             if (!StringUtils.hasText(place.getPhone()) && StringUtils.hasText(local.getPhone())) {
               place.setPhone(local.getPhone());
             }
-            if (!StringUtils.hasText(place.getWebsite()) && StringUtils.hasText(local.getWebsite())) {
+            if (!StringUtils.hasText(place.getWebsite())
+                && StringUtils.hasText(local.getWebsite())) {
               place.setWebsite(local.getWebsite());
             }
           }

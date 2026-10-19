@@ -22,9 +22,15 @@ import {
   type TripPreferences,
 } from "./modals";
 import {
+  createTrip,
   getTrip,
   updateTrip,
 } from "@/features/trip-management/services/trip-management-api";
+import {
+  resolveFlexibleDates,
+  isoDateFromToday,
+  parseFlexiblePreferenceFromNotes,
+} from "@/features/trip-management/utils/date";
 import type { TripResponse } from "@/features/trip-management/types";
 import {
   getChatTripContext,
@@ -33,6 +39,8 @@ import {
   patchPlanningBrief,
 } from "@/features/ai-trip-commit/services/ai-trip-commit-api";
 import type { TripPlanningBrief } from "@/features/ai-trip-commit/types";
+import { isGenericChatTitle } from "@/hooks/use-ai-chats";
+import { aiChatQueryKeys, getQueryClient } from "@/lib/react-query";
 
 export function ChatShell() {
   const router = useRouter();
@@ -146,9 +154,18 @@ export function ChatShell() {
       .then((trip) => {
         if (isMounted) {
           setActiveTrip(trip);
+          const flexInfo = parseFlexiblePreferenceFromNotes(trip.notes);
           setTripPreferences({
             where: { location: trip.destinationName, isRoadTrip: false },
-            when: { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
+            when: flexInfo
+              ? {
+                  type: "flexible",
+                  durationDays: flexInfo.durationDays,
+                  flexibleMonths: flexInfo.flexibleMonths,
+                  startDate: trip.startDate,
+                  endDate: trip.endDate,
+                }
+              : { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
             who: trip.travelerCount
               ? { adults: trip.travelerCount, children: 0, infants: 0, pets: 0 }
               : undefined,
@@ -196,6 +213,8 @@ export function ChatShell() {
           return;
         }
         await linkChatToTrip(chatId, tripIdParam, null);
+        const qc = getQueryClient();
+        void qc.invalidateQueries({ queryKey: aiChatQueryKeys.all });
       })
       .catch((err) => {
         console.warn("Could not link trip to chat on mount:", err);
@@ -233,15 +252,34 @@ export function ChatShell() {
         const trip = await getTrip(context.trip.id);
         if (isMounted) {
           setActiveTrip(trip);
-          setTripPreferences({
-            where: { location: trip.destinationName, isRoadTrip: false },
-            when: { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
-            who: trip.travelerCount
-              ? { adults: trip.travelerCount, children: 0, infants: 0, pets: 0 }
-              : undefined,
-            budget: trip.budgetAmount != null && trip.budgetCurrency
-              ? { mode: "TOTAL", amount: trip.budgetAmount, currency: trip.budgetCurrency }
-              : { mode: "FLEXIBLE" },
+          const flexInfo = parseFlexiblePreferenceFromNotes(trip.notes);
+          setTripPreferences((prev) => {
+            const isFlexible = Boolean(flexInfo || prev.when?.type === "flexible");
+            return {
+              where: { location: trip.destinationName, isRoadTrip: false },
+              when: isFlexible
+                ? {
+                    type: "flexible",
+                    durationDays:
+                      flexInfo?.durationDays || prev.when?.durationDays || 3,
+                    flexibleMonths:
+                      flexInfo?.flexibleMonths || prev.when?.flexibleMonths || [],
+                    startDate: trip.startDate,
+                    endDate: trip.endDate,
+                  }
+                : { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
+              who: trip.travelerCount
+                ? { adults: trip.travelerCount, children: 0, infants: 0, pets: 0 }
+                : prev.who,
+              budget:
+                trip.budgetAmount != null && trip.budgetCurrency
+                  ? {
+                      mode: "TOTAL",
+                      amount: trip.budgetAmount,
+                      currency: trip.budgetCurrency,
+                    }
+                  : prev.budget || { mode: "FLEXIBLE" },
+            };
           });
         }
       } catch {
@@ -280,19 +318,29 @@ export function ChatShell() {
           if (!isMounted) return;
           setActiveTrip(trip);
           const brief = response.state?.brief;
+          const flexInfo = parseFlexiblePreferenceFromNotes(trip.notes);
+          const isFlexible = Boolean(
+            flexInfo ||
+            (brief?.when as any)?.type === "flexible" ||
+            (brief?.when as any)?.durationDays
+          );
           setTripPreferences({
             where: { location: trip.destinationName, isRoadTrip: false },
-            when:
-              (brief?.when as any)?.type === "flexible" ||
-              (brief?.when as any)?.durationDays
-                ? {
-                    type: "flexible",
-                    durationDays: (brief?.when as any)?.durationDays,
-                    flexibleMonths: (brief?.when as any)?.flexibleMonths,
-                    startDate: trip.startDate,
-                    endDate: trip.endDate,
-                  }
-                : { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
+            when: isFlexible
+              ? {
+                  type: "flexible",
+                  durationDays:
+                    flexInfo?.durationDays ||
+                    (brief?.when as any)?.durationDays ||
+                    3,
+                  flexibleMonths:
+                    flexInfo?.flexibleMonths ||
+                    (brief?.when as any)?.flexibleMonths ||
+                    [],
+                  startDate: trip.startDate,
+                  endDate: trip.endDate,
+                }
+              : { type: "dates", startDate: trip.startDate, endDate: trip.endDate },
             who: trip.travelerCount
               ? { adults: trip.travelerCount, children: 0, infants: 0, pets: 0 }
               : undefined,
@@ -319,7 +367,9 @@ export function ChatShell() {
             : undefined,
           when: brief?.when
             ? {
-                type: (brief.when as any).type || (brief.when.startDate ? "dates" : "flexible"),
+                type:
+                  (brief.when as any).type ||
+                  ((brief.when as any).durationDays ? "flexible" : brief.when.startDate ? "dates" : "flexible"),
                 startDate: brief.when.startDate,
                 endDate: brief.when.endDate,
                 durationDays: (brief.when as any).durationDays,
@@ -386,20 +436,25 @@ export function ChatShell() {
     setIsCreateTripOpen(true);
   }, [isAuthenticated, locale]);
 
-  // Handle Trip Created from modal (Option A: notes saved + initial prompt sent to AI)
-  const handleTripCreated = useCallback(
-    (newTrip: TripResponse, initialPrompt?: string) => {
+  // Link trip to current conversation without sending any message/prompt
+  const linkCreatedTrip = useCallback(
+    async (newTrip: TripResponse) => {
+      activeTripRef.current = newTrip;
       setActiveTrip(newTrip);
       setIsTripDetailOpen(true);
       setIsTripPanelCollapsed(false);
       pendingTripTitleUpdateIdRef.current = newTrip.id;
-      void linkChatToTrip(chatId, newTrip.id, null).catch(() => {
+
+      // Link chat to trip first to establish authoritative context
+      try {
+        await linkChatToTrip(chatId, newTrip.id, null);
+      } catch {
         toast.error(
           locale === "vi"
             ? "Trip đã được tạo nhưng chưa thể liên kết với đoạn chat này."
             : "The trip was created but could not be linked to this chat.",
         );
-      });
+      }
 
       // Sync URL without reloading
       if (typeof window !== "undefined") {
@@ -407,17 +462,169 @@ export function ChatShell() {
         url.searchParams.set("tripId", newTrip.id);
         window.history.replaceState(null, "", url.toString());
       }
+    },
+    [chatId, locale]
+  );
 
-      // Automatically send initial prompt to AI assistant
-      if (initialPrompt?.trim()) {
-        sendMessage({
-          parts: [{ text: initialPrompt.trim(), type: "text" }],
-          role: "user",
+  // Handle Trip Created from modal: links trip AND dispatches prompt to AI
+  const handleTripCreatedWithPrompt = useCallback(
+    async (newTrip: TripResponse, initialPrompt?: string) => {
+      await linkCreatedTrip(newTrip);
+
+      // Compute duration in days
+      let durationDays = 3;
+      if (newTrip.startDate && newTrip.endDate) {
+        const start = Date.parse(`${newTrip.startDate}T00:00:00Z`);
+        const end = Date.parse(`${newTrip.endDate}T00:00:00Z`);
+        if (!Number.isNaN(start) && !Number.isNaN(end)) {
+          durationDays = Math.max(1, Math.floor((end - start) / 86_400_000) + 1);
+        }
+      }
+
+      const travelers = newTrip.travelerCount;
+      const dest = newTrip.destinationName;
+
+      // Clean prompt visible to the user on UI
+      const travelerTextVi = travelers ? `, ${travelers} khách` : "";
+      const travelerTextEn = travelers ? ` (${travelers} traveler${travelers > 1 ? "s" : ""})` : "";
+      const userFacingText = initialPrompt?.trim()
+        ? initialPrompt.trim()
+        : locale === "vi"
+        ? `Lên lịch trình du lịch ${dest} (${durationDays} ngày${travelerTextVi})`
+        : `Plan a ${durationDays}-day trip to ${dest}${travelerTextEn}`;
+
+      // Hidden directive for AI: instructs Gemini to immediately search places and generate the complete multi-day proposal
+      const travelerDirective = travelers ? `, ${travelers} khách` : "";
+      const hiddenDirective = `<!-- ai-directive: Người dùng vừa tạo chuyến đi "${newTrip.name}" đến ${dest} (${durationDays} ngày${travelerDirective}). Hãy lập tức dùng searchPlaces tìm kiếm các địa điểm thực tế uy tín tại ${dest} và gọi createTripProposal để sinh lịch trình hoàn chỉnh chi tiết cho tất cả ${durationDays} ngày. Không hỏi lại các thông tin cơ bản. -->`;
+
+      const fullMessageText = `${userFacingText}\n\n${hiddenDirective}`;
+
+      sendMessage({
+        parts: [{ text: fullMessageText, type: "text" }],
+        role: "user",
+      });
+    },
+    [linkCreatedTrip, locale, sendMessage]
+  );
+
+  // Auto-create trip and link to current conversation when both Where & When are satisfied (NO automatic prompt sent)
+  const isAutoCreatingTripRef = useRef(false);
+  const autoCreateAndLinkTrip = useCallback(
+    async (
+      destination: string,
+      whenData?: TripPreferences["when"],
+      whoData?: TripPreferences["who"]
+    ) => {
+      if (!destination || !destination.trim()) return;
+      if (!whenData || (!whenData.startDate && !whenData.durationDays)) return;
+      if (activeTripRef.current || isAutoCreatingTripRef.current) return;
+
+      if (!isAuthenticated) {
+        toast.info(t("aiPlanner.autoCreateTripPromptLogin"));
+        setIsAuthModalOpen(true);
+        return;
+      }
+
+      try {
+        isAutoCreatingTripRef.current = true;
+        const finalDest = destination.trim();
+        const tripName = locale === "vi" ? `Chuyến đi ${finalDest}` : `Trip to ${finalDest}`;
+
+        let finalStartDate = whenData.startDate;
+        let finalEndDate = whenData.endDate;
+        if (!finalStartDate || !finalEndDate) {
+          const resolved = resolveFlexibleDates(
+            whenData.durationDays || 3,
+            whenData.flexibleMonths || []
+          );
+          finalStartDate = finalStartDate || resolved.startDate || isoDateFromToday(7);
+          finalEndDate = finalEndDate || resolved.endDate || isoDateFromToday(10);
+        }
+
+        const totalTravelers = whoData
+          ? whoData.adults + whoData.children + whoData.infants
+          : undefined;
+
+        const travelerBreakdown = whoData
+          ? [
+              `${whoData.adults} adult${whoData.adults > 1 ? "s" : ""}`,
+              whoData.children > 0
+                ? `${whoData.children} child${whoData.children > 1 ? "ren" : ""}`
+                : null,
+              whoData.infants > 0
+                ? `${whoData.infants} infant${whoData.infants > 1 ? "s" : ""}`
+                : null,
+              whoData.pets > 0
+                ? `${whoData.pets} pet${whoData.pets > 1 ? "s" : ""}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(", ")
+          : null;
+
+        const flexibleNote =
+          whenData.type === "flexible"
+            ? `Travel preference: ${whenData.durationDays || 3} days flexible${
+                whenData.flexibleMonths && whenData.flexibleMonths.length > 0
+                  ? ` (${whenData.flexibleMonths.join(", ")})`
+                  : ""
+              }`
+            : null;
+
+        const combinedNotes = [
+          flexibleNote,
+          travelerBreakdown ? `Travelers: ${travelerBreakdown}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+
+        const newTrip = await createTrip({
+          name: tripName,
+          destinationName: finalDest,
+          startDate: finalStartDate,
+          endDate: finalEndDate,
+          travelerCount: totalTravelers && totalTravelers > 0 ? totalTravelers : undefined,
+          notes: combinedNotes || undefined,
         });
+
+        toast.success(
+          t("aiPlanner.tripCreated", { tripName: newTrip.name })
+        );
+
+        await linkCreatedTrip(newTrip);
+      } catch (err) {
+        console.error("Auto trip creation failed:", err);
+        toast.error(t("aiPlanner.autoCreateTripFailed"));
+      } finally {
+        isAutoCreatingTripRef.current = false;
       }
     },
-    [chatId, locale, sendMessage]
+    [isAuthenticated, locale, t, linkCreatedTrip]
   );
+
+  // When user signs in and where+when were already selected, auto create the trip
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      !activeTrip &&
+      tripPreferences.where?.location?.trim() &&
+      (tripPreferences.when?.startDate || tripPreferences.when?.durationDays) &&
+      !isAutoCreatingTripRef.current
+    ) {
+      void autoCreateAndLinkTrip(
+        tripPreferences.where.location.trim(),
+        tripPreferences.when,
+        tripPreferences.who
+      );
+    }
+  }, [
+    isAuthenticated,
+    activeTrip,
+    tripPreferences.where?.location,
+    tripPreferences.when,
+    tripPreferences.who,
+    autoCreateAndLinkTrip,
+  ]);
 
   // Monitor first AI response to automatically name the trip (Decision 2)
   useEffect(() => {
@@ -509,9 +716,7 @@ export function ChatShell() {
       if (
         !extractedTitle &&
         chatTitle &&
-        chatTitle !== "New chat" &&
-        chatTitle !== "Cuộc trò chuyện mới" &&
-        chatTitle !== "Kế hoạch chuyến đi của bạn"
+        !isGenericChatTitle(chatTitle)
       ) {
         extractedTitle = chatTitle;
       }
@@ -580,12 +785,27 @@ export function ChatShell() {
     }
   }, [status, activeTrip?.id]);
 
+  const headerChatTitle = useMemo(() => {
+    if (chatTitle && !isGenericChatTitle(chatTitle)) {
+      return chatTitle;
+    }
+    if (activeTrip?.destinationName) {
+      return locale === "vi"
+        ? `Lịch trình ${activeTrip.destinationName}`
+        : `Trip to ${activeTrip.destinationName}`;
+    }
+    if (activeTrip?.name) {
+      return activeTrip.name;
+    }
+    return chatTitle;
+  }, [chatTitle, activeTrip?.destinationName, activeTrip?.name, locale]);
+
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-background">
       {/* Mindtrip-Style Chat Header (Always full-width across the top, never shrinks when TripDetailPanel opens) */}
       <ChatHeader
         chatId={chatId}
-        chatTitle={chatTitle}
+        chatTitle={headerChatTitle}
         onNewChat={startNewChat}
         onOpenHistory={toggleDrawer}
         onRenameChat={renameChat}
@@ -597,7 +817,6 @@ export function ChatShell() {
         onOpenWhen={() => setActiveModal("when")}
         onOpenWho={() => setActiveModal("who")}
         onOpenBudget={() => setActiveModal("budget")}
-        onOpenPreferences={() => router.push("/settings")}
         onCreateTripClick={handleOpenCreateTrip}
         activeTrip={activeTrip}
         isTripDetailOpen={isTripDetailOpen}
@@ -615,12 +834,24 @@ export function ChatShell() {
           void persistBriefPatch({
             where: { destinationText: data.location, destinationPlaceRef: null },
           });
+          if (
+            !activeTrip &&
+            data.location.trim() &&
+            (tripPreferences.when?.startDate || tripPreferences.when?.durationDays)
+          ) {
+            void autoCreateAndLinkTrip(
+              data.location.trim(),
+              tripPreferences.when,
+              tripPreferences.who
+            );
+          }
         }}
       />
 
       <WhenModal
         isOpen={activeModal === "when"}
         onClose={() => setActiveModal(null)}
+        initialType={tripPreferences.when?.type}
         initialStartDate={tripPreferences.when?.startDate}
         initialEndDate={tripPreferences.when?.endDate}
         initialDurationDays={tripPreferences.when?.durationDays}
@@ -641,8 +872,21 @@ export function ChatShell() {
                 type: "flexible",
                 durationDays: data.durationDays,
                 flexibleMonths: data.flexibleMonths,
+                startDate: data.startDate,
+                endDate: data.endDate,
               },
             });
+          }
+          if (
+            !activeTrip &&
+            tripPreferences.where?.location?.trim() &&
+            (data.startDate || data.durationDays)
+          ) {
+            void autoCreateAndLinkTrip(
+              tripPreferences.where.location.trim(),
+              data,
+              tripPreferences.who
+            );
           }
         }}
       />
@@ -677,14 +921,17 @@ export function ChatShell() {
       <CreateTripModal
         isOpen={isCreateTripOpen}
         onClose={() => setIsCreateTripOpen(false)}
-        onTripCreated={handleTripCreated}
+        onTripCreated={handleTripCreatedWithPrompt}
         onRequireAuth={() => {
           setIsCreateTripOpen(false);
           setIsAuthModalOpen(true);
         }}
         initialDestination={tripPreferences.where?.location}
+        initialWhenType={tripPreferences.when?.type}
         initialStartDate={tripPreferences.when?.startDate}
         initialEndDate={tripPreferences.when?.endDate}
+        initialDurationDays={tripPreferences.when?.durationDays}
+        initialFlexibleMonths={tripPreferences.when?.flexibleMonths}
         initialTravelers={
           tripPreferences.who
               ? tripPreferences.who.adults + tripPreferences.who.children + tripPreferences.who.infants

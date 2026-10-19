@@ -19,7 +19,10 @@ public class AlgorithmVersionCatalog {
         properties.getSemantic().isEnabled()
             ? properties.getSemantic().getEmbeddingModel()
             : versions.getEmbedding(),
-        versions.getFeature(),
+        versions.getFeature()
+            + (properties.getProfile().isObservedSignalPolicyV2Enabled()
+                ? "-observed-intent-v2"
+                : "-observed-legacy-v1"),
         versions.getRanking(),
         properties.getDiversity().isEnabled() ? versions.getDiversity() : "none");
   }

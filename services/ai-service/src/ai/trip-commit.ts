@@ -17,7 +17,7 @@ export type TripDraft = {
   destinationName: string;
   startDate: string;
   endDate: string;
-  travelerCount: number;
+  travelerCount: number | null;
   budgetAmount: number | null;
   budgetCurrency: string | null;
   notes: string | null;

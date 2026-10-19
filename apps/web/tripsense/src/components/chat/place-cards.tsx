@@ -149,7 +149,9 @@ export function PlaceCards({ places, query, total, title }: PlaceCardsProps) {
 
       await createItineraryItem(tripId, targetDay.id, {
         title: place.name,
-        notes: place.address || "Địa điểm gợi ý từ TripSense AI",
+        notes: place.reason
+          ? `${place.reason}${place.address ? ` • ${place.address}` : ""}`
+          : place.address || "Địa điểm gợi ý từ TripSense AI",
         type: "PLACE",
       });
 
@@ -354,12 +356,16 @@ export function PlaceCards({ places, query, total, title }: PlaceCardsProps) {
                     <span className="truncate">{meta.label}</span>
                   </div>
 
-                  {/* Address preview */}
-                  {place.address && (
+                  {/* AI Reason / Highlight OR Address preview */}
+                  {place.reason ? (
+                    <p className="text-[11px] text-muted-foreground/90 line-clamp-2 mt-0.5" title={place.reason}>
+                      💡 {place.reason}
+                    </p>
+                  ) : place.address ? (
                     <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">
                       {place.address}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );

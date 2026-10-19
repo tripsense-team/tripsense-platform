@@ -20,10 +20,12 @@ import {
 } from "date-fns";
 import { ModalBackdrop } from "./modal-backdrop";
 import { useTranslation } from "@/i18n";
+import { resolveFlexibleDates } from "@/features/trip-management/utils/date";
 
 type WhenModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  initialType?: "dates" | "flexible";
   initialStartDate?: string;
   initialEndDate?: string;
   initialDurationDays?: number;
@@ -41,6 +43,7 @@ type WhenModalProps = {
 export function WhenModal({
   isOpen,
   onClose,
+  initialType,
   initialStartDate,
   initialEndDate,
   initialDurationDays,
@@ -49,7 +52,11 @@ export function WhenModal({
   zIndexClassName,
 }: WhenModalProps) {
   const { t, locale } = useTranslation();
-  const [activeTab, setActiveTab] = React.useState<"dates" | "flexible">("dates");
+  const [activeTab, setActiveTab] = React.useState<"dates" | "flexible">(() => {
+    if (initialType) return initialType;
+    if (!initialStartDate && (initialDurationDays || initialFlexibleMonths?.length)) return "flexible";
+    return "dates";
+  });
   const today = React.useMemo(() => startOfToday(), []);
 
   // Calendar base month (left month)
@@ -109,11 +116,18 @@ export function WhenModal({
   );
 
   React.useEffect(() => {
+    if (initialType) {
+      setActiveTab(initialType);
+    } else if (!initialStartDate && (initialDurationDays || initialFlexibleMonths?.length)) {
+      setActiveTab("flexible");
+    } else if (initialStartDate && !initialDurationDays && !initialFlexibleMonths?.length) {
+      setActiveTab("dates");
+    }
     if (initialStartDate) setStartDate(parseISO(initialStartDate));
     if (initialEndDate) setEndDate(parseISO(initialEndDate));
     if (initialDurationDays) setDurationDays(initialDurationDays);
     if (initialFlexibleMonths) setSelectedMonths(initialFlexibleMonths);
-  }, [initialStartDate, initialEndDate, initialDurationDays, initialFlexibleMonths, isOpen]);
+  }, [initialType, initialStartDate, initialEndDate, initialDurationDays, initialFlexibleMonths, isOpen]);
 
   const handlePrevMonth = () => {
     setBaseMonth((prev) => subMonths(prev, 1));
@@ -149,10 +163,13 @@ export function WhenModal({
         endDate: endDate ? format(endDate, "yyyy-MM-dd") : undefined,
       });
     } else {
+      const resolved = resolveFlexibleDates(durationDays, selectedMonths);
       onSave({
         type: "flexible",
         durationDays,
         flexibleMonths: selectedMonths,
+        startDate: resolved.startDate,
+        endDate: resolved.endDate,
       });
     }
     onClose();
@@ -330,7 +347,7 @@ export function WhenModal({
             {/* Section 1: How many days? */}
             <div className="flex flex-col items-center">
               <h4 className="text-base font-semibold text-foreground mb-4 text-center">
-                How many days?
+                {t("trip.intakeHowManyDays") || "How many days?"}
               </h4>
               <div className="flex items-center gap-4">
                 <button
@@ -358,7 +375,7 @@ export function WhenModal({
             {/* Section 2: Travel anytime (Month picker) */}
             <div className="flex flex-col">
               <h4 className="text-base font-semibold text-foreground mb-4 text-center">
-                Travel anytime
+                {t("trip.intakeTravelAnytime") || "Travel anytime"}
               </h4>
               <div className="relative flex items-center">
                 <div

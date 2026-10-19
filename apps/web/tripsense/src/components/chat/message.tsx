@@ -14,13 +14,17 @@ import { TripIntakeCard } from "./trip-intake-card";
 import { Loader2, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/features/auth";
+import { useTranslation } from "@/i18n";
 
 import {
   decorateItineraryMarkdown,
   richMarkdownComponents,
 } from "./rich-itinerary-decorator";
 
-function WaitingText({ text = "Đang suy nghĩ..." }: { text?: string }) {
+function WaitingText({ text }: { text?: string }) {
+  const { t } = useTranslation();
+  const displayText = text || t("aiPlanner.thinking");
+
   return (
     <div className="flex min-h-[calc(15px*1.6)] min-w-0 items-center text-[15px] leading-[1.6]">
       <Shimmer
@@ -28,13 +32,14 @@ function WaitingText({ text = "Đang suy nghĩ..." }: { text?: string }) {
         className="font-medium whitespace-normal break-words"
         duration={1}
       >
-        {text}
+        {displayText}
       </Shimmer>
     </div>
   );
 }
 
 function ActiveAgentStatus({ message }: { message: ChatMessage }) {
+  const { t } = useTranslation();
   const activeToolPart = message.parts?.find((p: any) => {
     return (
       p.state === "call" ||
@@ -43,7 +48,7 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
     );
   }) as any;
 
-  let statusText = "Đang suy nghĩ và chuẩn bị nội dung...";
+  let statusText = t("aiPlanner.thinkingAndPreparing");
   if (activeToolPart) {
     const toolName =
       activeToolPart.type?.replace("tool-", "") ||
@@ -55,23 +60,31 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
       const days =
         activeToolPart.input?.durationDays ||
         activeToolPart.toolInvocation?.args?.durationDays;
-      statusText = `Đang thiết kế lịch trình chi tiết và phân bổ từng ngày${dest ? ` cho ${dest}` : ""}${days ? ` (${days} ngày)` : ""}...`;
+      const details = (dest ? ` cho ${dest}` : "") + (days ? ` (${days} ngày)` : "");
+      statusText = t("aiPlanner.designingItinerary", { details });
+    } else if (toolName === "recommendPlaces") {
+      const dest =
+        activeToolPart.input?.destination ||
+        activeToolPart.toolInvocation?.args?.destination;
+      statusText = dest
+        ? `Đang tuyển chọn các địa điểm nổi bật tại ${dest}...`
+        : "Đang tuyển chọn các địa điểm phù hợp...";
     } else if (toolName === "searchPlaces") {
       const q =
         activeToolPart.input?.query ||
         activeToolPart.toolInvocation?.args?.query;
       statusText = q
-        ? `Đang tìm kiếm các địa điểm cho "${q}"...`
-        : "Đang tìm kiếm các địa điểm nổi bật...";
+        ? t("aiPlanner.searchingPlacesFor", { query: q })
+        : t("aiPlanner.searchingTopPlaces");
     } else if (toolName === "updateTripPlanningBrief") {
-      statusText = "Đang kiểm tra và cập nhật thông tin chuyến đi...";
+      statusText = t("aiPlanner.updatingTripInfo");
     } else if (toolName === "getWeather") {
       const city =
         activeToolPart.input?.city ||
         activeToolPart.toolInvocation?.args?.city;
       statusText = city
-        ? `Đang tra cứu dự báo thời tiết tại ${city}...`
-        : "Đang tra cứu dự báo thời tiết...";
+        ? t("aiPlanner.gettingWeatherFor", { city })
+        : t("aiPlanner.gettingWeather");
     }
   } else {
     const hasProposal = message.parts?.some(
@@ -79,19 +92,24 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
         p.type === "tool-createTripProposal" ||
         p.toolInvocation?.toolName === "createTripProposal"
     );
+    const hasRecommend = message.parts?.some(
+      (p: any) =>
+        p.type === "tool-recommendPlaces" ||
+        p.toolInvocation?.toolName === "recommendPlaces"
+    );
     const hasSearch = message.parts?.some(
       (p: any) =>
         p.type === "tool-searchPlaces" ||
         p.toolInvocation?.toolName === "searchPlaces"
     );
     if (hasProposal) {
-      statusText =
-        "Đang tối ưu hóa các chặng di chuyển và hoàn thiện lịch trình...";
+      statusText = t("aiPlanner.optimizingItinerary");
+    } else if (hasRecommend) {
+      statusText = "Đang tuyển chọn các địa điểm phù hợp...";
     } else if (hasSearch) {
-      statusText =
-        "Đang tổng hợp các điểm đến và lên kế hoạch chi tiết...";
+      statusText = t("aiPlanner.aggregatingPlaces");
     } else {
-      statusText = "Đang suy nghĩ và chuẩn bị câu trả lời...";
+      statusText = t("aiPlanner.thinkingAndPreparing");
     }
   }
 
@@ -122,6 +140,7 @@ export const PreviewMessage = ({
   regenerate?: UseChatHelpers<ChatMessage>["regenerate"];
   onEdit?: (message: ChatMessage) => void;
 }) => {
+  const { t } = useTranslation();
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
 
@@ -149,8 +168,10 @@ export const PreviewMessage = ({
   const intakeCardParts: React.ReactNode[] = [];
   const placeCardsParts: React.ReactNode[] = [];
 
-  const suggestedPlaces: PlaceSearchResult[] = [];
+  const curatedPlaces: PlaceSearchResult[] = [];
+  const fallbackSearchPlaces: PlaceSearchResult[] = [];
   const seenPlaceIds = new Set<string>();
+  let customPlaceTitle: string | undefined;
   let activeSearchQuery: string | undefined;
   let isSearchingPlaces = false;
 
@@ -169,7 +190,9 @@ export const PreviewMessage = ({
     if (type === "text") {
       const textContent = isAssistant
         ? decorateItineraryMarkdown(part.text)
-        : part.text;
+        : part.text.replace(/<!--[\s\S]*?-->/g, "").trim();
+
+      if (!textContent && isUser) return;
 
       textAndProposalParts.push(
         <MessageContent
@@ -228,7 +251,40 @@ export const PreviewMessage = ({
       return;
     }
 
-    // 2. Search Places Tool (Aggregated into a single unified carousel)
+    // 2a. Recommend Places Tool (AI-curated recommendations)
+    if (
+      type === "tool-recommendPlaces" ||
+      (type === "tool-invocation" &&
+        (part as any).toolInvocation?.toolName === "recommendPlaces")
+    ) {
+      const toolPart = part as any;
+      const placeData =
+        toolPart.output || toolPart.result || toolPart.toolInvocation?.result;
+      const isCall =
+        toolPart.state === "call" ||
+        toolPart.state === "input-available" ||
+        toolPart.toolInvocation?.state === "call";
+
+      if (isCall) {
+        isSearchingPlaces = true;
+      }
+
+      if (placeData?.title) {
+        customPlaceTitle = placeData.title;
+      }
+
+      if (placeData && Array.isArray(placeData.places)) {
+        for (const place of placeData.places) {
+          if (place && place.id && !seenPlaceIds.has(place.id)) {
+            seenPlaceIds.add(place.id);
+            curatedPlaces.push(place);
+          }
+        }
+      }
+      return;
+    }
+
+    // 2b. Search Places Tool (Fallback for direct searches)
     if (
       type === "tool-searchPlaces" ||
       (type === "tool-invocation" &&
@@ -253,7 +309,7 @@ export const PreviewMessage = ({
         for (const place of placeData.places) {
           if (place && place.id && !seenPlaceIds.has(place.id)) {
             seenPlaceIds.add(place.id);
-            suggestedPlaces.push(place);
+            fallbackSearchPlaces.push(place);
           }
         }
       }
@@ -338,13 +394,17 @@ export const PreviewMessage = ({
     }
   });
 
-  // Render single deduplicated carousel of suggested places (if any)
-  if (suggestedPlaces.length > 0) {
+  const displayPlaces =
+    curatedPlaces.length > 0 ? curatedPlaces : fallbackSearchPlaces;
+
+  // Render single carousel of suggested places (if any)
+  if (displayPlaces.length > 0) {
     placeCardsParts.push(
       <div className="w-full my-2" key={`places-${message.id}`}>
         <PlaceCards
-          places={suggestedPlaces}
-          total={suggestedPlaces.length}
+          places={displayPlaces}
+          total={displayPlaces.length}
+          title={customPlaceTitle}
         />
       </div>
     );
@@ -356,7 +416,9 @@ export const PreviewMessage = ({
       >
         <Loader2 className="size-3.5 animate-spin text-primary" />
         <span>
-          Đang tìm kiếm địa điểm {activeSearchQuery ? `cho "${activeSearchQuery}"...` : "..."}
+          {activeSearchQuery
+            ? t("aiPlanner.searchingPlacesFor", { query: activeSearchQuery })
+            : t("aiPlanner.searchingTopPlaces")}
         </span>
       </div>
     );

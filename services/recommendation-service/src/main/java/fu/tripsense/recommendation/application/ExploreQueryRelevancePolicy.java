@@ -37,7 +37,7 @@ public class ExploreQueryRelevancePolicy {
             result.retrievedCount(),
             result.rejectedByReason());
     return new RecommendationApplicationService.PreparedRecommendation(
-        prepared.context(), filtered);
+        prepared.context(), filtered, prepared.retrieval());
   }
 
   boolean isEligible(RankedCandidate candidate) {

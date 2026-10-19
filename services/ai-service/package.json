@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "npm run build && node --test dist/ai/gemini-key-manager.test.js dist/ai/tools/update-trip-planning-brief.test.js",
+    "test": "npm run build && node --test dist/ai/gemini-key-manager.test.js dist/ai/tools/update-trip-planning-brief.test.js dist/ai/tools/itinerary-management.test.js dist/personalization/context-preferences.test.js dist/ai/chat-title.test.js dist/ai/tools/recommend-places.test.js",
     "start": "node dist/index.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",

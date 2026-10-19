@@ -9,6 +9,9 @@ spring:
     url: ${RECOMMENDATION_DATASOURCE_URL:jdbc:postgresql://${RECOMMENDATION_DB_HOST:localhost}:${RECOMMENDATION_DB_PORT:5437}/${RECOMMENDATION_DB_NAME:tripsense_recommendation}}
     username: ${RECOMMENDATION_DB_USER:postgres}
     password: ${RECOMMENDATION_DB_PASS:}
+    hikari:
+      data-source-properties:
+        reWriteBatchedInserts: ${RECOMMENDATION_REWRITE_BATCHED_INSERTS:true}
   flyway:
     enabled: true
   data:
@@ -17,6 +20,14 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       timeout: ${REDIS_TIMEOUT:2s}
+      lettuce:
+        pool:
+          # Pipeline connections are dedicated: retain them rather than reconnecting over TLS.
+          enabled: true
+          max-active: 8
+          max-idle: 4
+          min-idle: 0
+          max-wait: 100ms
 
 eureka:
   client:
@@ -29,7 +40,20 @@ jwt:
   access-secret: ${JWT_ACCESS_SECRET:}
 
 tripsense:
+  explore-diagnostics:
+    enabled: ${EXPLORE_DIAGNOSTICS_ENABLED:true}
   recommendation:
+    sections:
+      preview-candidates-per-category: ${RECOMMENDATION_SECTION_PREVIEW_CANDIDATES:12}
+      retrieval-timeout: ${RECOMMENDATION_SECTION_RETRIEVAL_TIMEOUT:2s}
+      seed-ttl: ${RECOMMENDATION_SECTION_SEED_TTL:5m}
+      seed-max-ids: 100
+      seed-max-bytes: 65536
+    profile:
+      observed-history-enabled: ${RECOMMENDATION_OBSERVED_HISTORY_ENABLED:true}
+      observed-signal-policy-v2-enabled: ${RECOMMENDATION_OBSERVED_SIGNAL_POLICY_V2_ENABLED:true}
+      observed-confidence-prior: ${RECOMMENDATION_OBSERVED_CONFIDENCE_PRIOR:3.0}
+      observed-max-influence: ${RECOMMENDATION_OBSERVED_MAX_INFLUENCE:0.50}
     retrieval:
       source-limit: ${RECOMMENDATION_SOURCE_LIMIT:50}
       rrf-k: ${RECOMMENDATION_RRF_K:60}
@@ -50,7 +74,6 @@ tripsense:
       place-url: ${PLACE_SERVICE_URL:http://localhost:8083}
       context-url: ${CONTEXT_SERVICE_URL:http://localhost:8087}
       trip-url: ${TRIP_SERVICE_URL:http://localhost:8084}
-      user-url: ${USER_SERVICE_URL:http://localhost:8081}
       timeout: ${RECOMMENDATION_DOWNSTREAM_TIMEOUT:3s}
     semantic:
       enabled: ${RECOMMENDATION_SEMANTIC_ENABLED:true}

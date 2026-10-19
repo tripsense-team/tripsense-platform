@@ -21,7 +21,8 @@ public class RecommendationObservability {
             .register(registry);
     this.latency =
         Timer.builder("tripsense.recommendation.latency")
-            .description("End-to-end recommendation latency")
+            .description(
+                "Recommendation preparation latency; excludes context, cache and persistence")
             .register(registry);
   }
 

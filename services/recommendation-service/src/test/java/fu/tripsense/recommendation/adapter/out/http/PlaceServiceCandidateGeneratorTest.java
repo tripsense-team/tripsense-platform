@@ -13,6 +13,8 @@ import fu.tripsense.recommendation.domain.RecommendationContext;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -30,6 +32,7 @@ class PlaceServiceCandidateGeneratorTest {
         .expect(requestTo("http://place-service:8082/api/places/recommendations"))
         .andExpect(method(POST))
         .andExpect(jsonPath("$.query").value("quiet cafe"))
+        .andExpect(jsonPath("$.allowExternalRefresh").value(true))
         .andRespond(
             withSuccess(
                 """
@@ -79,6 +82,54 @@ class PlaceServiceCandidateGeneratorTest {
         .containsExactly("LOW_CANDIDATE_COUNT");
     assertThat(result.degradations()).containsExactly("PLACE_RETRIEVAL_PARTIAL");
     server.verify();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void sendsExplicitRefreshPolicyWithoutChangingTarget(boolean allowed) {
+    RestClient.Builder builder = RestClient.builder();
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RecommendationProperties properties = new RecommendationProperties();
+    properties.getDownstream().setPlaceUrl("http://place-service:8082");
+    var original = context();
+    var selected = original.withExternalRefresh(allowed);
+    assertThat(original.allowExternalRefresh()).isTrue();
+    assertThat(selected.withExternalRefresh(true)).isEqualTo(original);
+    server
+        .expect(requestTo("http://place-service:8082/api/places/recommendations"))
+        .andExpect(method(POST))
+        .andExpect(jsonPath("$.allowExternalRefresh").value(allowed))
+        .andExpect(jsonPath("$.targetCount").value(15))
+        .andExpect(jsonPath("$.requiredFields[0]").value("id"))
+        .andRespond(
+            withSuccess(
+                "{\"success\":true,\"data\":{\"candidates\":[]}}", MediaType.APPLICATION_JSON));
+    assertThat(
+            new PlaceServiceCandidateGenerator(builder.build(), properties)
+                .generate(selected)
+                .candidates())
+        .isEmpty();
+    server.verify();
+  }
+
+  @Test
+  void legacyShortContextAlsoDefaultsToExternalRefreshAllowed() {
+    var source = context();
+    var legacy =
+        new RecommendationContext(
+            source.requestId(),
+            source.userId(),
+            null,
+            source.sessionId(),
+            source.query(),
+            source.anchor(),
+            source.radiusMeters(),
+            source.preferredCategories(),
+            source.dislikedCategories(),
+            source.profile(),
+            null,
+            source.limit());
+    assertThat(legacy.allowExternalRefresh()).isTrue();
   }
 
   private RecommendationContext context() {

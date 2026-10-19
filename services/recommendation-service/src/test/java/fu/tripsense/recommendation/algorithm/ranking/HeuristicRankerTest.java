@@ -19,7 +19,7 @@ class HeuristicRankerTest {
   private final RecommendationProperties properties = new RecommendationProperties();
   private final HeuristicRanker ranker = new HeuristicRanker(properties);
   private final PreferenceFeatureExtractor preferences =
-      new PreferenceFeatureExtractor(new PlaceCategoryTaxonomy(properties));
+      new PreferenceFeatureExtractor(new PlaceCategoryTaxonomy(properties), properties);
 
   @Test
   void sameCandidateSetRanksDifferentlyForDifferentContexts() {

@@ -4,10 +4,16 @@ server:
 spring:
   application:
     name: context-service
+  data:
+    redis:
+      repositories:
+        enabled: false
   datasource:
     url: ${CONTEXT_DATASOURCE_URL}
     username: ${CONTEXT_DB_USER}
     password: ${CONTEXT_DB_PASS}
+    hikari:
+      connection-timeout: ${CONTEXT_DB_CONNECTION_TIMEOUT:1000}
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -26,6 +32,26 @@ jwt:
   access-secret: ${JWT_ACCESS_SECRET}
 
 context:
+  diagnostics:
+    enabled: ${CONTEXT_DIAGNOSTICS_ENABLED:true}
+  preferences-cache:
+    enabled: ${CONTEXT_PREFERENCES_CACHE_ENABLED:false}
+    redis-url: ${CONTEXT_CACHE_REDIS_URL:redis://localhost:6381}
+    key-secret: ${CONTEXT_CACHE_KEY_SECRET:}
+    ttl: ${CONTEXT_PREFERENCES_CACHE_TTL:10m}
+    command-timeout: ${CONTEXT_CACHE_COMMAND_TIMEOUT:100ms}
+    connect-timeout: ${CONTEXT_CACHE_CONNECT_TIMEOUT:800ms}
+    max-loads: ${CONTEXT_CACHE_MAX_LOADS:16}
+    max-requests: ${CONTEXT_CACHE_MAX_REQUESTS:64}
   encryption:
     secret: ${CONTEXT_ENCRYPTION_SECRET:tripsense-context-onboarding-secure-key-32b}
+
+management:
+  health:
+    redis:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 

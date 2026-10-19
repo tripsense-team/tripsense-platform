@@ -54,6 +54,7 @@ public class SecurityConfig {
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/places/recommendations",
+                        "/api/places/recommendations/categories",
                         "/api/places/batch-snapshots")
                     .permitAll()
                     .anyRequest()

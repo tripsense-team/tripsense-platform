@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   isStepCount,
   streamText,
+  smoothStream,
   generateText,
 } from "ai";
 import { eq, desc, asc, and, inArray } from "drizzle-orm";
@@ -15,7 +16,9 @@ import { DEFAULT_MODEL_ID, SUPPORTED_MODELS } from "../ai/models.js";
 import { getSystemPrompt } from "../ai/prompts.js";
 import { getWeather } from "../ai/tools/get-weather.js";
 import { searchPlaces } from "../ai/tools/search-places.js";
+import { recommendPlaces } from "../ai/tools/recommend-places.js";
 import { getCreateTripProposalTool } from "../ai/tools/create-trip-proposal.js";
+import { getItineraryManagementTools } from "../ai/tools/itinerary-management.js";
 import {
   getUpdateTripPlanningBriefTool,
   loadLatestTripBrief,
@@ -24,6 +27,12 @@ import {
 } from "../ai/tools/update-trip-planning-brief.js";
 import { config } from "../config.js";
 import { subjectFromAuthorization } from "../security/access-token.js";
+import { fetchUserContext } from "../personalization/context-preferences.js";
+import {
+  isGenericChatTitle,
+  generateSmartTitle,
+  capitalizeWords,
+} from "../ai/chat-title.js";
 
 export const chatRouter = new Hono();
 
@@ -117,11 +126,29 @@ function safeError(c: any, status: 400 | 401 | 403 | 404 | 409 | 410 | 502 | 503
 }
 
 async function ownedChat(chatId: string, userId: string) {
-  const [chat] = await db
+  let [chat] = await db
     .select()
     .from(chats)
     .where(and(eq(chats.id, chatId), eq(chats.userId, userId)))
     .limit(1);
+
+  // If chat exists under 'guest' and current user is authenticated, claim/adopt the guest chat
+  if (!chat && userId !== "guest") {
+    const [guestChat] = await db
+      .select()
+      .from(chats)
+      .where(and(eq(chats.id, chatId), eq(chats.userId, "guest")))
+      .limit(1);
+
+    if (guestChat) {
+      await db
+        .update(chats)
+        .set({ userId, updatedAt: new Date() })
+        .where(and(eq(chats.id, chatId), eq(chats.userId, "guest")));
+      chat = { ...guestChat, userId };
+    }
+  }
+
   return chat;
 }
 
@@ -131,45 +158,10 @@ async function fetchTripResource(path: string, authorization?: string) {
   });
 }
 
-async function fetchUserProfile(
-  authorization?: string,
-): Promise<{ displayName?: string; preferences?: Record<string, any> }> {
-  if (!authorization) return {};
-  try {
-    const [userRes, prefRes] = await Promise.allSettled([
-      fetch(`${config.userServiceUrl}/api/users/me`, {
-        headers: { Authorization: authorization },
-        signal: AbortSignal.timeout(1500),
-      }),
-      fetch(`${config.userServiceUrl}/api/users/me/travel-preferences`, {
-        headers: { Authorization: authorization },
-        signal: AbortSignal.timeout(1500),
-      }),
-    ]);
-
-    let displayName: string | undefined;
-    let preferences: Record<string, any> | undefined;
-
-    if (userRes.status === "fulfilled" && userRes.value.ok) {
-      const userJson: any = await userRes.value.json();
-      displayName = userJson?.data?.displayName || userJson?.data?.name;
-    }
-
-    if (prefRes.status === "fulfilled" && prefRes.value.ok) {
-      const prefJson: any = await prefRes.value.json();
-      preferences = prefJson?.data?.preferences;
-    }
-
-    return { displayName, preferences };
-  } catch {
-    return {};
-  }
-}
-
 async function fetchTripSummary(
   tripId?: string,
   authorization?: string,
-): Promise<string | undefined> {
+): Promise<{ summary?: string; trip?: any } | undefined> {
   if (!tripId || !authorization) return undefined;
   try {
     const [tripRes, itinRes] = await Promise.allSettled([
@@ -182,7 +174,13 @@ async function fetchTripSummary(
     const trip = tripPayload?.data;
     if (!trip) return undefined;
 
-    let summary = `- Tên chuyến đi: "${trip.name}" | Điểm đến: ${trip.destinationName} | Thời gian: ${trip.startDate} đến ${trip.endDate} | Số người: ${trip.travelerCount || 1}`;
+    const flexibleMatch = trip.notes?.match(/Travel preference:\s*(\d+)\s*days\s*flexible(?:\s*\(([^)]+)\))?/i);
+    const timeSummary = flexibleMatch
+      ? `${flexibleMatch[1]} ngày linh hoạt${flexibleMatch[2] ? ` (${flexibleMatch[2]})` : ""} (tạm tính mốc ${trip.startDate} đến ${trip.endDate})`
+      : `${trip.startDate} đến ${trip.endDate}`;
+
+    const travelerText = trip.travelerCount ? ` | Số người: ${trip.travelerCount}` : "";
+    let summary = `- Tên chuyến đi: "${trip.name}" | Điểm đến: ${trip.destinationName} | Thời gian: ${timeSummary}${travelerText}`;
 
     if (itinRes.status === "fulfilled" && itinRes.value.ok) {
       const itinPayload: any = await itinRes.value.json();
@@ -197,7 +195,7 @@ async function fetchTripSummary(
         summary += `\n- Các địa điểm đã lưu trong lịch trình:\n${lines.join("\n")}`;
       }
     }
-    return summary;
+    return { summary, trip };
   } catch {
     return undefined;
   }
@@ -505,45 +503,83 @@ chatRouter.put("/chats/:id/trip", async (c) => {
       .limit(1);
     if (foreignChat) return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
 
-    const tripResponse = await fetchTripResource(
-      `/api/trips/${parsed.data.tripId}/edit-access`,
-      authorization,
-    );
-    if (tripResponse.status === 403) {
+    const [tripAccessRes, tripDetailRes] = await Promise.all([
+      fetchTripResource(`/api/trips/${parsed.data.tripId}/edit-access`, authorization),
+      fetchTripResource(`/api/trips/${parsed.data.tripId}`, authorization),
+    ]);
+
+    if (tripAccessRes.status === 403) {
       return safeError(c, 403, "TRIP_ACCESS_DENIED", "You cannot edit this trip");
     }
-    if (!tripResponse.ok) {
+    if (!tripAccessRes.ok) {
       return safeError(c, 404, "TRIP_NOT_FOUND", "Trip not found");
+    }
+
+    let tripTitle = "Lịch trình chuyến đi";
+    if (tripDetailRes.ok) {
+      const tripPayload: any = await tripDetailRes.json();
+      const tripData = tripPayload?.data;
+      if (tripData?.destinationName) {
+        tripTitle = `Lịch trình ${capitalizeWords(tripData.destinationName)}`;
+      } else if (tripData?.name) {
+        tripTitle = tripData.name;
+      }
     }
 
     await db.insert(chats).values({
       id: chatId,
       userId,
       tripId: parsed.data.tripId,
-      title: "Kế hoạch chuyến đi của bạn",
+      title: tripTitle,
       tripLinkedAt: new Date(),
     });
-    return c.json({ chatId, tripId: parsed.data.tripId, linked: true });
+    return c.json({ chatId, tripId: parsed.data.tripId, title: tripTitle, linked: true });
   }
   const expectedTripId = parsed.data.expectedTripId ?? null;
   if ((chat.tripId ?? null) !== expectedTripId) {
     return safeError(c, 409, "CHAT_TRIP_LINK_CONFLICT", "Conversation trip link changed");
   }
-  const tripResponse = await fetchTripResource(
-    `/api/trips/${parsed.data.tripId}/edit-access`,
-    authorization,
-  );
-  if (tripResponse.status === 403) {
+  const [tripAccessRes, tripDetailRes] = await Promise.all([
+    fetchTripResource(`/api/trips/${parsed.data.tripId}/edit-access`, authorization),
+    fetchTripResource(`/api/trips/${parsed.data.tripId}`, authorization),
+  ]);
+
+  if (tripAccessRes.status === 403) {
     return safeError(c, 403, "TRIP_ACCESS_DENIED", "You cannot edit this trip");
   }
-  if (!tripResponse.ok) {
+  if (!tripAccessRes.ok) {
     return safeError(c, 404, "TRIP_NOT_FOUND", "Trip not found");
   }
+
+  const updateFields: any = {
+    tripId: parsed.data.tripId,
+    tripLinkedAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // If chat currently has a generic title, upgrade it to the trip title
+  if (isGenericChatTitle(chat.title)) {
+    if (tripDetailRes.ok) {
+      const tripPayload: any = await tripDetailRes.json();
+      const tripData = tripPayload?.data;
+      if (tripData?.destinationName) {
+        updateFields.title = `Lịch trình ${capitalizeWords(tripData.destinationName)}`;
+      } else if (tripData?.name) {
+        updateFields.title = tripData.name;
+      }
+    }
+  }
+
   await db
     .update(chats)
-    .set({ tripId: parsed.data.tripId, tripLinkedAt: new Date(), updatedAt: new Date() })
+    .set(updateFields)
     .where(and(eq(chats.id, chatId), eq(chats.userId, userId)));
-  return c.json({ chatId, tripId: parsed.data.tripId, linked: true });
+  return c.json({
+    chatId,
+    tripId: parsed.data.tripId,
+    title: updateFields.title || chat.title,
+    linked: true,
+  });
 });
 
 chatRouter.delete("/chats/:id/trip", async (c) => {
@@ -809,7 +845,7 @@ chatRouter.post("/proposals/:id/apply", async (c) => {
             destinationName: itinerary.destination || "Unknown destination",
             startDate,
             endDate,
-            travelerCount: parsed.data.tripDraft?.travelerCount || 1,
+            travelerCount: parsed.data.tripDraft?.travelerCount ?? null,
             budgetAmount: parsed.data.tripDraft?.budgetAmount ?? null,
             budgetCurrency: parsed.data.tripDraft?.budgetCurrency || "VND",
             notes: itinerary.summary || null,
@@ -916,37 +952,31 @@ chatRouter.post("/chat", async (c) => {
     }
   }
 
-  const titleSnippet =
-    userText.length > 40
-      ? `${userText.substring(0, 40).trim()}...`
-      : userText.trim();
-
-function generateSmartTitle(userPrompt: string): string {
-  const text = userPrompt.trim();
-  // Fast local heuristic extraction to avoid consuming Gemini rate limits
-  const planMatch = text.match(
-    /(?:lên\s+lịch\s+trình|lịch\s+trình|kế\s+hoạch|du\s+lịch|khám\s+phá)\s+(?:đi\s+|đến\s+|tại\s+|ở\s+)?([A-ZÀ-Ỹa-zà-ỹ0-9\s]+?)(?:\s+(?:khoảng\s+)?\d+\s*(?:ngày|đêm|n\d+đ|\b)|$)/i
-  );
-  if (planMatch && planMatch[1]?.trim()) {
-    const dest = planMatch[1].trim();
-    const capDest = dest.replace(/\b\w/g, (c) => c.toUpperCase());
-    return `Lịch trình ${capDest}`;
-  }
-
-  // Fallback to concise snippet
-  if (text.length <= 32) return text;
-  return `${text.substring(0, 30).trim()}...`;
-}
-
   let shouldGenerateTitle = false;
+  let currentChatTitle: string | undefined;
 
   // 1. Resolve or create chat
   if (activeChatId) {
-    const existing = await db
+    let existing = await db
       .select()
       .from(chats)
       .where(and(eq(chats.id, activeChatId), eq(chats.userId, userId)))
       .limit(1);
+
+    if (existing.length === 0 && userId !== "guest") {
+      const [guestChat] = await db
+        .select()
+        .from(chats)
+        .where(and(eq(chats.id, activeChatId), eq(chats.userId, "guest")))
+        .limit(1);
+      if (guestChat) {
+        await db
+          .update(chats)
+          .set({ userId, updatedAt: new Date() })
+          .where(and(eq(chats.id, activeChatId), eq(chats.userId, "guest")));
+        existing = [{ ...guestChat, userId }];
+      }
+    }
 
     if (existing.length === 0) {
       const [foreignChat] = await db
@@ -957,25 +987,20 @@ function generateSmartTitle(userPrompt: string): string {
       if (foreignChat) {
         return safeError(c, 404, "CHAT_NOT_FOUND", "Conversation not found");
       }
-      const initialTitle = generateSmartTitle(userText) || titleSnippet || "Kế hoạch chuyến đi của bạn";
+      const initialTitle = generateSmartTitle(userText);
       await db.insert(chats).values({
         id: activeChatId,
         userId,
         title: initialTitle,
       });
-    } else if (
-      existing[0].title === "Cuộc trò chuyện mới" ||
-      existing[0].title === "New chat"
-    ) {
-      const smartTitle = generateSmartTitle(userText);
-      void db
-        .update(chats)
-        .set({ title: smartTitle })
-        .where(and(eq(chats.id, activeChatId), eq(chats.userId, userId)))
-        .catch((err) => console.error("Failed to update AI chat title:", err));
+      currentChatTitle = initialTitle;
+      shouldGenerateTitle = isGenericChatTitle(initialTitle);
+    } else {
+      currentChatTitle = existing[0].title;
+      shouldGenerateTitle = isGenericChatTitle(existing[0].title);
     }
   } else {
-    const initialTitle = generateSmartTitle(userText) || titleSnippet || "Kế hoạch chuyến đi của bạn";
+    const initialTitle = generateSmartTitle(userText);
     const [newChat] = await db
       .insert(chats)
       .values({
@@ -985,6 +1010,8 @@ function generateSmartTitle(userPrompt: string): string {
       .returning();
 
     activeChatId = newChat.id;
+    currentChatTitle = initialTitle;
+    shouldGenerateTitle = isGenericChatTitle(initialTitle);
   }
 
   // 2. Persist user message
@@ -1036,6 +1063,7 @@ function generateSmartTitle(userPrompt: string): string {
   const selectedModelId =
     body.selectedChatModel || body.selectedModel || DEFAULT_MODEL_ID;
 
+  const authorization = authorizationFrom(c);
   const priorPlanningState = await loadLatestTripBrief(activeChatId);
   const [chatRecord] = await db
     .select({ tripId: chats.tripId })
@@ -1044,28 +1072,85 @@ function generateSmartTitle(userPrompt: string): string {
     .limit(1);
 
   const resolvedTripId = priorPlanningState?.tripId ?? chatRecord?.tripId ?? undefined;
+
+  // Fetch real-time temporal, trip context and user personalization context in parallel
+  const [userProfile, tripData] = await Promise.all([
+    fetchUserContext(config, authorization),
+    fetchTripSummary(resolvedTripId, authorization),
+  ]);
+
+  const currentTripSummary = tripData?.summary;
+  let effectiveBrief = priorPlanningState?.brief;
+  if (!effectiveBrief && tripData?.trip) {
+    const t = tripData.trip;
+    let duration = 3;
+    if (t.startDate && t.endDate) {
+      const s = Date.parse(`${t.startDate}T00:00:00Z`);
+      const e = Date.parse(`${t.endDate}T00:00:00Z`);
+      if (!Number.isNaN(s) && !Number.isNaN(e)) {
+        duration = Math.max(1, Math.floor((e - s) / 86_400_000) + 1);
+      }
+    }
+    const flexibleMatch = t.notes?.match(/Travel preference:\s*(\d+)\s*days\s*flexible(?:\s*\(([^)]+)\))?/i);
+    const isFlexible = Boolean(flexibleMatch);
+    const flexDuration = flexibleMatch ? parseInt(flexibleMatch[1], 10) : duration;
+    const flexMonths = flexibleMatch && flexibleMatch[2]
+      ? flexibleMatch[2].split(",").map((s: string) => s.trim()).filter(Boolean)
+      : undefined;
+
+    effectiveBrief = {
+      where: { destinationText: t.destinationName },
+      when: isFlexible
+        ? {
+            type: "flexible",
+            durationDays: flexDuration,
+            flexibleMonths: flexMonths,
+            startDate: t.startDate,
+            endDate: t.endDate,
+          }
+        : {
+            type: "dates",
+            startDate: t.startDate,
+            endDate: t.endDate,
+            durationDays: duration,
+          },
+      who: t.travelerCount
+        ? { adults: t.travelerCount, children: 0, infants: 0, pets: 0 }
+        : undefined,
+    };
+  }
+
   const isTripLinked =
     Boolean(resolvedTripId) &&
-    (priorPlanningState?.status === "TRIP_LINKED" || priorPlanningState?.status === "COMPLETED");
+    (priorPlanningState?.status === "TRIP_LINKED" ||
+      priorPlanningState?.status === "COMPLETED" ||
+      Boolean(chatRecord?.tripId));
 
   const planningRuntime: PlanningRuntimeState = {
     runId: priorPlanningState?.runId ?? crypto.randomUUID(),
     tripId: resolvedTripId,
-    brief: priorPlanningState?.brief,
-    // Auto-commit is authorized if the trip was already linked during the intake phase,
+    brief: effectiveBrief,
+    // Auto-commit is authorized if the trip was already linked during the intake phase or via trip creation,
     // or when updateTripPlanningBrief transitions to TRIP_LINKED in this turn.
     autoCommitAuthorized: isTripLinked,
     state: priorPlanningState ?? undefined,
     stateMessageId: priorPlanningState?.intentMessageId,
     userText,
   };
-  const authorization = authorizationFrom(c);
 
-  // Fetch real-time temporal and user personalization context in parallel
-  const [userProfile, currentTripSummary] = await Promise.all([
-    fetchUserProfile(authorization),
-    fetchTripSummary(resolvedTripId, authorization),
-  ]);
+  const destinationHint = tripData?.trip?.destinationName || effectiveBrief?.where?.destinationText;
+
+  if (shouldGenerateTitle && userText) {
+    const smartTitle = generateSmartTitle(userText, destinationHint);
+    if (!isGenericChatTitle(smartTitle) && smartTitle !== currentChatTitle) {
+      currentChatTitle = smartTitle;
+      void db
+        .update(chats)
+        .set({ title: smartTitle, updatedAt: new Date() })
+        .where(and(eq(chats.id, activeChatId!), eq(chats.userId, userId)))
+        .catch((err) => console.error("Failed to update AI chat title:", err));
+    }
+  }
 
   const currentDate = new Date().toLocaleDateString("vi-VN", {
     weekday: "long",
@@ -1078,6 +1163,13 @@ function generateSmartTitle(userPrompt: string): string {
   try {
     const { model, activeKey } = await resolveLanguageModel(selectedModelId);
 
+    const itineraryTools = getItineraryManagementTools({
+      chatId: activeChatId!,
+      userId,
+      authorization,
+      runtime: planningRuntime,
+    });
+
     const result = streamText({
       model,
       system: getSystemPrompt({
@@ -1086,13 +1178,15 @@ function generateSmartTitle(userPrompt: string): string {
         userPreferences: userProfile.preferences,
         currentTripSummary,
         currentDate,
-        planningBrief: priorPlanningState?.brief,
-        planningStatus: priorPlanningState?.status,
+        planningBrief: effectiveBrief,
+        planningStatus: isTripLinked ? "TRIP_LINKED" : priorPlanningState?.status,
       }),
       messages: modelMessages,
+      experimental_transform: smoothStream({ chunking: "word" }),
       tools: {
         getWeather,
         searchPlaces,
+        recommendPlaces,
         updateTripPlanningBrief: getUpdateTripPlanningBriefTool({
           chatId: activeChatId!,
           userId,
@@ -1108,9 +1202,10 @@ function generateSmartTitle(userPrompt: string): string {
           authorization,
           runtime: planningRuntime,
         }),
+        ...itineraryTools,
       },
       stopWhen: [
-        isStepCount(8),
+        isStepCount(12),
         ({ steps }: { steps: any[] }) =>
           shouldStopAfterBriefStep(steps, planningRuntime.state?.status),
       ],
@@ -1172,7 +1267,8 @@ function generateSmartTitle(userPrompt: string): string {
     return result.toUIMessageStreamResponse({
       headers: {
         "X-Chat-Id": activeChatId,
-        "Access-Control-Expose-Headers": "X-Chat-Id",
+        ...(currentChatTitle ? { "X-Chat-Title": encodeURIComponent(currentChatTitle) } : {}),
+        "Access-Control-Expose-Headers": "X-Chat-Id, X-Chat-Title",
       },
       onError: (err) => {
         console.error(">>> toUIMessageStream ERROR:", err);

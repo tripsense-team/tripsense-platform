@@ -2,6 +2,7 @@ package fu.tripsense.recommendation.adapter.out.semantic;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.tripsense.recommendation.application.RequestDiagnostics;
 import fu.tripsense.recommendation.config.RecommendationProperties;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -32,6 +33,7 @@ public class QueryEmbeddingCache {
           ? Optional.empty()
           : Optional.of(objectMapper.readValue(value, new TypeReference<List<Double>>() {}));
     } catch (Exception exception) {
+      RequestDiagnostics.mark("embedding_cache_read_error", true);
       return Optional.empty();
     }
   }
@@ -42,6 +44,7 @@ public class QueryEmbeddingCache {
           .opsForValue()
           .set(key(modelVersion, content), objectMapper.writeValueAsString(embedding), ttl);
     } catch (Exception ignored) {
+      RequestDiagnostics.mark("embedding_cache_write_error", true);
       // Redis is an optional acceleration layer; semantic retrieval can continue without it.
     }
   }

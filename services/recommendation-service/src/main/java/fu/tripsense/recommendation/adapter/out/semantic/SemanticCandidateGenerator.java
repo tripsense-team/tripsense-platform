@@ -1,5 +1,6 @@
 package fu.tripsense.recommendation.adapter.out.semantic;
 
+import fu.tripsense.recommendation.application.RequestDiagnostics;
 import fu.tripsense.recommendation.application.port.CandidateGenerationResult;
 import fu.tripsense.recommendation.application.port.CandidateGenerator;
 import fu.tripsense.recommendation.application.port.PlaceSnapshotResolver;
@@ -53,37 +54,73 @@ public class SemanticCandidateGenerator implements CandidateGenerator {
 
   @Override
   public CandidateGenerationResult generate(RecommendationContext context) {
+    return generateBounded(context, sourceLimit);
+  }
+
+  public CandidateGenerationResult generateBounded(
+      RecommendationContext context, int maximumCandidates) {
+    var cached =
+        RequestDiagnostics.measure(
+            "embedding_cache_get", () -> cache.get(embeddings.modelVersion(), context.query()));
+    RequestDiagnostics.mark("embedding_cache_hit", cached.isPresent());
     List<Double> embedding =
-        cache
-            .get(embeddings.modelVersion(), context.query())
-            .orElseGet(
-                () -> {
-                  List<Double> value = embeddings.embed(context.query());
-                  cache.put(embeddings.modelVersion(), context.query(), value);
-                  return value;
-                });
+        cached.orElseGet(
+            () -> {
+              List<Double> value =
+                  RequestDiagnostics.measure(
+                      "embedding_api", () -> embeddings.embed(context.query()));
+              RequestDiagnostics.run(
+                  "embedding_cache_put",
+                  () -> cache.put(embeddings.modelVersion(), context.query(), value));
+              return value;
+            });
     List<SemanticCandidate> found =
-        vectors.search(
-            embedding,
-            Math.min(
-                sourceLimit, Math.max(context.limit() * candidateMultiplier, context.limit())));
+        RequestDiagnostics.measure(
+            "qdrant_search",
+            () ->
+                vectors.search(
+                    embedding,
+                    Math.min(
+                        Math.min(sourceLimit, maximumCandidates),
+                        Math.max(context.limit() * candidateMultiplier, context.limit()))));
+    RequestDiagnostics.mark("semantic_vector_candidates", found.size());
     List<String> placeIds = found.stream().map(SemanticCandidate::placeId).toList();
-    Map<String, PlaceSnapshot> resolved = places.resolveBatch(placeIds);
+    RequestDiagnostics.mark("snapshot_batch_requested", placeIds.size());
+    Map<String, PlaceSnapshot> resolved =
+        RequestDiagnostics.measure(
+            "snapshot_batch",
+            () ->
+                context.allowExternalRefresh()
+                    ? places.resolveBatch(placeIds)
+                    : places.resolveLocalBatch(placeIds));
+    // Count requested candidates, not map entries: aliases may map to the same snapshot.
+    long batchResolved =
+        placeIds.stream().filter(id -> resolved != null && resolved.get(id) != null).count();
+    RequestDiagnostics.mark("snapshot_batch_resolved", batchResolved);
+    RequestDiagnostics.mark("snapshot_missing_after_batch", placeIds.size() - batchResolved);
     List<Candidate> candidates = new ArrayList<>();
     List<String> degradations = new ArrayList<>();
-    for (int index = 0; index < found.size(); index++) {
-      SemanticCandidate semantic = found.get(index);
-      int rank = index + 1;
-      PlaceSnapshot place = resolved != null ? resolved.get(semantic.placeId()) : null;
-      if (place == null) {
-        place = places.find(semantic.placeId()).orElse(null);
+    int individualCalls = 0;
+    try {
+      for (int index = 0; index < found.size(); index++) {
+        SemanticCandidate semantic = found.get(index);
+        int rank = index + 1;
+        PlaceSnapshot place = resolved != null ? resolved.get(semantic.placeId()) : null;
+        if (place == null && context.allowExternalRefresh()) {
+          individualCalls++;
+          place = places.find(semantic.placeId()).orElse(null);
+        }
+        if (place != null) {
+          candidates.add(
+              new Candidate(
+                  semantic.placeId(), source(), rank, semantic.similarity(), place, null));
+        } else {
+          degradations.add("SEMANTIC_PLACE_UNRESOLVED");
+        }
       }
-      if (place != null) {
-        candidates.add(
-            new Candidate(semantic.placeId(), source(), rank, semantic.similarity(), place, null));
-      } else {
-        degradations.add("SEMANTIC_PLACE_UNRESOLVED");
-      }
+    } finally {
+      RequestDiagnostics.mark("snapshot_generator_fallback_calls", individualCalls);
+      RequestDiagnostics.mark("semantic_candidates_returned", candidates.size());
     }
     return new CandidateGenerationResult(
         source(), candidates, degradations.stream().distinct().toList());

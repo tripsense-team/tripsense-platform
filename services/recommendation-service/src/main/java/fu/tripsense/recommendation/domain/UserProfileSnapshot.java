@@ -38,4 +38,24 @@ public record UserProfileSnapshot(
         Set.of(),
         null);
   }
+
+  /** Count effective category/history signals, not the success of a Context HTTP request. */
+  public int personalizationSignalCount() {
+    return personalizationSignalCount(true);
+  }
+
+  public int personalizationSignalCount(boolean includePassiveSeen) {
+    var categories = new java.util.HashSet<>(preferredCategories);
+    categories.addAll(dislikedCategories);
+    categoryAffinities.forEach(
+        (category, weight) -> {
+          if (Double.isFinite(weight) && weight != 0) categories.add(category);
+        });
+    var places = new java.util.HashSet<String>();
+    if (includePassiveSeen) places.addAll(seenPlaceIds);
+    places.addAll(savedPlaceIds);
+    places.addAll(addedToTripPlaceIds);
+    places.addAll(negativePlaceIds);
+    return categories.size() + places.size();
+  }
 }

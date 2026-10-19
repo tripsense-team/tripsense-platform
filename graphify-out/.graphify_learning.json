@@ -1,0 +1,446 @@
+{
+  "generated_at": "2026-10-19T03:56:05.104669+00:00",
+  "nodes": {
+    "context::src_main_java_fu_tripsense_contextservice_adapter_out_persistence_jpapreferencesignalpublisher_jpapreferencesignalpublisher": {
+      "code_fingerprint": "",
+      "label": "JpaPreferenceSignalPublisher",
+      "last": "2026-10-18T19:34:11.965818+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T19:34:11.965818+00:00",
+          "outcome": "useful",
+          "q": "Plan migrate declared personalization preferences from User to Context for Recommendation and AI, preserve User schema and discuss history/cache boundaries"
+        },
+        {
+          "date": "2026-10-18T13:45:07.920156+00:00",
+          "outcome": "useful",
+          "q": "HIện tại hệ thống của tôi có lấy User Service và Context Service tuy nhiên tôi nhớ là Context Service đã chứa personalize rồi mà nhỉ user service làm gì chứa gì. Với lại giờ tôi muốn monitor xem thử lý do thời gian tốn ở đâu đã rồi mới đưa ra quyết định"
+        }
+      ],
+      "score": 1.978418728,
+      "source_file": "src/main/java/fu/tripsense/contextservice/adapter/out/persistence/JpaPreferenceSignalPublisher.java",
+      "status": "preferred",
+      "uses": 2
+    },
+    "place::src_main_java_fu_tripsense_placeservice_service_impl_placerankingserviceimpl_placerankingserviceimpl": {
+      "code_fingerprint": "",
+      "label": "PlaceRankingServiceImpl",
+      "last": "2026-10-18T18:53:47.730735+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:53:47.730735+00:00",
+          "outcome": "useful",
+          "q": "Why Place returns zero candidates while semantic Explore results look useful; inspect without restarting services"
+        }
+      ],
+      "score": 0.991336669,
+      "source_file": "src/main/java/fu/tripsense/placeservice/service/impl/PlaceRankingServiceImpl.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "place::src_main_java_fu_tripsense_placeservice_service_impl_placesearchserviceimpl_placesearchserviceimpl": {
+      "code_fingerprint": "",
+      "label": "PlaceSearchServiceImpl",
+      "last": "2026-10-18T18:53:47.730735+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:53:47.730735+00:00",
+          "outcome": "useful",
+          "q": "Why Place returns zero candidates while semantic Explore results look useful; inspect without restarting services"
+        },
+        {
+          "date": "2026-10-18T18:22:34.604187+00:00",
+          "outcome": "useful",
+          "q": "Explore base feed versus submitted search provider refresh implementation"
+        },
+        {
+          "date": "2026-10-18T17:17:16.612034+00:00",
+          "outcome": "useful",
+          "q": "Khoang đã nhưng mà bây giờ tôi vẫn đang chưa rõ việc là lấy data từ cache ra và chọn data lưu vào cache redis và tại sao như vậy? Có nên không ?"
+        },
+        {
+          "date": "2026-10-18T13:16:16.612634+00:00",
+          "outcome": "useful",
+          "q": "Một hệ thống bình thường mà như này là quá lâu. thật sự là 3s cũng đã gọi là lâu rồi bạn có thể tư vấn tôi không?"
+        },
+        {
+          "date": "2026-10-18T12:13:48.102764+00:00",
+          "outcome": "useful",
+          "q": "How does TripSense Explore For You place recommendation currently work, what is its output, and why can first load take about 20 seconds while returning to the tab is fast?"
+        }
+      ],
+      "score": 4.942956815,
+      "source_file": "src/main/java/fu/tripsense/placeservice/service/impl/PlaceSearchServiceImpl.java",
+      "status": "preferred",
+      "uses": 5
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_adapter_out_http_placeservicecandidategenerator_placeservicecandidategenerator": {
+      "code_fingerprint": "",
+      "label": "PlaceServiceCandidateGenerator",
+      "last": "2026-10-18T18:22:34.604187+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:22:34.604187+00:00",
+          "outcome": "useful",
+          "q": "Explore base feed versus submitted search provider refresh implementation"
+        },
+        {
+          "date": "2026-10-18T16:08:44.430030+00:00",
+          "outcome": "useful",
+          "q": "Explain current Explore For You recommendation flow: cache, Place, provider, semantic, impression, and hotel-heavy results."
+        },
+        {
+          "date": "2026-10-18T13:16:16.612634+00:00",
+          "outcome": "useful",
+          "q": "Một hệ thống bình thường mà như này là quá lâu. thật sự là 3s cũng đã gọi là lâu rồi bạn có thể tư vấn tôi không?"
+        },
+        {
+          "date": "2026-10-18T12:13:48.102764+00:00",
+          "outcome": "useful",
+          "q": "How does TripSense Explore For You place recommendation currently work, what is its output, and why can first load take about 20 seconds while returning to the tab is fast?"
+        }
+      ],
+      "score": 3.950532288,
+      "source_file": "src/main/java/fu/tripsense/recommendation/adapter/out/http/PlaceServiceCandidateGenerator.java",
+      "status": "preferred",
+      "uses": 4
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_adapter_out_http_remoterecommendationcontextprovider_remoterecommendationcontextprovider": {
+      "code_fingerprint": "",
+      "label": "RemoteRecommendationContextProvider",
+      "last": "2026-10-19T02:56:42.642425+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-19T02:56:42.642425+00:00",
+          "outcome": "useful",
+          "q": "observed_history nó lấy ra những data gì sao mà mất nhiều thời gian vậy bạn"
+        },
+        {
+          "date": "2026-10-18T19:34:11.965818+00:00",
+          "outcome": "useful",
+          "q": "Plan migrate declared personalization preferences from User to Context for Recommendation and AI, preserve User schema and discuss history/cache boundaries"
+        },
+        {
+          "date": "2026-10-18T13:45:07.920156+00:00",
+          "outcome": "useful",
+          "q": "HIện tại hệ thống của tôi có lấy User Service và Context Service tuy nhiên tôi nhớ là Context Service đã chứa personalize rồi mà nhỉ user service làm gì chứa gì. Với lại giờ tôi muốn monitor xem thử lý do thời gian tốn ở đâu đã rồi mới đưa ra quyết định"
+        },
+        {
+          "date": "2026-10-18T13:16:16.612634+00:00",
+          "outcome": "useful",
+          "q": "Một hệ thống bình thường mà như này là quá lâu. thật sự là 3s cũng đã gọi là lâu rồi bạn có thể tư vấn tôi không?"
+        },
+        {
+          "date": "2026-10-18T12:13:48.102764+00:00",
+          "outcome": "useful",
+          "q": "How does TripSense Explore For You place recommendation currently work, what is its output, and why can first load take about 20 seconds while returning to the tab is fast?"
+        }
+      ],
+      "score": 4.948443812,
+      "source_file": "src/main/java/fu/tripsense/recommendation/adapter/out/http/RemoteRecommendationContextProvider.java",
+      "status": "preferred",
+      "uses": 5
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_adapter_out_persistence_jdbcrecommendationstore_jdbcrecommendationstore": {
+      "code_fingerprint": "",
+      "label": "JdbcRecommendationStore",
+      "last": "2026-10-19T02:56:42.642425+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-19T02:56:42.642425+00:00",
+          "outcome": "useful",
+          "q": "observed_history nó lấy ra những data gì sao mà mất nhiều thời gian vậy bạn"
+        },
+        {
+          "date": "2026-10-18T16:08:44.430030+00:00",
+          "outcome": "useful",
+          "q": "Explain current Explore For You recommendation flow: cache, Place, provider, semantic, impression, and hotel-heavy results."
+        }
+      ],
+      "score": 1.987762553,
+      "source_file": "src/main/java/fu/tripsense/recommendation/adapter/out/persistence/JdbcRecommendationStore.java",
+      "status": "preferred",
+      "uses": 2
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_adapter_out_semantic_semanticcandidategenerator_semanticcandidategenerator": {
+      "code_fingerprint": "",
+      "label": "SemanticCandidateGenerator",
+      "last": "2026-10-18T18:53:47.730735+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:53:47.730735+00:00",
+          "outcome": "useful",
+          "q": "Why Place returns zero candidates while semantic Explore results look useful; inspect without restarting services"
+        }
+      ],
+      "score": 0.991336669,
+      "source_file": "src/main/java/fu/tripsense/recommendation/adapter/out/semantic/SemanticCandidateGenerator.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_algorithm_diversity_mmrdiversifier_mmrdiversifier": {
+      "code_fingerprint": "",
+      "label": "MmrDiversifier",
+      "last": "2026-10-18T16:08:44.430030+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T16:08:44.430030+00:00",
+          "outcome": "useful",
+          "q": "Explain current Explore For You recommendation flow: cache, Place, provider, semantic, impression, and hotel-heavy results."
+        }
+      ],
+      "score": 0.988714766,
+      "source_file": "src/main/java/fu/tripsense/recommendation/algorithm/diversity/MmrDiversifier.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_algorithm_filter_maximumradiusfilter_maximumradiusfilter": {
+      "code_fingerprint": "",
+      "label": "MaximumRadiusFilter",
+      "last": "2026-10-18T18:53:47.730735+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:53:47.730735+00:00",
+          "outcome": "useful",
+          "q": "Why Place returns zero candidates while semantic Explore results look useful; inspect without restarting services"
+        }
+      ],
+      "score": 0.991336669,
+      "source_file": "src/main/java/fu/tripsense/recommendation/algorithm/filter/MaximumRadiusFilter.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_algorithm_profile_interactionweightcalculator_interactionweightcalculator": {
+      "code_fingerprint": "",
+      "label": "InteractionWeightCalculator",
+      "last": "2026-10-19T03:45:08.669232+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-19T03:45:08.669232+00:00",
+          "outcome": "useful",
+          "q": "Hiện tại hệ thống lấy hành vi người dùng như nào lưu như nào và chấm điểm như nào để đóng góp trong phần filter kết quả?"
+        }
+      ],
+      "score": 0.999824473,
+      "source_file": "src/main/java/fu/tripsense/recommendation/algorithm/profile/InteractionWeightCalculator.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_algorithm_ranking_heuristicranker_heuristicranker": {
+      "code_fingerprint": "",
+      "label": "HeuristicRanker",
+      "last": "2026-10-19T03:45:08.669232+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-19T03:45:08.669232+00:00",
+          "outcome": "useful",
+          "q": "Hiện tại hệ thống lấy hành vi người dùng như nào lưu như nào và chấm điểm như nào để đóng góp trong phần filter kết quả?"
+        }
+      ],
+      "score": 0.999824473,
+      "source_file": "src/main/java/fu/tripsense/recommendation/algorithm/ranking/HeuristicRanker.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_application_candidateretrievalpipeline_candidateretrievalpipeline": {
+      "code_fingerprint": "",
+      "label": "CandidateRetrievalPipeline",
+      "last": "2026-10-18T13:16:16.612634+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T13:16:16.612634+00:00",
+          "outcome": "useful",
+          "q": "Một hệ thống bình thường mà như này là quá lâu. thật sự là 3s cũng đã gọi là lâu rồi bạn có thể tư vấn tôi không?"
+        },
+        {
+          "date": "2026-10-18T12:13:48.102764+00:00",
+          "outcome": "useful",
+          "q": "How does TripSense Explore For You place recommendation currently work, what is its output, and why can first load take about 20 seconds while returning to the tab is fast?"
+        }
+      ],
+      "score": 1.970977297,
+      "source_file": "src/main/java/fu/tripsense/recommendation/application/CandidateRetrievalPipeline.java",
+      "status": "preferred",
+      "uses": 2
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_application_explorequeryrelevancepolicy_explorequeryrelevancepolicy": {
+      "code_fingerprint": "",
+      "label": "ExploreQueryRelevancePolicy",
+      "last": "2026-10-18T18:53:47.730735+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:53:47.730735+00:00",
+          "outcome": "useful",
+          "q": "Why Place returns zero candidates while semantic Explore results look useful; inspect without restarting services"
+        }
+      ],
+      "score": 0.991336669,
+      "source_file": "src/main/java/fu/tripsense/recommendation/application/ExploreQueryRelevancePolicy.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_application_explorerecommendationcache_explorerecommendationcache": {
+      "code_fingerprint": "",
+      "label": "ExploreRecommendationCache",
+      "last": "2026-10-18T19:34:11.965818+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T19:34:11.965818+00:00",
+          "outcome": "useful",
+          "q": "Plan migrate declared personalization preferences from User to Context for Recommendation and AI, preserve User schema and discuss history/cache boundaries"
+        },
+        {
+          "date": "2026-10-18T17:32:26.517317+00:00",
+          "outcome": "useful",
+          "q": "Thôi được rồi những có số đó tính sau giờ tôi muốn bạn kiểm tra xem lý do tại sao cache put mất 0.5s trong khi tôi nhớ là cache redis thì tốc độ đọc ghi rất nhanh"
+        },
+        {
+          "date": "2026-10-18T17:17:16.612034+00:00",
+          "outcome": "useful",
+          "q": "Khoang đã nhưng mà bây giờ tôi vẫn đang chưa rõ việc là lấy data từ cache ra và chọn data lưu vào cache redis và tại sao như vậy? Có nên không ?"
+        },
+        {
+          "date": "2026-10-18T13:16:16.612634+00:00",
+          "outcome": "useful",
+          "q": "Một hệ thống bình thường mà như này là quá lâu. thật sự là 3s cũng đã gọi là lâu rồi bạn có thể tư vấn tôi không?"
+        },
+        {
+          "date": "2026-10-18T12:13:48.102764+00:00",
+          "outcome": "useful",
+          "q": "How does TripSense Explore For You place recommendation currently work, what is its output, and why can first load take about 20 seconds while returning to the tab is fast?"
+        }
+      ],
+      "score": 4.942802964,
+      "source_file": "src/main/java/fu/tripsense/recommendation/application/ExploreRecommendationCache.java",
+      "status": "preferred",
+      "uses": 5
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_application_explorerecommendationservice_explorerecommendationservice": {
+      "code_fingerprint": "",
+      "label": "ExploreRecommendationService",
+      "last": "2026-10-18T18:22:34.604187+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:22:34.604187+00:00",
+          "outcome": "useful",
+          "q": "Explore base feed versus submitted search provider refresh implementation"
+        },
+        {
+          "date": "2026-10-18T17:32:26.517317+00:00",
+          "outcome": "useful",
+          "q": "Thôi được rồi những có số đó tính sau giờ tôi muốn bạn kiểm tra xem lý do tại sao cache put mất 0.5s trong khi tôi nhớ là cache redis thì tốc độ đọc ghi rất nhanh"
+        },
+        {
+          "date": "2026-10-18T17:17:16.612034+00:00",
+          "outcome": "useful",
+          "q": "Khoang đã nhưng mà bây giờ tôi vẫn đang chưa rõ việc là lấy data từ cache ra và chọn data lưu vào cache redis và tại sao như vậy? Có nên không ?"
+        },
+        {
+          "date": "2026-10-18T16:08:44.430030+00:00",
+          "outcome": "useful",
+          "q": "Explain current Explore For You recommendation flow: cache, Place, provider, semantic, impression, and hotel-heavy results."
+        },
+        {
+          "date": "2026-10-18T13:45:07.920156+00:00",
+          "outcome": "useful",
+          "q": "HIện tại hệ thống của tôi có lấy User Service và Context Service tuy nhiên tôi nhớ là Context Service đã chứa personalize rồi mà nhỉ user service làm gì chứa gì. Với lại giờ tôi muốn monitor xem thử lý do thời gian tốn ở đâu đã rồi mới đưa ra quyết định"
+        }
+      ],
+      "score": 6.916817593,
+      "source_file": "src/main/java/fu/tripsense/recommendation/application/ExploreRecommendationService.java",
+      "status": "preferred",
+      "uses": 7
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_application_recommendationapplicationservice_recommendationapplicationservice": {
+      "code_fingerprint": "",
+      "label": "RecommendationApplicationService",
+      "last": "2026-10-18T13:45:07.920156+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T13:45:07.920156+00:00",
+          "outcome": "useful",
+          "q": "HIện tại hệ thống của tôi có lấy User Service và Context Service tuy nhiên tôi nhớ là Context Service đã chứa personalize rồi mà nhỉ user service làm gì chứa gì. Với lại giờ tôi muốn monitor xem thử lý do thời gian tốn ở đâu đã rồi mới đưa ra quyết định"
+        },
+        {
+          "date": "2026-10-18T12:13:48.102764+00:00",
+          "outcome": "useful",
+          "q": "How does TripSense Explore For You place recommendation currently work, what is its output, and why can first load take about 20 seconds while returning to the tab is fast?"
+        }
+      ],
+      "score": 1.971433895,
+      "source_file": "src/main/java/fu/tripsense/recommendation/application/RecommendationApplicationService.java",
+      "status": "preferred",
+      "uses": 2
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_application_recommendationobservability_recommendationobservability": {
+      "code_fingerprint": "",
+      "label": "RecommendationObservability",
+      "last": "2026-10-18T13:45:07.920156+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T13:45:07.920156+00:00",
+          "outcome": "useful",
+          "q": "HIện tại hệ thống của tôi có lấy User Service và Context Service tuy nhiên tôi nhớ là Context Service đã chứa personalize rồi mà nhỉ user service làm gì chứa gì. Với lại giờ tôi muốn monitor xem thử lý do thời gian tốn ở đâu đã rồi mới đưa ra quyết định"
+        }
+      ],
+      "score": 0.986439183,
+      "source_file": "src/main/java/fu/tripsense/recommendation/application/RecommendationObservability.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_config_recommendationproperties_recommendationproperties": {
+      "code_fingerprint": "",
+      "label": "RecommendationProperties",
+      "last": "2026-10-19T03:45:08.669232+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-19T03:45:08.669232+00:00",
+          "outcome": "useful",
+          "q": "Hiện tại hệ thống lấy hành vi người dùng như nào lưu như nào và chấm điểm như nào để đóng góp trong phần filter kết quả?"
+        }
+      ],
+      "score": 0.999824473,
+      "source_file": "src/main/java/fu/tripsense/recommendation/config/RecommendationProperties.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "recommendation::src_main_java_fu_tripsense_recommendation_domain_recommendationcontext_recommendationcontext": {
+      "code_fingerprint": "",
+      "label": "RecommendationContext",
+      "last": "2026-10-18T18:22:34.604187+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T18:22:34.604187+00:00",
+          "outcome": "useful",
+          "q": "Explore base feed versus submitted search provider refresh implementation"
+        }
+      ],
+      "score": 0.990840225,
+      "source_file": "src/main/java/fu/tripsense/recommendation/domain/RecommendationContext.java",
+      "status": "tentative",
+      "uses": 1
+    },
+    "web::src_features_ai_trip_commit_services_ai_trip_commit_api_test_authenticatedfetch": {
+      "code_fingerprint": "",
+      "label": "authenticatedFetch",
+      "last": "2026-10-18T13:16:16.612634+00:00",
+      "provenance": [
+        {
+          "date": "2026-10-18T13:16:16.612634+00:00",
+          "outcome": "useful",
+          "q": "Một hệ thống bình thường mà như này là quá lâu. thật sự là 3s cũng đã gọi là lâu rồi bạn có thể tư vấn tôi không?"
+        },
+        {
+          "date": "2026-10-18T12:13:48.102764+00:00",
+          "outcome": "useful",
+          "q": "How does TripSense Explore For You place recommendation currently work, what is its output, and why can first load take about 20 seconds while returning to the tab is fast?"
+        }
+      ],
+      "score": 1.970977297,
+      "source_file": "src/features/ai-trip-commit/services/ai-trip-commit-api.test.ts",
+      "status": "preferred",
+      "uses": 2
+    }
+  },
+  "version": 1
+}

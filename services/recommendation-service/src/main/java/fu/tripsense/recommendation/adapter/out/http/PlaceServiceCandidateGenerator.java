@@ -19,7 +19,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
-public class PlaceServiceCandidateGenerator implements CandidateGenerator {
+public class PlaceServiceCandidateGenerator
+    implements CandidateGenerator,
+        fu.tripsense.recommendation.application.port.CategoryCandidateSource {
   private final RestClient restClient;
   private final String baseUrl;
   private final int sourceLimit;
@@ -56,7 +58,7 @@ public class PlaceServiceCandidateGenerator implements CandidateGenerator {
             Math.min(sourceLimit, Math.max(context.limit() * candidateMultiplier, context.limit())),
             List.of("id", "location", "categories"),
             maximumPlaceAgeSeconds,
-            true);
+            context.allowExternalRefresh());
     try {
       Envelope envelope =
           restClient
@@ -92,6 +94,83 @@ public class PlaceServiceCandidateGenerator implements CandidateGenerator {
     if (context.query() != null && !context.query().isBlank()) return context.query();
     return context.requiredCategories().stream().sorted().findFirst().orElse("");
   }
+
+  public fu.tripsense.recommendation.application.port.CategoryCandidateSource.Batch
+      generateCategories(
+          RecommendationContext context,
+          List<fu.tripsense.recommendation.domain.DiscoveryCategory> categories,
+          int target) {
+    var response =
+        restClient
+            .post()
+            .uri(baseUrl + "/api/places/recommendations/categories")
+            .body(
+                new CategoryRequest(
+                    context.anchor().lat(),
+                    context.anchor().lng(),
+                    context.radiusMeters(),
+                    categories,
+                    target,
+                    maximumPlaceAgeSeconds,
+                    List.of("id", "location", "categories"),
+                    false))
+            .retrieve()
+            .body(CategoryEnvelope.class);
+    if (response == null
+        || !response.success()
+        || response.data() == null
+        || response.data().groups() == null)
+      throw new IllegalStateException("Category retrieval unavailable");
+    return new fu.tripsense.recommendation.application.port.CategoryCandidateSource.Batch(
+        response.data().groups().stream()
+            .filter(g -> g != null && categories.contains(g.category()))
+            .limit(4)
+            .map(
+                g ->
+                    new fu.tripsense.recommendation.application.port.CategoryCandidateSource.Group(
+                        g.category(),
+                        g.status(),
+                        categoryCandidates(g).stream().limit(target).toList(),
+                        g.degradations() == null ? List.of() : g.degradations()))
+            .toList());
+  }
+
+  public List<Candidate> categoryCandidates(CategoryGroup group) {
+    if (group == null || group.places() == null) return List.of();
+    var evidence = mapEvidence(group.evidence());
+    return java.util.stream.IntStream.range(0, Math.min(50, group.places().size()))
+        .filter(i -> group.places().get(i) != null && group.places().get(i).id() != null)
+        .mapToObj(
+            i -> {
+              var p = group.places().get(i).toDomain();
+              return new Candidate(p.id(), source(), i + 1, null, p, evidence);
+            })
+        .toList();
+  }
+
+  record CategoryRequest(
+      double lat,
+      double lng,
+      Integer radiusMeters,
+      List<fu.tripsense.recommendation.domain.DiscoveryCategory> categories,
+      int targetPerCategory,
+      long maximumAgeSeconds,
+      List<String> requiredFields,
+      boolean allowExternalRefresh) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record CategoryEnvelope(boolean success, CategoryBatch data) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CategoryBatch(List<CategoryGroup> groups) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CategoryGroup(
+      fu.tripsense.recommendation.domain.DiscoveryCategory category,
+      String status,
+      List<PlaceDto> places,
+      EvidenceDto evidence,
+      List<String> degradations) {}
 
   private RetrievalEvidence mapEvidence(EvidenceDto value) {
     if (value == null) return null;
@@ -150,7 +229,8 @@ public class PlaceServiceCandidateGenerator implements CandidateGenerator {
       String businessStatus,
       String description,
       Instant fetchedAt,
-      String freshness) {
+      String freshness,
+      String primaryType) {
     PlaceSnapshot toDomain() {
       return new PlaceSnapshot(
           id,
@@ -176,7 +256,8 @@ public class PlaceServiceCandidateGenerator implements CandidateGenerator {
           businessStatus,
           description,
           fetchedAt,
-          freshness);
+          freshness,
+          primaryType);
     }
   }
 

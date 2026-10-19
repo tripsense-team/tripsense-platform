@@ -77,7 +77,7 @@ export function MultimodalInput({
   }, [input, adjustHeight]);
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -125,7 +125,7 @@ export function MultimodalInput({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Mindtrip"
+          placeholder={t("aiPlanner.inputPlaceholder")}
           rows={1}
           className="w-full resize-none bg-transparent px-2 py-1 text-sm md:text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:outline-none min-h-[44px] max-h-48 overflow-y-auto"
         />
@@ -138,7 +138,7 @@ export function MultimodalInput({
               variant="ghost"
               size="icon"
               className="size-8 rounded-full bg-muted/60 hover:bg-muted text-foreground flex items-center justify-center transition-colors cursor-pointer"
-              title="Đính kèm nội dung"
+              title={t("aiPlanner.attachContent")}
             >
               <Plus className="size-4" />
             </Button>
@@ -199,7 +199,7 @@ export function MultimodalInput({
             <button
               type="button"
               className="size-8 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
-              title="Nhập bằng giọng nói"
+              title={t("aiPlanner.voiceInput")}
             >
               <Mic className="size-4" />
             </button>
@@ -210,7 +210,7 @@ export function MultimodalInput({
                 size="icon"
                 onClick={stop}
                 className="size-8 rounded-full bg-foreground text-background hover:bg-foreground/90 transition-all shadow-xs cursor-pointer"
-                title="Dừng sinh phản hồi"
+                title={t("aiPlanner.stopGenerating")}
               >
                 <Square className="size-3 fill-current" />
               </Button>
@@ -220,7 +220,7 @@ export function MultimodalInput({
                 size="icon"
                 onClick={handleSubmit}
                 className="size-8 rounded-full bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition-all shadow-xs cursor-pointer"
-                title="Gửi tin nhắn (Enter)"
+                title={t("aiPlanner.sendMessageTooltip")}
               >
                 <ArrowUp className="size-4" />
               </Button>
@@ -241,7 +241,7 @@ export function MultimodalInput({
       {/* Disclaimer text matching Mindtrip screenshot */}
       <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/60 select-none py-0.5">
         <Info className="size-3 shrink-0" />
-        <span>Mindtrip can make mistakes. Check important info.</span>
+        <span>{t("aiPlanner.disclaimer")}</span>
       </div>
     </div>
   );

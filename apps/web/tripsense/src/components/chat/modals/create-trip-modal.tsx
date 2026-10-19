@@ -7,7 +7,11 @@ import { useAuthStore } from "@/features/auth";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { createTrip } from "@/features/trip-management/services/trip-management-api";
-import { isoDateFromToday } from "@/features/trip-management/utils/date";
+import {
+  isoDateFromToday,
+  formatWhenSelection,
+  resolveFlexibleDates,
+} from "@/features/trip-management/utils/date";
 import type { TripResponse } from "@/features/trip-management/types";
 import { toast } from "sonner";
 import { ModalBackdrop } from "./modal-backdrop";
@@ -25,6 +29,9 @@ export interface CreateTripModalProps {
   initialEndDate?: string;
   initialTravelers?: number;
   initialPromptText?: string;
+  initialWhenType?: "dates" | "flexible";
+  initialDurationDays?: number;
+  initialFlexibleMonths?: string[];
 }
 
 export function CreateTripModal({
@@ -35,8 +42,11 @@ export function CreateTripModal({
   initialDestination = "",
   initialStartDate,
   initialEndDate,
-  initialTravelers = 1,
+  initialTravelers,
   initialPromptText = "",
+  initialWhenType,
+  initialDurationDays,
+  initialFlexibleMonths,
 }: CreateTripModalProps) {
   const { locale, t } = useTranslation();
   const user = useAuthStore((state) => state.user);
@@ -44,15 +54,36 @@ export function CreateTripModal({
 
   const [prompt, setPrompt] = React.useState(initialPromptText);
   const [destination, setDestination] = React.useState(initialDestination);
+  const [whenType, setWhenType] = React.useState<"dates" | "flexible">(
+    initialWhenType || "dates"
+  );
+  const [durationDays, setDurationDays] = React.useState<number>(
+    initialDurationDays || 3
+  );
+  const [flexibleMonths, setFlexibleMonths] = React.useState<string[]>(
+    initialFlexibleMonths || []
+  );
   const [startDate, setStartDate] = React.useState(initialStartDate || isoDateFromToday(7));
   const [endDate, setEndDate] = React.useState(initialEndDate || isoDateFromToday(10));
 
-  const [whoCounts, setWhoCounts] = React.useState({
-    adults: initialTravelers > 0 ? initialTravelers : 1,
-    children: 0,
-    infants: 0,
-    pets: 0,
-  });
+  const [whoCounts, setWhoCounts] = React.useState<
+    | {
+        adults: number;
+        children: number;
+        infants: number;
+        pets: number;
+      }
+    | undefined
+  >(
+    initialTravelers && initialTravelers > 0
+      ? {
+          adults: initialTravelers,
+          children: 0,
+          infants: 0,
+          pets: 0,
+        }
+      : undefined
+  );
 
   const [isWhereOpen, setIsWhereOpen] = React.useState(false);
   const [isWhenOpen, setIsWhenOpen] = React.useState(false);
@@ -66,15 +97,20 @@ export function CreateTripModal({
     if (isOpen) {
       setPrompt(initialPromptText);
       setDestination(initialDestination);
+      if (initialWhenType) setWhenType(initialWhenType);
+      if (initialDurationDays) setDurationDays(initialDurationDays);
+      if (initialFlexibleMonths) setFlexibleMonths(initialFlexibleMonths);
       if (initialStartDate) setStartDate(initialStartDate);
       if (initialEndDate) setEndDate(initialEndDate);
-      if (initialTravelers) {
+      if (initialTravelers && initialTravelers > 0) {
         setWhoCounts({
-          adults: initialTravelers > 0 ? initialTravelers : 1,
+          adults: initialTravelers,
           children: 0,
           infants: 0,
           pets: 0,
         });
+      } else {
+        setWhoCounts(undefined);
       }
       setIsWhereOpen(false);
       setIsWhenOpen(false);
@@ -94,44 +130,37 @@ export function CreateTripModal({
 
   // Format date range label
   const formattedDates = React.useMemo(() => {
-    if (!startDate || !endDate) return null;
-    try {
-      const s = new Date(startDate);
-      const e = new Date(endDate);
-      const sMonth = s.getMonth() + 1;
-      const eMonth = e.getMonth() + 1;
-      if (locale === "vi") {
-        if (sMonth === eMonth) {
-          return `${s.getDate()} – ${e.getDate()} thg ${sMonth}`;
-        }
-        return `${s.getDate()} thg ${sMonth} – ${e.getDate()} thg ${eMonth}`;
-      }
-      const sMonthStr = s.toLocaleString("en-US", { month: "short" });
-      const eMonthStr = e.toLocaleString("en-US", { month: "short" });
-      if (sMonth === eMonth) {
-        return `${sMonthStr} ${s.getDate()} – ${e.getDate()}`;
-      }
-      return `${sMonthStr} ${s.getDate()} – ${eMonthStr} ${e.getDate()}`;
-    } catch {
-      return `${startDate} → ${endDate}`;
-    }
-  }, [startDate, endDate, locale]);
+    return formatWhenSelection({
+      type: whenType,
+      startDate,
+      endDate,
+      durationDays,
+      flexibleMonths,
+      locale,
+    });
+  }, [whenType, startDate, endDate, durationDays, flexibleMonths, locale]);
 
-  const totalTravelers = whoCounts.adults + whoCounts.children + whoCounts.infants;
+  const totalTravelers = whoCounts
+    ? whoCounts.adults + whoCounts.children + whoCounts.infants
+    : 0;
   const whoSummaryText = React.useMemo(() => {
-    if (totalTravelers === 0 && whoCounts.pets === 0) return null;
-    if (locale === "vi") {
-      const base = `${totalTravelers} khách`;
-      return whoCounts.pets > 0 ? `${base}, ${whoCounts.pets} thú cưng` : base;
-    }
-    const base = totalTravelers === 1 ? "1 traveler" : `${totalTravelers} travelers`;
+    if (!whoCounts || (totalTravelers === 0 && whoCounts.pets === 0)) return null;
+    const base =
+      totalTravelers === 1
+        ? t("trip.travelerCountOne")
+        : t("trip.travelerCountMultiple", { count: totalTravelers });
     if (whoCounts.pets > 0) {
-      return `${base}, ${whoCounts.pets} pet${whoCounts.pets > 1 ? "s" : ""}`;
+      const pets =
+        whoCounts.pets === 1
+          ? t("trip.petCountOne")
+          : t("trip.petCountMultiple", { count: whoCounts.pets });
+      return t("trip.travelerSummaryWithPets", {
+        travelers: base,
+        pets,
+      });
     }
     return base;
-  }, [totalTravelers, whoCounts.pets, locale]);
-
-  const canSubmit = destination.trim().length > 0 && !isSubmitting;
+  }, [whoCounts, totalTravelers, t]);
 
   const handleCreate = async () => {
     // 1. Auth check
@@ -147,29 +176,49 @@ export function CreateTripModal({
       return;
     }
 
-    if (!destination.trim()) {
-      setIsWhereOpen(true);
+    // 2. Destination check (auto-extract from prompt if user hasn't explicitly picked one)
+    let finalDestination = destination.trim();
+    if (!finalDestination && prompt.trim()) {
+      const match = prompt.match(
+        /(?:đi|đến|ở|tại|khám\s+phá|du\s+lịch|tới|về)\s+([A-ZÀ-Ỹa-zà-ỹ0-9\s]+?)(?:\s+(?:khoảng\s+)?\d+\s*(?:ngày|đêm|tháng|vào|cùng)|\s*[,.]|$)/i
+      );
+      if (match && match[1]?.trim() && match[1].trim().length >= 2) {
+        finalDestination = match[1].trim();
+        setDestination(finalDestination);
+      }
+    }
+
+    if (!finalDestination) {
       toast.error(
         locale === "vi"
           ? "Vui lòng chọn điểm đến cho chuyến đi."
           : "Please select a destination for your trip."
       );
+      setIsWhereOpen(true);
       return;
     }
 
     try {
       setIsSubmitting(true);
-      const tripName = `Trip to ${destination.trim()}`;
+      const tripName = locale === "vi" ? `Chuyến đi ${finalDestination}` : `Trip to ${finalDestination}`;
 
-      const travelerBreakdown = [
-        `${whoCounts.adults} adult${whoCounts.adults > 1 ? "s" : ""}`,
-        whoCounts.children > 0 ? `${whoCounts.children} child${whoCounts.children > 1 ? "ren" : ""}` : null,
-        whoCounts.infants > 0 ? `${whoCounts.infants} infant${whoCounts.infants > 1 ? "s" : ""}` : null,
-        whoCounts.pets > 0 ? `${whoCounts.pets} pet${whoCounts.pets > 1 ? "s" : ""}` : null,
-      ].filter(Boolean).join(", ");
+      const travelerBreakdown = whoCounts
+        ? [
+            `${whoCounts.adults} adult${whoCounts.adults > 1 ? "s" : ""}`,
+            whoCounts.children > 0 ? `${whoCounts.children} child${whoCounts.children > 1 ? "ren" : ""}` : null,
+            whoCounts.infants > 0 ? `${whoCounts.infants} infant${whoCounts.infants > 1 ? "s" : ""}` : null,
+            whoCounts.pets > 0 ? `${whoCounts.pets} pet${whoCounts.pets > 1 ? "s" : ""}` : null,
+          ].filter(Boolean).join(", ")
+        : null;
+
+      const flexibleNote =
+        whenType === "flexible"
+          ? `Travel preference: ${durationDays} days flexible${flexibleMonths.length > 0 ? ` (${flexibleMonths.join(", ")})` : ""}`
+          : null;
 
       const combinedNotes = [
         prompt.trim() || null,
+        flexibleNote,
         travelerBreakdown ? `Travelers: ${travelerBreakdown}` : null,
       ].filter(Boolean).join("\n\n");
 
@@ -178,7 +227,7 @@ export function CreateTripModal({
         destinationName: destination.trim(),
         startDate,
         endDate,
-        travelerCount: totalTravelers > 0 ? totalTravelers : 1,
+        travelerCount: whoCounts && totalTravelers > 0 ? totalTravelers : undefined,
         notes: combinedNotes || undefined,
       });
 
@@ -220,9 +269,9 @@ export function CreateTripModal({
             </div>
 
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground max-w-sm leading-snug">
-              {locale === "vi"
-                ? `Tôi nên lưu ý điều gì cho chuyến đi này, ${firstName}?`
-                : `What should I keep in mind for this trip, ${firstName}?`}
+              {firstName
+                ? t("aiPlanner.createTripModalTitle", { name: firstName })
+                : t("aiPlanner.createTripModalTitleDefault")}
             </h2>
           </div>
 
@@ -231,11 +280,7 @@ export function CreateTripModal({
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value.slice(0, 2000))}
-              placeholder={
-                locale === "vi"
-                  ? "Chuyến đi 5 ngày đến Tokyo tháng 10 này"
-                  : "5-day Tokyo trip this October"
-              }
+              placeholder={t("aiPlanner.createTripPromptPlaceholder")}
               rows={3}
               className="w-full bg-transparent resize-none border-0 p-0 text-sm md:text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-0 leading-relaxed"
             />
@@ -246,7 +291,7 @@ export function CreateTripModal({
               <button
                 type="button"
                 className="size-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                title="Voice input"
+                title={t("aiPlanner.voiceInput")}
               >
                 <Mic className="size-4" />
               </button>
@@ -329,7 +374,7 @@ export function CreateTripModal({
             <Button
               type="button"
               onClick={handleCreate}
-              disabled={!canSubmit}
+              disabled={isSubmitting}
               className="rounded-full px-8 py-2.5 h-10 font-semibold text-sm bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:text-neutral-900 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
@@ -360,12 +405,26 @@ export function CreateTripModal({
       <WhenModal
         isOpen={isWhenOpen}
         onClose={() => setIsWhenOpen(false)}
+        initialType={whenType}
         initialStartDate={startDate}
         initialEndDate={endDate}
+        initialDurationDays={durationDays}
+        initialFlexibleMonths={flexibleMonths}
         onSave={(data) => {
           if (data.type === "dates" && data.startDate && data.endDate) {
+            setWhenType("dates");
             setStartDate(data.startDate);
             setEndDate(data.endDate);
+          } else if (data.type === "flexible") {
+            setWhenType("flexible");
+            const dDays = data.durationDays || 3;
+            setDurationDays(dDays);
+            const months = data.flexibleMonths || [];
+            setFlexibleMonths(months);
+
+            const resolved = resolveFlexibleDates(dDays, months);
+            setStartDate(resolved.startDate);
+            setEndDate(resolved.endDate);
           }
           setIsWhenOpen(false);
         }}

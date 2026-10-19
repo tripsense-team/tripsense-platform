@@ -29,6 +29,7 @@ import type {
 } from "@/features/ai-trip-commit/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { formatWhenSelection } from "@/features/trip-management/utils/date";
 
 type IntakeStep = "WHERE" | "WHEN" | "WHO" | "BUDGET";
 
@@ -89,7 +90,7 @@ export function TripIntakeCard({
   isLatestMessage = true,
   hasProposal = false,
 }: TripIntakeCardProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { chatId: activeChatId, sendMessage } = useActiveChat();
   const { artifact, showProposal, openArtifact } = useArtifact();
   const resolvedChatId = propChatId || activeChatId;
@@ -257,10 +258,17 @@ export function TripIntakeCard({
               {state.brief.where.destinationText}
             </span>
           )}
-          {state.brief.when?.startDate && (
+          {state.brief.when && (state.brief.when.startDate || state.brief.when.durationDays) && (
             <span className="flex items-center gap-1 rounded-lg bg-card/80 border border-border/50 px-2.5 py-1">
               <Calendar className="size-3 text-primary" />
-              {state.brief.when.startDate} → {state.brief.when.endDate}
+              {formatWhenSelection({
+                type: state.brief.when.type,
+                startDate: state.brief.when.startDate,
+                endDate: state.brief.when.endDate,
+                durationDays: state.brief.when.durationDays,
+                flexibleMonths: state.brief.when.flexibleMonths,
+                locale,
+              })}
             </span>
           )}
           {state.brief.who && (
@@ -306,7 +314,10 @@ export function TripIntakeCard({
       id: "WHEN",
       label: t("aiPlanner.intake.stepWhen"),
       icon: Calendar,
-      isDone: Boolean(state.brief.when?.startDate && state.brief.when?.endDate),
+      isDone: Boolean(
+        (state.brief.when?.startDate && state.brief.when?.endDate) ||
+        (state.brief.when?.durationDays && state.brief.when.durationDays > 0)
+      ),
     },
     {
       id: "WHO",

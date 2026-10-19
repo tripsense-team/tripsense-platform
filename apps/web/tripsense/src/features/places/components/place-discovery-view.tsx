@@ -19,6 +19,10 @@ import {
   type CategoryTabItem,
 } from "./explore-feed-header";
 import { MindtripPlaceCard } from "./mindtrip-place-card";
+import { ForYouSections, SECTION_LABELS } from "./for-you-sections";
+import { useSectionFeed } from "../hooks/use-section-feed";
+import type { DiscoverySection } from "../services/recommendations-api";
+import { Button } from "@/components/ui/button";
 import { searchPlaces, getPlaceDetails } from "../services/places-api";
 import {
   getExploreForYou,
@@ -143,6 +147,49 @@ export function PlaceDiscoveryView() {
   const detailsCacheRef = React.useRef<Record<string, Place>>({});
   const photoCheckedAtRef = React.useRef<Record<string, number>>({});
   const inflightRef = React.useRef<Set<string>>(new Set());
+  const sectionsEnabled = isAuthenticated && process.env.NEXT_PUBLIC_EXPLORE_SECTION_FEED_ENABLED === "true";
+  const sectionFeed = useSectionFeed(userId, currentDestination.id, sessionId);
+  const [sectionDetail, setSectionDetail] = React.useState<DiscoverySection | null>(null);
+  const feedScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const previewScrollRef = React.useRef(0);
+  const groupedPreview = sectionsEnabled && activeCategoryId === "for-you" && !committedQuery && !sectionDetail;
+  const sectionLoad = sectionFeed.load;
+  const cancelSections = sectionFeed.cancel;
+
+  const executeSections = React.useCallback(async (category: DiscoverySection | null, refresh = false) => {
+    recommendationControllerRef.current?.abort();
+    recommendationRequestIdRef.current += 1;
+    explicitSearchControllerRef.current?.abort();
+    explicitSearchRequestIdRef.current += 1;
+    viewportSearchControllerRef.current?.abort();
+    viewportSearchRequestIdRef.current += 1;
+    if (viewportDebounceTimer.current) clearTimeout(viewportDebounceTimer.current);
+    const request = recommendationRequestIdRef.current;
+    setSectionDetail(category);
+    setPlaces([]);
+    setSelectedPlaceId(null);
+    setRecommendationMeta(null);
+    setIsLoading(true);
+    explicitSearchPendingRef.current = true;
+    const response = await sectionLoad(category, refresh);
+    if (request !== recommendationRequestIdRef.current) return;
+    if (response) {
+      const items = response.sections.flatMap((section) => section.items);
+      setPlaces(items.map((item) => item.place));
+      setRecommendationMeta({ recommendationId: response.recommendationId,
+        ranks: Object.fromEntries(items.map((item) => [item.place.id, item.rank])),
+        fallbackLevel: "EXACT", stale: response.stale });
+    }
+    setCurrentPage(1);
+    setIsLoading(false);
+    setShowExploreAreaBtn(false);
+    explicitSearchPendingRef.current = false;
+    initialSearchPendingRef.current = false;
+    requestAnimationFrame(() => {
+      if (!category) feedScrollRef.current?.scrollTo?.({ top: previewScrollRef.current });
+      else { feedScrollRef.current?.scrollTo?.({ top: 0 }); feedHeadingRef.current?.focus({ preventScroll: true }); }
+    });
+  }, [sectionLoad, setPlaces, setSelectedPlaceId, setRecommendationMeta, setIsLoading, setShowExploreAreaBtn]);
 
   const executeSearch = React.useCallback(
     async (
@@ -263,6 +310,12 @@ export function PlaceDiscoveryView() {
   const executeForYou = React.useCallback(
     async (submittedQuery: string) => {
       if (!isAuthenticated || authStatus !== "authenticated") return;
+      if (sectionsEnabled && !submittedQuery.trim()) {
+        await executeSections(null);
+        return;
+      }
+      cancelSections();
+      setSectionDetail(null);
       recommendationControllerRef.current?.abort();
       const controller = new AbortController();
       recommendationControllerRef.current = controller;
@@ -342,6 +395,9 @@ export function PlaceDiscoveryView() {
     authStatus,
     currentDestination.id,
     sessionId,
+    sectionsEnabled,
+    executeSections,
+    cancelSections,
     cacheCategoryResult,
     setIsLoading,
     setPlaces,
@@ -364,18 +420,21 @@ export function PlaceDiscoveryView() {
     if (loadedUserId === nextUserId) return;
     recommendationControllerRef.current?.abort();
     recommendationRequestIdRef.current += 1;
+    cancelSections();
     resetExploreState(nextUserId);
   }, [
     userId,
     loadedUserId,
     resetExploreState,
+    cancelSections,
   ]);
 
   // Initial load
   React.useEffect(() => {
     if (authStatus === "checking") return;
-    if (hasInitialFetched) return;
+    if (hasInitialFetched && !(sectionsEnabled && initialSearchPendingRef.current)) return;
 
+    initialSearchPendingRef.current = false;
     setHasInitialFetched(true);
     if (isAuthenticated) {
       void executeForYouRef.current("");
@@ -388,6 +447,7 @@ export function PlaceDiscoveryView() {
     currentDestination.defaultQuery,
     hasInitialFetched,
     setHasInitialFetched,
+    sectionsEnabled,
   ]);
 
   React.useEffect(() => {
@@ -405,6 +465,15 @@ export function PlaceDiscoveryView() {
 
   // Handle Destination Switcher (e.g. Hue, Da Nang, Hoi An)
   const handleSelectDestination = (dest: DestinationPreset) => {
+    cancelSections();
+    recommendationControllerRef.current?.abort();
+    recommendationRequestIdRef.current += 1;
+    explicitSearchControllerRef.current?.abort();
+    explicitSearchRequestIdRef.current += 1;
+    viewportSearchControllerRef.current?.abort();
+    viewportSearchRequestIdRef.current += 1;
+    setSectionDetail(null);
+    previewScrollRef.current = 0;
     setCurrentDestination(dest);
     setQuery("");
     setCommittedQuery("");
@@ -425,6 +494,14 @@ export function PlaceDiscoveryView() {
 
   // Handle category tab switch (Food, Cafés, Stays, Attractions).
   const handleSelectCategory = (tab: CategoryTabItem) => {
+    if (sectionsEnabled) {
+      if (groupedPreview) previewScrollRef.current = feedScrollRef.current?.scrollTop ?? 0;
+      setActiveCategoryId(tab.id);
+      setQuery("");
+      setCommittedQuery("");
+      void executeSections((tab.category as DiscoverySection | undefined) ?? null);
+      return;
+    }
     setActiveCategoryId(tab.id);
     setCurrentPage(1);
     if (tab.id === "for-you") {
@@ -473,7 +550,7 @@ export function PlaceDiscoveryView() {
   const handleViewportChange = React.useCallback(
     (viewport: { lat: number; lng: number; zoom: number; radius: number }) => {
       currentViewportRef.current = viewport;
-      if (activeCategoryId === "for-you") {
+      if (activeCategoryId === "for-you" || (sectionsEnabled && !committedQuery)) {
         setShowExploreAreaBtn(false);
         return;
       }
@@ -557,6 +634,8 @@ export function PlaceDiscoveryView() {
       query,
       currentDestination,
       activeCategoryId,
+      sectionsEnabled,
+      committedQuery,
       setPlaces,
       setShowExploreAreaBtn,
     ]
@@ -933,11 +1012,12 @@ export function PlaceDiscoveryView() {
   );
 
   const activeCategoryTitle = React.useMemo(() => {
+    if (sectionsEnabled && sectionDetail && !committedQuery) return t(SECTION_LABELS[sectionDetail]);
     const tab = EXPLORE_CATEGORY_TABS.find((t) => t.id === activeCategoryId);
     if (!tab) return t("places.categories.food", { defaultValue: "Food" });
     const catKey = tab.id === "for-you" ? "forYou" : tab.id;
     return t(`places.categories.${catKey}`, { defaultValue: tab.label });
-  }, [activeCategoryId, t]);
+  }, [activeCategoryId, t, sectionsEnabled, sectionDetail, committedQuery]);
 
   return (
     <div className="relative flex flex-col lg:flex-row h-full w-full overflow-hidden bg-background">
@@ -973,6 +1053,7 @@ export function PlaceDiscoveryView() {
 
       {/* LEFT PANEL: Explore Feed & Controls (Mindtrip 2-Column Cards) */}
       <div
+        ref={feedScrollRef}
         style={isPanelCollapsed ? { display: "none" } : undefined}
         className={cn(
           "h-full overflow-y-auto scrollbar-thin shrink-0 w-full lg:w-[48%] xl:w-[46%] px-4 py-4 sm:px-6 sm:py-5 border-r border-border/70 flex flex-col",
@@ -987,6 +1068,12 @@ export function PlaceDiscoveryView() {
           onSearchChange={setQuery}
           onSearchSubmit={(val) => {
             const normalized = val.trim();
+            if (sectionsEnabled) {
+              setActiveCategoryId("for-you");
+              setCommittedQuery(normalized);
+              void executeForYou(normalized);
+              return;
+            }
             if (activeCategoryId === "for-you" && isAuthenticated) {
               setCommittedQuery(normalized);
               void executeForYou(normalized);
@@ -1023,9 +1110,10 @@ export function PlaceDiscoveryView() {
           )}
         <div
           ref={feedHeadingRef}
+          tabIndex={-1}
           className="flex items-center justify-between gap-2 pt-1 pb-3 shrink-0"
         >
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+          <h2 className={cn("text-xl sm:text-2xl font-bold tracking-tight text-foreground", groupedPreview && "sr-only")}>
             {activeCategoryTitle}
           </h2>
           <span className="text-xs text-muted-foreground font-medium">
@@ -1033,8 +1121,31 @@ export function PlaceDiscoveryView() {
           </span>
         </div>
 
+        {sectionsEnabled && sectionDetail && !committedQuery && <Button variant="ghost" className="mb-4 self-start" onClick={() => {
+          setActiveCategoryId("for-you"); setQuery(""); setCommittedQuery(""); void executeSections(null);
+        }}><ChevronLeft className="mr-1 h-4 w-4" />{t("places.discoverySections.back")}</Button>}
+
         {/* 2-Column Grid of Mindtrip Place Cards */}
-        {isLoading && places.length === 0 ? (
+        {groupedPreview ? <ForYouSections
+          feed={sectionFeed.response}
+          loading={isLoading || sectionFeed.loading}
+          error={sectionFeed.error}
+          onRetry={() => { void executeSections(null, true); }}
+          onMore={(category) => {
+            previewScrollRef.current = feedScrollRef.current?.scrollTop ?? 0;
+            const tab = EXPLORE_CATEGORY_TABS.find((tab) => tab.category === category);
+            setActiveCategoryId(tab?.id ?? "for-you");
+            void executeSections(category);
+          }}
+          renderCard={(place) => <MindtripPlaceCard key={place.id} place={place}
+            isSelected={selectedPlaceId === place.id}
+            isFavorite={savedByPlace.get(place.id)?.saved ?? false}
+            isAddedToTrip={tripsByPlace.get(place.id)?.added ?? false}
+            onToggleFavorite={handleToggleFavorite} onAddToTrip={handleAddToTrip}
+            onClick={() => handleSelectCard(place)} onViewDetails={() => handleOpenDetailsForPlace(place)} />}
+        /> : sectionsEnabled && sectionDetail && (sectionFeed.error || sectionFeed.response?.sections.some((section) => section.status === "ERROR")) ? <div role="alert" className="rounded-xl border border-border p-4 text-sm">
+          <p>{t("places.discoverySections.loadError")}</p><Button variant="outline" className="mt-3" onClick={() => { void executeSections(sectionDetail, true); }}>{t("common.retry")}</Button>
+        </div> : isLoading && places.length === 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 flex-1 min-h-[400px]">
             {[1, 2, 3, 4, 5, 6].map((idx) => (
               <div

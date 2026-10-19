@@ -1,0 +1,27 @@
+category|name|categories|primaryType|expected|owner
+CAFE|A|restaurant;tourist_attraction|coffee_shop|true|CAFE
+FOOD|A|cafe;food|coffee_shop|false|CAFE
+ATTRACTION|A|tourist_attraction;cafe|coffee_shop|false|CAFE
+ATTRACTION|Museum|cafe;food|museum|true|ATTRACTION
+CAFE|Museum|cafe;food|museum|false|ATTRACTION
+FOOD|A|cafe;food|seafood_restaurant|true|FOOD
+CAFE|A|cafe;food|seafood_restaurant|false|FOOD
+FOOD|A|food;store||false|UNKNOWN
+CAFE|A|cafe;food;store||true|CAFE
+FOOD|A|cafe;food;store||false|CAFE
+CAFE|A|quán cafe;đồ uống||true|CAFE
+ATTRACTION|Museum Cafe|museum;cafe||false|UNKNOWN
+CAFE|Museum Cafe|museum;cafe||false|UNKNOWN
+ATTRACTION|Hotel|church;lodging||false|UNKNOWN
+ATTRACTION|Temple|buddhist_temple||true|ATTRACTION
+ATTRACTION|Hotel|church;tourist_attraction|hotel|false|STAY
+STAY|Hotel|church;food|hotel|true|STAY
+HOMESTAY|An Homestay|lodging||true|HOMESTAY
+STAY|An Homestay|lodging||true|HOMESTAY
+HOMESTAY|An Homestay|homestay|hotel|false|STAY
+CAFE|A|cafe;food|car_repair|false|UNKNOWN
+CAFE|A|cafe;food|coffee_roastery|false|UNKNOWN
+STAY|A|lodging||true|STAY
+FOOD|A|restaurant|food|true|FOOD
+FOOD|A|restaurant;cafe||false|UNKNOWN
+FOOD|A|restaurant|  SEAFOOD_RESTAURANT  |true|FOOD

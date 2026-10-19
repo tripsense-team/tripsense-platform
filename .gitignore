@@ -32,12 +32,21 @@ logs/
 *.iml
 .DS_Store
 Thumbs.db
+graphify-out/
 
 .tools/
 
-# Scripts (keep only deploy.sh)
+# Checked-in deployment and diagnostic tools
 scripts/*
 !scripts/deploy.sh
+!scripts/start.sh
+!scripts/monitor-explore.sh
+!scripts/analyze-explore-latency.py
+!scripts/test_analyze_explore_latency.py
+!scripts/audit-qdrant-places.py
+!scripts/test_audit_qdrant_places.py
+!scripts/cleanup-qdrant-places.py
+!scripts/test_cleanup_qdrant_places.py
 
 # SSH / deployment private keys
 deploy/tripsense-dev-vm-key.pem

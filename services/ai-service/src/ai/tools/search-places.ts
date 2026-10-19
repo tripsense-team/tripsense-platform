@@ -12,6 +12,7 @@ export interface PlaceSearchResult {
   photoUrl?: string;
   rating?: number;
   phone?: string;
+  reason?: string;
 }
 
 export const searchPlaces = tool({
