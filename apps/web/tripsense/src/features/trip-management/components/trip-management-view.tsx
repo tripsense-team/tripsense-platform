@@ -88,8 +88,13 @@ export function TripManagementView({
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const trips = useTripStore((state) => state.trips);
   const loadingTrips = useTripStore((state) => state.loading);
+  const loadingMoreTrips = useTripStore((state) => state.loadingMore);
+  const hasMoreTrips = useTripStore((state) => state.hasMore);
+  const totalTrips = useTripStore((state) => state.totalElements);
+  const loadMoreTrips = useTripStore((state) => state.loadMoreTrips);
   const fetchTrips = useTripStore((state) => state.fetchTrips);
   const updateTripInStore = useTripStore((state) => state.updateTripInStore);
+  const removeTripFromStore = useTripStore((state) => state.removeTripFromStore);
   const [trip, setTrip] = React.useState<TripResponse | null>(null);
   const [itinerary, setItinerary] = React.useState<ItineraryResponse | null>(
     null,
@@ -508,6 +513,7 @@ export function TripManagementView({
           onMoveItem={handleMoveItem}
           onReorderItems={handleReorderItems}
           onCreateTrip={() => setCreateOpen(true)}
+          onRequestDeleteTrip={setDeleteTrip}
         />
       );
     }
@@ -516,6 +522,10 @@ export function TripManagementView({
       <TripsScreen
         trips={trips}
         loading={loadingTrips}
+        loadingMore={loadingMoreTrips}
+        hasMore={hasMoreTrips}
+        totalElements={totalTrips}
+        onLoadMore={loadMoreTrips}
         error={error}
         submitting={submitting}
         onRetry={loadTrips}
@@ -554,12 +564,17 @@ export function TripManagementView({
   async function handleConfirmDeleteTrip() {
     if (!deleteTrip) return;
 
+    const deletedId = deleteTrip.id;
     setSubmitting(true);
     setError(null);
     try {
-      await deleteTripRequest(deleteTrip.id);
+      await deleteTripRequest(deletedId);
+      removeTripFromStore(deletedId);
       setDeleteTrip(null);
       await loadTrips();
+      if (screen === "detail" || initialTripId === deletedId) {
+        router.push("/trips");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete trip");
     } finally {

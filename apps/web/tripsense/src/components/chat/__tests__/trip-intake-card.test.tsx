@@ -149,6 +149,7 @@ describe("TripIntakeCard Component", () => {
     expect(html).toContain("aiPlanner.intake.viewItinerary");
     expect(html).not.toContain("aiPlanner.intake.generateAction");
   });
+
   it("renders cancelled note when intake was cancelled", () => {
     const state: TripBriefState = {
       type: "data-tripBrief",

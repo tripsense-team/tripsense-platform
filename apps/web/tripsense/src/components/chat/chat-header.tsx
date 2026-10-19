@@ -39,6 +39,7 @@ type ChatHeaderProps = {
   onOpenWhen?: () => void;
   onOpenWho?: () => void;
   onOpenBudget?: () => void;
+  onOpenPreferences?: () => void;
   onCreateTripClick?: () => void;
   activeTrip?: TripResponse | null;
   isTripDetailOpen?: boolean;
@@ -54,6 +55,7 @@ export function ChatHeader({
   onOpenWhen,
   onOpenWho,
   onOpenBudget,
+  onOpenPreferences,
   onCreateTripClick,
   activeTrip,
   isTripDetailOpen,
@@ -131,7 +133,7 @@ export function ChatHeader({
         : typeof tripPreferences.budget.amount === "number"
         ? new Intl.NumberFormat(undefined, {
             style: "currency",
-            currency: tripPreferences.budget.currency,
+            currency: tripPreferences.budget.currency || "VND",
             maximumFractionDigits: 0,
           }).format(tripPreferences.budget.amount)
         : t("trip.budget");
@@ -192,7 +194,7 @@ export function ChatHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Center: Where | When | Who | Budget pill group matching Mindtrip screenshot */}
+        {/* Center: Where | When | Who | Budget | Preferences pill group matching Mindtrip screenshot */}
         <div className="hidden sm:flex items-center rounded-full border border-border/80 bg-muted/20 px-1 py-0.5 text-xs text-muted-foreground divide-x divide-border/60 shadow-2xs">
           <button
             type="button"
@@ -207,7 +209,7 @@ export function ChatHeader({
             type="button"
             onClick={onOpenWhen}
             className={`px-3.5 py-1 hover:text-foreground transition-colors font-medium cursor-pointer ${
-              tripPreferences?.when?.startDate ? "text-foreground font-semibold" : ""
+              tripPreferences?.when?.startDate || tripPreferences?.when?.durationDays ? "text-foreground font-semibold" : ""
             }`}
           >
             {whenLabel}
@@ -229,6 +231,15 @@ export function ChatHeader({
             }`}
           >
             {budgetLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPreferences}
+            className={`px-3.5 py-1 hover:text-foreground transition-colors font-medium cursor-pointer ${
+              tripPreferences?.preferences?.length ? "text-foreground font-semibold" : ""
+            }`}
+          >
+            Preferences
           </button>
         </div>
 

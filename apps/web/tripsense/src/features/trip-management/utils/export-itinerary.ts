@@ -47,13 +47,15 @@ export function generateTripIcs(
   // 1. Overall Trip Master Event
   if (trip.startDate) {
     const startStr = formatIcsDate(trip.startDate);
-    const endStr = trip.endDate ? formatIcsDate(trip.endDate) : startStr;
+    const endStr = trip.endDate ? formatIcsDate(trip.endDate) : null;
 
     lines.push("BEGIN:VEVENT");
     lines.push(`UID:ts-trip-${trip.id}@tripsense.app`);
     lines.push(`DTSTAMP:${now}`);
     lines.push(`DTSTART;VALUE=DATE:${startStr}`);
-    lines.push(`DTEND;VALUE=DATE:${endStr}`);
+    if (endStr && endStr !== startStr) {
+      lines.push(`DTEND;VALUE=DATE:${endStr}`);
+    }
     lines.push(`SUMMARY:${escapeIcsText(trip.name)}`);
     lines.push(`LOCATION:${escapeIcsText(trip.destinationName)}`);
     if (trip.notes) {
@@ -97,9 +99,8 @@ export function generateTripIcs(
           lines.push(`DTSTART:${startIso}`);
           lines.push(`DTEND:${startIso}`);
         } else {
-          // All-day activity on that day
+          // All-day activity on that day (single day DATE, no DTEND per RFC 5545 §3.6.1)
           lines.push(`DTSTART;VALUE=DATE:${formattedDayDate}`);
-          lines.push(`DTEND;VALUE=DATE:${formattedDayDate}`);
         }
 
         const titleText = item.title || item.placeNameSnapshot || "Hoạt động";

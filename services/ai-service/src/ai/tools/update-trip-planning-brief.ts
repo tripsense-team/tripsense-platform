@@ -145,8 +145,10 @@ export async function loadLatestTripBrief(chatId: string): Promise<TripBriefPart
 }
 
 export function hasExplicitPlanningIntent(text: string): boolean {
+  if (!text) return false;
   return /\b(plan\s+(?:me\s+)?a\s+trip|create\s+(?:me\s+)?a\s+trip|build\s+(?:me\s+)?an?\s+itinerary)\b/i.test(text)
-    || /(?:lên|lập|tạo|xây dựng|thiết kế)\s+(?:giúp\s+(?:mình|tôi)\s+)?(?:một\s+)?(?:lịch trình|kế hoạch|chuyến đi)/i.test(text);
+    || /(?:lên|lập|tạo|xây dựng|thiết kế)\s+(?:giúp\s+(?:mình|tôi|em)\s+)?(?:một\s+)?(?:lịch trình|lộ trình|kế hoạch|chuyến đi)/i.test(text)
+    || /(?:lên kế hoạch|lên lịch|lộ trình|lịch trình|đi du lịch|đi chơi\s+\d+\s*ngày)/i.test(text);
 }
 
 export function hasCancellationIntent(text: string): boolean {
@@ -357,13 +359,19 @@ export function getUpdateTripPlanningBriefTool(context: {
         return { accepted: false, reason: "BRIEF_VERSION_CONFLICT" };
       }
       const intentAllowed = hasExplicitPlanningIntent(context.userText);
-      if (!existing && (!input.planningIntent || !intentAllowed)) {
+      const isIntentValid =
+        context.isDirectPatch ||
+        intentAllowed ||
+        input.planningIntent ||
+        Boolean(input.where?.destinationText || input.when);
+
+      if (!existing && !isIntentValid) {
         return { accepted: false, reason: "NO_EXPLICIT_PLANNING_INTENT" };
       }
 
       const terminalExisting =
         existing?.status === "COMPLETED" || existing?.status === "CANCELLED";
-      if (terminalExisting && (!input.planningIntent || !intentAllowed)) {
+      if (terminalExisting && !isIntentValid) {
         return { accepted: false, reason: "PLANNING_RUN_NOT_ACTIVE" };
       }
 

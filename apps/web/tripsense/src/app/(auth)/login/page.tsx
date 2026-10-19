@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
-import { useAuth, getAuthErrorMessage, isUserAdmin } from "@/features/auth";
+import { useAuth, getAuthErrorMessage, isUserAdmin, isUserPartner } from "@/features/auth";
 import { AuthModal } from "@/features/auth/components/auth-modal";
 import { sanitizeReturnUrl } from "@/lib/url-utils";
 
@@ -44,7 +44,9 @@ export default function LoginPage() {
           : null;
       const safeReturn = sanitizeReturnUrl(rawParam, "");
       const isAdmin = isUserAdmin(response.data?.user);
-      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+      const isPartner = isUserPartner(response.data?.user);
+      const destination =
+        safeReturn || (isAdmin ? "/admin" : isPartner ? "/partner" : "/explore");
       router.replace(destination);
     } catch (err: unknown) {
       setErrorMsg(

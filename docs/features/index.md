@@ -11,6 +11,7 @@ Track every feature that enters the multi-agent workflow.
 | `attraction-inventory-audit-and-preview` | IMPLEMENTING; revision 3 primaryType code + 349 tests complete, live acceptance pending; earlier tooling superseded | `services/place-service`, `services/recommendation-service` | [Docs](./attraction-inventory-audit-and-preview.md) |
 | `ai-planner-unspecified-traveler-count` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-planner-unspecified-traveler-count.md) |
 | `ai-planner-flexible-date-retention` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-planner-flexible-date-retention.md) |
+| `financial-flow-and-withdrawals` | APPROVED | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./financial-flow-and-withdrawals.md) |
 | `explore-for-you-category-sections` | IMPLEMENTING; code and automated checks complete, local acceptance pending | `services/recommendation-service`, `services/place-service`, `apps/web/tripsense`; Gateway diagnostics | [Docs](./explore-for-you-category-sections.md) |
 | `context-shared-upstash-diagnostics` | DONE | `services/context-service`, local scripts and gitignored config | [Docs](./context-shared-upstash-diagnostics.md) |
 | `observed-history-signal-quality` | DONE | `services/recommendation-service`; Compose config passthrough | [Docs](./observed-history-signal-quality.md) |

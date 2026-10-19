@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import { useArtifact } from "@/hooks/use-artifact";
 import { useAuthStore, AuthModal } from "@/features/auth";
@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { ChatHeader } from "./chat-header";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { ChatArtifact } from "./artifact";
 import { TripDetailPanel } from "./trip-detail-panel";
 import { useAiDrawerStore } from "@/stores/use-ai-drawer-store";
 import {
@@ -44,6 +43,7 @@ import { isGenericChatTitle } from "@/hooks/use-ai-chats";
 import { aiChatQueryKeys, getQueryClient } from "@/lib/react-query";
 
 export function ChatShell() {
+  const router = useRouter();
   const { locale, t } = useTranslation();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const searchParams = useSearchParams();
@@ -184,6 +184,15 @@ export function ChatShell() {
       isMounted = false;
     };
   }, [tripIdParam, activeTrip?.id]);
+
+  // Listen for open-trip-detail event from chat messages or intake card
+  useEffect(() => {
+    const handleOpenDetail = () => setIsTripDetailOpen(true);
+    window.addEventListener("tripsense:open-trip-detail", handleOpenDetail);
+    return () => {
+      window.removeEventListener("tripsense:open-trip-detail", handleOpenDetail);
+    };
+  }, []);
 
   // An explicit ?tripId selection links an unlinked chat, but never silently
   // replaces a different persisted mapping.
@@ -360,9 +369,11 @@ export function ChatShell() {
             ? {
                 type:
                   (brief.when as any).type ||
-                  ((brief.when as any).durationDays ? "flexible" : "dates"),
+                  ((brief.when as any).durationDays ? "flexible" : brief.when.startDate ? "dates" : "flexible"),
                 startDate: brief.when.startDate,
                 endDate: brief.when.endDate,
+                durationDays: (brief.when as any).durationDays,
+                flexibleMonths: (brief.when as any).flexibleMonths,
               }
             : undefined,
           who: brief?.who,
@@ -806,6 +817,7 @@ export function ChatShell() {
         onOpenWhen={() => setActiveModal("when")}
         onOpenWho={() => setActiveModal("who")}
         onOpenBudget={() => setActiveModal("budget")}
+        onOpenPreferences={() => router.push("/settings")}
         onCreateTripClick={handleOpenCreateTrip}
         activeTrip={activeTrip}
         isTripDetailOpen={isTripDetailOpen}
@@ -843,6 +855,8 @@ export function ChatShell() {
         initialType={tripPreferences.when?.type}
         initialStartDate={tripPreferences.when?.startDate}
         initialEndDate={tripPreferences.when?.endDate}
+        initialDurationDays={tripPreferences.when?.durationDays}
+        initialFlexibleMonths={tripPreferences.when?.flexibleMonths}
         onSave={(data) => {
           setTripPreferences((prev) => ({ ...prev, when: data }));
           if (data.type === "dates" && data.startDate && data.endDate) {
@@ -965,9 +979,6 @@ export function ChatShell() {
             />
           </div>
         </div>
-
-        {/* Vercel-Style Side Artifact Drawer */}
-        <ChatArtifact />
 
         {/* Mindtrip Trip Detail Panel (Mounted side-by-side with messages below the full-width header) */}
         {activeTrip && isTripDetailOpen && (

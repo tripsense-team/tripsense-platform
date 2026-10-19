@@ -1,8 +1,5 @@
 import { Hono } from "hono";
 import {
-  createUIMessageStream,
-  createUIMessageStreamResponse,
-  toUIMessageStream,
   isStepCount,
   streamText,
   smoothStream,
@@ -87,7 +84,13 @@ const planningBriefPatchSchema = z.object({
       })
       .optional(),
     when: z
-      .object({ startDate: z.string().date(), endDate: z.string().date() })
+      .object({
+        type: z.enum(["dates", "flexible"]).optional(),
+        durationDays: z.number().int().min(1).max(60).optional(),
+        flexibleMonths: z.array(z.string()).max(12).optional(),
+        startDate: z.string().date().optional(),
+        endDate: z.string().date().optional(),
+      })
       .optional(),
     who: z
       .object({
@@ -1040,19 +1043,22 @@ chatRouter.post("/chat", async (c) => {
     .orderBy(asc(messages.createdAt))
     .limit(20);
 
-  const modelMessages = dbHistory.map((m) => {
-    let textContent = "";
-    if (Array.isArray(m.parts)) {
-      textContent = m.parts
-        .filter((p: any) => p && p.type === "text" && typeof p.text === "string")
-        .map((p: any) => p.text)
-        .join("\n");
-    }
-    return {
-      role: m.role as "user" | "assistant",
-      content: textContent || "",
-    };
-  });
+  const modelMessages = dbHistory
+    .map((m) => {
+      let textContent = "";
+      if (Array.isArray(m.parts)) {
+        textContent = m.parts
+          .filter((p: any) => p && p.type === "text" && typeof p.text === "string")
+          .map((p: any) => p.text.trim())
+          .filter(Boolean)
+          .join("\n");
+      }
+      return {
+        role: m.role as "user" | "assistant",
+        content: textContent || "",
+      };
+    })
+    .filter((m) => m.content.length > 0);
 
   const selectedModelId =
     body.selectedChatModel || body.selectedModel || DEFAULT_MODEL_ID;
@@ -1153,128 +1159,120 @@ chatRouter.post("/chat", async (c) => {
     day: "numeric",
   });
 
-  // 4. Stream response using Vercel AI SDK v7 createUIMessageStream + createUIMessageStreamResponse
+  // 4. Stream response using Vercel AI SDK streamText.toUIMessageStreamResponse
   try {
-    const stream = createUIMessageStream({
-      execute: async ({ writer: dataStream }) => {
-        const { model, activeKey } = await resolveLanguageModel(selectedModelId);
+    const { model, activeKey } = await resolveLanguageModel(selectedModelId);
 
-        const itineraryTools = getItineraryManagementTools({
+    const itineraryTools = getItineraryManagementTools({
+      chatId: activeChatId!,
+      userId,
+      authorization,
+      runtime: planningRuntime,
+    });
+
+    const result = streamText({
+      model,
+      system: getSystemPrompt({
+        userId,
+        userName: userProfile.displayName,
+        userPreferences: userProfile.preferences,
+        currentTripSummary,
+        currentDate,
+        planningBrief: effectiveBrief,
+        planningStatus: isTripLinked ? "TRIP_LINKED" : priorPlanningState?.status,
+      }),
+      messages: modelMessages,
+      experimental_transform: smoothStream({ chunking: "word" }),
+      tools: {
+        getWeather,
+        searchPlaces,
+        recommendPlaces,
+        updateTripPlanningBrief: getUpdateTripPlanningBriefTool({
+          chatId: activeChatId!,
+          userId,
+          userMessageId,
+          userText,
+          authorization,
+          runtime: planningRuntime,
+          isDirectPatch: false,
+        }),
+        createTripProposal: getCreateTripProposalTool({
           chatId: activeChatId!,
           userId,
           authorization,
           runtime: planningRuntime,
-        });
-
-        const result = streamText({
-          model,
-          system: getSystemPrompt({
-            userId,
-            userName: userProfile.displayName,
-            userPreferences: userProfile.preferences,
-            currentTripSummary,
-            currentDate,
-            planningBrief: effectiveBrief,
-            planningStatus: isTripLinked ? "TRIP_LINKED" : priorPlanningState?.status,
-          }),
-          messages: modelMessages,
-          experimental_transform: smoothStream({ chunking: "word" }),
-          tools: {
-            getWeather,
-            searchPlaces,
-            recommendPlaces,
-            updateTripPlanningBrief: getUpdateTripPlanningBriefTool({
-              chatId: activeChatId!,
-              userId,
-              userMessageId,
-              userText,
-              authorization,
-              runtime: planningRuntime,
-              isDirectPatch: false,
-            }),
-            createTripProposal: getCreateTripProposalTool({
-              chatId: activeChatId!,
-              userId,
-              authorization,
-              runtime: planningRuntime,
-            }),
-            ...itineraryTools,
-          },
-          stopWhen: [
-            isStepCount(12),
-            ({ steps }: { steps: any[] }) =>
-              shouldStopAfterBriefStep(steps, planningRuntime.state?.status),
-          ],
-          onError: async ({ error }) => {
-            console.error(">>> streamText ERROR:", error);
-            if (activeKey) {
-              const errStr = String((error as any)?.message || error);
-              const statusCode =
-                (error as any)?.status ||
-                (error as any)?.statusCode ||
-                (error as any)?.response?.status;
-              await geminiKeyManager.reportFailure(activeKey, statusCode, errStr);
-            }
-          },
-          onFinish: async ({ text, steps }) => {
-            if (activeKey) {
-              geminiKeyManager.reportSuccess(activeKey);
-            }
-            try {
-              const parts: any[] = [];
-              if (steps && steps.length > 0) {
-                for (const step of steps) {
-                  if (step.toolCalls && step.toolCalls.length > 0) {
-                    for (const tc of step.toolCalls) {
-                      const resultObj = step.toolResults?.find(
-                        (tr: any) => tr.toolCallId === tc.toolCallId
-                      );
-                      parts.push({
-                        type: `tool-${tc.toolName}`,
-                        toolCallId: tc.toolCallId,
-                        state: "output-available",
-                        input: (tc as any).args || (tc as any).input,
-                        output:
-                          (resultObj as any)?.result ||
-                          (resultObj as any)?.output,
-                      });
-                    }
-                  }
+        }),
+        ...itineraryTools,
+      },
+      stopWhen: [
+        isStepCount(12),
+        ({ steps }: { steps: any[] }) =>
+          shouldStopAfterBriefStep(steps, planningRuntime.state?.status),
+      ],
+      onError: async ({ error }) => {
+        console.error(">>> streamText ERROR:", error);
+        if (activeKey) {
+          const errStr = String((error as any)?.message || error);
+          const statusCode =
+            (error as any)?.status ||
+            (error as any)?.statusCode ||
+            (error as any)?.response?.status;
+          await geminiKeyManager.reportFailure(activeKey, statusCode, errStr);
+        }
+      },
+      onFinish: async ({ text, steps }) => {
+        if (activeKey) {
+          geminiKeyManager.reportSuccess(activeKey);
+        }
+        try {
+          const parts: any[] = [];
+          if (steps && steps.length > 0) {
+            for (const step of steps) {
+              if (step.toolCalls && step.toolCalls.length > 0) {
+                for (const tc of step.toolCalls) {
+                  const resultObj = step.toolResults?.find(
+                    (tr: any) => tr.toolCallId === tc.toolCallId
+                  );
+                  parts.push({
+                    type: `tool-${tc.toolName}`,
+                    toolCallId: tc.toolCallId,
+                    state: "output-available",
+                    input: (tc as any).args || (tc as any).input,
+                    output:
+                      (resultObj as any)?.result ||
+                      (resultObj as any)?.output,
+                  });
                 }
               }
-              if (text) {
-                parts.push({ type: "text", text });
-              }
-
-              await db.insert(messages).values({
-                chatId: activeChatId!,
-                role: "assistant",
-                parts:
-                  parts.length > 0
-                    ? parts
-                    : [{ type: "text", text: text || "" }],
-              });
-            } catch (dbErr) {
-              console.error("Failed to persist assistant message to DB:", dbErr);
             }
-          },
-        });
+          }
+          if (text) {
+            parts.push({ type: "text", text });
+          }
 
-        dataStream.merge(
-          toUIMessageStream({
-            stream: result.stream,
-          })
-        );
+          await db.insert(messages).values({
+            chatId: activeChatId!,
+            role: "assistant",
+            parts:
+              parts.length > 0
+                ? parts
+                : [{ type: "text", text: text || "" }],
+          });
+        } catch (dbErr) {
+          console.error("Failed to persist assistant message to DB:", dbErr);
+        }
       },
-      generateId: () => crypto.randomUUID(),
     });
 
-    return createUIMessageStreamResponse({
-      stream,
+    return result.toUIMessageStreamResponse({
       headers: {
         "X-Chat-Id": activeChatId,
         ...(currentChatTitle ? { "X-Chat-Title": encodeURIComponent(currentChatTitle) } : {}),
         "Access-Control-Expose-Headers": "X-Chat-Id, X-Chat-Title",
+      },
+      onError: (err) => {
+        console.error(">>> toUIMessageStream ERROR:", err);
+        return String((err as any)?.message || err || "AI stream error");
       },
     });
   } catch (err: any) {

@@ -17,7 +17,7 @@ import { siteConfig } from "@/config/site";
 import { useAuth } from "../context/auth-context";
 import { type AuthModalStep } from "../types";
 import { getAuthErrorMessage } from "../utils/auth-error-helper";
-import { isUserAdmin } from "../utils/role-helpers";
+import { isUserAdmin, isUserPartner } from "../utils/role-helpers";
 import { GoogleLogin } from "@react-oauth/google";
 import { cn } from "@/lib/utils";
 import { isSafeInternalUrl } from "@/lib/url-utils";
@@ -141,7 +141,9 @@ export function AuthModal({
           : null);
       const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
       const isAdmin = isUserAdmin(response.data?.user);
-      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+      const isPartner = isUserPartner(response.data?.user);
+      const destination =
+        safeReturn || (isAdmin ? "/admin" : isPartner ? "/partner" : "/explore");
 
       setTimeout(() => {
         onOpenChange(false);
@@ -188,7 +190,9 @@ export function AuthModal({
           : null);
       const safeReturn = isSafeInternalUrl(rawParam) ? rawParam : null;
       const isAdmin = isUserAdmin(response.data?.user);
-      const destination = safeReturn || (isAdmin ? "/admin" : "/explore");
+      const isPartner = isUserPartner(response.data?.user);
+      const destination =
+        safeReturn || (isAdmin ? "/admin" : isPartner ? "/partner" : "/explore");
 
       setTimeout(() => {
         onOpenChange(false);

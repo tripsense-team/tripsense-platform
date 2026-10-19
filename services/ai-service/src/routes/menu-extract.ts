@@ -3,8 +3,17 @@ import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { getLanguageModel } from "../ai/providers.js";
 import { DEFAULT_MODEL_ID } from "../ai/models.js";
+import { subjectFromAuthorization } from "../security/access-token.js";
 
 export const menuExtractRouter = new Hono();
+
+function userIdFrom(c: any): string | null {
+  const fromAuth = subjectFromAuthorization(c.req.header("Authorization"));
+  if (fromAuth) return fromAuth;
+  const fromHeader = c.req.header("X-User-Id");
+  if (fromHeader && fromHeader.trim()) return fromHeader.trim();
+  return null;
+}
 
 const extractedItemSchema = z.object({
   name: z.string().describe("Tên món ăn hoặc đồ uống"),
@@ -38,6 +47,18 @@ Nếu trong ảnh chỉ thấy 1 món hoặc vài dòng chữ tên món, vẫn t
 Chỉ trả về dữ liệu có cấu trúc hợp lệ.`;
 
 menuExtractRouter.post("/restaurant-menu/extract", async (c) => {
+  const userId = userIdFrom(c);
+  if (!userId) {
+    return c.json(
+      {
+        success: false,
+        error: "UNAUTHORIZED",
+        message: "Vui lòng đăng nhập để sử dụng tính năng trích xuất thực đơn AI",
+      },
+      401
+    );
+  }
+
   try {
     let imageBuffer: Buffer | null = null;
     let mimeType = "image/jpeg";
@@ -170,7 +191,7 @@ menuExtractRouter.post("/restaurant-menu/extract", async (c) => {
       {
         success: false,
         error: "EXTRACTION_FAILED",
-        message: error instanceof Error ? error.message : "Không thể phân tích thực đơn từ ảnh",
+        message: "Không thể phân tích thực đơn từ ảnh. Vui lòng thử lại sau.",
       },
       500
     );

@@ -175,6 +175,14 @@ export const PreviewMessage = ({
   let activeSearchQuery: string | undefined;
   let isSearchingPlaces = false;
 
+  const hasProposalInMessage = Boolean(
+    message.parts?.some(
+      (p: any) =>
+        p.type === "tool-createTripProposal" ||
+        p.toolInvocation?.toolName === "createTripProposal"
+    )
+  );
+
   message.parts?.forEach((part, index) => {
     const { type } = part;
     const key = `message-${message.id}-part-${index}`;
@@ -377,6 +385,7 @@ export const PreviewMessage = ({
               chatId={chatId}
               initialState={state}
               isLatestMessage={!isLoading}
+              hasProposal={hasProposalInMessage}
             />
           </div>
         );

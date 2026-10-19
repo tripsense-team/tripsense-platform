@@ -169,15 +169,28 @@ export function getCreateTripProposalTool(context: {
             error: "Số ngày trong lịch trình không hợp lệ.",
           };
         }
-        if (context.runtime?.brief?.when) {
+        if (
+          context.runtime?.brief?.when?.startDate &&
+          context.runtime?.brief?.when?.endDate
+        ) {
           const start = Date.parse(`${context.runtime.brief.when.startDate}T00:00:00Z`);
           const end = Date.parse(`${context.runtime.brief.when.endDate}T00:00:00Z`);
-          const authoritativeDuration = Math.floor((end - start) / 86_400_000) + 1;
-          if (proposalData.durationDays !== authoritativeDuration) {
+          if (!Number.isNaN(start) && !Number.isNaN(end)) {
+            const authoritativeDuration = Math.floor((end - start) / 86_400_000) + 1;
+            if (proposalData.durationDays !== authoritativeDuration) {
+              return {
+                success: false,
+                errorCode: "PROPOSAL_DATE_RANGE_MISMATCH",
+                error: "Lịch trình không khớp với khoảng ngày của chuyến đi.",
+              };
+            }
+          }
+        } else if (context.runtime?.brief?.when?.durationDays) {
+          if (proposalData.durationDays !== context.runtime.brief.when.durationDays) {
             return {
               success: false,
-              errorCode: "PROPOSAL_DATE_RANGE_MISMATCH",
-              error: "Lịch trình không khớp với khoảng ngày của chuyến đi.",
+              errorCode: "PROPOSAL_DURATION_MISMATCH",
+              error: `Lịch trình phải có độ dài ${context.runtime.brief.when.durationDays} ngày.`,
             };
           }
         }

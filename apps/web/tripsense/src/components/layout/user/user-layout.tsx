@@ -40,10 +40,15 @@ export function UserLayout({ children, user, onSignInClick }: UserLayoutProps) {
   const disableSidebarTransition =
     shouldDisableSidebarWidthTransition(pathname);
   const isAiPlanner = pathname === "/ai-planner" || pathname.startsWith("/ai-planner/");
+  const isTripDetailWorkspace =
+    pathname.startsWith("/trips/") &&
+    pathname !== "/trips/join" &&
+    pathname !== "/trips";
   const isFullBleedWorkspace =
     isChatWorkspace ||
     isAiPlanner ||
-    isMapWorkspace;
+    isMapWorkspace ||
+    isTripDetailWorkspace;
 
   // Prefetch AI chats and trips on AI Planner entry
   React.useEffect(() => {

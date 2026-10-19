@@ -34,7 +34,6 @@ type WhenModalProps = {
     type: "dates" | "flexible";
     startDate?: string;
     endDate?: string;
-    flexiblePeriod?: string;
     flexibleMonths?: string[];
     durationDays?: number;
   }) => void;
@@ -77,7 +76,6 @@ export function WhenModal({
   const [durationDays, setDurationDays] = React.useState<number>(
     initialDurationDays || 3
   );
-  const [flexiblePeriod, setFlexiblePeriod] = React.useState<string>("1week");
   const [selectedMonths, setSelectedMonths] = React.useState<string[]>(
     initialFlexibleMonths || []
   );
@@ -168,7 +166,7 @@ export function WhenModal({
       const resolved = resolveFlexibleDates(durationDays, selectedMonths);
       onSave({
         type: "flexible",
-        flexiblePeriod,
+        durationDays,
         flexibleMonths: selectedMonths,
         startDate: resolved.startDate,
         endDate: resolved.endDate,

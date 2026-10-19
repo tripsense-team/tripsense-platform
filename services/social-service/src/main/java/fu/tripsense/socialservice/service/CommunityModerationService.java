@@ -273,8 +273,7 @@ public class CommunityModerationService {
 
   private ModerationReportResponse response(SocialReport report) {
     var review = "PLACE_REVIEW".equals(report.getTargetType())
-        ? reviews.findByIdAndDeletedAtIsNull(report.getTargetId())
-            .filter(value -> "PUBLISHED".equals(value.getStatus())).orElse(null)
+        ? reviews.findById(report.getTargetId()).orElse(null)
         : null;
     return new ModerationReportResponse(
         report.getId(),

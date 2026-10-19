@@ -88,4 +88,50 @@ describe("Trip Itinerary Export Utilities", () => {
     expect(ics).toContain("UID:ts-trip-trip-test-1@tripsense.app");
     expect(ics).toContain("END:VCALENDAR");
   });
+
+  it("handles single-day trip and all-day activity without zero-length DTEND", () => {
+    const singleDayTrip: TripResponse = {
+      ...mockTrip,
+      id: "trip-single-1",
+      startDate: "2026-10-20",
+      endDate: "2026-10-20",
+    };
+    const allDayItinerary: ItineraryResponse = {
+      tripId: "trip-single-1",
+      days: [
+        {
+          id: "day-single-1",
+          version: 1,
+          dayNumber: 1,
+          date: "2026-10-20",
+          items: [
+            {
+              id: "item-all-day",
+              dayId: "day-single-1",
+              placeId: null,
+              title: "Khám phá phố cổ",
+              notes: null,
+              placeNameSnapshot: "Phố cổ",
+              placeAddressSnapshot: null,
+              latSnapshot: null,
+              lngSnapshot: null,
+              startTime: null,
+              endTime: null,
+              durationMinutes: null,
+              type: "ACTIVITY",
+              status: "PLANNED",
+              sortOrder: 1,
+              version: 1,
+              warnings: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    const ics = generateTripIcs(singleDayTrip, allDayItinerary);
+    // Single-day DATE event has DTSTART but no DTEND per RFC 5545
+    expect(ics).toContain("DTSTART;VALUE=DATE:20261020");
+    expect(ics).not.toContain("DTEND;VALUE=DATE:20261020");
+  });
 });

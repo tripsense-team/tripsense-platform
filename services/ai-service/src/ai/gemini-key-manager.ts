@@ -10,10 +10,12 @@ export interface CachedGeminiKey {
 export class GeminiKeyManager {
   private cachedKey: CachedGeminiKey | null = null;
   private readonly ttlMs: number;
+  private readonly baseUrl?: string;
   private lastReportedSuccessAt: number = 0;
 
-  constructor(ttlMs = 60_000) {
+  constructor(ttlMs = 60_000, baseUrl?: string) {
     this.ttlMs = ttlMs;
+    this.baseUrl = baseUrl;
   }
 
   /**
@@ -39,7 +41,7 @@ export class GeminiKeyManager {
     }
 
     try {
-      const baseUrl = config.placeServiceUrl || "http://localhost:8083";
+      const baseUrl = this.baseUrl || config.placeServiceUrl || "http://localhost:8083";
       const url = `${baseUrl}/api/places/internal/keys/active-raw?provider=GEMINI`;
 
       const response = await fetch(url, {
@@ -102,18 +104,31 @@ export class GeminiKeyManager {
   ): Promise<string | null> {
     this.cachedKey = null; // Invalidate cache immediately
 
-    const isQuotaOrAuth =
+    const isQuota =
       statusCode === 429 ||
+      Boolean(
+        reason &&
+          /quota|exhausted|rate limit|resource has been exhausted|limit:\s*\d+|too many requests/i.test(
+            reason
+          )
+      );
+
+    const isAuth =
       statusCode === 401 ||
       statusCode === 403 ||
-      (reason && /quota|exhausted|rate limit|api key not valid/i.test(reason));
+      Boolean(
+        reason &&
+          /api[_\s-]?key[_\s-]?not[_\s-]?valid|invalid[_\s-]?api[_\s-]?key|api key expired|unauthorized|forbidden/i.test(
+            reason
+          )
+      );
 
-    if (!isQuotaOrAuth) {
+    if (!isQuota && !isAuth) {
       return null;
     }
 
     try {
-      const baseUrl = config.placeServiceUrl || "http://localhost:8083";
+      const baseUrl = this.baseUrl || config.placeServiceUrl || "http://localhost:8083";
       const url = `${baseUrl}/api/places/internal/keys/rotate`;
 
       const response = await fetch(url, {
@@ -122,7 +137,7 @@ export class GeminiKeyManager {
         body: JSON.stringify({
           provider: "GEMINI",
           failedKey,
-          status: statusCode === 429 ? "EXHAUSTED" : "INVALID",
+          status: isQuota ? "EXHAUSTED" : "INVALID",
           reason: reason || `Error ${statusCode}`,
         }),
         signal: AbortSignal.timeout(4000),
@@ -168,7 +183,7 @@ export class GeminiKeyManager {
     }
     this.lastReportedSuccessAt = now;
 
-    const baseUrl = config.placeServiceUrl || "http://localhost:8083";
+    const baseUrl = this.baseUrl || config.placeServiceUrl || "http://localhost:8083";
     const url = `${baseUrl}/api/places/internal/keys/record-success`;
 
     fetch(url, {

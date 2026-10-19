@@ -43,6 +43,21 @@ test("requires Where, When, Who and Budget without an implicit traveler", () => 
     }),
     [],
   );
+  // Flexible duration without calendar dates
+  assert.deepEqual(
+    missingFields({
+      where: { destinationText: "Đà Nẵng" },
+      when: { type: "flexible", durationDays: 3 },
+    }),
+    [],
+  );
+  // Where only returns remaining missing fields
+  assert.deepEqual(
+    missingFields({
+      where: { destinationText: "Đà Nẵng" },
+    }),
+    ["WHEN", "WHO", "BUDGET"],
+  );
 });
 
 test("stops model stream when planning intake returns COLLECTING or CANCELLED to prevent redundant text", () => {
