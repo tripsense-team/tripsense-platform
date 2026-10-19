@@ -161,7 +161,10 @@ export function PartnerWizardModal({
   }, [open, editBusiness]);
 
   React.useEffect(() => {
-    if (error) errorAlertRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const alert = errorAlertRef.current;
+    if (error && typeof alert?.scrollIntoView === "function") {
+      alert.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
   }, [error]);
 
   // Debounced autocomplete; abort guards also protect against stale responses.

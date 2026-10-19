@@ -48,10 +48,11 @@ describe("UserSidebar navigation contract", () => {
     );
   });
 
-  it("renders both Partner links with the same full-width navigation shape", () => {
+  it("renders Partner links with the same full-width navigation shape", () => {
     expect(sidebarSource).toContain('href="/partner/services"');
+    expect(sidebarSource).toContain('href="/partner/analytics"');
     expect(sidebarSource).toContain("const partnerLinkClass = cn(");
-    expect(sidebarSource.match(/partnerLinkClass,/g)).toHaveLength(2);
+    expect(sidebarSource.match(/partnerLinkClass,/g)).toHaveLength(3);
     expect(sidebarSource).not.toContain('"ml-3 pl-4"');
   });
 });

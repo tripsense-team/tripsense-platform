@@ -38,6 +38,7 @@ function details(letter: string): PlaceDetailsResponse {
   return { success: true, data: {
     id: `canonical-${letter}`, providerPlaceId: `provider-${letter}`,
     name: `Hotel ${letter.toUpperCase()}`, address: `Full address ${letter}`,
+    city: "Đà Nẵng",
     location: { lat: 16.05, lng: 108.2 }, categories: [], photos: [],
   } };
 }
@@ -114,6 +115,12 @@ describe("partner location autocomplete", () => {
     expect(mocks.details).toHaveBeenCalledWith("provider-a", undefined, undefined, undefined, expect.any(AbortSignal));
     expect(input("Khách sạn Riverside").value).toBe("Hotel A");
     expect(input("Số 123").value).toBe("Full address a");
+    act(() => {
+      const city = container.querySelector<HTMLSelectElement>('select[aria-label="Tỉnh / Thành phố / Điểm đến"]');
+      expect(city).not.toBeNull();
+      city!.value = "Đà Nẵng";
+      city!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
     await click("Tiếp tục"); await click("Nộp hồ sơ xét duyệt");
     expect(mocks.draft).toHaveBeenCalledWith(expect.objectContaining({
       draftProfile: expect.objectContaining({ placeId: "canonical-a", address: "Full address a", lat: 16.05, lng: 108.2 }),
