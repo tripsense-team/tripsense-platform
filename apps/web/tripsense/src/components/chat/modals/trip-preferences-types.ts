@@ -9,6 +9,7 @@ export type TripPreferences = {
     endDate?: string;   // YYYY-MM-DD
     flexiblePeriod?: string; // e.g. "weekend", "1week", "1month"
     flexibleMonths?: string[];
+    durationDays?: number;
   };
   who?: {
     adults: number;
@@ -24,6 +25,7 @@ export type TripPreferences = {
     | "luxury"
     | { mode: "FLEXIBLE" }
     | { mode: "TOTAL"; amount: number; currency: string };
+  preferences?: string[];
 };
 
-export type ActiveModalType = "where" | "when" | "who" | "budget" | null;
+export type ActiveModalType = "where" | "when" | "who" | "budget" | "preferences" | null;

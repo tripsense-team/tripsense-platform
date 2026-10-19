@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
 
@@ -28,6 +29,7 @@ export function Messages({
   isLoading,
   onEditMessage,
 }: MessagesProps) {
+  const { t } = useTranslation();
   const {
     containerRef: messagesContainerRef,
     endRef: messagesEndRef,
@@ -62,7 +64,7 @@ export function Messages({
           <div className="flex flex-col items-center gap-3">
             <div className="size-7 rounded-full border-2 border-primary border-t-transparent animate-spin" />
             <span className="text-xs text-muted-foreground animate-pulse font-medium">
-              Đang tải lịch sử cuộc trò chuyện...
+              {t("aiPlanner.loadingHistory")}
             </span>
           </div>
         </div>

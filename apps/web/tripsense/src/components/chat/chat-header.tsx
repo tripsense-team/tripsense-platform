@@ -19,6 +19,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import type { TripResponse } from "@/features/trip-management/types";
+import { formatWhenSelection } from "@/features/trip-management/utils/date";
+import { useTranslation } from "@/i18n/i18n-context";
+import { formatTripTitle } from "./sidebar-flyout";
+import { isGenericChatTitle } from "@/hooks/use-ai-chats";
 
 type ChatHeaderProps = {
   chatId?: string;
@@ -55,6 +59,7 @@ export function ChatHeader({
   isTripDetailOpen,
   onToggleTripDetail,
 }: ChatHeaderProps) {
+  const { locale, t } = useTranslation();
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(chatTitle || "");
   const [prevChatTitle, setPrevChatTitle] = useState(chatTitle);
@@ -90,38 +95,46 @@ export function ChatHeader({
   };
 
   // Format labels from tripPreferences
-  const whereLabel = tripPreferences?.where?.location || "Where";
+  const whereLabel = tripPreferences?.where?.location || t("trip.intakeWhere");
 
-  let whenLabel = "When";
-  if (tripPreferences?.when?.type === "dates" && tripPreferences.when.startDate) {
-    if (tripPreferences.when.endDate) {
-      whenLabel = `${tripPreferences.when.startDate.slice(5)} → ${tripPreferences.when.endDate.slice(5)}`;
-    } else {
-      whenLabel = tripPreferences.when.startDate.slice(5);
-    }
-  } else if (tripPreferences?.when?.type === "flexible") {
-    whenLabel = "Flexible";
+  let whenLabel = t("trip.intakeWhen");
+  if (tripPreferences?.when) {
+    whenLabel = formatWhenSelection({
+      type: tripPreferences.when.type,
+      startDate: tripPreferences.when.startDate,
+      endDate: tripPreferences.when.endDate,
+      durationDays: tripPreferences.when.durationDays,
+      flexibleMonths: tripPreferences.when.flexibleMonths,
+      locale,
+    });
   }
 
-  let whoLabel = "Who";
+  let whoLabel = t("trip.intakeWho");
   if (tripPreferences?.who) {
     const total =
       tripPreferences.who.adults +
       tripPreferences.who.children +
       tripPreferences.who.infants;
-    whoLabel = total === 1 ? "1 traveler" : `${total} travelers`;
+    if (total > 0) {
+      whoLabel =
+        total === 1
+          ? t("trip.travelerCountOne")
+          : t("trip.travelerCountMultiple", { count: total });
+    }
   }
 
-  let budgetLabel = "Budget";
+  let budgetLabel = t("trip.budget");
   if (tripPreferences?.budget && typeof tripPreferences.budget === "object") {
     budgetLabel =
       tripPreferences.budget.mode === "FLEXIBLE"
         ? "Flexible"
-        : new Intl.NumberFormat(undefined, {
+        : typeof tripPreferences.budget.amount === "number"
+        ? new Intl.NumberFormat(undefined, {
             style: "currency",
             currency: tripPreferences.budget.currency,
             maximumFractionDigits: 0,
-          }).format(tripPreferences.budget.amount);
+          }).format(tripPreferences.budget.amount)
+        : t("trip.budget");
   } else if (
     typeof tripPreferences?.budget === "string" &&
     tripPreferences.budget !== "any"
@@ -132,7 +145,8 @@ export function ChatHeader({
       upscale: "$$$",
       luxury: "$$$$",
     };
-    budgetLabel = budgetMap[tripPreferences.budget] || "Budget";
+    budgetLabel =
+      budgetMap[tripPreferences.budget as keyof typeof budgetMap] || t("trip.budget");
   }
 
   return (
@@ -144,10 +158,14 @@ export function ChatHeader({
             <button
               type="button"
               className="flex items-center gap-1.5 px-2.5 py-1.5 -ml-2 rounded-xl hover:bg-muted/70 transition-colors text-left group cursor-pointer max-w-[200px] sm:max-w-[320px]"
-              title="Tuỳ chọn cuộc trò chuyện"
+              title={locale === "vi" ? "Tuỳ chọn cuộc trò chuyện" : "Chat options"}
             >
               <span className="font-semibold text-sm tracking-tight text-foreground truncate">
-                {chatTitle || "New chat"}
+                {(!chatTitle || isGenericChatTitle(chatTitle))
+                  ? (activeTrip?.destinationName
+                      ? (locale === "vi" ? `Lịch trình ${activeTrip.destinationName}` : `Trip to ${activeTrip.destinationName}`)
+                      : activeTrip?.name || t("aiPlanner.newChat"))
+                  : chatTitle}
               </span>
               <ChevronDown className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
             </button>
@@ -161,7 +179,7 @@ export function ChatHeader({
               className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium rounded-xl cursor-pointer hover:bg-muted"
             >
               <Pencil className="size-4 text-muted-foreground" />
-              <span>Rename chat</span>
+              <span>{t("aiPlanner.renameChat")}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
@@ -169,7 +187,7 @@ export function ChatHeader({
               className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-red-500 hover:text-red-600 focus:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 focus:bg-red-50 dark:focus:bg-red-950/20 rounded-xl cursor-pointer"
             >
               <Trash2 className="size-4 text-red-500" />
-              <span>Delete chat</span>
+              <span>{t("aiPlanner.deleteChat")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -225,10 +243,20 @@ export function ChatHeader({
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-border/70 hover:bg-muted text-foreground"
               }`}
-              title={isTripDetailOpen ? "Đóng bảng chi tiết chuyến đi" : "Mở bảng chi tiết chuyến đi"}
+              title={
+                isTripDetailOpen
+                  ? locale === "vi"
+                    ? "Đóng bảng chi tiết chuyến đi"
+                    : "Close trip details panel"
+                  : locale === "vi"
+                  ? "Mở bảng chi tiết chuyến đi"
+                  : "Open trip details panel"
+              }
             >
               <Luggage className="size-3.5 shrink-0" />
-              <span className="max-w-[140px] sm:max-w-[200px] truncate">{activeTrip.name}</span>
+              <span className="max-w-[140px] sm:max-w-[200px] truncate">
+                {formatTripTitle(activeTrip.name, activeTrip.destinationName, locale)}
+              </span>
             </button>
           ) : (
             <button
@@ -237,7 +265,7 @@ export function ChatHeader({
               className="h-8 px-3.5 rounded-full bg-black hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
             >
               <Luggage className="size-3.5 shrink-0" />
-              <span>Create a trip</span>
+              <span>{t("nav.createTrip")}</span>
             </button>
           )}
         </div>
@@ -247,7 +275,7 @@ export function ChatHeader({
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Rename chat</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{t("aiPlanner.renameChat")}</DialogTitle>
           </DialogHeader>
           <div className="py-3">
             <input
@@ -260,7 +288,7 @@ export function ChatHeader({
                   void handleSaveRename();
                 }
               }}
-              placeholder="Nhập tên mới cho cuộc trò chuyện..."
+              placeholder={t("aiPlanner.renameChatPlaceholder")}
               className="w-full rounded-2xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
               autoFocus
             />
@@ -271,7 +299,7 @@ export function ChatHeader({
               onClick={() => setIsRenameOpen(false)}
               className="px-4 py-2 text-xs font-semibold rounded-full border border-border hover:bg-muted transition-colors cursor-pointer"
             >
-              Hủy
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -279,7 +307,7 @@ export function ChatHeader({
               onClick={() => void handleSaveRename()}
               className="px-5 py-2 text-xs font-semibold rounded-full bg-black text-white hover:bg-neutral-800 disabled:opacity-50 transition-colors cursor-pointer"
             >
-              {isRenaming ? "Đang lưu..." : "Lưu"}
+              {isRenaming ? t("aiPlanner.saving") : t("common.save")}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -289,10 +317,10 @@ export function ChatHeader({
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-red-600">Delete chat</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-red-600">{t("aiPlanner.deleteChat")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground py-2">
-            Bạn có chắc chắn muốn xoá cuộc trò chuyện này không? Hành động này sẽ xoá toàn bộ lịch sử tin nhắn và không thể hoàn tác.
+            {t("aiPlanner.deleteChatConfirm")}
           </p>
           <DialogFooter className="flex justify-end gap-2 pt-3">
             <button
@@ -300,7 +328,7 @@ export function ChatHeader({
               onClick={() => setIsDeleteConfirmOpen(false)}
               className="px-4 py-2 text-xs font-semibold rounded-full border border-border hover:bg-muted transition-colors cursor-pointer"
             >
-              Hủy
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -308,7 +336,7 @@ export function ChatHeader({
               onClick={() => void handleConfirmDelete()}
               className="px-5 py-2 text-xs font-semibold rounded-full bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors cursor-pointer"
             >
-              {isDeleting ? "Đang xoá..." : "Xoá cuộc trò chuyện"}
+              {isDeleting ? t("aiPlanner.deleting") : t("aiPlanner.deleteChatAction")}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -9,6 +9,11 @@ import java.util.Optional;
 public interface PlaceSnapshotResolver {
   Optional<PlaceSnapshot> find(String placeId);
 
+  /** Fail closed unless the adapter explicitly supports hydration without provider/detail calls. */
+  default Map<String, PlaceSnapshot> resolveLocalBatch(List<String> placeIds) {
+    return Map.of();
+  }
+
   default Map<String, PlaceSnapshot> resolveBatch(List<String> placeIds) {
     if (placeIds == null || placeIds.isEmpty()) {
       return Map.of();

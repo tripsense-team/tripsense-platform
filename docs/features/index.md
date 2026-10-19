@@ -4,6 +4,21 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `ai-curated-place-recommendations` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-curated-place-recommendations.md) |
+| `observed-history-unattributed-latency` | IMPLEMENTING; diagnosis code + 231 tests complete, runtime cause identification pending | `services/recommendation-service`; local analyzer | [Docs](./observed-history-unattributed-latency.md) |
+| `ai-chat-dynamic-title-generation` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-chat-dynamic-title-generation.md) |
+| `ai-itinerary-lifecycle-tools` | DONE | `services/ai-service`, `services/trip-service`, `apps/web/tripsense` | [Docs](./ai-itinerary-lifecycle-tools.md) |
+| `attraction-inventory-audit-and-preview` | IMPLEMENTING; revision 3 primaryType code + 349 tests complete, live acceptance pending; earlier tooling superseded | `services/place-service`, `services/recommendation-service` | [Docs](./attraction-inventory-audit-and-preview.md) |
+| `ai-planner-unspecified-traveler-count` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-planner-unspecified-traveler-count.md) |
+| `ai-planner-flexible-date-retention` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-planner-flexible-date-retention.md) |
+| `explore-for-you-category-sections` | IMPLEMENTING; code and automated checks complete, local acceptance pending | `services/recommendation-service`, `services/place-service`, `apps/web/tripsense`; Gateway diagnostics | [Docs](./explore-for-you-category-sections.md) |
+| `context-shared-upstash-diagnostics` | DONE | `services/context-service`, local scripts and gitignored config | [Docs](./context-shared-upstash-diagnostics.md) |
+| `observed-history-signal-quality` | DONE | `services/recommendation-service`; Compose config passthrough | [Docs](./observed-history-signal-quality.md) |
+| `observed-history-diagnostics` | DONE | `services/recommendation-service`; local log analyzer | [Docs](./observed-history-diagnostics.md) |
+| `context-preferences-demand-cache` | DONE | `services/context-service`, dedicated Context Redis cache, prod Compose | [Docs](./context-preferences-demand-cache.md) |
+| `context-owned-personalization` | DONE | `services/recommendation-service`, `services/ai-service`; `services/context-service` contract tests | [Docs](./context-owned-personalization.md) |
+| `explore-parallel-local-hybrid-retrieval` | DONE | `services/recommendation-service` | [Docs](./explore-parallel-local-hybrid-retrieval.md) |
+| `explore-local-candidate-refresh-policy` | DONE | `services/recommendation-service`; `services/place-service` regression tests | [Docs](./explore-local-candidate-refresh-policy.md) |
 | `group-c-product-expansion` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; identity remains in `user-service` | [Docs](./group-c-product-expansion.md) |
 | `group-b-feature-completion` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/social-service` | [Docs](./group-b-feature-completion.md) |
 | `trip-export-pdf-ics` | IMPLEMENTED | `apps/web/tripsense` | [Docs](./trip-export-pdf-ics.md) |
@@ -15,6 +30,7 @@ Track every feature that enters the multi-agent workflow.
 | `hotel-demo-commerce-and-pr66-remediation` | DONE | `services/trip-service`, `apps/web/tripsense`; existing Gateway routes | [Docs](./hotel-demo-commerce-and-pr66-remediation.md) |
 | `ai-service-dynamic-gemini-key-pool` | DONE | `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./ai-service-dynamic-gemini-key-pool.md) |
 | `ai-conversational-trip-intake-auto-commit` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/ai-service`, `services/trip-service`, `services/place-service` | [Docs](./ai-conversational-trip-intake-auto-commit.md) |
+| `ai-chat-explicit-prompt-trip-linking` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/ai-service` | [Docs](./ai-chat-explicit-prompt-trip-linking.md) |
 | `ai-chat-mindtrip-experience-enhancement` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/trip-service` | [Docs](./ai-chat-mindtrip-experience-enhancement.md) |
 | `ai-chat-trip-aware-rich-itinerary` | IMPLEMENTING | `apps/web/tripsense`, `services/ai-service-v2`, `services/trip-service`, `services/api-gateway` | [Docs](./ai-chat-trip-aware-rich-itinerary.md) |
 | `ai-planner-trip-detail-panel` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/ai-service-v2`, `services/api-gateway` | [Docs](./ai-planner-trip-detail-panel.md) |

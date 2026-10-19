@@ -31,6 +31,8 @@ ziomap:
   photo-allowed-hosts: ${ZIOMAP_PHOTO_ALLOWED_HOSTS:lh3.googleusercontent.com,ziomap-api.socibi.com}
 
 tripsense:
+  explore-diagnostics:
+    enabled: ${EXPLORE_DIAGNOSTICS_ENABLED:true}
   places:
     default-city: ${DEFAULT_CITY:Da Nang}
     default-country: ${DEFAULT_COUNTRY:Vietnam}

@@ -22,6 +22,58 @@ class ZioMapProviderTest {
 
   private ZioMapProvider provider;
 
+  @Test
+  void explicitSearchPrimaryIsRetainedButMissingDetailPrimaryIsNotInvented() {
+    ZioMapProperties props = new ZioMapProperties();
+    props.setApiKey("test-key");
+    var builder = RestClient.builder().baseUrl("https://ziomap-api.socibi.com");
+    var server = MockRestServiceServer.bindTo(builder).build();
+    var p = new ZioMapProvider(props, builder.build());
+    try {
+      server
+          .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/text-search")))
+          .andRespond(
+              withSuccess(
+                  "{\"places\":[{\"id\":\"one\",\"displayName\":{\"text\":\"Cafe\"},\"primaryType\":\"coffee_shop\",\"types\":[\"food\",\"cafe\"]}]}",
+                  MediaType.APPLICATION_JSON));
+      server
+          .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/details")))
+          .andRespond(
+              withSuccess(
+                  "{\"place_id\":\"one\",\"name\":\"Cafe\",\"types\":[\"cafe\",\"food\"]}",
+                  MediaType.APPLICATION_JSON));
+      var search = p.textSearch("cafe", 16.05, 108.2, 35000, 1).getFirst();
+      org.assertj.core.api.Assertions.assertThat(search.getPrimaryType()).isEqualTo("coffee_shop");
+      org.assertj.core.api.Assertions.assertThat(
+              p.getPlaceDetails("one").orElseThrow().getPrimaryType())
+          .isNull();
+      server.verify();
+    } finally {
+      p.destroy();
+    }
+  }
+
+  @Test
+  void detailsCapturesExplicitPrimaryWhenUpstreamSuppliesIt() {
+    var builder = RestClient.builder().baseUrl("https://ziomap-api.socibi.com");
+    var server = MockRestServiceServer.bindTo(builder).build();
+    var p = new ZioMapProvider(new ZioMapProperties(), builder.build());
+    try {
+      server
+          .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/details")))
+          .andRespond(
+              withSuccess(
+                  "{\"place_id\":\"one\",\"name\":\"Museum\",\"primaryType\":\"museum\",\"types\":[\"cafe\",\"museum\"]}",
+                  MediaType.APPLICATION_JSON));
+      org.assertj.core.api.Assertions.assertThat(
+              p.getPlaceDetails("one").orElseThrow().getPrimaryType())
+          .isEqualTo("museum");
+      server.verify();
+    } finally {
+      p.destroy();
+    }
+  }
+
   @BeforeEach
   void setUp() {
     ZioMapProperties props = new ZioMapProperties();

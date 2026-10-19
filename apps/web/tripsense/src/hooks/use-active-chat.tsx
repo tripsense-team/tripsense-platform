@@ -18,12 +18,14 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import type { ChatMessage } from "@/lib/types";
+import { useTranslation } from "@/i18n";
 import {
   type ChatSession,
   useAiChatSessions,
   useDeleteAiChatMutation,
   useRenameAiChatMutation,
   fetchChatMessagesQueryFn,
+  isGenericChatTitle,
 } from "./use-ai-chats";
 import { aiChatQueryKeys, getQueryClient } from "@/lib/react-query";
 import { useAuthStore } from "@/features/auth";
@@ -77,6 +79,7 @@ export function ActiveChatProvider({
   const router = useRouter();
   const params = useParams<{ chatId?: string }>();
   const searchParams = useSearchParams();
+  const { t, locale } = useTranslation();
 
   const resolvedChatId =
     initialChatId || params?.chatId || searchParams?.get("chatId") || null;
@@ -126,7 +129,13 @@ export function ActiveChatProvider({
         },
         prepareSendMessagesRequest(request) {
           const lastMessage = request.messages.at(-1);
+          const currentToken = useAuthStore.getState().accessToken;
+          const currentUser = useAuthStore.getState().user;
           return {
+            headers: {
+              "X-User-Id": currentUser?.id || "guest",
+              ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {}),
+            },
             body: {
               id: request.id,
               chatId: request.id,
@@ -237,9 +246,17 @@ export function ActiveChatProvider({
     () => chatList.find((c) => c.id === chatId),
     [chatList, chatId]
   );
-  const chatTitle =
-    currentChat?.title ||
-    (messages.length > 0 ? "Kế hoạch chuyến đi của bạn" : "New chat");
+  const chatTitle = useMemo(() => {
+    if (currentChat?.title && !isGenericChatTitle(currentChat.title)) {
+      return currentChat.title;
+    }
+    return (
+      currentChat?.title ||
+      (messages.length > 0
+        ? (locale === "vi" ? "Lịch trình chuyến đi" : "Trip itinerary")
+        : t("aiPlanner.newChat"))
+    );
+  }, [currentChat?.title, messages.length, locale, t]);
 
   // Rename chat
   const renameChat = useCallback(
@@ -247,7 +264,11 @@ export function ActiveChatProvider({
       if (!newTitle.trim()) return;
       try {
         await renameMutation.mutateAsync({ chatId, title: newTitle.trim() });
-        toast.success("Đã đổi tên cuộc trò chuyện thành công!");
+        toast.success(
+          locale === "vi"
+            ? "Đã đổi tên cuộc trò chuyện thành công!"
+            : "Chat renamed successfully!"
+        );
       } catch (err: any) {
         toast.error(err.message || "Không thể đổi tên cuộc trò chuyện.");
       }

@@ -38,7 +38,11 @@ public class ExplorePreferenceMapper {
               List.of(new Affinity("nightlife", 1.0), new Affinity("attraction", 0.5))));
 
   public Map<String, Double> map(String dimensionCode, String valueCode, double confidence) {
-    if (dimensionCode == null || valueCode == null || !supportedDimension(dimensionCode)) {
+    if (dimensionCode == null
+        || valueCode == null
+        || !Double.isFinite(confidence)
+        || confidence <= 0
+        || !supportedValue(dimensionCode, valueCode)) {
       return Map.of();
     }
     double boundedConfidence = Math.max(0, Math.min(1, confidence));
@@ -50,14 +54,18 @@ public class ExplorePreferenceMapper {
     return Map.copyOf(result);
   }
 
-  private boolean supportedDimension(String value) {
-    return switch (value.trim().toUpperCase(Locale.ROOT)) {
-      case "FOOD_STYLE",
-          "ACTIVITY_INTEREST",
-          "STAY_STYLE",
-          "SPLURGE_CATEGORY",
-          "EXPLORE_AFFINITY" ->
-          true;
+  private boolean supportedValue(String dimension, String value) {
+    String code = value.trim().toUpperCase(Locale.ROOT);
+    return switch (dimension.trim().toUpperCase(Locale.ROOT)) {
+      case "FOOD_STYLE" ->
+          java.util.Set.of("CAFE", "LOCAL_FOOD", "STREET_FOOD", "FINE_DINING").contains(code);
+      case "STAY_STYLE" -> java.util.Set.of("HOTEL", "HOMESTAY", "HOSTEL", "RESORT").contains(code);
+      case "ACTIVITY_INTEREST" ->
+          java.util.Set.of("NATURE", "HIKING", "CULTURE", "BEACH", "NIGHTLIFE").contains(code);
+      case "EXPLORE_AFFINITY" ->
+          java.util.Set.of("CAFE", "NATURE", "HIKING", "CULTURE", "BEACH", "NIGHTLIFE")
+              .contains(code);
+      case "SPLURGE_CATEGORY" -> MAPPINGS.containsKey(code);
       default -> false;
     };
   }

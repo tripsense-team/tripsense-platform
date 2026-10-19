@@ -19,6 +19,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class RecommendationExceptionHandler {
+  @ExceptionHandler(
+      fu.tripsense.recommendation.application.SectionFeedCache.SeedNotFoundException.class)
+  ResponseEntity<ApiResponse<Void>> seedNotFound() {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(ApiResponse.error("NOT_FOUND", "Resource was not found"));
+  }
+
   @ExceptionHandler(InternalAuthenticationException.class)
   ResponseEntity<ApiResponse<Void>> internalUnauthenticated(
       InternalAuthenticationException exception) {
@@ -36,6 +43,7 @@ public class RecommendationExceptionHandler {
   @ExceptionHandler({
     IllegalArgumentException.class,
     MethodArgumentNotValidException.class,
+    org.springframework.http.converter.HttpMessageNotReadableException.class,
     FeedbackValidationException.class
   })
   ResponseEntity<ApiResponse<Void>> invalid(Exception exception) {

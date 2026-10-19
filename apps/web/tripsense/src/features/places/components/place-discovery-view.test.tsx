@@ -4,9 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/i18n";
 
-const { searchPlacesMock, getExploreForYouMock, authState } = vi.hoisted(() => ({
+const { searchPlacesMock, getExploreForYouMock, getExploreSectionsMock, authState } = vi.hoisted(() => ({
   searchPlacesMock: vi.fn(),
   getExploreForYouMock: vi.fn(),
+  getExploreSectionsMock: vi.fn(),
   authState: {
     isAuthenticated: false,
     status: "unauthenticated",
@@ -27,6 +28,7 @@ vi.mock("../services/places-api", () => ({
 
 vi.mock("../services/recommendations-api", () => ({
   getExploreForYou: getExploreForYouMock,
+  getExploreSections: getExploreSectionsMock,
   recordRecommendationEvent: vi.fn(),
 }));
 
@@ -60,10 +62,12 @@ describe("PlaceDiscoveryView request coordination", () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_EXPLORE_SECTION_FEED_ENABLED", "false");
     vi.useFakeTimers();
     useExploreStore.getState().resetExploreState();
     searchPlacesMock.mockReset();
     getExploreForYouMock.mockReset();
+    getExploreSectionsMock.mockReset();
     authState.isAuthenticated = false;
     authState.status = "unauthenticated";
     authState.user = null;
@@ -97,6 +101,7 @@ describe("PlaceDiscoveryView request coordination", () => {
     act(() => root.unmount());
     container.remove();
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it("issues only one new search when the destination changes", async () => {
@@ -320,5 +325,42 @@ describe("PlaceDiscoveryView request coordination", () => {
     expect(getExploreForYouMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ destinationId: "danang", query: "museum" }),
     );
+  });
+
+  it("uses one preview endpoint, expands only the selected category and restores preview without a request", async () => {
+    vi.stubEnv("NEXT_PUBLIC_EXPLORE_SECTION_FEED_ENABLED", "true");
+    authState.isAuthenticated = true;
+    authState.status = "authenticated";
+    authState.user = { id: "user-1" };
+    getExploreSectionsMock.mockImplementation(async ({ section }) => ({
+      recommendationId: section ? "category-rec" : "preview-rec", seedId: "seed-1",
+      expiresAt: new Date(Date.now() + 300_000).toISOString(), seedReused: Boolean(section),
+      previewOrderPreserved: true, destinationId: "danang", resultMode: "PERSONALIZED", stale: false,
+      personalization: { enabled: true, applied: true, signalCount: 1 }, requestedCount: section ? 48 : 16,
+      returnedCount: section ? 17 : 16,
+      sections: (section ? [section] : ["ATTRACTION", "HOMESTAY", "FOOD", "CAFE"]).map((category: string, index: number) => ({
+        category, status: "READY", degradations: [], items: Array.from({ length: section ? 17 : 4 }, (_, i) => ({
+          place: { id: `${category}-${i}`, name: `${category} place ${i}`, categories: [category.toLowerCase()], photos: [], location: { lat: 16.05, lng: 108.2 } }, rank: section ? i + 1 : index * 4 + i + 1,
+          score: 1, availableCriteria: [], reasons: [],
+        })),
+      })),
+    }));
+    act(() => root.render(<I18nProvider initialLocale="vi"><PlaceDiscoveryView /></I18nProvider>));
+    await act(async () => { await vi.runAllTimersAsync(); });
+    expect(getExploreSectionsMock).toHaveBeenCalledTimes(1);
+    expect(getExploreForYouMock).not.toHaveBeenCalled();
+    expect(searchPlacesMock).not.toHaveBeenCalled();
+    expect(container.querySelectorAll('button[aria-label^="Xem thêm:"]')).toHaveLength(4);
+    const cafe = container.querySelector('button[aria-label="Xem thêm: Cà phê"]');
+    await act(async () => { cafe?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await vi.runAllTimersAsync(); });
+    expect(getExploreSectionsMock).toHaveBeenCalledTimes(2);
+    expect(getExploreSectionsMock).toHaveBeenLastCalledWith(expect.objectContaining({ section: "CAFE", seedId: "seed-1" }));
+    expect(useExploreStore.getState().recommendationId).toBe("category-rec");
+    expect(container.textContent).toContain("Trang 1 / 2");
+    const back = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("Quay lại Dành cho bạn"));
+    await act(async () => { back?.dispatchEvent(new MouseEvent("click", { bubbles: true })); await vi.runAllTimersAsync(); });
+    expect(getExploreSectionsMock).toHaveBeenCalledTimes(2);
+    expect(useExploreStore.getState().recommendationId).toBe("preview-rec");
+    expect(container.querySelectorAll('button[aria-label^="Xem thêm:"]')).toHaveLength(4);
   });
 });

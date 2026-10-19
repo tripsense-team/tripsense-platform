@@ -21,7 +21,9 @@ public record RecommendationContext(
     List<RankingCriterion> rankingCriteria,
     UserProfileSnapshot profile,
     TripContextSnapshot trip,
-    int limit) {
+    int limit,
+    boolean allowExternalRefresh,
+    boolean parallelRetrieval) {
   public RecommendationContext {
     preferredCategories = normalize(preferredCategories);
     dislikedCategories = normalize(dislikedCategories);
@@ -29,6 +31,121 @@ public record RecommendationContext(
     rankingCriteria = rankingCriteria == null ? List.of() : List.copyOf(rankingCriteria);
     profile = profile == null ? UserProfileSnapshot.coldStart(false) : profile;
     if (limit < 1) throw new IllegalArgumentException("limit must be positive");
+  }
+
+  // Existing non-Explore callers retain provider-backed retrieval by default.
+  public RecommendationContext(
+      UUID requestId,
+      UUID userId,
+      UUID tripId,
+      String sessionId,
+      String query,
+      GeoPoint anchor,
+      Integer radiusMeters,
+      Set<String> preferredCategories,
+      Set<String> dislikedCategories,
+      Set<String> requiredCategories,
+      GeographicScope geographicScope,
+      List<RankingCriterion> rankingCriteria,
+      UserProfileSnapshot profile,
+      TripContextSnapshot trip,
+      int limit,
+      boolean allowExternalRefresh) {
+    this(
+        requestId,
+        userId,
+        tripId,
+        sessionId,
+        query,
+        anchor,
+        radiusMeters,
+        preferredCategories,
+        dislikedCategories,
+        requiredCategories,
+        geographicScope,
+        rankingCriteria,
+        profile,
+        trip,
+        limit,
+        allowExternalRefresh,
+        false);
+  }
+
+  public RecommendationContext(
+      UUID requestId,
+      UUID userId,
+      UUID tripId,
+      String sessionId,
+      String query,
+      GeoPoint anchor,
+      Integer radiusMeters,
+      Set<String> preferredCategories,
+      Set<String> dislikedCategories,
+      Set<String> requiredCategories,
+      GeographicScope geographicScope,
+      List<RankingCriterion> rankingCriteria,
+      UserProfileSnapshot profile,
+      TripContextSnapshot trip,
+      int limit) {
+    this(
+        requestId,
+        userId,
+        tripId,
+        sessionId,
+        query,
+        anchor,
+        radiusMeters,
+        preferredCategories,
+        dislikedCategories,
+        requiredCategories,
+        geographicScope,
+        rankingCriteria,
+        profile,
+        trip,
+        limit,
+        true);
+  }
+
+  public RecommendationContext withExternalRefresh(boolean allowed) {
+    return new RecommendationContext(
+        requestId,
+        userId,
+        tripId,
+        sessionId,
+        query,
+        anchor,
+        radiusMeters,
+        preferredCategories,
+        dislikedCategories,
+        requiredCategories,
+        geographicScope,
+        rankingCriteria,
+        profile,
+        trip,
+        limit,
+        allowed,
+        parallelRetrieval);
+  }
+
+  public RecommendationContext withParallelRetrieval(boolean enabled) {
+    return new RecommendationContext(
+        requestId,
+        userId,
+        tripId,
+        sessionId,
+        query,
+        anchor,
+        radiusMeters,
+        preferredCategories,
+        dislikedCategories,
+        requiredCategories,
+        geographicScope,
+        rankingCriteria,
+        profile,
+        trip,
+        limit,
+        allowExternalRefresh,
+        enabled);
   }
 
   public RecommendationContext(

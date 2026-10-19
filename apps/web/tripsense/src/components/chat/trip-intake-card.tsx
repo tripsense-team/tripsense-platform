@@ -13,10 +13,12 @@ import {
   Plus,
   Minus,
   ArrowRight,
+  ArrowUpRight,
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { useActiveChat } from "@/hooks/use-active-chat";
+import { useArtifact } from "@/hooks/use-artifact";
 import {
   patchPlanningBrief,
   cancelPlanningBrief,
@@ -27,6 +29,7 @@ import type {
 } from "@/features/ai-trip-commit/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { formatWhenSelection } from "@/features/trip-management/utils/date";
 
 type IntakeStep = "WHERE" | "WHEN" | "WHO" | "BUDGET";
 
@@ -34,6 +37,7 @@ interface TripIntakeCardProps {
   chatId?: string;
   initialState: TripBriefState;
   isLatestMessage?: boolean;
+  hasProposal?: boolean;
 }
 
 const POPULAR_DESTINATIONS = [
@@ -84,14 +88,30 @@ export function TripIntakeCard({
   chatId: propChatId,
   initialState,
   isLatestMessage = true,
+  hasProposal = false,
 }: TripIntakeCardProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { chatId: activeChatId, sendMessage } = useActiveChat();
+  const { artifact, showProposal, openArtifact } = useArtifact();
   const resolvedChatId = propChatId || activeChatId;
 
   const [state, setState] = useState<TripBriefState>(initialState);
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const proposalExists =
+    hasProposal ||
+    Boolean(artifact.proposal?.proposalId && artifact.proposal?.days?.length > 0) ||
+    state.status === "COMPLETED";
+
+  const handleViewItinerary = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("tripsense:open-trip-detail"));
+    if (artifact.proposal?.proposalId) {
+      showProposal(artifact.proposal);
+    } else {
+      openArtifact();
+    }
+  }, [artifact.proposal, showProposal, openArtifact]);
 
   // Active question step
   const determineInitialStep = (): IntakeStep => {
@@ -197,25 +217,38 @@ export function TripIntakeCard({
             <span>{t("aiPlanner.intake.tripLinked")}</span>
           </div>
 
-          {state.status === "TRIP_LINKED" && isLatestMessage && (
+          {proposalExists ? (
             <Button
               size="sm"
-              onClick={() => {
-                sendMessage({
-                  parts: [
-                    {
-                      type: "text",
-                      text: t("aiPlanner.intake.generatePrompt"),
-                    },
-                  ],
-                  role: "user",
-                });
-              }}
-              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-xs"
+              variant="outline"
+              onClick={handleViewItinerary}
+              className="rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-xs border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors cursor-pointer"
             >
-              <Sparkles className="size-3.5 mr-1.5" />
-              <span>{t("aiPlanner.intake.generateAction")}</span>
+              <Calendar className="size-3.5 mr-1.5 text-emerald-600 dark:text-emerald-400" />
+              <span>{t("aiPlanner.intake.viewItinerary")}</span>
+              <ArrowUpRight className="size-3.5 ml-1 text-emerald-600 dark:text-emerald-400" />
             </Button>
+          ) : (
+            state.status === "TRIP_LINKED" && isLatestMessage && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  sendMessage({
+                    parts: [
+                      {
+                        type: "text",
+                        text: t("aiPlanner.intake.generatePrompt"),
+                      },
+                    ],
+                    role: "user",
+                  });
+                }}
+                className="rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-xs cursor-pointer"
+              >
+                <Sparkles className="size-3.5 mr-1.5" />
+                <span>{t("aiPlanner.intake.generateAction")}</span>
+              </Button>
+            )
           )}
         </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -225,10 +258,17 @@ export function TripIntakeCard({
               {state.brief.where.destinationText}
             </span>
           )}
-          {state.brief.when?.startDate && (
+          {state.brief.when && (state.brief.when.startDate || state.brief.when.durationDays) && (
             <span className="flex items-center gap-1 rounded-lg bg-card/80 border border-border/50 px-2.5 py-1">
               <Calendar className="size-3 text-primary" />
-              {state.brief.when.startDate} → {state.brief.when.endDate}
+              {formatWhenSelection({
+                type: state.brief.when.type,
+                startDate: state.brief.when.startDate,
+                endDate: state.brief.when.endDate,
+                durationDays: state.brief.when.durationDays,
+                flexibleMonths: state.brief.when.flexibleMonths,
+                locale,
+              })}
             </span>
           )}
           {state.brief.who && (
@@ -274,7 +314,10 @@ export function TripIntakeCard({
       id: "WHEN",
       label: t("aiPlanner.intake.stepWhen"),
       icon: Calendar,
-      isDone: Boolean(state.brief.when?.startDate && state.brief.when?.endDate),
+      isDone: Boolean(
+        (state.brief.when?.startDate && state.brief.when?.endDate) ||
+        (state.brief.when?.durationDays && state.brief.when.durationDays > 0)
+      ),
     },
     {
       id: "WHO",

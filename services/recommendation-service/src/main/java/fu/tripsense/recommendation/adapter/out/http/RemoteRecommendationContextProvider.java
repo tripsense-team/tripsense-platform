@@ -1,7 +1,12 @@
 package fu.tripsense.recommendation.adapter.out.http;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import fu.tripsense.recommendation.application.ObservedTiming;
 import fu.tripsense.recommendation.application.RecommendationCommand;
+import fu.tripsense.recommendation.application.RequestDiagnostics;
 import fu.tripsense.recommendation.application.TripContextNotAccessibleException;
 import fu.tripsense.recommendation.application.TripContextUnavailableException;
 import fu.tripsense.recommendation.application.port.ObservedHistoryReader;
@@ -15,6 +20,7 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -25,10 +31,16 @@ import org.springframework.web.client.RestClient;
 @Slf4j
 @Component
 public class RemoteRecommendationContextProvider implements RecommendationContextProvider {
+  // Eight catalog dimensions x max 20 selections, plus six derived Explore affinities.
+  private static final int MAX_SIGNALS = 200;
+  private static final int MAX_CONTEXT_BYTES = 65_536;
+  private static final ObjectMapper CONTEXT_JSON =
+      new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
   private final RestClient restClient;
   private final RecommendationProperties.Downstream endpoints;
   private final ObservedHistoryReader historyReader;
   private final ExplorePreferenceMapper preferenceMapper;
+  private final RecommendationProperties.Profile profileSettings;
 
   public RemoteRecommendationContextProvider(
       RestClient recommendationRestClient,
@@ -39,17 +51,15 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
     this.endpoints = properties.getDownstream();
     this.historyReader = historyReader;
     this.preferenceMapper = preferenceMapper;
+    this.profileSettings = properties.getProfile();
   }
 
   @Override
   public RecommendationContext resolve(RecommendationCommand command) {
-    boolean enabled = personalizationEnabled(command.accessToken());
-    UserProfileSnapshot observed =
-        historyReader.read(command.userId(), command.tripId(), command.sessionId(), enabled);
+    UserProfileSnapshot observed = readObserved(command);
     UserProfileSnapshot profile =
-        enabled
-            ? mergeDeclared(observed, command.accessToken(), command.preferencePurpose())
-            : observed;
+        mergeDeclared(observed, command.accessToken(), command.preferencePurpose());
+    RequestDiagnostics.mark("personalization_enabled", profile.personalizationEnabled());
     TripContextSnapshot trip =
         command.tripId() == null ? null : getTrip(command.tripId(), command.accessToken());
     String query = resolveQuery(command, trip);
@@ -83,54 +93,77 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
     throw new IllegalArgumentException("A query, category, trip, or location anchor is required");
   }
 
-  private boolean personalizationEnabled(String token) {
+  private UserProfileSnapshot readObserved(RecommendationCommand command) {
+    RequestDiagnostics.mark("observed_history_enabled", profileSettings.isObservedHistoryEnabled());
+    if (!profileSettings.isObservedHistoryEnabled()) {
+      RequestDiagnostics.mark("observed_history_status", "disabled");
+      return UserProfileSnapshot.coldStart(true);
+    }
     try {
-      UserEnvelope response =
-          restClient
-              .get()
-              .uri(endpoints.getUserUrl() + "/api/users/me/travel-preferences")
-              .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-              .retrieve()
-              .body(UserEnvelope.class);
-      return response != null
-          && response.data() != null
-          && response.data().personalizationEnabled();
+      UserProfileSnapshot observed =
+          RequestDiagnostics.measure(
+              "observed_history",
+              () ->
+                  ObservedTiming.measure(
+                      () ->
+                          historyReader.read(
+                              command.userId(), command.tripId(), command.sessionId(), true)));
+      if (observed == null) throw new IllegalStateException("Missing observed snapshot");
+      RequestDiagnostics.mark(
+          "observed_history_status", observed.available() ? "available" : "empty");
+      return observed;
     } catch (RuntimeException exception) {
-      log.warn(
-          "personalization_consent_unavailable errorType={}", exception.getClass().getSimpleName());
-      return false;
+      RequestDiagnostics.mark("observed_history_status", "unavailable");
+      log.warn("observed_history_unavailable errorType={}", exception.getClass().getSimpleName());
+      return UserProfileSnapshot.coldStart(true);
     }
   }
 
   private UserProfileSnapshot mergeDeclared(
       UserProfileSnapshot observed, String token, String purpose) {
     try {
-      PreferenceSignal[] response =
-          restClient
-              .get()
-              .uri(
-                  endpoints.getContextUrl() + "/api/context/preferences?purpose={purpose}", purpose)
-              .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-              .retrieve()
-              .body(PreferenceSignal[].class);
+      Map<String, PreferenceSignal> response =
+          RequestDiagnostics.measure(
+              "context_preferences",
+              () ->
+                  restClient
+                      .get()
+                      .uri(
+                          endpoints.getContextUrl() + "/api/context/preferences?purpose={purpose}",
+                          purpose)
+                      .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                      .exchange(
+                          (request, reply) -> {
+                            if (!reply.getStatusCode().is2xxSuccessful()) {
+                              throw new IllegalStateException("Context unavailable");
+                            }
+                            byte[] bytes = reply.getBody().readNBytes(MAX_CONTEXT_BYTES + 1);
+                            if (bytes.length > MAX_CONTEXT_BYTES) {
+                              throw new IllegalStateException("Context payload exceeds limit");
+                            }
+                            return parseSignals(CONTEXT_JSON.readTree(bytes), purpose);
+                          }));
       Set<String> preferred = new HashSet<>(observed.preferredCategories());
       Map<String, Double> affinities = new java.util.HashMap<>(observed.categoryAffinities());
-      if (response != null) {
-        for (PreferenceSignal signal : response) {
-          preferenceMapper
-              .map(signal.dimensionCode(), signal.valueCode(), signal.confidence())
-              .forEach(
-                  (category, confidence) -> {
-                    preferred.add(category);
-                    affinities.merge(
-                        category,
-                        confidence,
-                        (current, incoming) -> 1 - ((1 - Math.max(0, current)) * (1 - incoming)));
-                  });
-        }
+      int mappedSignals = 0;
+      for (PreferenceSignal signal : response.values()) {
+        var mapped =
+            preferenceMapper.map(signal.dimensionCode(), signal.valueCode(), signal.confidence());
+        if (!mapped.isEmpty()) mappedSignals++;
+        mapped.forEach(
+            (category, confidence) -> {
+              preferred.add(category);
+              affinities.merge(
+                  category,
+                  confidence,
+                  (current, incoming) -> 1 - ((1 - Math.max(0, current)) * (1 - incoming)));
+            });
       }
+      RequestDiagnostics.mark(
+          "context_preferences_status", mappedSignals > 0 ? "available" : "empty");
+      RequestDiagnostics.mark("context_preference_signals", mappedSignals);
       return new UserProfileSnapshot(
-          response != null || observed.available(),
+          mappedSignals > 0 || observed.available(),
           true,
           preferred,
           observed.dislikedCategories(),
@@ -141,10 +174,45 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
           observed.negativePlaceIds(),
           Instant.now());
     } catch (RuntimeException exception) {
+      RequestDiagnostics.mark("context_preferences_status", "unavailable");
+      RequestDiagnostics.mark("context_preference_signals", 0);
       log.warn(
           "declared_preferences_unavailable errorType={}", exception.getClass().getSimpleName());
       return observed;
     }
+  }
+
+  private static Map<String, PreferenceSignal> parseSignals(JsonNode root, String purpose) {
+    if (root == null || !root.isArray() || root.size() > MAX_SIGNALS) {
+      throw new IllegalStateException("Invalid Context signal array");
+    }
+    Map<String, PreferenceSignal> result = new TreeMap<>();
+    for (JsonNode node : root) {
+      if (!node.isObject()) throw new IllegalStateException("Invalid Context signal");
+      JsonNode dimension = node.path("dimensionCode");
+      JsonNode value = node.path("valueCode");
+      JsonNode source = node.path("source");
+      JsonNode confidence = node.path("confidence");
+      if (!dimension.isTextual()
+          || !value.isTextual()
+          || !source.isTextual()
+          || !confidence.isNumber()) continue;
+      double weight = confidence.doubleValue();
+      if (!Double.isFinite(weight) || weight <= 0 || weight > 1) continue;
+      String dim = dimension.textValue();
+      boolean derived = "EXPLORE_AFFINITY".equals(dim);
+      if (derived
+          ? !"EXPLORE_RECOMMENDATION".equals(purpose)
+              || !"ONBOARDING_DERIVED_V1".equals(source.textValue())
+          : !"ONBOARDING".equals(source.textValue())) continue;
+      if (dim.length() > 80 || value.textValue().length() > 128) continue;
+      PreferenceSignal signal = new PreferenceSignal(dim, value.textValue(), weight);
+      result.merge(
+          dim + ":" + value.textValue(),
+          signal,
+          (left, right) -> left.confidence() >= right.confidence() ? left : right);
+    }
+    return result;
   }
 
   private TripContextSnapshot getTrip(UUID tripId, String token) {
@@ -177,24 +245,7 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
     }
   }
 
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  record UserEnvelope(boolean success, UserPreference data) {}
-
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  record UserPreference(
-      boolean personalizationEnabled,
-      Map<String, Object> preferences,
-      Instant consentedAt,
-      Long version,
-      Instant updatedAt) {}
-
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  record PreferenceSignal(
-      String dimensionCode,
-      String valueCode,
-      double confidence,
-      String source,
-      Instant updatedAt) {}
+  record PreferenceSignal(String dimensionCode, String valueCode, double confidence) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record TripEnvelope(boolean success, TripDto data) {}

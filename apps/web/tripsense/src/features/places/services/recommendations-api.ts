@@ -47,6 +47,57 @@ interface ApiResponse<T> {
   data: T;
 }
 
+export type DiscoverySection = "ATTRACTION" | "HOMESTAY" | "FOOD" | "CAFE" | "STAY";
+export interface SectionFeed {
+  recommendationId: string;
+  seedId: string | null;
+  expiresAt: string;
+  seedReused: boolean;
+  previewOrderPreserved: boolean;
+  destinationId: string;
+  resultMode: "PERSONALIZED" | "GENERIC_DESTINATION";
+  personalization: ExploreRecommendation["personalization"];
+  stale: boolean;
+  requestedCount: number;
+  returnedCount: number;
+  sections: Array<{
+    category: DiscoverySection;
+    status: "READY" | "EMPTY" | "ERROR";
+    degradations: string[];
+    items: ExploreRecommendationItem[];
+  }>;
+}
+
+export async function getExploreSections(params: {
+  destinationId: string;
+  sessionId: string;
+  section: DiscoverySection | null;
+  seedId?: string | null;
+  signal: AbortSignal;
+}): Promise<SectionFeed> {
+  const response = await apiClient<ApiResponse<SectionFeed>>(
+    "/api/recommendations/explore-for-you/sections",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        destinationId: params.destinationId,
+        sessionId: params.sessionId,
+        section: params.section,
+        limit: params.section ? 48 : 4,
+        seedId: params.seedId ?? null,
+      }),
+      signal: params.signal,
+    },
+  );
+  return {
+    ...response.data,
+    sections: response.data.sections.map((section) => ({
+      ...section,
+      items: section.items.map((item) => ({ ...item, place: normalizePlace(item.place) })),
+    })),
+  };
+}
+
 export async function getExploreForYou(params: {
   destinationId: string;
   query: string;

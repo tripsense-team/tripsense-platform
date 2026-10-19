@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ModalBackdrop } from "./modal-backdrop";
+import { useTranslation } from "@/i18n";
 
 export type BudgetTier = "any" | "budget" | "sensible" | "upscale" | "luxury";
 
@@ -13,14 +14,6 @@ type BudgetModalProps = {
   zIndexClassName?: string;
 };
 
-const BUDGET_OPTIONS: { id: BudgetTier; label: string; prefix?: string }[] = [
-  { id: "any", label: "Any budget" },
-  { id: "budget", prefix: "$", label: "On a budget" },
-  { id: "sensible", prefix: "$$", label: "Sensibly priced" },
-  { id: "upscale", prefix: "$$$", label: "Upscale" },
-  { id: "luxury", prefix: "$$$$", label: "Luxury" },
-];
-
 export function BudgetModal({
   isOpen,
   onClose,
@@ -28,7 +21,19 @@ export function BudgetModal({
   onSave,
   zIndexClassName,
 }: BudgetModalProps) {
+  const { t } = useTranslation();
   const [selectedBudget, setSelectedBudget] = React.useState<BudgetTier>(initialBudget);
+
+  const budgetOptions: { id: BudgetTier; label: string; prefix?: string }[] = React.useMemo(
+    () => [
+      { id: "any", label: t("trip.budgetTierAny") },
+      { id: "budget", prefix: "$", label: t("trip.budgetTierBudget") },
+      { id: "sensible", prefix: "$$", label: t("trip.budgetTierSensible") },
+      { id: "upscale", prefix: "$$$", label: t("trip.budgetTierUpscale") },
+      { id: "luxury", prefix: "$$$$", label: t("trip.budgetTierLuxury") },
+    ],
+    [t]
+  );
 
   React.useEffect(() => {
     setSelectedBudget(initialBudget);
@@ -43,15 +48,15 @@ export function BudgetModal({
     <ModalBackdrop
       isOpen={isOpen}
       onClose={onClose}
-      title="Budget"
-      subtitle="Select your budget range"
+      title={t("trip.budget")}
+      subtitle={t("trip.intakeBudgetSubtitle")}
       maxWidth="max-w-md"
       zIndexClassName={zIndexClassName}
     >
       <div className="flex flex-col space-y-4">
         {/* Radio List */}
         <div className="flex flex-col space-y-3.5 py-2">
-          {BUDGET_OPTIONS.map((option) => {
+          {budgetOptions.map((option) => {
             const isSelected = selectedBudget === option.id;
 
             return (
@@ -94,7 +99,7 @@ export function BudgetModal({
             onClick={handleSave}
             className="rounded-full bg-black hover:bg-neutral-800 text-white dark:bg-white dark:text-black dark:hover:bg-neutral-200 px-8 py-2.5 text-sm font-semibold transition-all shadow-xs cursor-pointer"
           >
-            Update
+            {t("common.update")}
           </button>
         </div>
       </div>

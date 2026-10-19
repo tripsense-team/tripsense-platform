@@ -13,6 +13,7 @@ import fu.tripsense.recommendation.application.RecommendationApplicationService.
 import fu.tripsense.recommendation.config.RecommendationProperties;
 import fu.tripsense.recommendation.domain.AlgorithmVersions;
 import fu.tripsense.recommendation.domain.GeoPoint;
+import fu.tripsense.recommendation.domain.RankedCandidate;
 import fu.tripsense.recommendation.domain.RecommendationContext;
 import fu.tripsense.recommendation.domain.RecommendationResult;
 import fu.tripsense.recommendation.domain.UserProfileSnapshot;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.mockito.ArgumentCaptor;
 
 class ExploreRecommendationServiceTest {
@@ -114,6 +116,56 @@ class ExploreRecommendationServiceTest {
     verify(cache, never()).put(any(), any(), any(), any(), anyInt(), any());
   }
 
+  @ParameterizedTest
+  @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,false", "false,true"})
+  void reportsEffectiveHistorySignalsRatherThanClaimingEmptyContextIsPersonalized(
+      boolean hasHistory, boolean passiveOnly) {
+    UUID userId = UUID.randomUUID();
+    var profile =
+        hasHistory || passiveOnly
+            ? new UserProfileSnapshot(
+                true,
+                true,
+                Set.of(),
+                Set.of(),
+                Map.of(),
+                Set.of("seen"),
+                hasHistory ? Set.of("saved") : Set.of(),
+                Set.of(),
+                Set.of(),
+                Instant.EPOCH)
+            : UserProfileSnapshot.coldStart(true);
+    var context = context(userId, profile);
+    var ranked =
+        new RecommendationResult(
+            UUID.randomUUID(),
+            context.requestId(),
+            List.of(new RankedCandidate(null, 0.5, null, List.of())),
+            new AlgorithmVersions("r", "f", "e", "feature", "rank", "d"),
+            List.of());
+    when(recommendations.resolveContext(any())).thenReturn(context);
+    when(cache.profileFingerprint(profile)).thenReturn("effective-profile");
+    when(recommendations.prepare(any(RecommendationContext.class)))
+        .thenAnswer(
+            invocation ->
+                new PreparedRecommendation(
+                    invocation.getArgument(0, RecommendationContext.class), ranked));
+    var result =
+        service.recommend(
+            new AuthenticatedUser(userId, "USER"),
+            "token",
+            new ExploreRecommendationCommand("danang", "", "session", 20));
+    assertThat(result.personalization().enabled()).isTrue();
+    assertThat(result.personalization().applied()).isEqualTo(hasHistory);
+    assertThat(result.personalization().signalCount()).isEqualTo(hasHistory ? 1 : 0);
+    assertThat(result.resultMode())
+        .isEqualTo(
+            hasHistory
+                ? ExploreRecommendationResult.ResultMode.PERSONALIZED
+                : ExploreRecommendationResult.ResultMode.GENERIC_DESTINATION);
+    verify(recommendations).record(any());
+  }
+
   private RecommendationContext context(UUID userId) {
     UserProfileSnapshot profile =
         new UserProfileSnapshot(
@@ -127,6 +179,10 @@ class ExploreRecommendationServiceTest {
             Set.of(),
             Set.of(),
             Instant.parse("2026-09-28T00:00:00Z"));
+    return context(userId, profile);
+  }
+
+  private RecommendationContext context(UUID userId, UserProfileSnapshot profile) {
     return new RecommendationContext(
         UUID.randomUUID(),
         userId,

@@ -46,7 +46,12 @@ import { getPlaceDetails, searchPlaces } from "@/features/places/services/places
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
 import type { TripResponse, ItineraryResponse } from "@/features/trip-management/types";
 import { formatShortRange, countTripDays } from "@/features/trip-management/utils/format";
+import {
+  formatWhenSelection,
+  parseFlexiblePreferenceFromNotes,
+} from "@/features/trip-management/utils/date";
 import { useTranslation } from "@/i18n";
+import { formatTripTitle } from "@/components/chat/sidebar-flyout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -162,7 +167,7 @@ export function TripDetailPanel({
   onOpenBudget,
   className,
 }: TripDetailPanelProps) {
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
   const [activeTab, setActiveTab] = React.useState<TripDetailTab>("itinerary");
   const [itinerary, setItinerary] = React.useState<ItineraryResponse | null>(null);
   const [isLoadingItinerary, setIsLoadingItinerary] = React.useState(true);
@@ -308,11 +313,22 @@ export function TripDetailPanel({
     };
   }, [itinerary, trip.destinationName]);
 
-  // Format date range (e.g. "19 – 21 thg 10" or "Oct 19 – 21")
+  // Format date range (e.g. "2 ngày trong Tháng 11" if flexible, or "19 – 21 thg 10")
   const dateRangeStr = React.useMemo(() => {
-    if (!trip.startDate || !trip.endDate) return "Chưa chọn ngày";
+    const flexInfo = parseFlexiblePreferenceFromNotes(trip.notes);
+    if (flexInfo) {
+      return formatWhenSelection({
+        type: "flexible",
+        durationDays: flexInfo.durationDays,
+        flexibleMonths: flexInfo.flexibleMonths,
+        locale,
+      });
+    }
+    if (!trip.startDate || !trip.endDate) {
+      return locale === "vi" ? "Chưa chọn ngày" : "Dates not selected";
+    }
     return formatShortRange(trip.startDate, trip.endDate);
-  }, [trip.startDate, trip.endDate]);
+  }, [trip.notes, trip.startDate, trip.endDate, locale]);
 
   // Days count
   const daysCount = countTripDays(trip);
@@ -563,9 +579,9 @@ export function TripDetailPanel({
               <h1
                 onClick={() => setIsEditingTitle(true)}
                 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground hover:opacity-85 transition-opacity cursor-pointer mb-3"
-                title="Click để đổi tên chuyến đi"
+                title={locale === "vi" ? "Bấm để đổi tên chuyến đi" : "Click to rename trip"}
               >
-                {trip.name || `Trip to ${trip.destinationName}`}
+                {formatTripTitle(trip.name, trip.destinationName, locale)}
               </h1>
             )}
 
@@ -597,8 +613,10 @@ export function TripDetailPanel({
               >
                 <span>
                   {trip.travelerCount
-                    ? `${trip.travelerCount} travelers`
-                    : "Travelers"}
+                    ? trip.travelerCount === 1
+                      ? t("trip.travelerCountOne")
+                      : t("trip.travelerCountMultiple", { count: trip.travelerCount })
+                    : t("trip.intakeWho")}
                 </span>
               </button>
 
@@ -608,7 +626,7 @@ export function TripDetailPanel({
                 onClick={onOpenBudget}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
               >
-                <span>Budget</span>
+                <span>{t("trip.budget")}</span>
               </button>
             </div>
           </div>

@@ -19,7 +19,8 @@ public record PlaceIndexingPayload(
     List<String> photos,
     String openingHours,
     String businessStatus,
-    String description) {
+    String description,
+    String primaryType) {
 
   public static PlaceIndexingPayload from(PlaceDto dto) {
     if (dto == null) {
@@ -43,6 +44,7 @@ public record PlaceIndexingPayload(
         dto.getPhotos(),
         dto.getOpeningHours(),
         dto.getBusinessStatus(),
-        dto.getDescription());
+        dto.getDescription(),
+        dto.getPrimaryType());
   }
 }

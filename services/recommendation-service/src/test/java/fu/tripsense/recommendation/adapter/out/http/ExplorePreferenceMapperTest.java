@@ -22,4 +22,14 @@ class ExplorePreferenceMapperTest {
     assertThat(mapper.map("LOYALTY_PROGRAM", "CAFE", 1.0)).isEmpty();
     assertThat(mapper.map("EXPLORE_AFFINITY", "CAFE", 2.0)).containsEntry("cafe", 1.0);
   }
+
+  @Test
+  void rejectsCrossDimensionValuesAndNonFiniteOrZeroWeights() {
+    assertThat(mapper.map("FOOD_STYLE", "HOTEL", 1)).isEmpty();
+    assertThat(mapper.map("STAY_STYLE", "CAFE", 1)).isEmpty();
+    assertThat(mapper.map("EXPLORE_AFFINITY", "HOTEL", 1)).isEmpty();
+    assertThat(mapper.map("FOOD_STYLE", "CAFE", Double.NaN)).isEmpty();
+    assertThat(mapper.map("FOOD_STYLE", "CAFE", Double.POSITIVE_INFINITY)).isEmpty();
+    assertThat(mapper.map("FOOD_STYLE", "CAFE", 0)).isEmpty();
+  }
 }

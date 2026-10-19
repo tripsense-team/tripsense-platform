@@ -97,6 +97,7 @@ public class RecommendationProperties {
     private int candidateMultiplier = 3;
 
     private Duration maximumPlaceAge = Duration.ofDays(30);
+    private Duration parallelTimeout = Duration.ofSeconds(3);
   }
 
   @Data
@@ -141,6 +142,20 @@ public class RecommendationProperties {
 
   @Data
   public static class Profile {
+    private boolean observedHistoryEnabled = true;
+    private boolean observedSignalPolicyV2Enabled = true;
+    private double observedConfidencePrior = 3.0;
+    private double observedMaxInfluence = 0.50;
+
+    @jakarta.validation.constraints.AssertTrue(message = "Invalid observed signal settings")
+    public boolean isObservedSignalSettingsValid() {
+      return Double.isFinite(observedConfidencePrior)
+          && observedConfidencePrior > 0
+          && Double.isFinite(observedMaxInfluence)
+          && observedMaxInfluence >= 0
+          && observedMaxInfluence <= 1;
+    }
+
     @DecimalMin("0.0")
     private double temporalDecayLambda = 0.01;
 
@@ -179,7 +194,6 @@ public class RecommendationProperties {
     @NotBlank private String placeUrl = "http://place-service:8082";
     @NotBlank private String contextUrl = "http://context-service:8087";
     @NotBlank private String tripUrl = "http://trip-service:8084";
-    @NotBlank private String userUrl = "http://user-service:8081";
     private Duration timeout = Duration.ofSeconds(12);
   }
 

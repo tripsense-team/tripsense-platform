@@ -1,5 +1,6 @@
 package fu.tripsense.recommendation.config;
 
+import fu.tripsense.recommendation.application.RequestDiagnostics;
 import java.net.http.HttpClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +15,14 @@ public class HttpClientConfig {
     HttpClient httpClient = HttpClient.newBuilder().connectTimeout(timeout).build();
     JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
     requestFactory.setReadTimeout(timeout);
-    return RestClient.builder().requestFactory(requestFactory).build();
+    return RestClient.builder()
+        .requestFactory(requestFactory)
+        .requestInterceptor(
+            (request, body, execution) -> {
+              String requestId = RequestDiagnostics.requestId();
+              if (requestId != null) request.getHeaders().set(RequestDiagnostics.HEADER, requestId);
+              return execution.execute(request, body);
+            })
+        .build();
   }
 }

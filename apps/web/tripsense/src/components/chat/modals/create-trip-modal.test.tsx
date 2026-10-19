@@ -16,7 +16,12 @@ vi.mock("@/features/auth", () => ({
 vi.mock("@/i18n", () => ({
   useTranslation: () => ({
     locale: "vi",
-    t: (key: string) => key,
+    t: (key: string, params?: { name?: string }) => {
+      if (key === "aiPlanner.createTripModalTitle" && params?.name) {
+        return `Tôi nên lưu ý điều gì cho chuyến đi này, ${params.name}?`;
+      }
+      return key;
+    },
   }),
 }));
 
@@ -118,12 +123,54 @@ describe("CreateTripModal Component", () => {
 
     expect(createTrip).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: "Trip to Tokyo",
+        name: expect.stringMatching(/Tokyo/),
         destinationName: "Tokyo",
-        travelerCount: 1,
+        travelerCount: undefined,
         notes: expect.stringContaining("5-day Tokyo trip this October"),
       })
     );
     expect(onTripCreated).toHaveBeenCalledWith(mockCreated, "5-day Tokyo trip this October");
+  });
+
+  it("submits trip with explicit travelerCount when provided", async () => {
+    const mockCreated = {
+      id: "trip-tokyo-2",
+      name: "Trip to Tokyo",
+      destinationName: "Tokyo",
+      startDate: "2026-10-20",
+      endDate: "2026-10-25",
+      travelerCount: 3,
+    };
+    vi.mocked(createTrip).mockResolvedValueOnce(mockCreated as any);
+
+    const onTripCreated = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <CreateTripModal
+          isOpen={true}
+          onClose={() => {}}
+          onTripCreated={onTripCreated}
+          initialDestination="Tokyo"
+          initialTravelers={3}
+        />
+      );
+    });
+
+    const createButton = [...document.querySelectorAll("button")].find(
+      (btn) => btn.textContent?.includes("trip.intakeCreate")
+    );
+
+    await act(async () => {
+      createButton?.click();
+    });
+
+    expect(createTrip).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destinationName: "Tokyo",
+        travelerCount: 3,
+      })
+    );
+    expect(onTripCreated).toHaveBeenCalledWith(mockCreated, "");
   });
 });

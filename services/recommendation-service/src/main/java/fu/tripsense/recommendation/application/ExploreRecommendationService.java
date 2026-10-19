@@ -24,6 +24,7 @@ public class ExploreRecommendationService {
   private final ExploreRecommendationCache cache;
   private final ExploreQueryRelevancePolicy queryRelevance;
   private final RecommendationProperties.Explore properties;
+  private final boolean intentPolicy;
   private final Striped<Lock> locks = Striped.lock(128);
 
   public ExploreRecommendationService(
@@ -35,6 +36,7 @@ public class ExploreRecommendationService {
     this.cache = cache;
     this.queryRelevance = queryRelevance;
     this.properties = properties.getExplore();
+    this.intentPolicy = properties.getProfile().isObservedSignalPolicyV2Enabled();
   }
 
   public ExploreRecommendationResult recommend(
@@ -44,21 +46,37 @@ public class ExploreRecommendationService {
     if (destination == null) throw new InvalidDestinationException();
     String query = request.normalizedQuery();
     RecommendationCommand command = command(user.id(), accessToken, request, destination, query);
-    RecommendationContext context = recommendations.resolveContext(command);
-    String profileFingerprint = cache.profileFingerprint(context.profile());
+    RequestDiagnostics.mark("query_present", !query.isBlank());
+    RequestDiagnostics.mark("limit", request.effectiveLimit());
+    // Both sources search existing data first; provider supplementation is evaluated after fusion.
+    RecommendationContext context =
+        RequestDiagnostics.measure("resolve_context", () -> recommendations.resolveContext(command))
+            .withExternalRefresh(false)
+            .withParallelRetrieval(true);
+    RequestDiagnostics.mark("external_refresh_allowed", context.allowExternalRefresh());
+    RequestDiagnostics.mark("provider_supplement_attempted", false);
+    String profileFingerprint =
+        RequestDiagnostics.measure(
+            "profile_fingerprint", () -> cache.profileFingerprint(context.profile()));
     String lockKey =
         user.id() + "|" + request.destinationId() + "|" + query + "|" + profileFingerprint;
     Lock lock = locks.get(lockKey);
-    lock.lock();
+    RequestDiagnostics.run("lock_wait", lock::lock);
     try {
       var cached =
-          cache.getFresh(
-              user.id(),
-              request.destinationId(),
-              query,
-              profileFingerprint,
-              request.effectiveLimit());
+          RequestDiagnostics.measure(
+              "cache_fresh_get",
+              () ->
+                  cache.getFresh(
+                      user.id(),
+                      request.destinationId(),
+                      query,
+                      profileFingerprint,
+                      request.effectiveLimit()));
+      RequestDiagnostics.mark("cache_hit", cached.isPresent());
       if (cached.isPresent()) {
+        RequestDiagnostics.mark("fallback", cached.get().fallbackLevel());
+        RequestDiagnostics.mark("returned", cached.get().recommendation().items().size());
         log.info(
             "explore_recommendation_completed destination={} cacheHit=true fallback={} returned={} durationMs={}",
             request.destinationId(),
@@ -71,68 +89,108 @@ public class ExploreRecommendationService {
       RecommendationApplicationService.PreparedRecommendation selected;
       FallbackLevel level = FallbackLevel.EXACT;
       try {
-        selected = applyQueryRelevance(query, recommendations.prepare(context));
+        selected =
+            RequestDiagnostics.measure(
+                "exact", () -> applyQueryRelevance(query, recommendations.prepare(context)));
         int useful = Math.min(request.effectiveLimit(), properties.getMinimumUsefulResults());
         if (!query.isBlank()
             && selected.result().items().size() < useful
             && destination.getMaximumRadiusMeters() > destination.getDefaultRadiusMeters()) {
           var relaxed =
-              applyQueryRelevance(
-                  query,
-                  recommendations.prepare(
-                      copy(
-                          context,
-                          context.query(),
-                          destination.getMaximumRadiusMeters(),
-                          context.rankingCriteria())));
+              RequestDiagnostics.measure(
+                  "relaxed",
+                  () ->
+                      applyQueryRelevance(
+                          query,
+                          recommendations.prepare(
+                              copy(
+                                  context,
+                                  context.query(),
+                                  destination.getMaximumRadiusMeters(),
+                                  context.rankingCriteria()))));
           if (relaxed.result().items().size() > selected.result().items().size()) {
             selected = relaxed;
             level = FallbackLevel.RELAXED_RETRIEVAL;
           }
         }
         if (selected.result().items().isEmpty()) {
+          if (!query.isBlank()
+              && !Thread.currentThread().isInterrupted()
+              && internalSourcesAvailable(selected)) {
+            RequestDiagnostics.mark("provider_supplement_attempted", true);
+            try {
+              var internal = selected;
+              var supplemented =
+                  RequestDiagnostics.measure(
+                      "provider_supplement",
+                      () ->
+                          applyQueryRelevance(
+                              query, recommendations.supplementWithProvider(internal)));
+              if (!supplemented.result().items().isEmpty()) selected = supplemented;
+            } catch (RuntimeException failure) {
+              RequestDiagnostics.mark("provider_supplement_failed", true);
+            }
+          }
+        }
+        if (selected.result().items().isEmpty()) {
           selected =
-              recommendations.prepare(
-                  copy(
-                      context,
-                      baselineQuery(destination.getName()),
-                      destination.getMaximumRadiusMeters(),
-                      baseCriteria()));
+              RequestDiagnostics.measure(
+                  "baseline",
+                  () ->
+                      recommendations.prepare(
+                          copy(
+                                  context,
+                                  baselineQuery(destination.getName()),
+                                  destination.getMaximumRadiusMeters(),
+                                  baseCriteria())
+                              .withExternalRefresh(false)));
           level = FallbackLevel.DESTINATION_BASELINE;
         }
       } catch (RuntimeException exception) {
-        return cache
-            .getLastKnownGood(
-                user.id(),
-                request.destinationId(),
-                query,
-                profileFingerprint,
-                request.effectiveLimit())
+        RequestDiagnostics.mark("retrieval_failed", true);
+        return RequestDiagnostics.measure(
+                "cache_lkg_get",
+                () ->
+                    cache.getLastKnownGood(
+                        user.id(),
+                        request.destinationId(),
+                        query,
+                        profileFingerprint,
+                        request.effectiveLimit()))
             .map(this::asLastKnownGood)
             .orElseThrow(() -> exception);
       }
 
       if (selected.result().items().isEmpty()) {
         var lastKnown =
-            cache.getLastKnownGood(
-                user.id(),
-                request.destinationId(),
-                query,
-                profileFingerprint,
-                request.effectiveLimit());
+            RequestDiagnostics.measure(
+                "cache_lkg_get",
+                () ->
+                    cache.getLastKnownGood(
+                        user.id(),
+                        request.destinationId(),
+                        query,
+                        profileFingerprint,
+                        request.effectiveLimit()));
         if (lastKnown.isPresent()) return asLastKnownGood(lastKnown.get());
       }
 
-      recommendations.record(selected);
+      var served = selected;
+      RequestDiagnostics.run("impression_record", () -> recommendations.record(served));
       ExploreRecommendationResult response = response(request, selected, level);
+      RequestDiagnostics.mark("fallback", level);
+      RequestDiagnostics.mark("returned", selected.result().items().size());
       if (!selected.result().items().isEmpty()) {
-        cache.put(
-            user.id(),
-            request.destinationId(),
-            query,
-            profileFingerprint,
-            request.effectiveLimit(),
-            response);
+        RequestDiagnostics.run(
+            "cache_put",
+            () ->
+                cache.put(
+                    user.id(),
+                    request.destinationId(),
+                    query,
+                    profileFingerprint,
+                    request.effectiveLimit(),
+                    response));
       }
       log.info(
           "explore_recommendation_completed destination={} cacheHit=false fallback={} returned={} durationMs={}",
@@ -149,6 +207,18 @@ public class ExploreRecommendationService {
   private RecommendationApplicationService.PreparedRecommendation applyQueryRelevance(
       String submittedQuery, RecommendationApplicationService.PreparedRecommendation prepared) {
     return submittedQuery.isBlank() ? prepared : queryRelevance.apply(prepared);
+  }
+
+  private boolean internalSourcesAvailable(
+      RecommendationApplicationService.PreparedRecommendation prepared) {
+    // Infrastructure failure is not evidence of missing inventory; avoid provider load escalation.
+    return prepared.result().degradations().stream()
+        .noneMatch(
+            reason ->
+                reason.endsWith("_UNAVAILABLE")
+                    || reason.endsWith("_TIMEOUT")
+                    || reason.endsWith("_REJECTED")
+                    || reason.endsWith("_INTERRUPTED"));
   }
 
   private RecommendationCommand command(
@@ -196,7 +266,9 @@ public class ExploreRecommendationService {
         criteria,
         source.profile(),
         source.trip(),
-        source.limit());
+        source.limit(),
+        source.allowExternalRefresh(),
+        source.parallelRetrieval());
   }
 
   private List<RankingCriterion> baseCriteria() {
@@ -234,8 +306,7 @@ public class ExploreRecommendationService {
       RecommendationApplicationService.PreparedRecommendation selected,
       FallbackLevel level) {
     var profile = selected.context().profile();
-    int signals =
-        Math.max(profile.preferredCategories().size(), profile.categoryAffinities().size());
+    int signals = profile.personalizationSignalCount(!intentPolicy);
     boolean applied = profile.personalizationEnabled() && profile.available() && signals > 0;
     ResultMode mode =
         applied
@@ -255,6 +326,8 @@ public class ExploreRecommendationService {
   }
 
   private ExploreRecommendationResult asLastKnownGood(ExploreRecommendationResult value) {
+    RequestDiagnostics.mark("fallback", FallbackLevel.LAST_KNOWN_GOOD);
+    RequestDiagnostics.mark("returned", value.recommendation().items().size());
     return new ExploreRecommendationResult(
         value.destinationId(),
         value.committedQuery(),

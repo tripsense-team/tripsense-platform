@@ -4,7 +4,10 @@ import {
   hasCancellationIntent,
   hasExplicitPlanningIntent,
   hasTravelerMention,
+  isDateInFlexibleMonth,
   missingFields,
+  parseFlexibleMonth,
+  resolveFlexibleDates,
   shouldStopAfterBriefStep,
 } from "./update-trip-planning-brief.js";
 
@@ -92,4 +95,29 @@ test("stops model stream when planning intake returns COLLECTING or CANCELLED to
     false
   );
 });
+
+test("resolves flexible months correctly into target year and month", () => {
+  const baseDate = new Date("2026-10-19T08:00:00");
+
+  const dec = resolveFlexibleDates(3, ["Tháng 12"], baseDate);
+  assert.equal(dec.startDate, "2026-12-01");
+  assert.equal(dec.endDate, "2026-12-03");
+
+  const jan = resolveFlexibleDates(3, ["Tháng 1"], baseDate);
+  assert.equal(jan.startDate, "2027-01-01");
+  assert.equal(jan.endDate, "2027-01-03");
+
+  assert.equal(isDateInFlexibleMonth("2026-12-01", "Tháng 12", baseDate), true);
+  assert.equal(isDateInFlexibleMonth("2026-10-26", "Tháng 12", baseDate), false);
+});
+
+test("preserves undefined who when only where and when are provided", () => {
+  const brief = {
+    where: { destinationText: "Đà Lạt" },
+    when: { type: "flexible" as const, durationDays: 3 },
+  };
+  assert.equal((brief as any).who, undefined);
+  assert.deepEqual(missingFields(brief), []);
+});
+
 

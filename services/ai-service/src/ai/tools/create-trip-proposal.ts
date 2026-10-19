@@ -88,14 +88,14 @@ const requiresCanonicalPlace = (category?: string) =>
   category === "CAFE" ||
   category === "STAY";
 
-const itemType = (category?: string): TripCommitItem["itemType"] => {
+export const itemType = (category?: string): TripCommitItem["itemType"] => {
   if (category === "FOOD" || category === "CAFE") return "MEAL";
   if (category === "STAY") return "HOTEL";
   if (category === "ATTRACTION") return "PLACE";
   return "ACTIVITY";
 };
 
-const parseTimes = (timeSlot?: string) => {
+export const parseTimes = (timeSlot?: string) => {
   const matches = timeSlot?.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
   if (!matches) return { startTime: null, endTime: null };
   const startHour = Number(matches[1]);

@@ -1,5 +1,6 @@
 package fu.tripsense.contextservice.adapter.in.web;
 
+import fu.tripsense.contextservice.application.cache.PreferencesBusyException;
 import fu.tripsense.contextservice.domain.VersionConflictException;
 import fu.tripsense.contextservice.security.UnauthenticatedException;
 import org.springframework.http.*;
@@ -9,6 +10,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestControllerAdvice
 class RestExceptionHandler {
+  @ExceptionHandler(PreferencesBusyException.class)
+  ResponseEntity<ApiError> busy(PreferencesBusyException ex) {
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .header("Retry-After", "1")
+        .body(new ApiError("PREFERENCES_BUSY", "Preferences are temporarily unavailable"));
+  }
+
   @ExceptionHandler(VersionConflictException.class)
   ResponseEntity<ApiError> conflict(VersionConflictException ex) {
     return ResponseEntity.status(HttpStatus.CONFLICT)

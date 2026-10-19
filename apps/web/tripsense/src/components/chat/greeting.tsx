@@ -3,14 +3,16 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useAuthStore } from "@/features/auth";
-import { useAiDrawerStore } from "@/stores/use-ai-drawer-store";
+import { useTranslation } from "@/i18n";
 
 export function Greeting() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
-  const toggleDrawer = useAiDrawerStore((state) => state.toggleDrawer);
 
   const firstName = user?.name ? user.name.trim().split(" ").pop() : null;
-  const heading = firstName ? `Where to today, ${firstName}?` : "Where to today?";
+  const heading = firstName
+    ? t("aiPlanner.greetingHeadingWithUser", { name: firstName })
+    : t("aiPlanner.greetingHeadingDefault");
 
   return (
     <div className="flex flex-col items-center justify-center px-4 max-w-xl mx-auto py-4 select-none">
@@ -45,27 +47,10 @@ export function Greeting() {
         transition={{ delay: 0.2, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="mt-3 text-center text-sm md:text-base text-muted-foreground/90 max-w-md leading-relaxed font-normal"
       >
-        Hey there, I&apos;m here to assist you in planning your experience.
+        {t("aiPlanner.greetingDesc1")}
         <br />
-        Ask me anything travel related.
+        {t("aiPlanner.greetingDesc2")}
       </motion.p>
-
-      <motion.div
-        animate={{ opacity: 1, y: 0 }}
-        initial={{ opacity: 0, y: 10 }}
-        transition={{ delay: 0.3, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-5 pointer-events-auto"
-      >
-        <button
-          type="button"
-          onClick={() => {
-            toggleDrawer();
-          }}
-          className="px-4 py-1.5 rounded-full bg-muted/60 hover:bg-muted text-foreground text-xs font-semibold border border-border/40 transition-colors shadow-2xs hover:shadow-xs cursor-pointer"
-        >
-          Update my assistant
-        </button>
-      </motion.div>
     </div>
   );
 }

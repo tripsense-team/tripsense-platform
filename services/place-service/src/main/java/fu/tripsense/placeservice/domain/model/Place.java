@@ -55,6 +55,9 @@ public class Place {
   @TextIndexed(weight = 3)
   private List<String> categories = new ArrayList<>();
 
+  /** Explicit provider type; never inferred from category order. */
+  private String primaryType;
+
   private Double rating;
   private Integer userRatingCount;
   private QuietnessEvidence quietnessEvidence;

@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.tripsense.recommendation.algorithm.profile.InteractionWeightCalculator;
 import fu.tripsense.recommendation.algorithm.profile.MultiTimescaleProfileComposer;
+import fu.tripsense.recommendation.algorithm.profile.ObservedSignalReducer;
 import fu.tripsense.recommendation.algorithm.profile.ProfileSegment;
 import fu.tripsense.recommendation.application.FeedbackCommand;
 import fu.tripsense.recommendation.application.FeedbackConflictException;
 import fu.tripsense.recommendation.application.FeedbackValidationException;
+import fu.tripsense.recommendation.application.RequestDiagnostics;
 import fu.tripsense.recommendation.application.port.FeedbackRecorder;
 import fu.tripsense.recommendation.application.port.ImpressionRecorder;
 import fu.tripsense.recommendation.application.port.ObservedHistoryReader;
@@ -20,13 +22,17 @@ import fu.tripsense.recommendation.domain.RecommendationResult;
 import fu.tripsense.recommendation.domain.UserProfileSnapshot;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +42,7 @@ public class JdbcRecommendationStore
         ObservedHistoryReader,
         FeedbackRecorder,
         PersonalizationDataEraser {
+  private static final int IMPRESSION_BATCH_SIZE = 100;
   private final JdbcTemplate jdbc;
   private final ObjectMapper objectMapper;
   private final RecommendationProperties properties;
@@ -58,45 +65,100 @@ public class JdbcRecommendationStore
   @Override
   @Transactional
   public void record(RecommendationContext context, RecommendationResult result) {
-    jdbc.update(
-        """
+    RequestDiagnostics.mark("impression_items_expected", result.items().size());
+    RequestDiagnostics.mark("impression_write_mode", "JDBC_BATCH");
+    Object[] header =
+        RequestDiagnostics.measure(
+            "impression_header_prepare",
+            () ->
+                new Object[] {
+                  result.recommendationId(),
+                  result.requestId(),
+                  context.userId(),
+                  context.tripId(),
+                  context.sessionId(),
+                  hash(context.query()),
+                  result.versions().retrieval(),
+                  result.versions().fusion(),
+                  result.versions().embedding(),
+                  result.versions().feature(),
+                  result.versions().ranking(),
+                  result.versions().diversity(),
+                  json(result.degradations()),
+                  sqlTimestamp(Instant.now())
+                });
+    RequestDiagnostics.measure(
+        "impression_header_insert",
+        () ->
+            jdbc.update(
+                """
         INSERT INTO recommendation_impression
           (recommendation_id, request_id, user_id, trip_id, session_id, query_hash,
            retrieval_version, fusion_version, embedding_version, feature_version,
            ranking_version, diversity_version, degradation_codes, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?)
         """,
-        result.recommendationId(),
-        result.requestId(),
-        context.userId(),
-        context.tripId(),
-        context.sessionId(),
-        hash(context.query()),
-        result.versions().retrieval(),
-        result.versions().fusion(),
-        result.versions().embedding(),
-        result.versions().feature(),
-        result.versions().ranking(),
-        result.versions().diversity(),
-        json(result.degradations()),
-        sqlTimestamp(Instant.now()));
-    for (int index = 0; index < result.items().size(); index++) {
-      RankedCandidate item = result.items().get(index);
-      jdbc.update(
-          """
+                header));
+    RequestDiagnostics.run(
+        "impression_items_write",
+        () -> {
+          int inserted = 0;
+          int batches = 0;
+          try {
+            for (int offset = 0; offset < result.items().size(); offset += IMPRESSION_BATCH_SIZE) {
+              int start = offset;
+              int end = Math.min(offset + IMPRESSION_BATCH_SIZE, result.items().size());
+              List<Object[]> parameters =
+                  RequestDiagnostics.measure(
+                      "impression_items_prepare",
+                      () -> {
+                        List<Object[]> batch = new ArrayList<>(end - start);
+                        for (int index = start; index < end; index++) {
+                          RankedCandidate item = result.items().get(index);
+                          batch.add(
+                              new Object[] {
+                                result.recommendationId(),
+                                item.features().placeId(),
+                                index + 1,
+                                item.score(),
+                                json(item.features().sourceEvidence()),
+                                json(item.features()),
+                                json(item.reasons())
+                              });
+                        }
+                        return batch;
+                      });
+              batches++;
+              RequestDiagnostics.run(
+                  "impression_items_batch_insert",
+                  () -> {
+                    int[] counts =
+                        jdbc.batchUpdate(
+                            """
           INSERT INTO recommendation_impression_item
             (recommendation_id, place_id, position, final_score,
              source_evidence, feature_snapshot, reason_codes)
           VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
           """,
-          result.recommendationId(),
-          item.features().placeId(),
-          index + 1,
-          item.score(),
-          json(item.features().sourceEvidence()),
-          json(item.features()),
-          json(item.reasons()));
-    }
+                            parameters);
+                    // Drivers may report success without a per-row count after batch rewriting.
+                    if (counts.length != parameters.size()) {
+                      throw new IllegalStateException("Unexpected impression batch result size");
+                    }
+                    for (int count : counts) {
+                      if (count != 1 && count != Statement.SUCCESS_NO_INFO) {
+                        throw new IllegalStateException("Impression batch item was not inserted");
+                      }
+                    }
+                  });
+              inserted += parameters.size();
+            }
+          } finally {
+            // Fully verified chunks only; partial failures are unknown and may be rolled back.
+            RequestDiagnostics.mark("impression_item_inserts_completed", inserted);
+            RequestDiagnostics.mark("impression_batch_calls", batches);
+          }
+        });
   }
 
   @Override
@@ -211,7 +273,13 @@ public class JdbcRecommendationStore
     Map<String, Double> longTermAffinities = new java.util.HashMap<>();
     Map<String, Double> tripAffinities = new java.util.HashMap<>();
     Map<String, Double> sessionAffinities = new java.util.HashMap<>();
-    jdbc.query(
+    RequestDiagnostics.mark(
+        "observed_history_limit", properties.getFeedback().getMaxHistoryEvents());
+    // JdbcTemplate's acquisition is inside query(); do not change connection/transaction
+    // semantics solely to time it. Inclusive query phases are not server SQL execution time.
+    RequestDiagnostics.mark("observed_connection_timing", "included_in_query");
+    observedQuery(
+        "observed_seen_query",
         """
         SELECT item.place_id
         FROM recommendation_impression_item item
@@ -226,7 +294,13 @@ public class JdbcRecommendationStore
         },
         userId,
         properties.getFeedback().getMaxHistoryEvents());
-    jdbc.query(
+    RequestDiagnostics.mark(
+        "observed_signal_policy",
+        properties.getProfile().isObservedSignalPolicyV2Enabled() ? "intent_v2" : "legacy_v1");
+    if (properties.getProfile().isObservedSignalPolicyV2Enabled())
+      return readIntentProfile(userId, tripId, sessionId, seen);
+    observedQuery(
+        "observed_feedback_query",
         """
         SELECT place_id, event_type
         FROM (
@@ -255,10 +329,14 @@ public class JdbcRecommendationStore
         userId,
         properties.getFeedback().getMaxHistoryEvents());
     Instant now = Instant.now();
-    jdbc.query(
-        """
+    boolean diagnostic = RequestDiagnostics.requestId() != null;
+    long[] decode = new long[2]; // total nanoseconds and attempted JSON decodes; never per-row logs
+    try {
+      observedQuery(
+          "observed_affinity_query",
+          """
         SELECT event.event_type, event.occurred_at, event.trip_id, event.session_id,
-               item.feature_snapshot
+               item.feature_snapshot->'place'->'categories' AS categories_snapshot
         FROM recommendation_feedback_event event
         JOIN recommendation_impression_item item
           ON item.recommendation_id = event.recommendation_id
@@ -267,27 +345,54 @@ public class JdbcRecommendationStore
         ORDER BY event.occurred_at DESC
         LIMIT ?
         """,
-        rs -> {
-          FeedbackEventType eventType = FeedbackEventType.valueOf(rs.getString("event_type"));
-          Instant occurredAt = rs.getTimestamp("occurred_at").toInstant();
-          double weight = interactionWeight(eventType, occurredAt, now);
-          for (String category : categories(rs.getString("feature_snapshot"))) {
-            longTermAffinities.merge(category, weight, Double::sum);
-            UUID eventTripId = rs.getObject("trip_id", UUID.class);
-            if (tripId != null && tripId.equals(eventTripId)) {
-              tripAffinities.merge(category, weight, Double::sum);
+          rs -> {
+            FeedbackEventType eventType = FeedbackEventType.valueOf(rs.getString("event_type"));
+            Instant occurredAt = rs.getTimestamp("occurred_at").toInstant();
+            double weight = interactionWeight(eventType, occurredAt, now);
+            String snapshot = rs.getString("categories_snapshot");
+            long started = diagnostic ? System.nanoTime() : 0;
+            List<String> categoryValues;
+            try {
+              categoryValues = categories(snapshot);
+            } finally {
+              if (diagnostic) {
+                decode[0] += System.nanoTime() - started;
+                decode[1]++;
+              }
             }
-            String eventSessionId = rs.getString("session_id");
-            if (sessionId != null && sessionId.equals(eventSessionId)) {
-              sessionAffinities.merge(category, weight, Double::sum);
+            for (String category : categoryValues) {
+              longTermAffinities.merge(category, weight, Double::sum);
+              UUID eventTripId = rs.getObject("trip_id", UUID.class);
+              if (tripId != null && tripId.equals(eventTripId)) {
+                tripAffinities.merge(category, weight, Double::sum);
+              }
+              String eventSessionId = rs.getString("session_id");
+              if (sessionId != null && sessionId.equals(eventSessionId)) {
+                sessionAffinities.merge(category, weight, Double::sum);
+              }
             }
-          }
-        },
-        userId,
-        properties.getFeedback().getMaxHistoryEvents());
+          },
+          userId,
+          properties.getFeedback().getMaxHistoryEvents());
+    } finally {
+      if (diagnostic) {
+        RequestDiagnostics.mark("observed_snapshot_decode_ms", decode[0] / 1_000_000);
+        RequestDiagnostics.mark("observed_snapshot_decode_count", decode[1]);
+      }
+    }
     Map<String, Double> categoryAffinities =
-        profileComposer.compose(
-            segment(longTermAffinities), segment(tripAffinities), segment(sessionAffinities));
+        RequestDiagnostics.measure(
+            "observed_profile_compose",
+            () ->
+                profileComposer.compose(
+                    segment(longTermAffinities),
+                    segment(tripAffinities),
+                    segment(sessionAffinities)));
+    RequestDiagnostics.mark("observed_seen_count", seen.size());
+    RequestDiagnostics.mark("observed_saved_count", saved.size());
+    RequestDiagnostics.mark("observed_added_to_trip_count", trip.size());
+    RequestDiagnostics.mark("observed_negative_count", negative.size());
+    RequestDiagnostics.mark("observed_category_count", categoryAffinities.size());
     boolean available =
         !seen.isEmpty()
             || !saved.isEmpty()
@@ -307,6 +412,103 @@ public class JdbcRecommendationStore
         available ? Instant.now() : null);
   }
 
+  private UserProfileSnapshot readIntentProfile(
+      UUID userId, UUID tripId, String sessionId, Set<String> seen) {
+    List<ObservedSignalReducer.Event> events = new ArrayList<>();
+    boolean diagnostic = RequestDiagnostics.requestId() != null;
+    long[] decode = new long[2];
+    try {
+      observedQuery(
+          "observed_affinity_query",
+          """
+          SELECT event.event_id, event.place_id, event.event_type, event.occurred_at,
+                 event.trip_id, event.session_id,
+                 item.feature_snapshot->'place'->'categories' AS categories_snapshot
+          FROM recommendation_feedback_event event
+          JOIN recommendation_impression_item item
+            ON item.recommendation_id = event.recommendation_id
+           AND item.place_id = event.place_id
+          WHERE event.user_id = ?
+          ORDER BY event.occurred_at DESC, event.event_id DESC
+          LIMIT ?
+          """,
+          rs -> {
+            String projected = rs.getString("categories_snapshot");
+            long started = diagnostic ? System.nanoTime() : 0;
+            List<String> values;
+            try {
+              values = categories(projected);
+            } finally {
+              if (diagnostic) {
+                decode[0] += System.nanoTime() - started;
+                decode[1]++;
+              }
+            }
+            events.add(
+                new ObservedSignalReducer.Event(
+                    rs.getObject("event_id", UUID.class),
+                    rs.getString("place_id"),
+                    FeedbackEventType.valueOf(rs.getString("event_type")),
+                    rs.getTimestamp("occurred_at").toInstant(),
+                    rs.getObject("trip_id", UUID.class),
+                    rs.getString("session_id"),
+                    values));
+          },
+          userId,
+          properties.getFeedback().getMaxHistoryEvents());
+    } finally {
+      if (diagnostic) {
+        RequestDiagnostics.mark("observed_snapshot_decode_ms", decode[0] / 1_000_000);
+        RequestDiagnostics.mark("observed_snapshot_decode_count", decode[1]);
+      }
+    }
+    // State and affinities share this one bounded event snapshot; seen impressions are a
+    // separate query as before. No cross-query transaction consistency is implied.
+    UserProfileSnapshot profile =
+        RequestDiagnostics.measure(
+            "observed_profile_compose",
+            () ->
+                new ObservedSignalReducer(properties, interactionWeights, profileComposer)
+                    .reduce(events, seen, tripId, sessionId, Instant.now()));
+    RequestDiagnostics.mark("observed_seen_count", profile.seenPlaceIds().size());
+    RequestDiagnostics.mark("observed_saved_count", profile.savedPlaceIds().size());
+    RequestDiagnostics.mark("observed_added_to_trip_count", profile.addedToTripPlaceIds().size());
+    RequestDiagnostics.mark("observed_negative_count", profile.negativePlaceIds().size());
+    RequestDiagnostics.mark("observed_category_count", profile.categoryAffinities().size());
+    return profile;
+  }
+
+  private void observedQuery(
+      String phase, String sql, RowCallbackHandler callback, Object... args) {
+    if (RequestDiagnostics.requestId() == null) {
+      jdbc.query(sql, callback, args);
+      return;
+    }
+    long[] processed = {0};
+    long[] callbackNanos = {0};
+    try {
+      RequestDiagnostics.run(
+          phase,
+          () ->
+              jdbc.query(
+                  sql,
+                  rs -> {
+                    long started = System.nanoTime();
+                    try {
+                      callback.processRow(rs);
+                      processed[0]++;
+                    } finally {
+                      callbackNanos[0] += System.nanoTime() - started;
+                    }
+                  },
+                  args));
+    } finally {
+      // On error this is the number of fully processed rows, not the full result size.
+      RequestDiagnostics.mark(phase + "_rows_processed", processed[0]);
+      RequestDiagnostics.mark(phase + "_mapping_ms", callbackNanos[0] / 1_000_000);
+    }
+  }
+
   private ProfileSegment segment(Map<String, Double> values) {
     if (values.isEmpty()) return new ProfileSegment(false, Map.of());
     double max = values.values().stream().mapToDouble(Math::abs).max().orElse(1);
@@ -316,9 +518,10 @@ public class JdbcRecommendationStore
     return new ProfileSegment(true, normalized);
   }
 
-  private java.util.List<String> categories(String featureSnapshot) {
+  java.util.List<String> categories(String categoriesSnapshot) {
     try {
-      var node = objectMapper.readTree(featureSnapshot).path("place").path("categories");
+      var node = objectMapper.readTree(categoriesSnapshot);
+      if (node == null) return java.util.List.of();
       if (!node.isArray()) return java.util.List.of();
       java.util.List<String> values = new java.util.ArrayList<>();
       node.forEach(

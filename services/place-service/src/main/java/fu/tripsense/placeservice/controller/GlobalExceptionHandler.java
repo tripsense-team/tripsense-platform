@@ -13,6 +13,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+  @ExceptionHandler({
+    org.springframework.web.bind.MethodArgumentNotValidException.class,
+    org.springframework.http.converter.HttpMessageNotReadableException.class
+  })
+  public ResponseEntity<ApiResponse<Void>> handleInvalidBody(Exception ex) {
+    return ResponseEntity.badRequest()
+        .body(ApiResponse.error("INVALID_REQUEST", "The place request is invalid"));
+  }
 
   @ExceptionHandler(PlaceActionException.class)
   public ResponseEntity<ApiResponse<Void>> handlePlaceAction(PlaceActionException ex) {

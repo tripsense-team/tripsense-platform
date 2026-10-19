@@ -56,6 +56,8 @@ management:
         include: health,info
 
 tripsense:
+  explore-diagnostics:
+    enabled: ${EXPLORE_DIAGNOSTICS_ENABLED:true}
   gateway:
     places-rate-limit:
       replenish-rate: ${PLACES_RATE_LIMIT_REPLENISH_RATE:10}

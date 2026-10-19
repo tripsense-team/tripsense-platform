@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.observability.RequestDiagnostics;
 import fu.tripsense.placeservice.service.PlaceCacheService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -20,9 +21,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class PlaceCacheServiceImpl implements PlaceCacheService {
 
-  private static final String SEARCH_KEY_PREFIX = "place:search:";
+  private static final String SEARCH_KEY_PREFIX = "place:search:primary-v1:";
   private static final String AUTOCOMPLETE_KEY_PREFIX = "place:autocomplete:";
-  private static final String DETAILS_KEY_PREFIX = "place:details:";
+  private static final String DETAILS_KEY_PREFIX = "place:details:primary-v1:";
   private static final String PROVIDER_KEY_PREFIX = "place:provider:";
 
   private final RedisTemplate<String, Object> redisTemplate;
@@ -50,8 +51,11 @@ public class PlaceCacheServiceImpl implements PlaceCacheService {
         return Optional.ofNullable(list);
       }
     } catch (Exception ex) {
+      RequestDiagnostics.mark("cache_read_error", true);
       log.warn(
-          "Redis cache read error for search query '{}': {}", normalizedQuery, ex.getMessage());
+          "place_search_cache_read_failed requestId={} errorType={}",
+          RequestDiagnostics.requestId(),
+          ex.getClass().getSimpleName());
     }
     return Optional.empty();
   }
@@ -72,8 +76,11 @@ public class PlaceCacheServiceImpl implements PlaceCacheService {
       long ttl = properties.getCache().getSearchTtlSeconds();
       redisTemplate.opsForValue().set(key, results, Duration.ofSeconds(ttl));
     } catch (Exception ex) {
+      RequestDiagnostics.mark("cache_write_error", true);
       log.warn(
-          "Redis cache write error for search query '{}': {}", normalizedQuery, ex.getMessage());
+          "place_search_cache_write_failed requestId={} errorType={}",
+          RequestDiagnostics.requestId(),
+          ex.getClass().getSimpleName());
     }
   }
 

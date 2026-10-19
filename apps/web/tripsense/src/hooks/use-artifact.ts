@@ -60,6 +60,13 @@ export function useArtifact() {
     [setArtifact]
   );
 
+  const openArtifact = useCallback(() => {
+    setArtifact((prev) => ({
+      ...prev,
+      isVisible: true,
+    }));
+  }, [setArtifact]);
+
   const closeArtifact = useCallback(() => {
     setArtifact((prev) => ({
       ...prev,
@@ -71,6 +78,7 @@ export function useArtifact() {
     artifact,
     setArtifact,
     showProposal,
+    openArtifact,
     closeArtifact,
     isVisible: artifact.isVisible,
   };

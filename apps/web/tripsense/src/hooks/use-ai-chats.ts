@@ -14,6 +14,30 @@ export type ChatSession = {
   updatedAt: string;
 };
 
+const GENERIC_CHAT_TITLES = new Set([
+  "",
+  "new chat",
+  "cuộc trò chuyện mới",
+  "kế hoạch chuyến đi của bạn",
+  "your trip plan",
+  "untitled",
+  "chuyến đi chưa đặt tên",
+  "cuộc trò chuyện du lịch",
+  "travel conversation",
+  "kế hoạch du lịch",
+  "trip plan",
+]);
+
+export function isGenericChatTitle(title: string | null | undefined): boolean {
+  if (!title) return true;
+  const normalized = title.trim().toLowerCase();
+  if (GENERIC_CHAT_TITLES.has(normalized)) return true;
+  if (normalized.startsWith("cuộc trò chuyện mới")) return true;
+  if (normalized.startsWith("new chat")) return true;
+  if (normalized.startsWith("kế hoạch chuyến đi")) return true;
+  return false;
+}
+
 /**
  * Fetch list of all chat sessions for current user.
  */

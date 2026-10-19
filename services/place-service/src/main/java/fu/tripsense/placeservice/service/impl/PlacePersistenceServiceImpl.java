@@ -10,6 +10,7 @@ import fu.tripsense.placeservice.dto.PlaceDto;
 import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceReviewDto;
 import fu.tripsense.placeservice.dto.QuietnessEvidenceDto;
+import fu.tripsense.placeservice.observability.RequestDiagnostics;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
 import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
 import java.time.Instant;
@@ -39,11 +40,18 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
 
   @Override
   public PlaceDto upsertProviderPlace(PlaceDto dto, String defaultProvider) {
+    return RequestDiagnostics.measure(
+        "place_upsert_total", () -> upsertProviderPlaceMeasured(dto, defaultProvider));
+  }
+
+  private PlaceDto upsertProviderPlaceMeasured(PlaceDto dto, String defaultProvider) {
     if (dto == null || !StringUtils.hasText(dto.getProviderPlaceId())) {
+      RequestDiagnostics.mark("place_upsert_result", "INVALID_INPUT");
       throw new IllegalArgumentException("Provider place ID is required for persistence");
     }
 
     if (System.currentTimeMillis() - lastFailureTime < 30_000) {
+      RequestDiagnostics.mark("place_upsert_result", "COOLDOWN_BYPASS");
       if (!StringUtils.hasText(dto.getId())) {
         dto.setId(dto.getProviderPlaceId());
       }
@@ -54,21 +62,38 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
       String provider =
           StringUtils.hasText(dto.getProvider()) ? dto.getProvider() : defaultProvider;
       Place entity =
-          repository
-              .findByProviderAndProviderPlaceId(provider, dto.getProviderPlaceId())
-              .orElse(null);
-      if (entity == null) {
+          RequestDiagnostics.measure(
+              "place_upsert_provider_lookup",
+              () ->
+                  repository
+                      .findByProviderAndProviderPlaceId(provider, dto.getProviderPlaceId())
+                      .orElse(null));
+      boolean isNew = entity == null;
+      RequestDiagnostics.mark("place_upsert_lookup_hit", !isNew);
+      if (isNew) {
         Place duplicate = unambiguousDuplicate(dto);
         if (duplicate != null) {
-          return toDto(duplicate);
+          PlaceDto result =
+              RequestDiagnostics.measure("place_upsert_to_dto", () -> toDto(duplicate));
+          RequestDiagnostics.mark("place_upsert_result", "DUPLICATE_REUSED");
+          return result;
         }
-        entity = newPlace(dto, provider);
+        entity =
+            RequestDiagnostics.measure("place_upsert_new_entity", () -> newPlace(dto, provider));
       }
-      applyProviderData(entity, dto);
-      return toDto(repository.save(entity));
+      Place selected = entity;
+      RequestDiagnostics.run("place_upsert_apply", () -> applyProviderData(selected, dto));
+      Place saved =
+          RequestDiagnostics.measure(
+              isNew ? "place_upsert_save_new" : "place_upsert_save_existing",
+              () -> repository.save(selected));
+      PlaceDto result = RequestDiagnostics.measure("place_upsert_to_dto", () -> toDto(saved));
+      RequestDiagnostics.mark("place_upsert_result", isNew ? "NEW_SAVED" : "EXISTING_SAVED");
+      return result;
     } catch (Exception ex) {
       lastFailureTime = System.currentTimeMillis();
-      log.warn("Failed to upsert place to MongoDB: {}", ex.getMessage());
+      RequestDiagnostics.mark("place_upsert_result", "FAILED_FALLBACK");
+      log.warn("Failed to upsert place to MongoDB errorType={}", ex.getClass().getSimpleName());
       if (!StringUtils.hasText(dto.getId())) {
         dto.setId(dto.getProviderPlaceId());
       }
@@ -80,22 +105,34 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
     if (!StringUtils.hasText(incoming.getName())
         || !StringUtils.hasText(incoming.getAddress())
         || incoming.getLocation() == null) {
+      RequestDiagnostics.mark("place_upsert_duplicate_check_skipped", true);
       return null;
     }
+    RequestDiagnostics.mark("place_upsert_duplicate_check_skipped", false);
+    List<Place> sameName =
+        RequestDiagnostics.measure(
+            "place_upsert_duplicate_lookup",
+            () -> repository.findByNormalizedName(normalize(incoming.getName())));
+    RequestDiagnostics.mark("place_upsert_duplicate_name_matches", sameName.size());
     List<Place> matches =
-        repository.findByNormalizedName(normalize(incoming.getName())).stream()
-            .filter(
-                existing ->
-                    existing.getLocation() != null
-                        && StringUtils.hasText(existing.getAddress())
-                        && normalize(existing.getAddress()).equals(normalize(incoming.getAddress()))
-                        && distanceMeters(
-                                existing.getLocation().getY(),
-                                existing.getLocation().getX(),
-                                incoming.getLocation().getLat(),
-                                incoming.getLocation().getLng())
-                            <= 100)
-            .toList();
+        RequestDiagnostics.measure(
+            "place_upsert_duplicate_filter",
+            () ->
+                sameName.stream()
+                    .filter(
+                        existing ->
+                            existing.getLocation() != null
+                                && StringUtils.hasText(existing.getAddress())
+                                && normalize(existing.getAddress())
+                                    .equals(normalize(incoming.getAddress()))
+                                && distanceMeters(
+                                        existing.getLocation().getY(),
+                                        existing.getLocation().getX(),
+                                        incoming.getLocation().getLat(),
+                                        incoming.getLocation().getLng())
+                                    <= 100)
+                    .toList());
+    RequestDiagnostics.mark("place_upsert_duplicate_matches", matches.size());
     return matches.size() == 1 ? matches.get(0) : null;
   }
 
@@ -120,9 +157,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
     try {
       applyProviderData(entity, enrichment);
       Map<String, Object> sourceData =
-          entity.getSourceData() != null
-              ? new HashMap<>(entity.getSourceData())
-              : new HashMap<>();
+          entity.getSourceData() != null ? new HashMap<>(entity.getSourceData()) : new HashMap<>();
       sourceData.put("deepDetailsFetched", true);
       entity.setSourceData(sourceData);
       return toDto(repository.save(entity));
@@ -199,6 +234,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .city(city)
         .district(district)
         .categories(place.getCategories() == null ? List.of() : place.getCategories())
+        .primaryType(place.getPrimaryType())
         .rating(place.getRating())
         .userRatingCount(place.getUserRatingCount())
         .quietnessEvidence(toQuietnessEvidenceDto(place.getQuietnessEvidence()))
@@ -233,6 +269,9 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
   }
 
   private void applyProviderData(Place entity, PlaceDto dto) {
+    String primaryType =
+        fu.tripsense.placeservice.dto.DiscoveryCategory.normalizePrimaryType(dto.getPrimaryType());
+    if (primaryType != null) entity.setPrimaryType(primaryType);
     if (StringUtils.hasText(dto.getName())) {
       entity.setName(dto.getName());
       entity.setNormalizedName(normalize(dto.getName()));

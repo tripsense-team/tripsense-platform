@@ -8,6 +8,43 @@ import org.junit.jupiter.api.Test;
 
 class OnboardingServiceTest {
   @Test
+  void
+      completed_profile_edits_replace_signals_and_delete_removes_them_without_affecting_other_users() {
+    InMemoryProfiles profiles = new InMemoryProfiles();
+    Map<UUID, Map<String, Set<String>>> published = new HashMap<>();
+    PreferenceSignalPublisher publisher =
+        new PreferenceSignalPublisher() {
+          public void replaceFor(OnboardingProfile profile) {
+            published.put(profile.userId(), Map.copyOf(profile.selections()));
+          }
+
+          public void deleteForUser(UUID userId) {
+            published.remove(userId);
+          }
+        };
+    OnboardingService service =
+        new OnboardingService(profiles, publisher, new TestCatalog(), new RecordingOutbox());
+    UUID userId = UUID.randomUUID();
+    UUID other = UUID.randomUUID();
+    published.put(other, Map.of("FOOD_STYLE", Set.of("LOCAL_FOOD")));
+    OnboardingProfile draft =
+        service.save(
+            userId, new OnboardingCommand(0, Map.of("FOOD_STYLE", Set.of("CAFE")), Map.of()));
+    assertFalse(published.containsKey(userId));
+    OnboardingProfile completed = service.complete(userId, draft.version());
+    assertEquals(Set.of("CAFE"), published.get(userId).get("FOOD_STYLE"));
+    service.save(
+        userId,
+        new OnboardingCommand(
+            completed.version(), Map.of("ACTIVITY_INTEREST", Set.of("BEACH")), Map.of()));
+    assertEquals(Map.of("ACTIVITY_INTEREST", Set.of("BEACH")), published.get(userId));
+    service.delete(userId);
+    assertTrue(service.find(userId).isEmpty());
+    assertFalse(published.containsKey(userId));
+    assertTrue(published.containsKey(other));
+  }
+
+  @Test
   void replaces_answers_at_expected_version_and_publishes_only_on_completion() {
     InMemoryProfiles profiles = new InMemoryProfiles();
     RecordingSignals signals = new RecordingSignals();

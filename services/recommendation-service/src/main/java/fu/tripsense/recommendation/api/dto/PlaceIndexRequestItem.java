@@ -25,7 +25,8 @@ public record PlaceIndexRequestItem(
     @Size(max = 20) List<@Size(max = 2000) String> photos,
     @Size(max = 2000) String openingHours,
     @Size(max = 80) String businessStatus,
-    @Size(max = 5000) String description) {
+    @Size(max = 5000) String description,
+    @Size(max = 80) String primaryType) {
 
   public PlaceSnapshot toDomain() {
     GeoPoint location = (lat != null && lng != null) ? new GeoPoint(lat, lng) : null;
@@ -41,11 +42,13 @@ public record PlaceIndexRequestItem(
         categories != null ? categories : List.of(),
         rating,
         userRatingCount,
+        null,
         photos != null ? photos : List.of(),
         openingHours,
         businessStatus,
         description,
         Instant.now(),
-        "LIVE");
+        "LIVE",
+        primaryType);
   }
 }

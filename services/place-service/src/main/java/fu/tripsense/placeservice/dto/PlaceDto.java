@@ -28,6 +28,7 @@ public class PlaceDto implements Serializable {
   private String district;
 
   @Builder.Default private List<String> categories = new ArrayList<>();
+  private String primaryType;
 
   private Double rating;
   private Integer userRatingCount;

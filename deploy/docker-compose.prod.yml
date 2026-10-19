@@ -115,6 +115,7 @@ services:
     cpus: "0.75"
     environment:
       <<: *java-small
+      EXPLORE_DIAGNOSTICS_ENABLED: ${EXPLORE_DIAGNOSTICS_ENABLED:-true}
       MONGODB_URI: ${MONGODB_URI}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-tripsense_places}
       REDIS_URL: ${REDIS_URL}
@@ -227,6 +228,23 @@ services:
       discovery-server:
         condition: service_healthy
 
+  context-cache:
+    # Disposable cache only; never apply eviction settings to shared Redis/session data.
+    image: redis:8.2.10-alpine
+    restart: unless-stopped
+    mem_limit: 192m
+    cpus: "0.25"
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lfu", "--save", "", "--appendonly", "no"]
+    tmpfs:
+      - /data:size=1m,mode=1777
+    networks:
+      - context-cache-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+
   context-service:
     image: ${IMAGE_REGISTRY}/${IMAGE_OWNER}/${IMAGE_PROJECT}-context-service:${IMAGE_TAG}
     restart: unless-stopped
@@ -240,11 +258,22 @@ services:
       CONTEXT_DB_PASS: ${CONTEXT_DB_PASS}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       CONTEXT_ENCRYPTION_SECRET: ${CONTEXT_ENCRYPTION_SECRET}
+      CONTEXT_PREFERENCES_CACHE_ENABLED: ${CONTEXT_PREFERENCES_CACHE_ENABLED:-true}
+      CONTEXT_CACHE_REDIS_URL: ${CONTEXT_CACHE_REDIS_URL:-redis://context-cache:6379}
+      CONTEXT_CACHE_KEY_SECRET: ${CONTEXT_CACHE_KEY_SECRET:-}
+      CONTEXT_PREFERENCES_CACHE_TTL: ${CONTEXT_PREFERENCES_CACHE_TTL:-10m}
+      CONTEXT_CACHE_MAX_LOADS: ${CONTEXT_CACHE_MAX_LOADS:-16}
+      CONTEXT_CACHE_MAX_REQUESTS: ${CONTEXT_CACHE_MAX_REQUESTS:-64}
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"
       EUREKA_FETCH: "true"
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
+    networks:
+      - default
+      - context-cache-internal
     depends_on:
+      context-cache:
+        condition: service_healthy
       discovery-server:
         condition: service_healthy
 
@@ -255,13 +284,18 @@ services:
     cpus: "0.75"
     environment:
       <<: *java-small
+      EXPLORE_DIAGNOSTICS_ENABLED: ${EXPLORE_DIAGNOSTICS_ENABLED:-true}
       RECOMMENDATION_DATASOURCE_URL: ${RECOMMENDATION_DATASOURCE_URL}
       RECOMMENDATION_DB_USER: ${RECOMMENDATION_DB_USER}
       RECOMMENDATION_DB_PASS: ${RECOMMENDATION_DB_PASS}
+      RECOMMENDATION_REWRITE_BATCHED_INSERTS: ${RECOMMENDATION_REWRITE_BATCHED_INSERTS:-true}
+      RECOMMENDATION_OBSERVED_HISTORY_ENABLED: ${RECOMMENDATION_OBSERVED_HISTORY_ENABLED:-true}
+      RECOMMENDATION_OBSERVED_SIGNAL_POLICY_V2_ENABLED: ${RECOMMENDATION_OBSERVED_SIGNAL_POLICY_V2_ENABLED:-true}
+      RECOMMENDATION_OBSERVED_CONFIDENCE_PRIOR: ${RECOMMENDATION_OBSERVED_CONFIDENCE_PRIOR:-3.0}
+      RECOMMENDATION_OBSERVED_MAX_INFLUENCE: ${RECOMMENDATION_OBSERVED_MAX_INFLUENCE:-0.50}
       REDIS_URL: ${REDIS_URL}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
-      USER_SERVICE_URL: http://user-service:8081
       CONTEXT_SERVICE_URL: http://context-service:8087
       TRIP_SERVICE_URL: http://trip-service:8084
       RECOMMENDATION_SEMANTIC_ENABLED: ${RECOMMENDATION_SEMANTIC_ENABLED:-false}
@@ -277,8 +311,6 @@ services:
       discovery-server:
         condition: service_healthy
       place-service:
-        condition: service_started
-      user-service:
         condition: service_started
       context-service:
         condition: service_started
@@ -311,6 +343,8 @@ services:
       PLACE_SERVICE_URL: http://place-service:8082
       TRIP_SERVICE_URL: http://trip-service:8084
       AI_ALLOWED_ORIGINS: ${AI_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
+      USER_SERVICE_URL: http://user-service:8081
+      CONTEXT_SERVICE_URL: http://context-service:8087
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
     depends_on:
       discovery-server:
@@ -318,6 +352,10 @@ services:
       place-service:
         condition: service_started
       trip-service:
+        condition: service_started
+      context-service:
+        condition: service_started
+      user-service:
         condition: service_started
     healthcheck:
       test:
@@ -337,6 +375,7 @@ services:
     cpus: "1.0"
     environment:
       <<: *java-small
+      EXPLORE_DIAGNOSTICS_ENABLED: ${EXPLORE_DIAGNOSTICS_ENABLED:-true}
       REDIS_URL: ${REDIS_URL}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       AI_SERVICE_V2_URL: http://ai-service:8089
@@ -370,3 +409,7 @@ services:
       timeout: 5s
       retries: 25
       start_period: 60s
+
+networks:
+  context-cache-internal:
+    internal: true

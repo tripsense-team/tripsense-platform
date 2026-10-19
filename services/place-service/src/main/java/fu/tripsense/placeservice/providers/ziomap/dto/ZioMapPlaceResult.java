@@ -30,6 +30,9 @@ public class ZioMapPlaceResult {
 
   private List<String> types = new ArrayList<>();
 
+  @com.fasterxml.jackson.annotation.JsonAlias("primary_type")
+  private String primaryType;
+
   @JsonProperty("formatted_phone_number")
   private String formattedPhoneNumber;
 

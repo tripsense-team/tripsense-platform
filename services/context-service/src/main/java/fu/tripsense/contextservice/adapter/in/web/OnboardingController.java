@@ -1,6 +1,7 @@
 package fu.tripsense.contextservice.adapter.in.web;
 
 import fu.tripsense.contextservice.application.*;
+import fu.tripsense.contextservice.application.cache.CachedPreferencesService;
 import fu.tripsense.contextservice.security.CurrentUserProvider;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -11,18 +12,15 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/context")
 public class OnboardingController {
   private final OnboardingService onboarding;
-  private final PreferenceSignalReader signals;
-  private final PreferenceDimensionCatalog dimensions;
+  private final CachedPreferencesService preferences;
   private final CurrentUserProvider currentUser;
 
   public OnboardingController(
       OnboardingService onboarding,
-      PreferenceSignalReader signals,
-      PreferenceDimensionCatalog dimensions,
+      CachedPreferencesService preferences,
       CurrentUserProvider currentUser) {
     this.onboarding = onboarding;
-    this.signals = signals;
-    this.dimensions = dimensions;
+    this.preferences = preferences;
     this.currentUser = currentUser;
   }
 
@@ -67,20 +65,7 @@ public class OnboardingController {
   @GetMapping("/preferences")
   public List<PreferenceResponse> preferences(
       @RequestParam(defaultValue = "TRIP_PLANNING") String purpose) {
-    if (!java.util.Set.of("TRIP_PLANNING", "EXPLORE_RECOMMENDATION").contains(purpose))
-      throw new IllegalArgumentException("Unsupported preference purpose");
-    return signals.findForUser(currentUser.requiredUser().id()).stream()
-        .filter(
-            signal ->
-                ("EXPLORE_RECOMMENDATION".equals(purpose)
-                        && "EXPLORE_AFFINITY".equals(signal.dimensionCode()))
-                    || dimensions
-                        .findActive(signal.dimensionCode())
-                        .map(
-                            definition ->
-                                definition.sensitivity()
-                                    == PreferenceDimensionCatalog.Sensitivity.STANDARD)
-                        .orElse(false))
+    return preferences.preferences(currentUser.requiredUser().id(), purpose).stream()
         .map(PreferenceResponse::from)
         .toList();
   }
