@@ -487,12 +487,47 @@ public class PartnerAdminService {
             .build());
   }
 
+  @Transactional(readOnly = true)
+  public List<ApplicationDetailDto> listApplications(AuthenticatedUser admin, String state) {
+    requireAdmin(admin);
+    ApplicationState appState;
+    try {
+      appState = ApplicationState.valueOf(state.toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException | NullPointerException e) {
+      throw new TripServiceException(
+          "INVALID_STATE", "Invalid application state: " + state, HttpStatus.BAD_REQUEST);
+    }
+
+    List<PartnerApplication> list =
+        applicationRepository.findByStateOrderBySubmittedAtAsc(appState);
+    if (list.isEmpty()) {
+      return List.of();
+    }
+
+    Set<UUID> bizIds =
+        list.stream().map(PartnerApplication::getBusinessId).collect(java.util.stream.Collectors.toSet());
+    Map<UUID, PartnerBusiness> bizMap =
+        businessRepository.findAllById(bizIds).stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    PartnerBusiness::getId, java.util.function.Function.identity()));
+
+    return list.stream()
+        .map(a -> toApplicationDetailDto(a, bizMap.get(a.getBusinessId())))
+        .toList();
+  }
+
   private ApplicationDetailDto toApplicationDetailDto(PartnerApplication a) {
-    var bizOpt = businessRepository.findById(a.getBusinessId());
-    Long bizVer = bizOpt.map(PartnerBusiness::getVersion).orElse(0L);
-    String bizName = bizOpt.map(PartnerBusiness::getDisplayName).orElse(null);
-    String bizKind = bizOpt.map(b -> b.getKind() != null ? b.getKind().name() : null).orElse(null);
-    UUID ownerId = bizOpt.map(PartnerBusiness::getOwnerUserId).orElse(null);
+    return toApplicationDetailDto(a, businessRepository.findById(a.getBusinessId()).orElse(null));
+  }
+
+  private ApplicationDetailDto toApplicationDetailDto(
+      PartnerApplication a, PartnerBusiness business) {
+    Long bizVer = business != null && business.getVersion() != null ? business.getVersion() : 0L;
+    String bizName = business != null ? business.getDisplayName() : null;
+    String bizKind =
+        business != null && business.getKind() != null ? business.getKind().name() : null;
+    UUID ownerId = business != null ? business.getOwnerUserId() : null;
     return ApplicationDetailDto.builder()
         .id(a.getId())
         .businessId(a.getBusinessId())

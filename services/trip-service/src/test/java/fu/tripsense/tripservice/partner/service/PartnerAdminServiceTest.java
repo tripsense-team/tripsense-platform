@@ -305,4 +305,55 @@ class PartnerAdminServiceTest {
           assertThat(tse.status()).isEqualTo(HttpStatus.FORBIDDEN);
         });
   }
+
+  @Test
+  @DisplayName("listApplications: batch fetches businesses and returns mapped DTOs without N+1 query")
+  void listApplications_success_batchFetchesBusinesses() {
+    PartnerApplication app =
+        PartnerApplication.builder()
+            .id(applicationId)
+            .businessId(businessId)
+            .state(ApplicationState.SUBMITTED)
+            .version(1L)
+            .build();
+
+    PartnerBusiness business =
+        PartnerBusiness.builder()
+            .id(businessId)
+            .displayName("Grand Hotel Saigon")
+            .kind(BusinessKind.HOTEL)
+            .ownerUserId(UUID.randomUUID())
+            .version(2L)
+            .build();
+
+    when(applicationRepository.findByStateOrderBySubmittedAtAsc(ApplicationState.SUBMITTED))
+        .thenReturn(List.of(app));
+    when(businessRepository.findAllById(Set.of(businessId)))
+        .thenReturn(List.of(business));
+
+    List<ApplicationDetailDto> result = adminService.listApplications(adminUser, "SUBMITTED");
+
+    assertThat(result).hasSize(1);
+    ApplicationDetailDto dto = result.get(0);
+    assertThat(dto.id()).isEqualTo(applicationId);
+    assertThat(dto.businessId()).isEqualTo(businessId);
+    assertThat(dto.businessName()).isEqualTo("Grand Hotel Saigon");
+    assertThat(dto.businessKind()).isEqualTo("HOTEL");
+    assertThat(dto.businessVersion()).isEqualTo(2L);
+
+    verify(businessRepository).findAllById(Set.of(businessId));
+    verify(businessRepository, never()).findById(any());
+  }
+
+  @Test
+  @DisplayName("listApplications: throws bad request when given invalid state")
+  void listApplications_invalidState_throwsBadRequest() {
+    assertThatThrownBy(() -> adminService.listApplications(adminUser, "NOT_A_VALID_STATE"))
+        .isInstanceOf(TripServiceException.class)
+        .satisfies(e -> {
+          TripServiceException tse = (TripServiceException) e;
+          assertThat(tse.code()).isEqualTo("INVALID_STATE");
+          assertThat(tse.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+        });
+  }
 }

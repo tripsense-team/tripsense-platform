@@ -182,6 +182,14 @@ export function AdminSidebar({
                       return true;
                     }
 
+                    // Prevent /admin/hotels from highlighting on legacy finance route
+                    if (
+                      item.href === "/admin/hotels" &&
+                      (pathname === "/admin/hotels/commerce" || pathname.startsWith("/admin/hotels/commerce/"))
+                    ) {
+                      return false;
+                    }
+
                     // If another more specific menu item matches the current pathname, don't highlight this parent item
                     const hasMoreSpecificMatch = allHrefs.some(
                       (otherHref) =>

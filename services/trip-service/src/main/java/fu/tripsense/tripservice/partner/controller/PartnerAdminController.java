@@ -22,10 +22,15 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
 public class PartnerAdminController {
+  private final PartnerAdminService adminService;
   private final fu.tripsense.tripservice.partner.service.PartnerChecklistService checklistService;
+  private final PartnerApplicationRepository applicationRepository;
+  private final PartnerManagementClaimRepository claimRepository;
+  private final fu.tripsense.tripservice.partner.repository.PartnerBusinessRepository businessRepository;
 
   @GetMapping("/partner-applications/{id}/checklist")
-  public Object checklist(@AuthenticationPrincipal AuthenticatedUser admin, @PathVariable UUID id) {
+  public ResponseEntity<ApiResponse<Object>> checklist(
+      @AuthenticationPrincipal AuthenticatedUser admin, @PathVariable UUID id) {
     adminService.requireAdmin(admin);
     var app =
         applicationRepository
@@ -33,76 +38,29 @@ public class PartnerAdminController {
             .orElseThrow(
                 () ->
                     new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.NOT_FOUND));
-    var business = businessRepository.findById(app.getBusinessId()).orElseThrow();
-    return ApiResponse.success(
-        checklistService
-            .load(
-                app.getChecklistId(),
-                app.getChecklistVersion(),
-                business.getKind() != null ? business.getKind().name() : null)
-            .getItemsJson());
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Application not found"));
+    var business =
+        businessRepository
+            .findById(app.getBusinessId())
+            .orElseThrow(
+                () ->
+                    new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Business not found"));
+    return ResponseEntity.ok(
+        ApiResponse.success(
+            checklistService
+                .load(
+                    app.getChecklistId(),
+                    app.getChecklistVersion(),
+                    business.getKind() != null ? business.getKind().name() : null)
+                .getItemsJson()));
   }
-
-  private final PartnerAdminService adminService;
-  private final PartnerApplicationRepository applicationRepository;
-  private final PartnerManagementClaimRepository claimRepository;
-  private final fu.tripsense.tripservice.partner.repository.PartnerBusinessRepository
-      businessRepository;
 
   @GetMapping({"/partner-applications", "/partners/applications"})
   public ResponseEntity<ApiResponse<List<ApplicationDetailDto>>> listApplications(
       @AuthenticationPrincipal AuthenticatedUser admin,
       @RequestParam(required = false, defaultValue = "SUBMITTED") String state) {
-    adminService.requireAdmin(admin);
-    ApplicationState appState = ApplicationState.valueOf(state);
-    List<PartnerApplication> list =
-        applicationRepository.findByStateOrderBySubmittedAtAsc(appState);
-    List<ApplicationDetailDto> dtos =
-        list.stream()
-            .map(
-                a -> {
-                  var bizOpt = businessRepository.findById(a.getBusinessId());
-                  Long bizVer =
-                      bizOpt
-                          .map(fu.tripsense.tripservice.partner.entity.PartnerBusiness::getVersion)
-                          .orElse(0L);
-                  String bizName =
-                      bizOpt
-                          .map(
-                              fu.tripsense.tripservice.partner.entity.PartnerBusiness
-                                  ::getDisplayName)
-                          .orElse(null);
-                  String bizKind =
-                      bizOpt.map(b -> b.getKind() != null ? b.getKind().name() : null).orElse(null);
-                  UUID ownerId =
-                      bizOpt
-                          .map(
-                              fu.tripsense.tripservice.partner.entity.PartnerBusiness
-                                  ::getOwnerUserId)
-                          .orElse(null);
-                  return ApplicationDetailDto.builder()
-                      .id(a.getId())
-                      .businessId(a.getBusinessId())
-                      .businessName(bizName)
-                      .businessKind(bizKind)
-                      .ownerUserId(ownerId)
-                      .revision(a.getRevision())
-                      .profileSnapshot(a.getProfileSnapshot())
-                      .checklistId(a.getChecklistId())
-                      .checklistVersion(a.getChecklistVersion())
-                      .requestedCapabilities(a.getRequestedCapabilities())
-                      .state(a.getState())
-                      .isReverification(a.isReverification())
-                      .version(a.getVersion())
-                      .businessVersion(bizVer)
-                      .submittedAt(a.getSubmittedAt())
-                      .decidedAt(a.getDecidedAt())
-                      .createdAt(a.getCreatedAt())
-                      .updatedAt(a.getUpdatedAt())
-                      .build();
-                })
-            .toList();
+    List<ApplicationDetailDto> dtos = adminService.listApplications(admin, state);
     return ResponseEntity.ok(ApiResponse.success(dtos));
   }
 

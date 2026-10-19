@@ -18,6 +18,14 @@ import {
   Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { useTranslation } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +93,12 @@ export function AdminPartnersView() {
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [checklist, setChecklist] = React.useState<{ code: string; label: string; required: boolean }[]>([]);
   const [checklistResults, setChecklistResults] = React.useState<Record<string, "PASS" | "FAIL" | "NEEDS_INFO">>({});
+  const [resolvingClaim, setResolvingClaim] = React.useState<{
+    claim: ManagementClaimDto;
+    outcome: "APPROVED" | "REJECTED";
+  } | null>(null);
+  const [claimReason, setClaimReason] = React.useState("");
+  const [claimError, setClaimError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setChecklist([]);
@@ -171,34 +185,44 @@ export function AdminPartnersView() {
       setSelectedApp(null);
       await loadData();
     } catch (err: unknown) {
-      setActionError(getSafeErrorMessage(err, "Lỗi khi xử lý thẩm định"));
+      setActionError(
+        getSafeErrorMessage(err, t("admin.partners.reviewError") || "Error reviewing application"),
+      );
     } finally {
       setSubmittingReview(false);
     }
   };
 
-  const handleClaimDecision = async (
-    claimId: string,
-    version: number,
-    outcome: "APPROVED" | "REJECTED",
-  ) => {
-    if (!reviewReason.trim()) {
-      setActionError("Vui lòng nhập lý do giải quyết tranh chấp.");
+  const openClaimModal = (claim: ManagementClaimDto, outcome: "APPROVED" | "REJECTED") => {
+    setResolvingClaim({ claim, outcome });
+    setClaimReason("");
+    setClaimError(null);
+  };
+
+  const submitClaimDecision = async () => {
+    if (!resolvingClaim) return;
+    if (!claimReason.trim()) {
+      setClaimError(
+        t("admin.partners.claims.reasonRequired") || "Please provide a reason for resolving this dispute.",
+      );
       return;
     }
 
     try {
       setSubmittingReview(true);
-      setActionError(null);
-      await adminReviewManagementClaim(claimId, {
-        expectedVersion: version,
-        outcome,
-        reason: reviewReason.trim(),
+      setClaimError(null);
+      await adminReviewManagementClaim(resolvingClaim.claim.id, {
+        expectedVersion: resolvingClaim.claim.version || 0,
+        outcome: resolvingClaim.outcome,
+        reason: claimReason.trim(),
       });
-      setReviewReason("");
+      setResolvingClaim(null);
+      setClaimReason("");
       await loadData();
     } catch (err: unknown) {
-      setActionError(getSafeErrorMessage(err, "Lỗi khi xử lý kháng cáo"));
+      setClaimError(
+        getSafeErrorMessage(err, t("admin.partners.claims.errorResolving") || "Error processing claim resolution"),
+      );
     } finally {
       setSubmittingReview(false);
     }
@@ -604,7 +628,7 @@ export function AdminPartnersView() {
                             <Button
                               size="sm"
                               className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => handleClaimDecision(clm.id, clm.version || 0, "APPROVED")}
+                              onClick={() => openClaimModal(clm, "APPROVED")}
                               disabled={submittingReview}
                             >
                               <CheckCircle className="mr-1 h-3 w-3" /> {t("admin.partners.claims.approveClaim")}
@@ -613,7 +637,7 @@ export function AdminPartnersView() {
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
-                              onClick={() => handleClaimDecision(clm.id, clm.version || 0, "REJECTED")}
+                              onClick={() => openClaimModal(clm, "REJECTED")}
                               disabled={submittingReview}
                             >
                               <XCircle className="mr-1 h-3 w-3" /> {t("admin.partners.claims.rejectClaim")}
@@ -629,6 +653,87 @@ export function AdminPartnersView() {
           )}
         </div>
       </div>
+
+      {/* Claim Resolution Confirmation Dialog */}
+      <Dialog
+        open={!!resolvingClaim}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResolvingClaim(null);
+            setClaimError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">
+              {resolvingClaim?.outcome === "APPROVED"
+                ? t("admin.partners.claims.approveClaimTitle")
+                : t("admin.partners.claims.rejectClaimTitle")}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              {resolvingClaim?.outcome === "APPROVED"
+                ? t("admin.partners.claims.confirmApproveDesc")
+                : t("admin.partners.claims.confirmRejectDesc")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="text-xs bg-muted/50 p-2.5 rounded-lg border border-border/60">
+              <span className="font-semibold block">
+                {t("admin.partners.claims.dispute")} #{resolvingClaim?.claim.id.slice(0, 8)}
+              </span>
+              <span className="text-muted-foreground block text-micro mt-0.5">
+                {t("admin.partners.businessId", {
+                  id: resolvingClaim?.claim.targetBusinessId || resolvingClaim?.claim.businessId || "",
+                })}
+              </span>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold block mb-1.5 text-foreground">
+                {t("admin.partners.claims.reasonLabel")} <span className="text-destructive">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={claimReason}
+                onChange={(e) => setClaimReason(e.target.value)}
+                placeholder={t("admin.partners.claims.reasonPlaceholder")}
+                className="w-full rounded-md border border-input bg-background p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+              />
+            </div>
+
+            {claimError && (
+              <div className="p-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded">
+                {claimError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setResolvingClaim(null)}
+              disabled={submittingReview}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              size="sm"
+              variant={resolvingClaim?.outcome === "APPROVED" ? "default" : "destructive"}
+              className={resolvingClaim?.outcome === "APPROVED" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+              onClick={submitClaimDecision}
+              disabled={submittingReview}
+            >
+              {submittingReview ? <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+              {resolvingClaim?.outcome === "APPROVED"
+                ? t("admin.partners.claims.approveClaim")
+                : t("admin.partners.claims.rejectClaim")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
