@@ -252,7 +252,7 @@ export function TripsScreen({
     <section className="min-h-screen px-6 py-10 sm:px-8 lg:px-12 xl:px-16 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between gap-6">
-        <h1 className="text-3xl font-extrabold leading-tight tracking-normal text-foreground">
+        <h1 className="text-3xl font-bold leading-tight tracking-normal text-foreground">
           {t("trip.yourTrips", { defaultValue: "Your trips" })}
         </h1>
         <Button

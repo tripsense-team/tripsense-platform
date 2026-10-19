@@ -17,7 +17,7 @@ import type {
 } from "../types";
 
 export async function fetchUserTripsQueryFn(): Promise<TripResponse[]> {
-  const trips = await useTripStore.getState().fetchTrips(true, 3);
+  const trips = await useTripStore.getState().fetchTrips(true, 4);
   return trips;
 }
 

@@ -94,6 +94,7 @@ export function TripManagementView({
   const loadMoreTrips = useTripStore((state) => state.loadMoreTrips);
   const fetchTrips = useTripStore((state) => state.fetchTrips);
   const updateTripInStore = useTripStore((state) => state.updateTripInStore);
+  const removeTripFromStore = useTripStore((state) => state.removeTripFromStore);
   const [trip, setTrip] = React.useState<TripResponse | null>(null);
   const [itinerary, setItinerary] = React.useState<ItineraryResponse | null>(
     null,
@@ -512,6 +513,7 @@ export function TripManagementView({
           onMoveItem={handleMoveItem}
           onReorderItems={handleReorderItems}
           onCreateTrip={() => setCreateOpen(true)}
+          onRequestDeleteTrip={setDeleteTrip}
         />
       );
     }
@@ -562,12 +564,17 @@ export function TripManagementView({
   async function handleConfirmDeleteTrip() {
     if (!deleteTrip) return;
 
+    const deletedId = deleteTrip.id;
     setSubmitting(true);
     setError(null);
     try {
-      await deleteTripRequest(deleteTrip.id);
+      await deleteTripRequest(deletedId);
+      removeTripFromStore(deletedId);
       setDeleteTrip(null);
       await loadTrips();
+      if (screen === "detail" || initialTripId === deletedId) {
+        router.push("/trips");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete trip");
     } finally {

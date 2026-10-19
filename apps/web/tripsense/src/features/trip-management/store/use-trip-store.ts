@@ -34,7 +34,7 @@ export const useTripStore = create<TripState>((set, get) => ({
   loadingMore: false,
   error: null,
   page: 0,
-  pageSize: 3,
+  pageSize: 4,
   totalElements: 0,
   totalPages: 0,
   hasMore: false,
@@ -75,7 +75,7 @@ export const useTripStore = create<TripState>((set, get) => ({
       return get().trips;
     }
 
-    const size = requestedSize ?? 3;
+    const size = requestedSize ?? 4;
     set({ loading: true, error: null });
 
     inFlightFetch = (async () => {
@@ -235,7 +235,7 @@ export const useTripStore = create<TripState>((set, get) => ({
       loadingMore: false,
       error: null,
       page: 0,
-      pageSize: 3,
+      pageSize: 4,
       totalElements: 0,
       totalPages: 0,
       hasMore: false,

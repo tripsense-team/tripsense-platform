@@ -5,31 +5,28 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  ArrowDown,
   ArrowLeft,
-  ArrowUp,
   Briefcase,
   Calendar,
   Check,
-  ChevronDown,
   ChevronRight,
-  ClipboardCheck,
   Compass,
   Copy,
   Edit3,
+  ExternalLink,
   FileDown,
   FileText,
-  GripVertical,
   Info,
   Lightbulb,
   Link2,
+  Loader2,
   Luggage,
   MapPin,
+  MessageSquare,
   Mic,
   MoreHorizontal,
   Plus,
   Send,
-  Share,
   Shield,
   Sparkles,
   Trash2,
@@ -47,6 +44,8 @@ import {
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
+import { useAiChatSessions, fetchChatMessagesQueryFn, type ChatSession } from "@/hooks/use-ai-chats";
+import type { ChatMessage } from "@/lib/types";
 import { TripMembersDialog } from "./trip-members-dialog";
 import { PrintItineraryDialog } from "./print-itinerary-dialog";
 import { TripChecklistModal } from "./trip-checklist-modal";
@@ -124,6 +123,18 @@ export function getDestinationCenter(destination: string): [number, number] {
   return [108.2022, 16.0544];
 }
 
+function extractMessageText(msg: ChatMessage): string {
+  if (!msg.parts) return "";
+  if (Array.isArray(msg.parts)) {
+    return msg.parts
+      .filter((p: any) => p && (p.type === "text" || typeof p.text === "string"))
+      .map((p: any) => p.text || "")
+      .join("\n")
+      .trim();
+  }
+  return "";
+}
+
 export function TripDetailScreen({
   trip,
   itinerary,
@@ -131,16 +142,13 @@ export function TripDetailScreen({
   error,
   submitting,
   chatText,
-  chatMessages,
   onChatTextChange,
-  onSendChat,
   onEditTrip,
   onAddItem,
   onEditItem,
   onDeleteItem,
-  onMoveItem,
-  onReorderItems,
   onCreateTrip,
+  onRequestDeleteTrip,
 }: {
   trip: TripResponse | null;
   itinerary: ItineraryResponse | null;
@@ -165,6 +173,7 @@ export function TripDetailScreen({
     orderedItemIds: string[],
   ) => Promise<void>;
   onCreateTrip: () => void;
+  onRequestDeleteTrip?: (trip: TripResponse) => void;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -175,11 +184,6 @@ export function TripDetailScreen({
   const [fitBoundsTrigger, setFitBoundsTrigger] = React.useState<number>(0);
 
   const [bannerDismissed, setBannerDismissed] = React.useState(false);
-  const [activeChatSessions, setActiveChatSessions] = React.useState<
-    Array<{ id: string; title: string; date: string; messages: string[] }>
-  >([]);
-  const [selectedChatSessionId, setSelectedChatSessionId] = React.useState<string | null>(null);
-
   const [copiedInviteLink, setCopiedInviteLink] = React.useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = React.useState(false);
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
@@ -189,20 +193,74 @@ export function TripDetailScreen({
   const [reminderOpen, setReminderOpen] = React.useState(false);
   const [cloning, setCloning] = React.useState(false);
 
+  // Real Chat Sessions from AI Service
+  const { data: allAiChats = [], isLoading: loadingAiChats } = useAiChatSessions();
+
+  const tripChatSessions = React.useMemo(() => {
+    if (!trip) return [];
+    // 1. Direct match by tripId
+    const directMatches = allAiChats.filter((c) => c.tripId === trip.id);
+    if (directMatches.length > 0) return directMatches;
+
+    // 2. Soft match by destination or trip title
+    const dest = trip.destinationName.toLowerCase();
+    const tripName = trip.name.toLowerCase();
+    return allAiChats.filter(
+      (c) =>
+        (c.title && c.title.toLowerCase().includes(dest)) ||
+        (c.title && c.title.toLowerCase().includes(tripName)),
+    );
+  }, [allAiChats, trip]);
+
+  const [selectedChatSessionId, setSelectedChatSessionId] = React.useState<string | null>(null);
+  const [sessionMessages, setSessionMessages] = React.useState<ChatMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = React.useState(false);
+
+  // Auto-select first chat session if available
   React.useEffect(() => {
-    if (trip && activeChatSessions.length === 0) {
-      const dest = titleCaseDestination(trip.destinationName);
-      setActiveChatSessions([
-        {
-          id: "session-1",
-          title: `Exploring ${dest}`,
-          date: formatDate(trip.createdAt || new Date().toISOString()),
-          messages: chatMessages,
-        },
-      ]);
-      setSelectedChatSessionId("session-1");
+    if (tripChatSessions.length > 0 && !selectedChatSessionId) {
+      setSelectedChatSessionId(tripChatSessions[0].id);
     }
-  }, [trip, activeChatSessions.length, chatMessages]);
+  }, [tripChatSessions, selectedChatSessionId]);
+
+  // Load real messages on chat selection
+  React.useEffect(() => {
+    if (!selectedChatSessionId) {
+      setSessionMessages([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingMessages(true);
+    fetchChatMessagesQueryFn(selectedChatSessionId)
+      .then((msgs) => {
+        if (isMounted) setSessionMessages(msgs);
+      })
+      .catch((err) => {
+        console.warn("Failed to load chat messages:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingMessages(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedChatSessionId]);
+
+  const handleSendPromptToAi = (promptText: string) => {
+    const text = promptText.trim();
+    if (!text || !trip) return;
+
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("tripsense:initial-ai-prompt", text);
+    }
+    onChatTextChange("");
+
+    if (selectedChatSessionId) {
+      router.push(`/ai-planner/${selectedChatSessionId}?tripId=${trip.id}`);
+    } else {
+      router.push(`/ai-planner?tripId=${trip.id}`);
+    }
+  };
 
   const handleCloneTrip = async () => {
     if (!trip || cloning) return;
@@ -232,39 +290,33 @@ export function TripDetailScreen({
     const destCenter = getDestinationCenter(trip.destinationName);
 
     if (itinerary?.days) {
-      let itemIdx = 0;
       for (const day of itinerary.days) {
         if (selectedDayNumber != null && day.dayNumber !== selectedDayNumber) {
           continue;
         }
 
         for (const item of day.items) {
-          itemIdx++;
-          let lat = item.latSnapshot;
-          let lng = item.lngSnapshot;
+          const lat = item.latSnapshot;
+          const lng = item.lngSnapshot;
 
-          if (lat == null || lng == null) {
-            const angle = (itemIdx * 137.5 * Math.PI) / 180;
-            const radius = 0.006 + (itemIdx % 6) * 0.003;
-            lat = destCenter[1] + radius * Math.sin(angle);
-            lng = destCenter[0] + radius * Math.cos(angle);
+          // Only add places with verified coordinates to avoid fake pins
+          if (lat != null && lng != null) {
+            places.push({
+              id: item.id,
+              name: item.title,
+              address: item.placeNameSnapshot || destination,
+              location: { lat, lng },
+              categories: [item.type],
+              rating: 4.8,
+              userRatingCount: 120,
+              photos: [],
+            });
           }
-
-          places.push({
-            id: item.id,
-            name: item.title,
-            address: item.placeNameSnapshot || destination,
-            location: { lat, lng },
-            categories: [item.type],
-            rating: 4.8,
-            userRatingCount: 120,
-            photos: [],
-          });
         }
       }
     }
 
-    // Fallback marker for destination if itinerary is empty
+    // Fallback marker for destination if no itinerary item has coordinates yet
     if (places.length === 0) {
       places.push({
         id: "destination-center",
@@ -287,38 +339,6 @@ export function TripDetailScreen({
     );
   }, [itinerary]);
 
-  const handleQuickPrompt = (promptText: string) => {
-    onChatTextChange(promptText);
-    onSendChat();
-    setActiveChatSessions((prev) =>
-      prev.map((session, idx) =>
-        idx === 0
-          ? {
-              ...session,
-              messages: [...session.messages, promptText],
-            }
-          : session,
-      ),
-    );
-  };
-
-  const handleSendAndRecord = () => {
-    const text = chatText.trim();
-    if (!text) return;
-    onSendChat();
-
-    setActiveChatSessions((prev) =>
-      prev.map((session, idx) =>
-        idx === 0
-          ? {
-              ...session,
-              messages: [...session.messages, text],
-            }
-          : session,
-      ),
-    );
-  };
-
   const copyInviteLink = async () => {
     const inviteLink =
       typeof window !== "undefined" ? window.location.href : "";
@@ -332,7 +352,12 @@ export function TripDetailScreen({
   };
 
   if (loading) {
-    return <LoadingState className="min-h-screen" text="Loading trip..." />;
+    return (
+      <LoadingState
+        className="min-h-screen"
+        text={t("common.loading", { defaultValue: "Loading..." })}
+      />
+    );
   }
 
   if (!trip) {
@@ -340,9 +365,18 @@ export function TripDetailScreen({
       <div className="flex min-h-screen items-center justify-center p-8">
         <EmptyState
           icon={Briefcase}
-          title="Trip not found"
-          description={error || "Create or select a trip to continue."}
-          action={<Button onClick={onCreateTrip}>New trip</Button>}
+          title={t("trip.tripNotFound", { defaultValue: "Trip not found" })}
+          description={
+            error ||
+            t("trip.tripNotFoundDesc", {
+              defaultValue: "Create or select a trip to continue.",
+            })
+          }
+          action={
+            <Button onClick={onCreateTrip}>
+              {t("trip.newTrip", { defaultValue: "New trip" })}
+            </Button>
+          }
         />
       </div>
     );
@@ -361,7 +395,7 @@ export function TripDetailScreen({
             size="icon"
             className="h-8 w-8 rounded-full border border-border/80 hover:bg-muted"
           >
-            <Link href="/trips" aria-label="Back to trips">
+            <Link href="/trips" aria-label={t("trip.back", { defaultValue: "Back to trips" })}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -380,7 +414,7 @@ export function TripDetailScreen({
             onClick={() => setMembersDialogOpen(true)}
           >
             <Users className="h-3.5 w-3.5 text-primary" />
-            <span>Invite</span>
+            <span>{t("trip.invite", { defaultValue: "Invite" })}</span>
           </Button>
 
           <Button
@@ -390,7 +424,7 @@ export function TripDetailScreen({
             onClick={() => setPrintDialogOpen(true)}
           >
             <FileDown className="h-3.5 w-3.5 text-primary" />
-            <span>Export</span>
+            <span>{t("trip.export", { defaultValue: "Export" })}</span>
           </Button>
 
           <Button
@@ -428,7 +462,9 @@ export function TripDetailScreen({
                 ) : (
                   <Link2 className="h-4 w-4" />
                 )}
-                {copiedInviteLink ? "Copied invite link" : "Copy invite link"}
+                {copiedInviteLink
+                  ? t("trip.copiedInviteLink", { defaultValue: "Copied invite link" })
+                  : t("trip.copyInviteLink", { defaultValue: "Copy invite link" })}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -436,7 +472,7 @@ export function TripDetailScreen({
                 onSelect={() => setSafetyOpen(true)}
               >
                 <Shield className="h-4 w-4 text-emerald-600" />
-                Safety & Emergency Guide
+                {t("trip.safetyGuide", { defaultValue: "Safety & Emergency Guide" })}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -444,7 +480,7 @@ export function TripDetailScreen({
                 onSelect={() => setReminderOpen(true)}
               >
                 <TripReminderIcon className="h-4 w-4 text-amber-600" />
-                Trip Reminders
+                {t("trip.tripReminders", { defaultValue: "Trip Reminders" })}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -453,18 +489,24 @@ export function TripDetailScreen({
                 disabled={cloning}
               >
                 <Copy className="h-4 w-4" />
-                {cloning ? "Cloning..." : "Clone this trip"}
+                {cloning
+                  ? t("trip.cloning", { defaultValue: "Cloning..." })
+                  : t("trip.cloneTrip", { defaultValue: "Clone this trip" })}
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
-
-              <DropdownMenuItem
-                className="gap-2.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer text-destructive focus:text-destructive"
-                onSelect={() => onDeleteItem({ id: trip.id } as any)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete trip
-              </DropdownMenuItem>
+              {onRequestDeleteTrip && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer text-destructive focus:text-destructive"
+                    onSelect={() => onRequestDeleteTrip(trip)}
+                    disabled={submitting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t("trip.deleteTrip", { defaultValue: "Delete trip" })}
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -478,7 +520,7 @@ export function TripDetailScreen({
         <section className="lg:col-span-5 xl:col-span-5 flex flex-col h-full border-r border-border/60 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 space-y-4">
             <div>
-              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                 {title}
               </h2>
 
@@ -490,12 +532,14 @@ export function TripDetailScreen({
                   {formatShortRange(trip.startDate, trip.endDate)}
                 </span>
                 <span className="rounded-full border border-border/80 bg-background px-2.5 py-0.5 text-xs font-semibold text-foreground shadow-2xs">
-                  {trip.travelerCount ? `${trip.travelerCount} travelers` : "1 travelers"}
+                  {trip.travelerCount
+                    ? `${trip.travelerCount} ${t("trip.travelers", { defaultValue: "travelers" })}`
+                    : `1 ${t("trip.travelers", { defaultValue: "travelers" })}`}
                 </span>
                 <span className="rounded-full border border-border/80 bg-background px-2.5 py-0.5 text-xs font-semibold text-foreground shadow-2xs">
                   {trip.budgetAmount
                     ? `${trip.budgetAmount.toLocaleString()} ${trip.budgetCurrency || "VND"}`
-                    : "Budget"}
+                    : t("trip.budget", { defaultValue: "Budget" })}
                 </span>
               </div>
             </div>
@@ -514,89 +558,176 @@ export function TripDetailScreen({
                   <Sparkles className="h-3.5 w-3.5 fill-background stroke-background" />
                 </div>
                 <h3 className="mt-2 text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground">
-                  {destination} is open for planning. Want ideas for what to do there?
+                  {destination}{" "}
+                  {t("trip.openForPlanning", {
+                    defaultValue: "is open for planning. Want ideas for what to do there?",
+                  })}
                 </h3>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => handleQuickPrompt(`Show food and dining ideas for ${destination}`)}
+                    onClick={() =>
+                      handleSendPromptToAi(`Gợi ý các món ăn và nhà hàng đặc sản ngon nhất ở ${destination}`)
+                    }
                     className="rounded-full bg-secondary hover:bg-secondary/80 px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors cursor-pointer"
                   >
-                    Show food ideas
+                    {t("trip.showFoodIdeas", { defaultValue: "Show food ideas" })}
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleQuickPrompt(`Plan the best first-day activities for ${destination}`)}
+                    onClick={() =>
+                      handleSendPromptToAi(`Lên kế hoạch các hoạt động ngày đầu tiên tại ${destination}`)
+                    }
                     className="rounded-full bg-secondary hover:bg-secondary/80 px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors cursor-pointer"
                   >
-                    Plan first activities
+                    {t("trip.planFirstActivities", {
+                      defaultValue: "Plan first activities",
+                    })}
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleQuickPrompt(`Suggest the top neighborhoods and places in ${destination}`)}
+                    onClick={() =>
+                      handleSendPromptToAi(`Gợi ý các khu vực và địa điểm nổi tiếng nhất tại ${destination}`)
+                    }
                     className="rounded-full bg-secondary hover:bg-secondary/80 px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors cursor-pointer"
                   >
-                    Suggest neighborhoods
+                    {t("trip.suggestNeighborhoods", {
+                      defaultValue: "Suggest neighborhoods",
+                    })}
                   </button>
                 </div>
               </div>
             )}
 
+            {/* Real Chats Section */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  Chats <span className="font-semibold text-muted-foreground ml-1">{activeChatSessions.length}</span>
+                  {t("trip.chats", { defaultValue: "Chats" })}{" "}
+                  <span className="font-semibold text-muted-foreground ml-1">
+                    {tripChatSessions.length}
+                  </span>
                 </h3>
               </div>
 
-              <div className="space-y-2">
-                {activeChatSessions.map((session) => {
-                  const isSelected = selectedChatSessionId === session.id;
-                  return (
-                    <div
-                      key={session.id}
-                      className={cn(
-                        "rounded-2xl border border-border bg-card p-3.5 shadow-xs transition-all hover:bg-accent/40 cursor-pointer",
-                        isSelected && "ring-1.5 ring-primary/40 bg-accent/20",
-                      )}
-                      onClick={() =>
-                        setSelectedChatSessionId(isSelected ? null : session.id)
-                      }
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                            {session.title}
-                          </h4>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            {session.date}
-                          </p>
+              {loadingAiChats ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : tripChatSessions.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-center space-y-1">
+                  <MessageSquare className="h-5 w-5 mx-auto text-muted-foreground" />
+                  <p className="text-xs font-bold text-foreground">
+                    {t("trip.noChatsYet", { defaultValue: "No chats for this trip yet." })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("trip.noChatsDesc", {
+                      defaultValue: "Ask AI below to get instant food, activities, or place ideas!",
+                    })}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {tripChatSessions.map((session) => {
+                    const isSelected = selectedChatSessionId === session.id;
+                    return (
+                      <div
+                        key={session.id}
+                        className={cn(
+                          "rounded-2xl border border-border bg-card p-3.5 shadow-xs transition-all hover:bg-accent/40 cursor-pointer",
+                          isSelected && "ring-1.5 ring-primary/40 bg-accent/20",
+                        )}
+                        onClick={() =>
+                          setSelectedChatSessionId(isSelected ? null : session.id)
+                        }
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0 pr-2">
+                            <h4 className="text-xs sm:text-sm font-bold text-foreground truncate">
+                              {session.title || t("trip.untitledChat", { defaultValue: "Conversation" })}
+                            </h4>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {formatDate(session.updatedAt || session.createdAt)}
+                            </p>
+                          </div>
+                          <ChevronRight
+                            className={cn(
+                              "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                              isSelected && "rotate-90",
+                            )}
+                          />
                         </div>
-                        <ChevronRight
-                          className={cn(
-                            "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                            isSelected && "rotate-90",
-                          )}
-                        />
-                      </div>
 
-                      {isSelected && session.messages.length > 0 && (
-                        <div className="mt-3 pt-2.5 border-t border-border/60 space-y-2">
-                          {session.messages.map((msg, mIdx) => (
-                            <div
-                              key={mIdx}
-                              className="rounded-xl bg-muted/60 p-2.5 text-xs font-medium text-foreground"
-                            >
-                              <span className="font-bold text-primary mr-1.5">You:</span>
-                              {msg}
+                        {isSelected && (
+                          <div
+                            className="mt-3 pt-2.5 border-t border-border/60 space-y-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {loadingMessages ? (
+                              <div className="flex items-center justify-center py-3">
+                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                              </div>
+                            ) : sessionMessages.length === 0 ? (
+                              <p className="text-[11px] text-muted-foreground italic">
+                                {t("trip.noMessagesInChat", {
+                                  defaultValue: "No messages in this chat yet.",
+                                })}
+                              </p>
+                            ) : (
+                              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                                {sessionMessages.map((msg) => {
+                                  const text = extractMessageText(msg);
+                                  if (!text) return null;
+                                  const isUser = msg.role === "user";
+                                  return (
+                                    <div
+                                      key={msg.id}
+                                      className={cn(
+                                        "rounded-xl p-2.5 text-xs font-medium leading-relaxed",
+                                        isUser
+                                          ? "bg-muted/80 text-foreground"
+                                          : "bg-primary/10 border border-primary/20 text-foreground",
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "font-bold mr-1.5",
+                                          isUser ? "text-primary" : "text-primary/90",
+                                        )}
+                                      >
+                                        {isUser ? "You:" : "TripSense AI:"}
+                                      </span>
+                                      {text}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <div className="pt-1 flex justify-end">
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="h-6 rounded-full px-2.5 text-[11px] font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10 cursor-pointer"
+                              >
+                                <Link href={`/ai-planner/${session.id}?tripId=${trip.id}`}>
+                                  <span>
+                                    {t("trip.openInAiPlanner", {
+                                      defaultValue: "Open in AI Planner",
+                                    })}
+                                  </span>
+                                  <ExternalLink className="h-3 w-3" />
+                                </Link>
+                              </Button>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -609,7 +740,7 @@ export function TripDetailScreen({
                 size="icon"
                 onClick={() => itinerary?.days[0] && onAddItem(itinerary.days[0])}
                 className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
-                title="Add to trip"
+                title={t("trip.addSpot", { defaultValue: "Add to trip" })}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -620,10 +751,12 @@ export function TripDetailScreen({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    handleSendAndRecord();
+                    handleSendPromptToAi(chatText);
                   }
                 }}
-                placeholder="Start a new chat for this trip"
+                placeholder={t("trip.chatPlaceholder", {
+                  defaultValue: "Start a new chat for this trip",
+                })}
                 className="flex-1 bg-transparent px-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               <div className="flex items-center gap-1 shrink-0">
@@ -639,7 +772,7 @@ export function TripDetailScreen({
                 <Button
                   type="button"
                   size="icon"
-                  onClick={handleSendAndRecord}
+                  onClick={() => handleSendPromptToAi(chatText)}
                   disabled={!chatText.trim()}
                   className={cn(
                     "h-7 w-7 rounded-full transition-all cursor-pointer",
@@ -664,39 +797,39 @@ export function TripDetailScreen({
               <div className="grid grid-cols-2 gap-2.5 shrink-0">
                 <ActionTile
                   icon={Lightbulb}
-                  label="Ideas"
+                  label={t("trip.ideas", { defaultValue: "Ideas" })}
                   onClick={() => setPollOpen(true)}
                 />
                 <ActionTile
                   icon={Compass}
-                  label="Itinerary"
+                  label={t("trip.itinerary", { defaultValue: "Itinerary" })}
                   badge={itineraryPlacesCount > 0 ? `${itineraryPlacesCount}` : undefined}
                   onClick={() => setActivePanel("itinerary")}
                 />
                 <ActionTile
                   icon={Luggage}
-                  label="Bookings"
+                  label={t("trip.bookings", { defaultValue: "Bookings" })}
                   onClick={() => setChecklistOpen(true)}
                 />
                 <ActionTile
                   icon={FileText}
-                  label="Media"
+                  label={t("trip.media", { defaultValue: "Media" })}
                   onClick={() => onEditTrip(trip)}
                 />
                 <ActionTile
                   icon={Info}
-                  label="Trip preferences"
+                  label={t("trip.preferences", { defaultValue: "Trip preferences" })}
                   badge="1"
                   onClick={() => onEditTrip(trip)}
                 />
                 <ActionTile
                   icon={Calendar}
-                  label="Calendar"
+                  label={t("trip.calendar", { defaultValue: "Calendar" })}
                   href="/calendar"
                 />
               </div>
 
-              {/* Large Interactive Map with Marked Points - Fills remaining height cleanly */}
+              {/* Large Interactive Map with Marked Points */}
               <div className="relative flex-1 min-h-0 w-full overflow-hidden rounded-2xl border border-border bg-muted shadow-sm">
                 <MapVinaContainer
                   places={mapPlaces}
@@ -722,10 +855,10 @@ export function TripDetailScreen({
                     className="h-8 rounded-full px-2.5 text-xs font-semibold gap-1.5 hover:bg-muted cursor-pointer"
                   >
                     <ArrowLeft className="h-3.5 w-3.5" />
-                    <span>Back</span>
+                    <span>{t("trip.back", { defaultValue: "Back" })}</span>
                   </Button>
-                  <h3 className="text-base font-extrabold tracking-tight text-foreground">
-                    Itinerary
+                  <h3 className="text-base font-bold tracking-tight text-foreground">
+                    {t("trip.itinerary", { defaultValue: "Itinerary" })}
                   </h3>
                   <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                     {countTripDays(trip)} days · {itineraryPlacesCount} spots
@@ -740,7 +873,7 @@ export function TripDetailScreen({
                     className="h-7 rounded-full px-2.5 text-xs font-semibold gap-1 hover:bg-accent cursor-pointer"
                   >
                     <MapPin className="h-3.5 w-3.5 text-primary" />
-                    <span>Fit Map</span>
+                    <span>{t("trip.fitMap", { defaultValue: "Fit Map" })}</span>
                   </Button>
                   {itinerary?.days[0] && (
                     <Button
@@ -749,7 +882,7 @@ export function TripDetailScreen({
                       className="h-7 rounded-full px-3 text-xs font-bold gap-1 cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      <span>Add Spot</span>
+                      <span>{t("trip.addSpot", { defaultValue: "Add Spot" })}</span>
                     </Button>
                   )}
                 </div>
@@ -764,7 +897,7 @@ export function TripDetailScreen({
                     onClick={() => setSelectedDayNumber(null)}
                     className="h-7 rounded-full px-3 text-xs font-semibold cursor-pointer shrink-0"
                   >
-                    All Days
+                    {t("trip.allDays", { defaultValue: "All Days" })}
                   </Button>
                   {itinerary.days.map((day) => (
                     <Button
@@ -809,13 +942,15 @@ export function TripDetailScreen({
                             className="h-6 rounded-full px-2 text-[11px] font-semibold text-primary hover:bg-primary/10 cursor-pointer"
                           >
                             <Plus className="h-3 w-3 mr-1" />
-                            Add
+                            {t("trip.addPlace", { defaultValue: "Add" })}
                           </Button>
                         </div>
 
                         {day.items.length === 0 ? (
                           <div className="rounded-xl bg-muted/40 p-3 text-center text-xs text-muted-foreground font-medium">
-                            No places planned for this day yet.
+                            {t("trip.noPlacesPlanned", {
+                              defaultValue: "No places planned for this day yet.",
+                            })}
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -835,7 +970,7 @@ export function TripDetailScreen({
                                       <span className="text-xs font-bold text-foreground truncate">
                                         {item.title}
                                       </span>
-                                      <span className="text-[10px] font-semibold text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded">
+                                      <span className="text-micro font-semibold text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded">
                                         {itemTypeLabel(item.type)}
                                       </span>
                                     </div>
