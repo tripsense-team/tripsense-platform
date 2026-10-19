@@ -264,7 +264,7 @@ export function ActiveChatProvider({
         ? (locale === "vi" ? "Lịch trình chuyến đi" : "Trip itinerary")
         : t("aiPlanner.newChat"))
     );
-  }, [currentChat?.title, messages.length, locale, t]);
+  }, [currentChat, messages.length, locale, t]);
 
   // Rename chat
   const renameChat = useCallback(
@@ -281,7 +281,7 @@ export function ActiveChatProvider({
         toast.error(err.message || "Không thể đổi tên cuộc trò chuyện.");
       }
     },
-    [chatId, renameMutation]
+    [chatId, renameMutation, locale]
   );
 
   // Delete chat
