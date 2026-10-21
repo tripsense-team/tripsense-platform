@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/i18n";
 
 interface ReviewItem {
   id: string;
@@ -76,6 +77,7 @@ const initialReviews: ReviewItem[] = [
 ];
 
 export default function AdminReviewsPage() {
+  const { t } = useTranslation();
   const [reviews, setReviews] = React.useState<ReviewItem[]>(initialReviews);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("ALL");
@@ -102,19 +104,19 @@ export default function AdminReviewsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-              <MessageSquare className="h-3.5 w-3.5 mr-1" /> Content Moderation
+              <MessageSquare className="h-3.5 w-3.5 mr-1" /> {t("admin.reviews.userFeedback") || "Content Moderation"}
             </Badge>
-            <span className="text-xs text-muted-foreground">Community Quality Assurance</span>
+            <span className="text-xs text-muted-foreground">{t("admin.reviews.communityModeration") || "Community Quality Assurance"}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Reviews & Feedback</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("admin.reviews.title") || "Reviews & Feedback"}</h1>
           <p className="text-sm text-muted-foreground">
-            Review user ratings, comments, and prevent spam or inappropriate reviews.
+            {t("admin.reviews.subtitle") || "Moderate traveler reviews, verify authentic experiences, and maintain content quality."}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs">
-            {reviews.filter((r) => r.status === "PENDING").length} Pending Verification
+            {t("admin.reviews.pendingCount", { count: reviews.filter((r) => r.status === "PENDING").length })}
           </Badge>
         </div>
       </div>
@@ -127,13 +129,13 @@ export default function AdminReviewsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by reviewer, place, or comment keywords..."
+            placeholder={t("admin.reviews.searchPlaceholder") || "Search by reviewer, place, or review content..."}
             className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           />
         </div>
 
         <div className="flex items-center gap-1 bg-muted p-1 rounded-lg text-xs">
-          <span className="text-muted-foreground px-2 font-medium">Status:</span>
+          <span className="text-muted-foreground px-2 font-medium">{t("admin.reviews.filterStatus") || "Status:"}</span>
           {["ALL", "APPROVED", "PENDING", "REJECTED"].map((st) => (
             <button
               key={st}
@@ -144,7 +146,13 @@ export default function AdminReviewsPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {st}
+              {st === "ALL"
+                ? (t("admin.reviews.all") || "ALL")
+                : st === "APPROVED"
+                ? (t("admin.reviews.status.approved") || "Approved")
+                : st === "PENDING"
+                ? (t("admin.reviews.status.pending") || "Pending")
+                : (t("admin.reviews.status.rejected") || "Rejected")}
             </button>
           ))}
         </div>
@@ -154,7 +162,7 @@ export default function AdminReviewsPage() {
       <div className="space-y-3">
         {filteredReviews.length === 0 ? (
           <Card className="bg-card border-border p-8 text-center text-muted-foreground text-xs">
-            No reviews match your filter.
+            {t("admin.reviews.empty") || "No reviews match your filter."}
           </Card>
         ) : (
           filteredReviews.map((rev) => (
@@ -208,7 +216,11 @@ export default function AdminReviewsPage() {
                         : "bg-destructive/10 text-destructive border-destructive/20"
                     }`}
                   >
-                    {rev.status}
+                    {rev.status === "APPROVED"
+                      ? (t("admin.reviews.status.approved") || "APPROVED")
+                      : rev.status === "PENDING"
+                      ? (t("admin.reviews.status.pending") || "PENDING")
+                      : (t("admin.reviews.status.rejected") || "REJECTED")}
                   </Badge>
 
                   <div className="flex items-center gap-1">
@@ -219,7 +231,7 @@ export default function AdminReviewsPage() {
                         onClick={() => updateStatus(rev.id, "APPROVED")}
                         className="h-8 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> {t("admin.reviews.actions.approve") || "Approve"}
                       </Button>
                     )}
                     {rev.status !== "REJECTED" && (
@@ -229,7 +241,7 @@ export default function AdminReviewsPage() {
                         onClick={() => updateStatus(rev.id, "REJECTED")}
                         className="h-8 text-xs text-destructive hover:bg-destructive/10"
                       >
-                        <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                        <XCircle className="h-3.5 w-3.5 mr-1" /> {t("admin.reviews.actions.reject") || "Reject"}
                       </Button>
                     )}
                   </div>

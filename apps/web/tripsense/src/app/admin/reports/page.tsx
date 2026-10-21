@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/i18n";
 
 interface ReportItem {
   id: string;
@@ -77,6 +78,7 @@ const initialReports: ReportItem[] = [
 ];
 
 export default function AdminReportsPage() {
+  const { t } = useTranslation();
   const [reports, setReports] = React.useState<ReportItem[]>(initialReports);
   const [statusFilter, setStatusFilter] = React.useState<string>("PENDING");
 
@@ -103,19 +105,19 @@ export default function AdminReportsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
-              <AlertOctagon className="h-3.5 w-3.5 mr-1" /> Safety & Abuse Center
+              <AlertOctagon className="h-3.5 w-3.5 mr-1" /> {t("admin.reports.trustSafety") || "Safety & Abuse Center"}
             </Badge>
-            <span className="text-xs text-muted-foreground">Moderation Queue</span>
+            <span className="text-xs text-muted-foreground">{t("admin.reports.moderation") || "Moderation Queue"}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Reports & Flags</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("admin.reports.title") || "Reports & Flags"}</h1>
           <p className="text-sm text-muted-foreground">
-            Investigate community flags, spam reports, and policy violation cases.
+            {t("admin.reports.subtitle") || "Investigate community flags, spam reports, and policy violation cases."}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Badge className="bg-destructive text-destructive-foreground font-mono text-xs px-3 py-1">
-            {reports.filter((r) => r.status === "PENDING").length} Open Flags
+            {t("admin.reports.openFlags", { count: reports.filter((r) => r.status === "PENDING").length })}
           </Badge>
         </div>
       </div>
@@ -132,7 +134,13 @@ export default function AdminReportsPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {st === "PENDING" ? `Pending (${reports.filter((r) => r.status === "PENDING").length})` : st}
+            {st === "PENDING"
+              ? `${t("admin.reports.status.pending") || "Pending"} (${reports.filter((r) => r.status === "PENDING").length})`
+              : st === "RESOLVED"
+              ? (t("admin.reports.status.resolved") || "Resolved")
+              : st === "DISMISSED"
+              ? (t("admin.reports.status.dismissed") || "Dismissed")
+              : (t("admin.reports.all") || "All")}
           </button>
         ))}
       </div>
@@ -142,7 +150,7 @@ export default function AdminReportsPage() {
         {filteredReports.length === 0 ? (
           <Card className="bg-card border-border p-12 text-center text-muted-foreground text-xs">
             <CheckCircle className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-80" />
-            No reports in this category. Queue is clean!
+            {t("admin.reports.cleanQueue") || "No reports in this category. Queue is clean!"}
           </Card>
         ) : (
           filteredReports.map((report) => (
@@ -162,19 +170,34 @@ export default function AdminReportsPage() {
                           : "bg-muted text-muted-foreground text-micro"
                       }
                     >
-                      {report.severity} PRIORITY
+                      {t("admin.reports.priority", {
+                        severity:
+                          report.severity === "HIGH"
+                            ? t("admin.reports.severity.high")
+                            : report.severity === "MEDIUM"
+                            ? t("admin.reports.severity.medium")
+                            : t("admin.reports.severity.low"),
+                      })}
                     </Badge>
                     <Badge variant="outline" className="bg-muted text-foreground text-micro">
-                      {report.targetType}
+                      {report.targetType === "COMMENT"
+                        ? t("admin.reports.targetTypes.comment")
+                        : report.targetType === "HOTEL"
+                        ? t("admin.reports.targetTypes.hotel")
+                        : report.targetType === "COMMUNITY_POST"
+                        ? t("admin.reports.targetTypes.communityPost")
+                        : t("admin.reports.targetTypes.user")}
                     </Badge>
                     <span className="text-micro text-muted-foreground font-mono">
-                      Reported {report.timestamp} by {report.reportedBy}
+                      {t("admin.reports.reportedBy", { user: report.reportedBy, time: report.timestamp })}
                     </span>
                   </div>
 
                   <h3 className="font-bold text-foreground text-sm">{report.targetTitle}</h3>
                   <p className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg border border-border/50">
-                    <span className="font-semibold text-foreground">Violation Reason: </span>
+                    <span className="font-semibold text-foreground">
+                      {t("admin.reports.violationReason") || "Violation Reason:"}{" "}
+                    </span>
                     {report.reason}
                   </p>
                 </div>
@@ -189,7 +212,7 @@ export default function AdminReportsPage() {
                         onClick={() => resolveReport(report.id)}
                         className="h-8 text-xs gap-1"
                       >
-                        <Trash2 className="h-3.5 w-3.5" /> Remove & Resolve
+                        <Trash2 className="h-3.5 w-3.5" /> {t("admin.reports.actions.deleteContent") || "Remove & Resolve"}
                       </Button>
                       <Button
                         size="sm"
@@ -197,7 +220,7 @@ export default function AdminReportsPage() {
                         onClick={() => dismissReport(report.id)}
                         className="h-8 text-xs gap-1"
                       >
-                        <XCircle className="h-3.5 w-3.5" /> Dismiss
+                        <XCircle className="h-3.5 w-3.5" /> {t("admin.reports.actions.dismiss") || "Dismiss"}
                       </Button>
                     </>
                   ) : (
@@ -209,7 +232,9 @@ export default function AdminReportsPage() {
                           : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {report.status}
+                      {report.status === "RESOLVED"
+                        ? t("admin.reports.status.resolved")
+                        : t("admin.reports.status.dismissed")}
                     </Badge>
                   )}
                 </div>

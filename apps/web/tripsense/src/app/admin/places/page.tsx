@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/i18n";
 
 interface PlaceRecord {
   id: string;
@@ -87,6 +88,7 @@ const initialPlaces: PlaceRecord[] = [
 ];
 
 export default function AdminPlacesPage() {
+  const { t } = useTranslation();
   const [places, setPlaces] = React.useState<PlaceRecord[]>(initialPlaces);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState<string>("ALL");
@@ -112,18 +114,18 @@ export default function AdminPlacesPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
-              <MapPin className="h-3.5 w-3.5 mr-1" /> Geospatial Catalog
+              <MapPin className="h-3.5 w-3.5 mr-1" /> {t("admin.places.catalog") || "Geospatial Catalog"}
             </Badge>
-            <span className="text-xs text-muted-foreground">Place Service & Ziomap</span>
+            <span className="text-xs text-muted-foreground">{t("admin.places.management") || "Place Service & Ziomap"}</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Destinations & Places</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("admin.places.title") || "Destinations & Places"}</h1>
           <p className="text-sm text-muted-foreground">
-            Curate points of interest, sync with Ziomap/OSM, and verify traveler destinations.
+            {t("admin.places.subtitle") || "Browse, verify, and curate points of interest across global destinations."}
           </p>
         </div>
 
         <Button className="gap-2 shadow-xs self-start sm:self-auto">
-          <Plus className="h-4 w-4" /> Add New Place
+          <Plus className="h-4 w-4" /> {t("admin.places.addPlace") || "Add New Place"}
         </Button>
       </div>
 
@@ -135,7 +137,7 @@ export default function AdminPlacesPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by place name or city..."
+            placeholder={t("admin.places.searchPlaceholder") || "Search by place name, city, or provider..."}
             className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           />
         </div>
@@ -151,7 +153,15 @@ export default function AdminPlacesPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {cat}
+              {cat === "ALL"
+                ? (t("admin.places.categories.all") || "ALL")
+                : cat === "ATTRACTION"
+                ? (t("admin.places.categories.attraction") || "ATTRACTION")
+                : cat === "HOTEL"
+                ? (t("admin.places.categories.hotel") || "HOTEL")
+                : cat === "RESTAURANT"
+                ? (t("admin.places.categories.restaurant") || "RESTAURANT")
+                : (t("admin.places.categories.culture") || "CULTURE")}
             </button>
           ))}
         </div>
@@ -159,57 +169,75 @@ export default function AdminPlacesPage() {
 
       {/* Places Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredPlaces.map((place) => (
-          <Card key={place.id} className="bg-card border-border shadow-2xs overflow-hidden group hover:shadow-xs transition-all">
-            <div className="h-44 w-full relative overflow-hidden bg-muted">
-              {/* Image */}
-              <img
-                src={place.coverUrl}
-                alt={place.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <div className="absolute top-3 left-3 flex gap-2">
-                <Badge className="bg-background/90 text-foreground backdrop-blur-md shadow-xs text-micro font-semibold">
-                  {place.category}
-                </Badge>
-                <Badge variant="outline" className="bg-background/80 backdrop-blur-md text-micro">
-                  {place.provider}
-                </Badge>
-              </div>
-              <div className="absolute bottom-3 right-3 bg-background/90 backdrop-blur-md px-2 py-0.5 rounded-full flex items-center gap-1 text-xs font-semibold shadow-xs">
-                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                <span>{place.rating}</span>
-                <span className="text-micro text-muted-foreground">({place.reviewCount})</span>
-              </div>
-            </div>
-
-            <CardContent className="p-4 space-y-3">
-              <div>
-                <h3 className="font-bold text-foreground text-sm truncate">{place.name}</h3>
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" /> {place.city}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
-                <button
-                  type="button"
-                  onClick={() => toggleVerified(place.id)}
-                  className={`flex items-center gap-1 text-xs font-medium cursor-pointer transition-colors ${
-                    place.verified ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  <span>{place.verified ? "Verified Official" : "Unverified Place"}</span>
-                </button>
-
-                <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground">
-                  <Eye className="h-3.5 w-3.5" /> Inspect
-                </Button>
-              </div>
-            </CardContent>
+        {filteredPlaces.length === 0 ? (
+          <Card className="col-span-full bg-card border-border p-8 text-center text-muted-foreground text-xs">
+            {t("admin.places.empty") || "No places match your search."}
           </Card>
-        ))}
+        ) : (
+          filteredPlaces.map((place) => (
+            <Card key={place.id} className="bg-card border-border shadow-2xs overflow-hidden group hover:shadow-xs transition-all">
+              <div className="h-44 w-full relative overflow-hidden bg-muted">
+                {/* Image */}
+                <img
+                  src={place.coverUrl}
+                  alt={place.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute top-3 left-3 flex gap-2">
+                  <Badge className="bg-background/90 text-foreground backdrop-blur-md shadow-xs text-micro font-semibold">
+                    {place.category === "HOTEL"
+                      ? (t("admin.places.categories.hotel") || "HOTEL")
+                      : place.category === "ATTRACTION"
+                      ? (t("admin.places.categories.attraction") || "ATTRACTION")
+                      : place.category === "RESTAURANT"
+                      ? (t("admin.places.categories.restaurant") || "RESTAURANT")
+                      : (t("admin.places.categories.culture") || "CULTURE")}
+                  </Badge>
+                  <Badge variant="outline" className="bg-background/80 backdrop-blur-md text-micro">
+                    {place.provider}
+                  </Badge>
+                </div>
+                <div className="absolute bottom-3 right-3 bg-background/90 backdrop-blur-md px-2 py-0.5 rounded-full flex items-center gap-1 text-xs font-semibold shadow-xs">
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  <span>{place.rating}</span>
+                  <span className="text-micro text-muted-foreground">
+                    {t("admin.places.reviewsCount", { count: place.reviewCount }) || `(${place.reviewCount})`}
+                  </span>
+                </div>
+              </div>
+
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <h3 className="font-bold text-foreground text-sm truncate">{place.name}</h3>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" /> {place.city}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
+                  <button
+                    type="button"
+                    onClick={() => toggleVerified(place.id)}
+                    className={`flex items-center gap-1 text-xs font-medium cursor-pointer transition-colors ${
+                      place.verified ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span>
+                      {place.verified
+                        ? (t("admin.places.verifiedOfficial") || "Verified Official")
+                        : (t("admin.places.unverified") || "Unverified Place")}
+                    </span>
+                  </button>
+
+                  <Button variant="ghost" size="sm" className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground">
+                    <Eye className="h-3.5 w-3.5" /> {t("admin.places.inspect") || "Inspect"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

@@ -70,7 +70,7 @@ export function AdminHeader({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                 </span>
                 <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Server className="h-3.5 w-3.5" /> All Services Operational
+                  <Server className="h-3.5 w-3.5" /> {t("admin.header.allServicesOperational") || "All Services Operational"}
                 </span>
               </>
             ) : (
@@ -79,7 +79,7 @@ export function AdminHeader({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
                 </span>
                 <span className="font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <ShieldAlert className="h-3.5 w-3.5" /> Degraded Services
+                  <ShieldAlert className="h-3.5 w-3.5" /> {t("admin.header.degradedServices") || "Degraded Services"}
                 </span>
               </>
             )}
@@ -90,7 +90,7 @@ export function AdminHeader({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
-              placeholder="Search users, places, trips, or service logs..."
+              placeholder={t("admin.header.searchPlaceholder") || "Search users, places, trips, or service logs..."}
               className="w-full rounded-lg border border-border bg-card py-1.5 pl-9 pr-8 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
@@ -132,7 +132,7 @@ export function AdminHeader({
             variant="ghost"
             size="icon"
             className="relative rounded-lg text-muted-foreground hover:text-foreground"
-            aria-label="Admin Notifications"
+            aria-label={t("admin.header.notifications") || "Admin Notifications"}
           >
             <Bell />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
@@ -157,7 +157,7 @@ export function AdminHeader({
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-0.5">
                   <p className="text-sm font-semibold text-foreground truncate">
-                    {activeAdmin?.name || activeAdmin?.email || "System Admin"}
+                    {activeAdmin?.name || activeAdmin?.email || t("admin.header.systemAdmin") || "System Admin"}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {activeAdmin?.email || "admin@tripsense.app"}
@@ -172,7 +172,7 @@ export function AdminHeader({
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/admin/services" className="cursor-pointer">
-                  Service Status Monitor
+                  {t("admin.header.serviceStatusMonitor") || "Service Status Monitor"}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -181,7 +181,7 @@ export function AdminHeader({
                   href="/explore"
                   className="cursor-pointer text-muted-foreground"
                 >
-                  Exit to Main Site
+                  {t("admin.header.exitToMain") || "Exit to Main Site"}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

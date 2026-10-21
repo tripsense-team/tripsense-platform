@@ -108,6 +108,9 @@ export interface SubmitApplicationRequest {
 export interface ApplicationDetailDto {
   id: string;
   businessId: string;
+  businessName?: string;
+  businessKind?: "HOTEL" | "RESTAURANT" | "TOUR_GUIDE" | string;
+  ownerUserId?: string;
   submittedByUserId?: string;
   revisionNumber?: number;
   revision?: number;
