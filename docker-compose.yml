@@ -119,6 +119,31 @@ services:
       retries: 12
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.5.0
+    profiles: ["observability"]
+    container_name: tripsense-loki
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deploy/observability/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.5.0
+    profiles: ["observability"]
+    container_name: tripsense-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./deploy/observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
   # =========================
   # EUREKA DISCOVERY SERVER
   # =========================
@@ -163,6 +188,8 @@ services:
       AI_RESPONSE_TIMEOUT: ${AI_RESPONSE_TIMEOUT:-300s}
       GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT: ${GATEWAY_HTTPCLIENT_RESPONSE_TIMEOUT:-300s}
       AI_SERVICE_V2_URL: ${AI_SERVICE_V2_URL:-http://ai-service:8089}
+      OBSERVABILITY_LOGS_ENABLED: ${OBSERVABILITY_LOGS_ENABLED:-false}
+      LOKI_BASE_URL: ${LOKI_BASE_URL:-http://loki:3100}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -533,3 +560,4 @@ volumes:
   ai_postgres_data:
   recommendation_postgres_data:
   qdrant_data:
+  loki_data:

@@ -36,11 +36,11 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    const gatewayUrl = (process.env.API_GATEWAY_URL || "http://localhost:8080").replace(/\/$/, "");
     return [
       {
         source: "/api/:path*",
-        destination:
-          process.env.API_GATEWAY_URL || "http://localhost:8080/api/:path*",
+        destination: `${gatewayUrl}/api/:path*`,
       },
     ];
   },

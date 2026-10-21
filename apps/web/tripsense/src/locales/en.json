@@ -221,6 +221,20 @@
       "serviceStatusMonitor": "Service Status Monitor",
       "systemAdmin": "System Admin"
     },
+    "logs": {
+      "allLevels": "All levels",
+      "correlation": "Correlation reference",
+      "empty": "No log entries match these filters.",
+      "level": "Severity",
+      "loadMore": "Load more",
+      "range": "Time range",
+      "refresh": "Refresh",
+      "service": "Service",
+      "subtitle": "Bounded operational logs from configured TripSense services.",
+      "title": "System Logs",
+      "unavailableDescription": "The log provider is disabled or temporarily unavailable. Try again later.",
+      "unavailableTitle": "Observability is unavailable"
+    },
     "partners": {
       "address": "Address",
       "approve": "Approve Application",

@@ -56,6 +56,11 @@ management:
         include: health,info
 
 tripsense:
+  observability:
+    logs:
+      enabled: ${OBSERVABILITY_LOGS_ENABLED:false}
+    loki:
+      base-url: ${LOKI_BASE_URL:http://loki:3100}
   explore-diagnostics:
     enabled: ${EXPLORE_DIAGNOSTICS_ENABLED:true}
   gateway:
