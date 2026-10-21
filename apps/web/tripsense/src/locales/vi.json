@@ -221,6 +221,20 @@
       "serviceStatusMonitor": "Giám sát trạng thái dịch vụ",
       "systemAdmin": "Quản trị viên hệ thống"
     },
+    "logs": {
+      "allLevels": "Tất cả mức độ",
+      "correlation": "Mã tương quan",
+      "empty": "Không có nhật ký phù hợp với bộ lọc.",
+      "level": "Mức độ",
+      "loadMore": "Tải thêm",
+      "range": "Khoảng thời gian",
+      "refresh": "Làm mới",
+      "service": "Dịch vụ",
+      "subtitle": "Nhật ký vận hành giới hạn từ các dịch vụ TripSense đã cấu hình.",
+      "title": "Nhật ký hệ thống",
+      "unavailableDescription": "Nhà cung cấp nhật ký đang tắt hoặc tạm thời không khả dụng. Vui lòng thử lại sau.",
+      "unavailableTitle": "Không thể truy cập hệ thống quan sát"
+    },
     "partners": {
       "address": "Địa chỉ",
       "approve": "Phê duyệt hồ sơ",

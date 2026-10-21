@@ -19,6 +19,10 @@ __pycache__/
 # Runtime logs
 *.log
 logs/
+!apps/web/tripsense/src/app/admin/logs/
+!apps/web/tripsense/src/app/admin/logs/page.tsx
+!apps/web/tripsense/src/app/api/ops/logs/
+!apps/web/tripsense/src/app/api/ops/logs/route.ts
 
 # Local environment files
 .env

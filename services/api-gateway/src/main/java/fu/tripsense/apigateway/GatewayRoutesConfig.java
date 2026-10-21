@@ -21,6 +21,18 @@ import org.springframework.http.HttpStatus;
 @Configuration
 class GatewayRoutesConfig {
 
+  @Bean
+  AdminLogsGatewayFilter adminLogsGatewayFilter(
+      com.fasterxml.jackson.databind.ObjectMapper objectMapper,
+      @Value("${tripsense.observability.logs.enabled:false}") boolean enabled,
+      @Value("${tripsense.observability.loki.base-url:http://loki:3100}") String lokiBaseUrl) {
+    return new AdminLogsGatewayFilter(
+        org.springframework.web.reactive.function.client.WebClient.builder(),
+        objectMapper,
+        enabled,
+        lokiBaseUrl);
+  }
+
   static final String BLOCK_INTERNAL_ROUTE_ID = "block-internal-endpoints";
   static final String COLLECTION_WRITES_ROUTE_ID = "place-collection-writes";
   static final String SAVED_MEMBERSHIP_WRITES_ROUTE_ID = "saved-membership-writes";
@@ -91,6 +103,7 @@ class GatewayRoutesConfig {
           String aiServiceUrl) {
     return routes
         .routes()
+        .route("admin-system-logs", route -> route.path("/api/ops/logs").uri("no://op"))
         .route("hotel-reservations", route -> route.path("/api/hotels/**")
             .filters(filters -> filters.setResponseHeader("Cache-Control", "no-store")
                 .requestRateLimiter(config -> {
