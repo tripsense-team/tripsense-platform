@@ -52,8 +52,8 @@ export const addItineraryItemsSchema = z.object({
           .optional()
           .describe("ID canonical của địa điểm từ kết quả searchPlaces"),
         category: z
-          .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "ACTIVITY"])
-          .describe("Loại hoạt động"),
+          .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "BEACH", "ACTIVITY"])
+          .describe("Loại hoạt động (ATTRACTION, FOOD, CAFE, STAY, BEACH, ACTIVITY)"),
         estimatedCost: z
           .string()
           .optional()
@@ -125,7 +125,7 @@ export const replaceItineraryItemSchema = z.object({
     .optional()
     .describe("ID địa điểm mới từ kết quả searchPlaces nếu có"),
   newCategory: z
-    .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "ACTIVITY"])
+    .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "BEACH", "ACTIVITY"])
     .optional()
     .describe("Loại hoạt động mới"),
   timeSlot: z

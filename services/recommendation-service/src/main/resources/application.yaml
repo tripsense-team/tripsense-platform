@@ -5,6 +5,9 @@ server:
 spring:
   application:
     name: recommendation-service
+  mvc:
+    servlet:
+      load-on-startup: 1
   datasource:
     url: ${RECOMMENDATION_DATASOURCE_URL:jdbc:postgresql://${RECOMMENDATION_DB_HOST:localhost}:${RECOMMENDATION_DB_PORT:5437}/${RECOMMENDATION_DB_NAME:tripsense_recommendation}}
     username: ${RECOMMENDATION_DB_USER:postgres}
@@ -45,7 +48,7 @@ tripsense:
   recommendation:
     sections:
       preview-candidates-per-category: ${RECOMMENDATION_SECTION_PREVIEW_CANDIDATES:12}
-      retrieval-timeout: ${RECOMMENDATION_SECTION_RETRIEVAL_TIMEOUT:2s}
+      retrieval-timeout: ${RECOMMENDATION_SECTION_RETRIEVAL_TIMEOUT:5s}
       seed-ttl: ${RECOMMENDATION_SECTION_SEED_TTL:5m}
       seed-max-ids: 100
       seed-max-bytes: 65536
@@ -74,7 +77,7 @@ tripsense:
       place-url: ${PLACE_SERVICE_URL:http://localhost:8083}
       context-url: ${CONTEXT_SERVICE_URL:http://localhost:8087}
       trip-url: ${TRIP_SERVICE_URL:http://localhost:8084}
-      timeout: ${RECOMMENDATION_DOWNSTREAM_TIMEOUT:3s}
+      timeout: ${RECOMMENDATION_DOWNSTREAM_TIMEOUT:6s}
     semantic:
       enabled: ${RECOMMENDATION_SEMANTIC_ENABLED:true}
       embedding-base-url: ${EMBEDDING_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}

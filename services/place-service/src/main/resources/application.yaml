@@ -1,6 +1,9 @@
 spring:
   application:
     name: place-service
+  mvc:
+    servlet:
+      load-on-startup: 1
   mongodb:
     uri: ${MONGODB_URI:mongodb://localhost:27017}
     database: ${MONGODB_DATABASE:tripsense_place}
@@ -34,6 +37,7 @@ tripsense:
   explore-diagnostics:
     enabled: ${EXPLORE_DIAGNOSTICS_ENABLED:true}
   places:
+    category-cache-read-budget: ${TRIPSENSE_PLACES_CATEGORY_CACHE_READ_BUDGET:250ms}
     default-city: ${DEFAULT_CITY:Da Nang}
     default-country: ${DEFAULT_COUNTRY:Vietnam}
     default-lat: ${DEFAULT_LAT:16.0544}

@@ -34,8 +34,8 @@ const activitySchema = z.object({
     .optional()
     .describe("Địa chỉ cụ thể của địa điểm"),
   category: z
-    .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "ACTIVITY"])
-    .describe("Loại hoạt động"),
+    .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "BEACH", "ACTIVITY"])
+    .describe("Loại hoạt động (ATTRACTION, FOOD, CAFE, STAY, BEACH, ACTIVITY)"),
   estimatedCost: z
     .string()
     .optional()
@@ -91,7 +91,7 @@ const requiresCanonicalPlace = (category?: string) =>
 export const itemType = (category?: string): TripCommitItem["itemType"] => {
   if (category === "FOOD" || category === "CAFE") return "MEAL";
   if (category === "STAY") return "HOTEL";
-  if (category === "ATTRACTION") return "PLACE";
+  if (category === "ATTRACTION" || category === "BEACH") return "PLACE";
   return "ACTIVITY";
 };
 
@@ -146,7 +146,7 @@ export function getCreateTripProposalTool(context: {
 }) {
   return tool({
     description:
-      "Tạo lịch trình có cấu trúc từ các địa điểm canonical. Trong intake đã được ủy quyền, hệ thống tự lưu vào Trip; ngoài intake, proposal vẫn chờ người dùng xác nhận.",
+      "BẮT BUỘC gọi khi người dùng yêu cầu tạo lịch trình, lên kế hoạch hoặc lên lộ trình chuyến đi (hoặc có directive yêu cầu tạo lịch trình). Tool này lưu toàn bộ các ngày và các hoạt động/địa điểm trực tiếp vào bảng Chuyến đi bên phải.",
     inputSchema: createTripProposalSchema,
     execute: async (proposalData) => {
       try {
@@ -205,7 +205,14 @@ export function getCreateTripProposalTool(context: {
             error: "Không đủ địa điểm đã được xác thực để tạo lịch trình.",
           };
         }
-        const placeIds = [...new Set(placeLikeActivities.map((activity) => activity.placeId!))];
+        const placeIds = [
+          ...new Set(
+            proposalData.days
+              .flatMap((day) => day.activities)
+              .map((activity) => activity.placeId)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        ];
         const snapshots = await canonicalSnapshots(placeIds);
         if (!snapshots) {
           return {

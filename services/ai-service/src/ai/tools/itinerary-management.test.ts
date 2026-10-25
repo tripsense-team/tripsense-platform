@@ -24,6 +24,11 @@ test("addItineraryItemsSchema validates inputs correctly", () => {
         title: "Bánh tráng cuốn thịt heo",
         category: "FOOD",
       },
+      {
+        period: "AFTERNOON",
+        title: "Dạo biển Mỹ Khê",
+        category: "BEACH",
+      },
     ],
   };
   const parsed = addItineraryItemsSchema.safeParse(valid);
