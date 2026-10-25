@@ -805,7 +805,7 @@ chatRouter.post("/proposals/:id/apply", async (c) => {
   const itemType = (category?: string) => {
     if (category === "FOOD" || category === "CAFE") return "MEAL";
     if (category === "STAY") return "HOTEL";
-    if (category === "ATTRACTION") return "PLACE";
+    if (category === "ATTRACTION" || category === "BEACH") return "PLACE";
     return "ACTIVITY";
   };
   const items = (itinerary.days || []).flatMap((day: any) =>

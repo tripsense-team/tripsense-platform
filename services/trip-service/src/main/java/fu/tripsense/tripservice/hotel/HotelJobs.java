@@ -4,6 +4,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,8 +23,23 @@ public class HotelJobs {
   private final HotelMailClient mail;
   private final MeterRegistry metrics;
   private final PayOsPaymentService payOsPayments;
+  private final boolean jobsEnabled;
+
   public HotelJobs(JdbcTemplate db,TransactionTemplate tx,HotelService hotels,HotelMailClient mail,MeterRegistry metrics,PayOsPaymentService payOsPayments) {
+    this(db, tx, hotels, mail, metrics, payOsPayments, true);
+  }
+
+  @Autowired
+  public HotelJobs(
+      JdbcTemplate db,
+      TransactionTemplate tx,
+      HotelService hotels,
+      HotelMailClient mail,
+      MeterRegistry metrics,
+      PayOsPaymentService payOsPayments,
+      @Value("${hotel.jobs.enabled:true}") boolean jobsEnabled) {
     this.db=db; this.tx=tx; this.hotels=hotels; this.mail=mail; this.metrics=metrics; this.payOsPayments=payOsPayments;
+    this.jobsEnabled=jobsEnabled;
   }
   @Configuration
   @EnableScheduling
@@ -30,6 +47,11 @@ public class HotelJobs {
   static class Scheduling {}
 
   @Scheduled(fixedDelayString="${hotel.jobs.interval-ms:15000}")
+  public void scheduledTick() {
+    if (!jobsEnabled) return;
+    tick();
+  }
+
   public void tick() {
     try { hotels.expire(); dispatch(); deliver(); payOsPayments.reconcile(); }
     catch(Exception e) { metrics.counter("hotel.worker.failures").increment(); log.warn("hotel_worker_failed type={}",e.getClass().getSimpleName()); }

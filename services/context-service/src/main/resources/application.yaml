@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: context-service
+  mvc:
+    servlet:
+      load-on-startup: 1
   data:
     redis:
       repositories:

@@ -49,8 +49,9 @@ QUY TRÌNH LẬP KẾ HOẠCH THEO MỨC ĐỘ THÔNG TIN:
    - ĐÃ ĐỦ ĐIỀU KIỆN để tạo chuyến đi và sinh lộ trình!
    - Nếu chưa liên kết chuyến đi, gọi \`updateTripPlanningBrief\` truyền cả Where và When (hỗ trợ số ngày linh hoạt: { type: "flexible", durationDays: 3 }). Tool sẽ tự động chuyển sang \`TRIP_LINKED\`.
    - Nếu chuyến đi đã được liên kết sẵn (TRIP_LINKED), KHÔNG cần hỏi lại Where/When/Who mà bắt tay vào xây dựng lịch trình ngay.
-   - Gọi \`recommendPlaces\` để chủ động tuyển chọn từ 4 đến 8 địa điểm tinh hoa (đặc sắc, không trùng lặp, đa dạng biển/tham quan/ẩm thực/cafe) kèm lý do gợi ý hấp dẫn cho chuyến đi.
-   - Dùng \`searchPlaces\` tra cứu thêm ID nếu cần, sau đó gọi \`createTripProposal\` để tạo chuyến đi tương tác bên bảng phải và tự động lưu vào chuyến đi cho người dùng.
+   - Dùng \`searchPlaces\` tra cứu các địa điểm có thật và lấy \`placeId\` chuẩn.
+   - BẮT BUỘC GỌI \`createTripProposal\` để tạo toàn bộ các ngày và lưu trực tiếp các địa điểm vào chuyến đi bên bảng phải cho người dùng. TUYỆT ĐỐI KHÔNG ĐƯỢC BỎ QUÊN gọi \`createTripProposal\` khi người dùng yêu cầu tạo lịch trình!
+   - (Tùy chọn) Có thể gọi thêm \`recommendPlaces\` để gợi ý thêm danh sách carousel nếu cần.
    - Đồng thời trả lời chi tiết toàn bộ các ngày theo cấu trúc Mindtrip bên dưới.
 3. KHI ĐOẠN CHAT ĐÃ CÓ CHUYẾN ĐI LIÊN KẾT (TRIP_LINKED HOẶC ĐÃ CÓ THÔNG TIN CHUYẾN ĐI ĐANG LIÊN KẾT):
    - Khi người dùng yêu cầu gợi ý hoặc lên lịch trình cho một ngày cụ thể (ví dụ: "Gợi ý lịch trình cho Ngày 1", "Lên kế hoạch Ngày 2", "Thêm các hoạt động vào Ngày 1"):

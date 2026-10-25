@@ -37,7 +37,23 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
   UUID businessId;
   LocalDate from,to;
   @BeforeEach void setup() {
-    db.execute("TRUNCATE hotel_voucher_redemption,hotel_voucher,hotel_payos_receipt,hotel_payos_payment,hotel_demo_ledger,hotel_demo_command,hotel_demo_payment,hotel_email_delivery,hotel_notification,hotel_outbox,hotel_booking,hotel_inventory,hotel_room_type,hotel_property,hotel_request_lock CASCADE");
+    db.execute("""
+        DELETE FROM hotel_voucher_redemption;
+        DELETE FROM hotel_voucher;
+        DELETE FROM hotel_payos_receipt;
+        DELETE FROM hotel_payos_payment;
+        DELETE FROM hotel_demo_ledger;
+        DELETE FROM hotel_demo_command;
+        DELETE FROM hotel_demo_payment;
+        DELETE FROM hotel_email_delivery;
+        DELETE FROM hotel_notification;
+        DELETE FROM hotel_outbox;
+        DELETE FROM hotel_booking;
+        DELETE FROM hotel_inventory;
+        DELETE FROM hotel_room_type;
+        DELETE FROM hotel_property;
+        DELETE FROM hotel_request_lock;
+        """);
     owner=user("USER");customer=user("USER");other=user("USER");admin=user("ROLE_ADMIN");
     from=LocalDate.now().plusDays(5);to=from.plusDays(2);
     businessId=UUID.randomUUID();
