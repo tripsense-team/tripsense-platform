@@ -82,11 +82,6 @@ type CanonicalPlace = {
   address?: string;
 };
 
-const requiresCanonicalPlace = (category?: string) =>
-  category === "ATTRACTION" ||
-  category === "FOOD" ||
-  category === "CAFE" ||
-  category === "STAY";
 
 export const itemType = (category?: string): TripCommitItem["itemType"] => {
   if (category === "FOOD" || category === "CAFE") return "MEAL";
@@ -135,7 +130,7 @@ async function canonicalSnapshots(ids: string[]): Promise<Map<string, CanonicalP
   const payload = (await response.json()) as { data?: CanonicalPlace[] };
   const snapshots = Array.isArray(payload.data) ? payload.data : [];
   const byId = new Map(snapshots.filter((place) => place?.id).map((place) => [place.id, place]));
-  return ids.every((id) => byId.has(id)) ? byId : null;
+  return byId;
 }
 
 export function getCreateTripProposalTool(context: {
@@ -195,16 +190,6 @@ export function getCreateTripProposalTool(context: {
           }
         }
 
-        const placeLikeActivities = proposalData.days.flatMap((day) =>
-          day.activities.filter((activity) => requiresCanonicalPlace(activity.category)),
-        );
-        if (placeLikeActivities.some((activity) => !activity.placeId)) {
-          return {
-            success: false,
-            errorCode: "CANONICAL_PLACE_REQUIRED",
-            error: "Không đủ địa điểm đã được xác thực để tạo lịch trình.",
-          };
-        }
         const placeIds = [
           ...new Set(
             proposalData.days
@@ -283,7 +268,7 @@ export function getCreateTripProposalTool(context: {
               dayNumber: day.dayNumber,
               title: activity.title,
               itemType: itemType(activity.category),
-              placeRef: activity.placeId || null,
+              placeRef: (activity.placeId && snapshots?.has(activity.placeId)) ? activity.placeId : null,
               ...parseTimes(activity.timeSlot),
               notes: activity.description || null,
             })),

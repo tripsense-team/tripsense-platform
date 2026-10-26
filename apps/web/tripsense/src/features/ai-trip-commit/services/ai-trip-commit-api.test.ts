@@ -42,6 +42,15 @@ describe("ai trip commit API", () => {
     );
   });
 
+  it("handles 404 for unpersisted chat gracefully", async () => {
+    authenticatedFetch.mockResolvedValue(new Response("Not Found", { status: 404 }));
+    await expect(getPlanningBrief("chat-new")).resolves.toEqual({
+      chatId: "chat-new",
+      state: null,
+      trip: null,
+    });
+  });
+
   it("patches a planning brief with optimistic versioning", async () => {
     authenticatedFetch.mockResolvedValue(
       new Response(

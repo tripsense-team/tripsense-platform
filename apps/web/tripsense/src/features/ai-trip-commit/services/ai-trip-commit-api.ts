@@ -20,6 +20,9 @@ export async function getPlanningBrief(chatId: string) {
   const response = await authenticatedFetch(
     aiApiUrl(`/chats/${chatId}/planning-brief`),
   );
+  if (response.status === 404) {
+    return { chatId, state: null, trip: null };
+  }
   return readJson<PlanningBriefResponse>(response);
 }
 
