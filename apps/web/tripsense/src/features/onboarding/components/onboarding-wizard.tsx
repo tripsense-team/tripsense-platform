@@ -144,10 +144,96 @@ export function OnboardingWizard() {
     Record<string, string>
   >({});
   const [customOptionInput, setCustomOptionInput] = React.useState("");
+  const [dailyBudget, setDailyBudget] = React.useState("");
+  const [budgetComposing, setBudgetComposing] = React.useState(false);
+  const [compositionSelection, setCompositionSelection] = React.useState({ start: 0, end: 0 });
+  const budgetInputRef = React.useRef<HTMLInputElement>(null);
+  const budgetCompositionRef = React.useRef(false);
+  const budgetCaret = React.useRef<{ start: number; end: number } | null>(null);
+  const [budgetTouched, setBudgetTouched] = React.useState(false);
+  const dailyBudgetAmount = /^(?:[1-9][0-9]{0,2}(?:\.[0-9]{3})+)$/.test(dailyBudget)
+    ? dailyBudget.replaceAll(".", "") : dailyBudget;
+  const validDailyBudget = !budgetComposing && /^[1-9][0-9]{0,9}$/.test(dailyBudgetAmount)
+    && Number(dailyBudgetAmount) <= 1_000_000_000;
+  const composingDigits = dailyBudget.replaceAll(".", "");
+  const compositionDisplay = budgetComposing && /^[0-9.]+$/.test(dailyBudget)
+    && /^[1-9][0-9]{0,9}$/.test(composingDigits) && Number(composingDigits) <= 1_000_000_000
+    ? new Intl.NumberFormat("vi-VN").format(Number(composingDigits)) : null;
+  const compositionPosition = (rawPosition: number) => {
+    const count = (dailyBudget.slice(0, rawPosition).match(/[0-9]/g) ?? []).length;
+    if (!compositionDisplay || count === 0) return 0;
+    let digits = 0;
+    for (let index = 0; index < compositionDisplay.length; index++) {
+      if (/[0-9]/.test(compositionDisplay[index]) && ++digits === count) return index + 1;
+    }
+    return compositionDisplay.length;
+  };
+  const compositionStart = compositionPosition(compositionSelection.start);
+  const compositionEnd = compositionPosition(compositionSelection.end);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [homeCitySearchQuery, setHomeCitySearchQuery] = React.useState("");
   const [error, setError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+
+  React.useLayoutEffect(() => {
+    const input = budgetInputRef.current;
+    const caret = budgetCaret.current;
+    if (!budgetComposing && input && caret && document.activeElement === input) {
+      input.setSelectionRange(caret.start, caret.end);
+      budgetCaret.current = null;
+    }
+  }, [dailyBudget, budgetComposing]);
+
+  const updateBudgetInput = (input: HTMLInputElement, edit?: InputEvent, compositionEnded = false) => {
+    const value = input.value;
+    if (!compositionEnded && (budgetComposing || edit?.isComposing)) {
+      setDailyBudget(value);
+      setCompositionSelection({ start: input.selectionStart ?? value.length, end: input.selectionEnd ?? value.length });
+      return;
+    }
+    const previousDisplay = validDailyBudget
+      ? new Intl.NumberFormat("vi-VN").format(Number(dailyBudgetAmount)) : dailyBudget;
+    const grouped = /^[1-9][0-9]{0,2}(?:\.[0-9]{3})+$/.test(value);
+    // A digit typed into an already-grouped value temporarily breaks its grouping.
+    // Explicit decimal input/paste stays invalid instead of silently changing the amount.
+    const editingSeparators = validDailyBudget && previousDisplay.includes(".") && edit?.data !== "."
+      && edit?.inputType !== "insertFromPaste" && /^[0-9.]*$/.test(value);
+    let digits = grouped || editingSeparators || (compositionEnded && /^[0-9.]+$/.test(value))
+      ? value.replaceAll(".", "") : value;
+    let before = (value.slice(0, input.selectionStart ?? value.length).match(/[0-9]/g) ?? []).length;
+    let end = (value.slice(0, input.selectionEnd ?? value.length).match(/[0-9]/g) ?? []).length;
+    if (digits === dailyBudgetAmount && value !== previousDisplay && previousDisplay.includes(".")) {
+      // Backspace/Delete over a grouping mark must delete a digit, not reinsert the mark forever.
+      if (edit?.inputType === "deleteContentBackward" && before > 0) {
+        digits = digits.slice(0, before - 1) + digits.slice(before);
+        before--;
+        end = before;
+      } else if (edit?.inputType === "deleteContentForward") {
+        digits = digits.slice(0, before) + digits.slice(before + 1);
+        end = before;
+      }
+    }
+    const canFormat = /^[1-9][0-9]{0,9}$/.test(digits) && Number(digits) <= 1_000_000_000;
+    const display = canFormat ? new Intl.NumberFormat("vi-VN").format(Number(digits)) : digits;
+    const position = (count: number) => {
+      if (!canFormat) return Math.min(input.selectionStart ?? display.length, display.length);
+      if (count === 0) return 0;
+      let seen = 0;
+      for (let index = 0; index < display.length; index++) {
+        if (/[0-9]/.test(display[index]) && ++seen === count) return index + 1;
+      }
+      return display.length;
+    };
+    const caret = { start: position(before), end: position(end) };
+    if (digits === dailyBudget && !budgetComposing) {
+      input.value = display;
+      input.setSelectionRange(caret.start, caret.end);
+    } else {
+      budgetCaret.current = caret;
+    }
+    setDailyBudget(digits);
+    setBudgetTouched(true);
+  };
 
   React.useEffect(() => {
     let active = true;
@@ -164,6 +250,7 @@ export function OnboardingWizard() {
           return;
         }
         setProfile(loadedProfile);
+        setDailyBudget(loadedProfile.selections?.DAILY_BUDGET_VND?.[0] ?? "");
         if (loadedProfile.places) {
           setPlaces({
             VISITED: loadedProfile.places.VISITED ?? [],
@@ -302,6 +389,9 @@ export function OnboardingWizard() {
     if (step >= 4 && step <= 8) {
       if (!currentPreferenceDef) return false;
       const currentValues = selection[currentPreferenceDef.dimension] ?? [];
+      if (currentPreferenceDef.dimension === "BUDGET_TIER") {
+        return currentValues.length > 0 && validDailyBudget;
+      }
       return currentValues.length > 0;
     }
     if (step === 9) {
@@ -309,7 +399,7 @@ export function OnboardingWizard() {
       return freeText.length <= 2000;
     }
     return false;
-  }, [step, name, currentPreferenceDef, selection, freeText]);
+  }, [step, name, currentPreferenceDef, selection, freeText, validDailyBudget]);
 
   const next = async () => {
     if (!isCurrentStepValid || saving) return;
@@ -348,8 +438,15 @@ export function OnboardingWizard() {
         VISITED: places.VISITED,
         WANT_TO_VISIT: places.WANT_TO_VISIT,
       };
+      if (!validDailyBudget) {
+        setStep(5);
+        setBudgetTouched(true);
+        setSaving(false);
+        return;
+      }
+      cleanSelections.DAILY_BUDGET_VND = [dailyBudgetAmount];
 
-      const cleanAttributes: Record<string, string> = {};
+      const cleanAttributes: Record<string, string> = { ...profile?.attributes };
       if (homeCity.trim()) {
         cleanAttributes["HOME_CITY"] = JSON.stringify({
           name: homeCity.trim(),
@@ -738,6 +835,102 @@ export function OnboardingWizard() {
 
             return (
               <div className="space-y-3">
+                {currentPreferenceDef.dimension === "BUDGET_TIER" && (
+                  <div className="pb-3">
+                    <>
+                      <label htmlFor="daily-budget" className="mb-2 block text-sm font-medium">
+                        {t("onboarding.dailyBudget.label")}
+                      </label>
+                      <div className="relative">
+                      <Input
+                        ref={budgetInputRef}
+                        id="daily-budget"
+                        value={!budgetComposing && validDailyBudget
+                          ? new Intl.NumberFormat("vi-VN").format(Number(dailyBudgetAmount))
+                          : dailyBudget}
+                        inputMode="numeric"
+                        required
+                        aria-label={t("onboarding.dailyBudget.label")}
+                        aria-invalid={budgetTouched && !budgetComposing && !validDailyBudget}
+                        aria-describedby={budgetTouched && !budgetComposing && !validDailyBudget ? "daily-budget-error" : undefined}
+                        placeholder={t("onboarding.dailyBudget.placeholder")}
+                        onBlur={() => {
+                          setBudgetTouched(true);
+                          if (validDailyBudget) setDailyBudget(dailyBudgetAmount);
+                        }}
+                        onCompositionStart={(event) => {
+                          budgetCompositionRef.current = true;
+                          setDailyBudget(event.currentTarget.value);
+                          setCompositionSelection({ start: event.currentTarget.selectionStart ?? 0, end: event.currentTarget.selectionEnd ?? 0 });
+                          setBudgetComposing(true);
+                        }}
+                        onCompositionUpdate={(event) => {
+                          const input = event.currentTarget;
+                          // Some Windows IMEs update the composition buffer after this event.
+                          requestAnimationFrame(() => {
+                            if (!budgetCompositionRef.current || !input.isConnected) return;
+                            setDailyBudget(input.value);
+                            setCompositionSelection({ start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0 });
+                          });
+                        }}
+                        onCompositionEnd={(event) => {
+                          budgetCompositionRef.current = false;
+                          updateBudgetInput(event.currentTarget, undefined, true);
+                          setBudgetComposing(false);
+                        }}
+                        onChange={(event) => {
+                          updateBudgetInput(event.currentTarget, event.nativeEvent as InputEvent);
+                        }}
+                        onSelect={(event) => {
+                          if (budgetComposing) setCompositionSelection({
+                            start: event.currentTarget.selectionStart ?? 0,
+                            end: event.currentTarget.selectionEnd ?? 0,
+                          });
+                        }}
+                        style={compositionDisplay ? { color: "transparent", WebkitTextFillColor: "transparent", caretColor: "transparent" } : undefined}
+                        className="h-12 rounded-full pl-5 pr-20 text-sm bg-background border-border/80"
+                      />
+                      {compositionDisplay && (
+                        <span id="daily-budget-composition-view" aria-hidden="true"
+                          className="absolute inset-y-0 left-5 right-20 flex items-center overflow-hidden whitespace-pre text-sm text-foreground"
+                          onPointerDown={(event) => {
+                            // Position the native IME caret by digits, never by the added grouping marks.
+                            event.preventDefault();
+                            const range = document.caretRangeFromPoint(event.clientX, event.clientY);
+                            const input = budgetInputRef.current;
+                            if (!range || !input || !event.currentTarget.contains(range.startContainer)) return;
+                            const prefix = document.createRange();
+                            prefix.selectNodeContents(event.currentTarget);
+                            prefix.setEnd(range.startContainer, range.startOffset);
+                            const count = (prefix.toString().match(/[0-9]/g) ?? []).length;
+                            let position = 0;
+                            let seen = 0;
+                            while (position < dailyBudget.length && seen < count) {
+                              if (/[0-9]/.test(dailyBudget[position])) seen++;
+                              position++;
+                            }
+                            input.setSelectionRange(position, position);
+                            setCompositionSelection({ start: position, end: position });
+                          }}>
+                          <span>{compositionDisplay.slice(0, compositionStart)}</span>
+                          {compositionStart === compositionEnd
+                            ? <span className="h-4 w-0 border-l border-foreground" />
+                            : <span className="bg-primary/20">{compositionDisplay.slice(compositionStart, compositionEnd)}</span>}
+                          <span>{compositionDisplay.slice(compositionEnd)}</span>
+                        </span>
+                      )}
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm font-semibold text-muted-foreground">
+                        {t("onboarding.dailyBudget.currency")}
+                      </span>
+                      </div>
+                      {budgetTouched && !budgetComposing && !validDailyBudget && (
+                        <p id="daily-budget-error" role="alert" className="mt-2 text-sm text-destructive">
+                          {t("onboarding.dailyBudget.invalid")}
+                        </p>
+                      )}
+                    </>
+                  </div>
+                )}
                 {allOptions.map((optionValue) => {
                   const isSelected = currentSelected.includes(optionValue);
                   const isCustom = !currentPreferenceDef.options.includes(optionValue);
@@ -807,8 +1000,8 @@ export function OnboardingWizard() {
                   );
                 })}
 
-                {/* Inline custom option text input */}
-                <div className="pt-2">
+                {currentPreferenceDef.dimension !== "BUDGET_TIER" && (
+                  <div className="pt-2">
                   <div className="flex items-center gap-2">
                     <Input
                       value={customOptionInput}
@@ -834,7 +1027,8 @@ export function OnboardingWizard() {
                       <span>{t("onboarding.customOption.add", { defaultValue: "Thêm" })}</span>
                     </Button>
                   </div>
-                </div>
+                  </div>
+                )}
               </div>
             );
           })()}

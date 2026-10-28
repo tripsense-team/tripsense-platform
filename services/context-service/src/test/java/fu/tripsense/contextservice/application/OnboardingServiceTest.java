@@ -31,6 +31,8 @@ class OnboardingServiceTest {
         service.save(
             userId, new OnboardingCommand(0, Map.of("FOOD_STYLE", Set.of("CAFE")), Map.of()));
     assertFalse(published.containsKey(userId));
+    // Simulate a legacy profile completed before numeric budgets were introduced.
+    draft.complete(draft.version());
     OnboardingProfile completed = service.complete(userId, draft.version());
     assertEquals(Set.of("CAFE"), published.get(userId).get("FOOD_STYLE"));
     service.save(
@@ -57,7 +59,8 @@ class OnboardingServiceTest {
             userId,
             new OnboardingCommand(
                 started.version(),
-                Map.of("BUDGET_TIER", Set.of("MID_RANGE"), "ACTIVITY_INTEREST", Set.of("HIKING")),
+                Map.of("BUDGET_TIER", Set.of("MID_RANGE"), "DAILY_BUDGET_VND", Set.of("700000"),
+                    "ACTIVITY_INTEREST", Set.of("HIKING")),
                 Map.of(PlaceIntent.VISITED, Set.of("place:da-lat"))));
     assertEquals(1, saved.version());
     assertTrue(signals.published.isEmpty());
@@ -124,6 +127,37 @@ class OnboardingServiceTest {
                     longText)));
   }
 
+  @Test
+  void requiresBudgetAtFirstCompletionAndKeepsCompletedAmount() {
+    var service = new OnboardingService(new InMemoryProfiles(), new RecordingSignals(),
+        new TestCatalog(), new RecordingOutbox());
+    UUID user = UUID.randomUUID();
+    var draft = service.save(user, new OnboardingCommand(0,
+        Map.of("BUDGET_TIER", Set.of("MID_RANGE")), Map.of()));
+    assertThrows(IllegalArgumentException.class, () -> service.complete(user, draft.version()));
+    assertEquals(OnboardingStatus.IN_PROGRESS, draft.status());
+    var saved = service.save(user, new OnboardingCommand(draft.version(),
+        Map.of("BUDGET_TIER", Set.of("MID_RANGE"), "DAILY_BUDGET_VND", Set.of("700000")), Map.of()));
+    var completed = service.complete(user, saved.version());
+    assertThrows(IllegalArgumentException.class, () -> service.save(user,
+        new OnboardingCommand(completed.version(), Map.of("BUDGET_TIER", Set.of("MID_RANGE")), Map.of())));
+    assertEquals(Set.of("700000"), service.find(user).orElseThrow().selections().get("DAILY_BUDGET_VND"));
+  }
+
+  @Test
+  void validatesBudgetAsCanonicalBoundedWholeVnd() {
+    var service = new OnboardingService(new InMemoryProfiles(), new RecordingSignals(),
+        new TestCatalog(), new RecordingOutbox());
+    for (String value : List.of("0", "-1", "1.5", "1e6", "01", "1000000001", "999999999999999999999")) {
+      assertThrows(IllegalArgumentException.class, () -> service.save(UUID.randomUUID(),
+          new OnboardingCommand(0, Map.of("DAILY_BUDGET_VND", Set.of(value)), Map.of())));
+    }
+    for (String value : List.of("1", "1000000000")) {
+      assertDoesNotThrow(() -> service.save(UUID.randomUUID(),
+          new OnboardingCommand(0, Map.of("DAILY_BUDGET_VND", Set.of(value)), Map.of())));
+    }
+  }
+
   private static final class InMemoryProfiles implements OnboardingProfileRepository {
     private final Map<UUID, OnboardingProfile> profiles = new HashMap<>();
 
@@ -158,6 +192,7 @@ class OnboardingServiceTest {
       return Set.of(
                   "TRAVEL_PARTY",
                   "BUDGET_TIER",
+                  "DAILY_BUDGET_VND",
                   "SPLURGE_CATEGORY",
                   "STAY_STYLE",
                   "LOYALTY_PROGRAM",
@@ -168,7 +203,7 @@ class OnboardingServiceTest {
           ? Optional.of(
               new PreferenceDimension(
                   code,
-                  Set.of("TRAVEL_PARTY", "BUDGET_TIER").contains(code)
+                  Set.of("TRAVEL_PARTY", "BUDGET_TIER", "DAILY_BUDGET_VND").contains(code)
                       ? Cardinality.SINGLE
                       : Cardinality.MULTI,
                   Set.of("LOYALTY_PROGRAM", "DIETARY_RESTRICTION").contains(code)

@@ -21,6 +21,28 @@ const mockPlace: Place = {
 };
 
 describe("MindtripPlaceCard", () => {
+  it("shows a sourced reference price and budget warning without claiming daily affordability", () => {
+    const html = renderToStaticMarkup(<I18nProvider initialLocale="en">
+      <MindtripPlaceCard place={{ ...mockPlace, dailyBudgetExceeded: true, priceEvidence: {
+        amountVnd: 1000000, basis: "PER_PERSON_VISIT", sourceUrl: "https://example.org/tariff",
+        observedAt: new Date().toISOString(),
+      } }} />
+    </I18nProvider>);
+    expect(html).toContain("1,000,000 VND/person/visit");
+    expect(html).toContain("Exceeds daily budget");
+    expect(html).toContain('href="https://example.org/tariff"');
+  });
+
+  it("does not render expired price claims", () => {
+    const html = renderToStaticMarkup(<I18nProvider initialLocale="en">
+      <MindtripPlaceCard place={{ ...mockPlace, dailyBudgetExceeded: true, priceEvidence: {
+        amountVnd: 1000000, basis: "PER_PERSON_VISIT", sourceUrl: "https://example.org/tariff",
+        observedAt: new Date(Date.now() - 31 * 86400000).toISOString(),
+      } }} />
+    </I18nProvider>);
+    expect(html).not.toContain("VND/person/visit");
+    expect(html).not.toContain("Exceeds daily budget");
+  });
   it("renders place details in English when locale is en", () => {
     const html = renderToStaticMarkup(
       <I18nProvider initialLocale="en">

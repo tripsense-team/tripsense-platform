@@ -61,6 +61,9 @@ public class Place {
   private Double rating;
   private Integer userRatingCount;
   private QuietnessEvidence quietnessEvidence;
+  private PriceEvidence priceEvidence;
+  private Instant priceEvidenceEditedAt;
+  private String priceEvidenceEditedBy;
 
   @Builder.Default private List<String> photos = new ArrayList<>();
 

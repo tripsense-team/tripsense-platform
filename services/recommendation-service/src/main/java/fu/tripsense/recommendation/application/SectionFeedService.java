@@ -386,7 +386,7 @@ public class SectionFeedService {
     // Exact affinity comparison is deliberately conservative: unverifiable changes rerank.
     return cache.scope(
         user,
-        p.available()
+        "daily-budget-v1|" + p.dailyBudgetVnd() + "|" + p.budgetTier() + "|" + p.available()
             + "|"
             + p.personalizationEnabled()
             + "|"

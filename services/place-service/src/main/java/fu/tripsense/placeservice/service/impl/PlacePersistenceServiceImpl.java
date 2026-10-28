@@ -29,6 +29,7 @@ import org.springframework.util.StringUtils;
 public class PlacePersistenceServiceImpl implements PlacePersistenceService {
 
   private final PlaceRepository repository;
+  private org.springframework.data.mongodb.core.MongoTemplate mongo;
   private final TripSensePlaceProperties properties;
   private volatile long lastFailureTime = 0;
 
@@ -36,6 +37,29 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
       PlaceRepository repository, TripSensePlaceProperties properties) {
     this.repository = repository;
     this.properties = properties;
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public PlacePersistenceServiceImpl(PlaceRepository repository, TripSensePlaceProperties properties,
+      org.springframework.data.mongodb.core.MongoTemplate mongo) {
+    this(repository, properties);
+    this.mongo = mongo;
+  }
+
+  private Place saveProviderFields(Place entity) {
+    if (mongo == null || entity.getId() == null) return repository.save(entity);
+    var document = new org.bson.Document();
+    mongo.getConverter().write(entity, document);
+    var update = new org.springframework.data.mongodb.core.query.Update();
+    document.forEach((key, value) -> {
+      if (!java.util.Set.of("_id", "priceEvidence", "priceEvidenceEditedAt", "priceEvidenceEditedBy").contains(key))
+        update.set(key, value);
+    });
+    update.set("updatedAt", Instant.now());
+    return mongo.findAndModify(
+        org.springframework.data.mongodb.core.query.Query.query(
+            org.springframework.data.mongodb.core.query.Criteria.where("_id").is(entity.getId())),
+        update, org.springframework.data.mongodb.core.FindAndModifyOptions.options().returnNew(true), Place.class);
   }
 
   @Override
@@ -86,7 +110,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
       Place saved =
           RequestDiagnostics.measure(
               isNew ? "place_upsert_save_new" : "place_upsert_save_existing",
-              () -> repository.save(selected));
+              () -> saveProviderFields(selected));
       PlaceDto result = RequestDiagnostics.measure("place_upsert_to_dto", () -> toDto(saved));
       RequestDiagnostics.mark("place_upsert_result", isNew ? "NEW_SAVED" : "EXISTING_SAVED");
       return result;
@@ -160,7 +184,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
           entity.getSourceData() != null ? new HashMap<>(entity.getSourceData()) : new HashMap<>();
       sourceData.put("deepDetailsFetched", true);
       entity.setSourceData(sourceData);
-      return toDto(repository.save(entity));
+      return toDto(saveProviderFields(entity));
     } catch (Exception ex) {
       lastFailureTime = System.currentTimeMillis();
       log.warn("Failed to enrich place in MongoDB: {}", ex.getMessage());
@@ -238,6 +262,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .rating(place.getRating())
         .userRatingCount(place.getUserRatingCount())
         .quietnessEvidence(toQuietnessEvidenceDto(place.getQuietnessEvidence()))
+        .priceEvidence(place.getPriceEvidence())
         .photos(place.getPhotos() == null ? List.of() : place.getPhotos())
         .primaryPhoto(primaryPhoto)
         .photoGallery(photoGallery)

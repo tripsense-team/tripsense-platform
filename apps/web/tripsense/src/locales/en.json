@@ -934,14 +934,20 @@
       "title": "What do you enjoy doing?"
     },
     "BUDGET_TIER": {
-      "subtitle": "We use this to make recommendations that fit your comfort zone.",
-      "title": "What is your usual travel budget?"
+      "subtitle": "Enter your daily budget per person in VND, then choose a spending level. We use this to suggest relevant places.",
+      "title": "How much do you plan to spend per person each day?"
     },
     "customOption": {
       "add": "Add",
       "addOther": "Add other choice",
       "placeholder": "Enter your choice...",
       "remove": "Remove choice"
+    },
+    "dailyBudget": {
+      "currency": "VND",
+      "invalid": "Enter a whole amount from 1 to 1,000,000,000 VND.",
+      "label": "Budget (VND/person/day)",
+      "placeholder": "Enter an amount per person/day, e.g. 700.000"
     },
     "dimension": {
       "ACTIVITY_INTEREST": "Favorite Activities",
@@ -1285,6 +1291,11 @@
     "createCollection": "Create collection",
     "customerReviews": "Customer reviews",
     "daily": "Daily",
+    "dailyBudget": {
+      "exceeded": "Exceeds daily budget",
+      "perNight": "Reference: {{amount}} VND/person/night",
+      "perVisit": "Reference: {{amount}} VND/person/visit"
+    },
     "defaultCategory": "Place",
     "deleteCollection": "Delete collection",
     "deleteCollectionDescription": "The collection will be deleted. Saved places remain available in other collections.",

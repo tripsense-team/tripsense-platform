@@ -32,4 +32,6 @@ public interface PlaceCacheService {
   Optional<PlaceDto> getPlaceDetails(String placeId);
 
   void putPlaceDetails(String placeId, PlaceDto place);
+
+  default void invalidatePriceEvidence(String placeId) {}
 }
