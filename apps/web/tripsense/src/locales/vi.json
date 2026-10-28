@@ -934,14 +934,20 @@
       "title": "Bạn thích làm gì khi du lịch?"
     },
     "BUDGET_TIER": {
-      "subtitle": "Chúng tôi dùng thông tin này để gợi ý phù hợp với mức chi tiêu của bạn.",
-      "title": "Ngân sách du lịch thường dùng của bạn là gì?"
+      "subtitle": "Nhập ngân sách cho một người trong một ngày (VNĐ), rồi chọn mức chi tiêu phù hợp. Chúng tôi dùng thông tin này để gợi ý địa điểm cho bạn.",
+      "title": "Bạn dự định chi bao nhiêu cho một người mỗi ngày?"
     },
     "customOption": {
       "add": "Thêm",
       "addOther": "Thêm lựa chọn khác",
       "placeholder": "Nhập lựa chọn của bạn...",
       "remove": "Xóa lựa chọn"
+    },
+    "dailyBudget": {
+      "currency": "VNĐ",
+      "invalid": "Vui lòng nhập số tiền nguyên từ 1 đến 1.000.000.000 VNĐ.",
+      "label": "Ngân sách (VNĐ/người/ngày)",
+      "placeholder": "Nhập số tiền mỗi người/ngày, ví dụ: 700.000"
     },
     "dimension": {
       "ACTIVITY_INTEREST": "Hoạt động ưa thích",
@@ -1285,6 +1291,11 @@
     "createCollection": "Tạo bộ sưu tập",
     "customerReviews": "Đánh giá từ khách hàng",
     "daily": "Mỗi ngày",
+    "dailyBudget": {
+      "exceeded": "Vượt ngân sách một ngày",
+      "perNight": "Tham khảo: {{amount}} VNĐ/người/đêm",
+      "perVisit": "Tham khảo: {{amount}} VNĐ/người/lượt"
+    },
     "defaultCategory": "Địa điểm",
     "deleteCollection": "Xóa bộ sưu tập",
     "deleteCollectionDescription": "Bộ sưu tập sẽ bị xóa. Địa điểm vẫn còn trong các bộ sưu tập khác.",

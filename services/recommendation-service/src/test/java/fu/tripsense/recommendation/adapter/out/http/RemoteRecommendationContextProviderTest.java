@@ -24,6 +24,30 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 class RemoteRecommendationContextProviderTest {
+  @Test
+  void readsBudgetSeparatelyFromCategoriesAndIgnoresMalformedAmount() {
+    properties.getProfile().setObservedHistoryEnabled(false);
+    context("[" + signal("DAILY_BUDGET_VND", "700000", "ONBOARDING", "1") + ","
+        + signal("BUDGET_TIER", "MID_RANGE", "ONBOARDING", "1") + "]");
+    var profile = provider().resolve(command("EXPLORE_RECOMMENDATION", null)).profile();
+    assertThat(profile.dailyBudgetVnd()).isEqualTo(700000L);
+    assertThat(profile.budgetTier()).isEqualTo("MID_RANGE");
+    assertThat(profile.preferredCategories()).isEmpty();
+    assertThat(profile.categoryAffinities()).isEmpty();
+    assertThat(profile.personalizationSignalCount()).isEqualTo(1);
+    server.verify();
+  }
+
+  @Test
+  void invalidBudgetDoesNotDiscardValidCategoryPreferences() {
+    properties.getProfile().setObservedHistoryEnabled(false);
+    context("[" + signal("DAILY_BUDGET_VND", "99999999999999", "ONBOARDING", "1") + ","
+        + signal("FOOD_STYLE", "CAFE", "ONBOARDING", "1") + "]");
+    var profile = provider().resolve(command("EXPLORE_RECOMMENDATION", null)).profile();
+    assertThat(profile.dailyBudgetVnd()).isNull();
+    assertThat(profile.preferredCategories()).contains("cafe");
+    server.verify();
+  }
   private final RestClient.Builder builder = RestClient.builder();
   // Any User call is unexpected: this server permits only the Context/trip calls below.
   private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

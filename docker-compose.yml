@@ -268,7 +268,7 @@ services:
       CONTEXT_SERVICE_URL: http://context-service:8087
       TRIP_SERVICE_URL: http://trip-service:8084
       USER_SERVICE_URL: http://user-service:8081
-      QDRANT_URL: http://qdrant:6333
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}

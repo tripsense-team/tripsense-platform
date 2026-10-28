@@ -43,7 +43,8 @@ public class SectionFeedCache {
               mac.doFinal(
                   ("owner".equals(material)
                           ? "sections-owner-v1|" + owner
-                          : ("sections-primary-v1|"
+                          : ("sections-primary-budget-v1|"
+                              + properties.getRanking().getBudgetMaximumPenalty() + "|"
                               + properties.getVersions()
                               + "|"
                               + properties.getProfile()
@@ -78,6 +79,7 @@ public class SectionFeedCache {
                 r.expiresAt() != null
                     && r.recommendation() != null
                     && r.sections() != null
+                    && BudgetEvidenceFreshness.usable(r.recommendation())
                     && (stale || r.expiresAt().isAfter(Instant.now())));
   }
 

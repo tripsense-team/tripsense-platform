@@ -39,6 +39,11 @@ public class OnboardingService {
   public OnboardingProfile save(UUID userId, OnboardingCommand command) {
     validate(command);
     OnboardingProfile profile = start(userId);
+    if (profile.status() == OnboardingStatus.COMPLETED
+        && profile.selections().containsKey("DAILY_BUDGET_VND")
+        && !command.selections().containsKey("DAILY_BUDGET_VND")) {
+      throw new IllegalArgumentException("Daily budget is required");
+    }
     profile.replaceAnswers(
         command.selections(),
         command.places(),
@@ -57,6 +62,12 @@ public class OnboardingService {
   public OnboardingProfile complete(UUID userId, long version) {
     OnboardingProfile profile = start(userId);
     boolean alreadyCompleted = profile.status() == OnboardingStatus.COMPLETED;
+    if (!alreadyCompleted) {
+      requireDailyBudget(profile.selections().get("DAILY_BUDGET_VND"));
+      if (profile.selections().getOrDefault("BUDGET_TIER", Set.of()).isEmpty()) {
+        throw new IllegalArgumentException("Budget tier is required");
+      }
+    }
     profile.complete(version);
     profile = profiles.save(profile);
     signals.replaceFor(profile);
@@ -94,6 +105,7 @@ public class OnboardingService {
               if (definition.cardinality() == PreferenceDimensionCatalog.Cardinality.SINGLE
                   && values.size() != 1)
                 throw new IllegalArgumentException(dimension + " accepts one value");
+              if ("DAILY_BUDGET_VND".equals(dimension)) requireDailyBudget(values);
             });
     command
         .places()
@@ -122,6 +134,17 @@ public class OnboardingService {
                       "Attribute value payload is too large for " + code);
                 }
               });
+    }
+  }
+
+  private static void requireDailyBudget(Set<String> values) {
+    if (values == null || values.size() != 1) {
+      throw new IllegalArgumentException("Daily budget is required");
+    }
+    String value = values.iterator().next();
+    if (value == null || !value.matches("[1-9][0-9]{0,9}")
+        || Long.parseLong(value) > 1_000_000_000L) {
+      throw new IllegalArgumentException("Daily budget must be whole VND between 1 and 1000000000");
     }
   }
 }

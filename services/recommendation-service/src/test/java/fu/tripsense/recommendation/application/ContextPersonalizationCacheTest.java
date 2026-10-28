@@ -101,6 +101,8 @@ class ContextPersonalizationCacheTest {
     ValueOperations<String, String> values = mock(ValueOperations.class);
     ObjectMapper mapper = mock(ObjectMapper.class);
     ExploreRecommendationResult cached = mock(ExploreRecommendationResult.class);
+    when(cached.recommendation()).thenReturn(new fu.tripsense.recommendation.domain.RecommendationResult(
+        UUID.randomUUID(), UUID.randomUUID(), List.of(), null, List.of()));
     when(redis.opsForValue()).thenReturn(values);
     Map<String, String> storage = new HashMap<>();
     List<String> requested = new ArrayList<>();

@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `onboarding-daily-budget-recommendations` | DONE | `apps/web/tripsense`, `services/context-service`, `services/place-service`, `services/recommendation-service` | [Docs](./onboarding-daily-budget-recommendations.md) |
 | `ai-curated-place-recommendations` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-curated-place-recommendations.md) |
 | `observed-history-unattributed-latency` | IMPLEMENTING; diagnosis code + 231 tests complete, runtime cause identification pending | `services/recommendation-service`; local analyzer | [Docs](./observed-history-unattributed-latency.md) |
 | `ai-chat-dynamic-title-generation` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-chat-dynamic-title-generation.md) |

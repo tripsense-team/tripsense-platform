@@ -80,6 +80,13 @@ public class HeuristicRanker implements Ranker {
         contribution(active, values, RankingCriterion.Feature.HISTORY, features, denominator);
 
     double penalties = 0;
+    var price = features.place().priceEvidence();
+    Long budget = context.profile().dailyBudgetVnd();
+    boolean comparable = budget != null && budget > 0 && budget <= 1_000_000_000L
+        && price != null && price.usableAt(java.time.Instant.now());
+    double budgetAdjustment = comparable && price.amountVnd() > budget
+        ? -weights.getBudgetMaximumPenalty() * (1 - (double) budget / price.amountVnd()) : 0;
+    penalties += budgetAdjustment;
     if (features.preference().available() && features.preference().dislikeConflict())
       penalties -= weights.getDislikeConflictPenalty();
     if (features.history().available() && features.history().previousNegativeFeedback())
@@ -112,8 +119,14 @@ public class HeuristicRanker implements Ranker {
             popularity,
             history,
             finalScore,
-            evidenceCoverage);
-    return new RankedCandidate(features, finalScore, breakdown, reasons(features, breakdown));
+            evidenceCoverage,
+            budgetAdjustment,
+            comparable ? price : null);
+    var explanations = new ArrayList<>(reasons(features, breakdown));
+    if (budgetAdjustment < 0) explanations.add(new RecommendationReason(
+        RecommendationReasonCode.DAILY_BUDGET_EXCEEDED, budgetAdjustment,
+        price.amountVnd() + " VND / " + price.basis() + " | " + price.sourceUrl()));
+    return new RankedCandidate(features, finalScore, breakdown, explanations);
   }
 
   private Map<RankingCriterion.Feature, Double> activeWeights(RecommendationContext context) {
