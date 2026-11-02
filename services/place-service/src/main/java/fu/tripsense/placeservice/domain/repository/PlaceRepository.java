@@ -36,4 +36,10 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
           "{ $or: [ { 'reviews': { $size: 0 } }, { 'reviews': null }, { 'photos': { $size: 0 } }, { 'photos': null }, { 'rating': null } ] }",
       count = true)
   long countPendingEnrichment();
+
+  @Query("{ 'photos': { $regex: 'googleusercontent' } }")
+  List<Place> findPlacesWithStaleGooglePhotos(Pageable pageable);
+
+  @Query(value = "{ 'photos': { $regex: 'googleusercontent' } }", count = true)
+  long countPlacesWithStaleGooglePhotos();
 }

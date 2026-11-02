@@ -31,6 +31,12 @@ export function PlaceCard({
   className,
 }: PlaceCardProps) {
   const photoUrl = getPlacePhotoUrl(place);
+  const [imgError, setImgError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [place.id, photoUrl]);
+
   const primaryCategory =
     place.categories && place.categories.length > 0
       ? place.categories[0]
@@ -50,12 +56,13 @@ export function PlaceCard({
       >
         {/* Photo Container */}
         <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
-          {photoUrl ? (
+          {photoUrl && !imgError ? (
             <Image
               src={photoUrl}
               alt={place.name}
               fill
               sizes="(max-width: 768px) 100vw, 33vw"
+              onError={() => setImgError(true)}
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
@@ -159,12 +166,13 @@ export function PlaceCard({
     >
       {/* Photo Container */}
       <div className="relative w-36 sm:w-44 h-full shrink-0 bg-muted overflow-hidden">
-        {photoUrl ? (
+        {photoUrl && !imgError ? (
           <Image
             src={photoUrl}
             alt={place.name}
             fill
             sizes="176px"
+            onError={() => setImgError(true)}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (

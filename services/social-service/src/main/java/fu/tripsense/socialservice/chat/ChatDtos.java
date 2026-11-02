@@ -1,7 +1,10 @@
 package fu.tripsense.socialservice.chat;
 
 import fu.tripsense.socialservice.client.PublicProfileClientResponse;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,6 +39,62 @@ public final class ChatDtos {
       String coverImage,
       boolean available) {}
 
+  public record ReservationOffer(
+      UUID id,
+      UUID conversationId,
+      UUID messageId,
+      UUID senderId,
+      UUID recipientId,
+      String businessType,
+      UUID businessId,
+      String businessName,
+      String businessThumbnail,
+      String itemTitle,
+      LocalDate checkInDate,
+      LocalDate checkOutDate,
+      LocalTime reservationTime,
+      Integer adultsCount,
+      Integer childrenCount,
+      BigDecimal totalPrice,
+      BigDecimal depositAmount,
+      String currency,
+      String inclusions,
+      Instant expiresAt,
+      String status,
+      String declineReason,
+      UUID bookingId,
+      String bookingCode,
+      Instant createdAt,
+      Instant updatedAt) {}
+
+  public record CreateReservationOffer(
+      UUID clientMessageId,
+      String businessType,
+      UUID businessId,
+      String businessName,
+      String businessThumbnail,
+      String itemTitle,
+      LocalDate checkInDate,
+      LocalDate checkOutDate,
+      LocalTime reservationTime,
+      Integer adultsCount,
+      Integer childrenCount,
+      BigDecimal totalPrice,
+      BigDecimal depositAmount,
+      String currency,
+      String inclusions,
+      Integer validHours) {}
+
+  public record AcceptOfferResponse(
+      UUID offerId,
+      String status,
+      UUID bookingId,
+      String bookingCode,
+      String redirectUrl,
+      String message) {}
+
+  public record DeclineOfferRequest(String reason) {}
+
   public record Message(
       UUID id,
       UUID clientMessageId,
@@ -45,8 +104,34 @@ public final class ChatDtos {
       String type,
       String text,
       TripCard sharedTrip,
+      ReservationOffer offer,
       Instant createdAt,
-      String status) {}
+      String status) {
+    public Message(
+        UUID id,
+        UUID clientMessageId,
+        UUID conversationId,
+        String seq,
+        UUID senderId,
+        String type,
+        String text,
+        TripCard sharedTrip,
+        Instant createdAt,
+        String status) {
+      this(
+          id,
+          clientMessageId,
+          conversationId,
+          seq,
+          senderId,
+          type,
+          text,
+          sharedTrip,
+          null,
+          createdAt,
+          status);
+    }
+  }
 
   public record SendOutcome(Message message, boolean created) {}
 

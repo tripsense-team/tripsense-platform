@@ -54,10 +54,12 @@ export function PartnerDashboardView() {
   const activeCount = businesses.filter(
     (b) => b.approvalValidity === "VALID" && b.operationState === "ACTIVE",
   ).length;
-  const pendingCount = businesses.filter(
-    (b) => b.approvalValidity === "NONE",
+  const unsubscribedCount = businesses.filter(
+    (b) => b.approvalValidity === "NONE" && b.operationState !== "SUSPENDED",
   ).length;
-  const reverificationCount = businesses.filter((b) => b.requiresReverification).length;
+  const suspendedCount = businesses.filter(
+    (b) => b.operationState === "SUSPENDED",
+  ).length;
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8 space-y-8">
@@ -66,11 +68,11 @@ export function PartnerDashboardView() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Trung tâm Đối tác TripSense
+              Quản lý Cơ sở & Dịch vụ Đối tác
             </h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Quản lý hồ sơ cơ sở kinh doanh, danh mục bài quảng bá và trao đổi tư vấn với du khách.
+            Quản lý thực đơn món ăn, phòng nghỉ, thông tin vận hành và trạng thái mở cửa đón khách trên TripSense.
           </p>
         </div>
 
@@ -115,7 +117,7 @@ export function PartnerDashboardView() {
 
           <div className="rounded-xl border border-border/60 bg-card p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Đang hoạt động</span>
+              <span className="text-xs font-medium text-muted-foreground">Đã xác thực</span>
               <CheckCircle className="h-4 w-4 text-emerald-500" />
             </div>
             <p className="text-2xl font-bold text-foreground mt-2">{activeCount}</p>
@@ -123,18 +125,18 @@ export function PartnerDashboardView() {
 
           <div className="rounded-xl border border-border/60 bg-card p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Chờ xét duyệt</span>
+              <span className="text-xs font-medium text-muted-foreground">Chưa kích hoạt gói</span>
               <Clock className="h-4 w-4 text-amber-500" />
             </div>
-            <p className="text-2xl font-bold text-foreground mt-2">{pendingCount}</p>
+            <p className="text-2xl font-bold text-foreground mt-2">{unsubscribedCount}</p>
           </div>
 
           <div className="rounded-xl border border-border/60 bg-card p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Khóa duyệt lại</span>
+              <span className="text-xs font-medium text-muted-foreground">Tạm đình chỉ</span>
               <AlertCircle className="h-4 w-4 text-destructive" />
             </div>
-            <p className="text-2xl font-bold text-foreground mt-2">{reverificationCount}</p>
+            <p className="text-2xl font-bold text-foreground mt-2">{suspendedCount}</p>
           </div>
         </div>
       )}

@@ -728,6 +728,31 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
 
                     {/* Action buttons */}
                     <div className="flex flex-wrap items-center gap-2">
+                      {b.status === "HELD" && (
+                        <Button
+                          size="sm"
+                          disabled={busy}
+                          onClick={() =>
+                            void (async () => {
+                              setBusy(true);
+                              try {
+                                await hotelApi(`/bookings/${b.id}/confirm`, "POST");
+                                const updated = await hotelApi<HotelBooking[]>(`/properties/${selectedProperty!.id}/bookings`);
+                                setBookings(updated);
+                              } catch (e) {
+                                setError(getSafeErrorMessage(e));
+                              } finally {
+                                setBusy(false);
+                              }
+                            })()
+                          }
+                          className="h-8 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>{t("trip.hotels.confirmAction", { defaultValue: "Xác nhận đặt phòng" })}</span>
+                        </Button>
+                      )}
+
                       {isConfirmed && (
                         <Button
                           size="sm"

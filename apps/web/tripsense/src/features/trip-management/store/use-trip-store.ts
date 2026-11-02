@@ -34,7 +34,7 @@ export const useTripStore = create<TripState>((set, get) => ({
   loadingMore: false,
   error: null,
   page: 0,
-  pageSize: 4,
+  pageSize: 12,
   totalElements: 0,
   totalPages: 0,
   hasMore: false,
@@ -75,12 +75,12 @@ export const useTripStore = create<TripState>((set, get) => ({
       return get().trips;
     }
 
-    const size = requestedSize ?? 4;
+    const size = requestedSize ?? 12;
     set({ loading: true, error: null });
 
     inFlightFetch = (async () => {
       try {
-        const pageResponse = await listTrips({ page: 0, size });
+        const pageResponse = await listTrips({ page: 0, size, sort: "recent" });
         const content = pageResponse?.content || [];
         const totalElements = pageResponse?.totalElements ?? content.length;
         const totalPages = pageResponse?.totalPages ?? 1;
@@ -139,6 +139,7 @@ export const useTripStore = create<TripState>((set, get) => ({
       const pageResponse = await listTrips({
         page: nextPage,
         size: state.pageSize,
+        sort: "recent",
       });
       const nextContent = pageResponse?.content || [];
       const totalElements =
@@ -192,19 +193,28 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   addTrip: (trip) => {
+    let nextCount = 0;
     set((state) => {
       const exists = state.trips.some((t) => t.id === trip.id);
-      const nextTrips = exists ? state.trips : [trip, ...state.trips];
+      const nextTrips = exists
+        ? state.trips.map((t) => (t.id === trip.id ? trip : t))
+        : [trip, ...state.trips];
       const nextTotal = exists ? state.totalElements : state.totalElements + 1;
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("trip-management:count-changed", {
-            detail: nextTotal,
-          }),
-        );
-      }
-      return { trips: nextTrips, totalElements: nextTotal };
+      nextCount = nextTotal;
+      return {
+        trips: nextTrips,
+        totalElements: nextTotal,
+        hasFetched: true,
+        lastFetchedAt: Date.now(),
+      };
     });
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("trip-management:count-changed", {
+          detail: nextCount,
+        }),
+      );
+    }
   },
 
   updateTripInStore: (trip) => {

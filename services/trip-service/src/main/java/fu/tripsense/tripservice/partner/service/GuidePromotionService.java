@@ -772,6 +772,10 @@ public class GuidePromotionService {
       throw new TripServiceException(
           "UNAUTHORIZED", "Authentication required", HttpStatus.UNAUTHORIZED);
     }
+    PartnerBusiness business = businessRepository.findById(businessId).orElse(null);
+    if (business != null && user.id().equals(business.getOwnerUserId())) {
+      return;
+    }
     PartnerBusinessMember member =
         memberRepository
             .findByIdBusinessIdAndIdUserId(businessId, user.id())

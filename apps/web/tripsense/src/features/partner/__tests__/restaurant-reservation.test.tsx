@@ -23,7 +23,7 @@ vi.mock("@/components/ui/dialog", () => ({
     <p className={className}>{children}</p>
   ),
   DialogFooter: ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div className={className}>{children}</div>
+    <div className={children ? className : undefined}>{children}</div>
   ),
 }));
 
@@ -32,7 +32,7 @@ describe("RestaurantReservationDialog Component", () => {
     vi.clearAllMocks();
   });
 
-  it("renders reservation dialog with restaurant name, datetime, and guests input", () => {
+  it("renders reservation dialog with contact inputs (name, phone), datetime, and guests", () => {
     const html = renderToStaticMarkup(
       <I18nProvider initialLocale="vi">
         <RestaurantReservationDialog
@@ -46,6 +46,9 @@ describe("RestaurantReservationDialog Component", () => {
 
     expect(html).toContain("Lantern Kitchen Hoi An");
     expect(html).toContain("Yêu cầu Đặt bàn");
+    expect(html).toContain("Thông tin liên hệ của bạn");
+    expect(html).toContain("Họ và tên người đặt");
+    expect(html).toContain("Số điện thoại liên hệ");
     expect(html).toContain("Thời gian đến dùng bữa");
     expect(html).toContain("Asia/Ho_Chi_Minh");
     expect(html).toContain("Người lớn (13+)");

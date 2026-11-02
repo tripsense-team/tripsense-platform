@@ -45,6 +45,7 @@ class GoogleTokenVerifierTest {
     GoogleTokenVerifier verifier = new GoogleTokenVerifier();
     ReflectionTestUtils.setField(
         verifier, "googleClientId", "valid-client-id.apps.googleusercontent.com");
+    ReflectionTestUtils.setField(verifier, "acceptableTimeSkewSeconds", 86400L);
 
     assertDoesNotThrow(verifier::init);
   }

@@ -364,4 +364,32 @@ class AuthServiceImplTest {
 
     assertThrows(BadCredentialsException.class, () -> authService.loginWithGoogle(request));
   }
+
+  @Test
+  @DisplayName("sendPasswordResetCode: dual writes to AuthVerificationCodeRepository when present")
+  void testSendPasswordResetCode_DualWrites() {
+    fu.tripsense.userservice.repository.AuthVerificationCodeRepository authCodesMock =
+        mock(fu.tripsense.userservice.repository.AuthVerificationCodeRepository.class);
+    fu.tripsense.userservice.repository.PasswordResetCodeRepository prcMock =
+        mock(fu.tripsense.userservice.repository.PasswordResetCodeRepository.class);
+    fu.tripsense.userservice.client.EmailClient emailClientMock =
+        mock(fu.tripsense.userservice.client.EmailClient.class);
+
+    ReflectionTestUtils.setField(authService, "authVerificationCodeRepository", authCodesMock);
+    ReflectionTestUtils.setField(authService, "passwordResetCodeRepository", prcMock);
+    ReflectionTestUtils.setField(authService, "emailClient", emailClientMock);
+
+    when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(mockUser));
+    when(prcMock.findTopByUserIdOrderByCreatedAtDesc(mockUser.getId())).thenReturn(Optional.empty());
+
+    authService.forgotPassword(
+        new fu.tripsense.userservice.dto.request.ForgotPasswordRequest("test@example.com"));
+
+    verify(prcMock).save(any());
+    verify(authCodesMock).save(argThat(c ->
+        "PASSWORD_RESET".equals(c.getPurpose()) &&
+        mockUser.getId().equals(c.getUser().getId())
+    ));
+    verify(emailClientMock).sendPasswordResetCode(eq("test@example.com"), anyString());
+  }
 }

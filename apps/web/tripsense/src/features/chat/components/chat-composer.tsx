@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Send, MapPinned } from "lucide-react";
+import { Send, MapPinned, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -9,8 +9,10 @@ import { cn } from "@/lib/utils";
 export interface ChatComposerProps {
   onSendMessage: (text: string) => void;
   onShareTrip?: () => void;
+  onCreateOffer?: () => void;
   disabled?: boolean;
   disabledPlaceholder?: string;
+  initialText?: string;
   className?: string;
 }
 
@@ -20,8 +22,10 @@ const CHAR_WARNING_THRESHOLD = 1800;
 export function ChatComposer({
   onSendMessage,
   onShareTrip,
+  onCreateOffer,
   disabled = false,
   disabledPlaceholder,
+  initialText,
   className,
 }: ChatComposerProps) {
   const { t } = useTranslation();
@@ -37,7 +41,14 @@ export function ChatComposer({
     textarea.style.height = `${Math.max(nextHeight, 38)}px`;
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  React.useEffect(() => {
+ if (initialText) {
+ setText(initialText);
+ setTimeout(() => adjustHeight(), 50);
+ }
+ }, [initialText, adjustHeight]);
+
+ const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
     adjustHeight();
   };
@@ -83,6 +94,20 @@ export function ChatComposer({
           {onShareTrip && <Button type="button" variant="ghost" size="icon" disabled={disabled}
             onClick={onShareTrip} aria-label={t("chat.sharedTrip.shareAction")} title={t("chat.sharedTrip.shareAction")}
             className="h-10 w-10 shrink-0 rounded-full"><MapPinned className="h-5 w-5" /></Button>}
+          {onCreateOffer && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={disabled}
+              onClick={onCreateOffer}
+              aria-label={t("chat.offer.actionTooltip")}
+              title={t("chat.offer.actionTooltip")}
+              className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Ticket className="h-5 w-5" />
+            </Button>
+          )}
           <textarea
             ref={textareaRef}
             rows={1}

@@ -7,7 +7,9 @@ import {
   Info,
   Phone,
   Navigation,
+  MessageSquare,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { PlaceDetailContent } from "@/features/places/components/place-detail-content";
@@ -68,6 +70,8 @@ export function MindtripHotelDetailOverlay({
   const [directBooking, setDirectBooking] = React.useState<{
     hasDirectBooking: true;
     propertyId: string;
+    businessId?: string;
+    ownerUserId?: string;
     rooms: MindtripHotel["rooms"];
     pricePerNight: number;
     currency: string;
@@ -76,6 +80,8 @@ export function MindtripHotelDetailOverlay({
       return {
         hasDirectBooking: true,
         propertyId: hotel.propertyId || hotel.id,
+        businessId: hotel.businessId,
+        ownerUserId: hotel.ownerUserId,
         rooms: hotel.rooms,
         pricePerNight: hotel.pricePerNight,
         currency: hotel.currency || "VND",
@@ -163,6 +169,8 @@ export function MindtripHotelDetailOverlay({
       ...hotel,
       hasDirectBooking: true,
       propertyId: directBooking.propertyId,
+      businessId: directBooking.businessId || hotel.businessId,
+      ownerUserId: directBooking.ownerUserId || hotel.ownerUserId,
       pricePerNight: directBooking.pricePerNight,
       currency: directBooking.currency,
       rooms: directBooking.rooms,
@@ -250,13 +258,34 @@ export function MindtripHotelDetailOverlay({
             </div>
           </div>
 
-          {/* Primary Button: Check availability */}
+          {/* Primary Action Button: Book stay / Choose room */}
           <button
             type="button"
             onClick={() => setIsBookModalOpen(true)}
             className="w-full py-3.5 px-6 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm tracking-wide transition-all shadow-xs active:scale-[0.98] cursor-pointer text-center"
           >
-            {locale === "vi" ? "Kiểm tra phòng trống" : "Check availability"}
+            {locale === "vi" ? "Chọn phòng & Đặt ngay" : "Check availability"}
+          </button>
+
+          {/* Secondary Action: Consultation message if owner configured */}
+          {currentHotelForBooking.ownerUserId && (
+            <Link
+              href={`/chat?userId=${currentHotelForBooking.ownerUserId}&message=${encodeURIComponent(
+                `Chào khách sạn, mình muốn hỏi thông tin tư vấn tại ${hotel.name}.`
+              )}`}
+              className="w-full py-2.5 px-5 rounded-full border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-primary" />
+              <span>{locale === "vi" ? "Nhắn tin tư vấn" : "Message hotel"}</span>
+            </Link>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsAvailableRoomsViewOpen(true)}
+            className="w-full py-2.5 px-5 rounded-full border border-border/80 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <span>{locale === "vi" ? "Xem danh sách hạng phòng & giá" : "Browse room types & rates"}</span>
           </button>
 
           {/* Secondary Button: Set price alert */}

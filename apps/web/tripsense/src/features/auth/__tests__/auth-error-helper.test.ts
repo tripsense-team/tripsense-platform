@@ -93,4 +93,23 @@ describe("auth-error-helper unit tests", () => {
       "English oauth conflict",
     );
   });
+
+  it("should return OAuth-friendly message for 401 when context is oauth", () => {
+    const error401 = new ApiError("Invalid token", 401, {});
+    const msg = getAuthErrorMessage(error401, undefined, undefined, "oauth");
+    expect(msg).toBe(
+      "Đăng nhập Google không thành công. Vui lòng thử lại hoặc đăng nhập bằng email và mật khẩu.",
+    );
+  });
+
+  it("should translate googleAuthFailed when context is oauth and t function is provided", () => {
+    const mockT = (key: string, def?: string) => {
+      if (key === "errors.googleAuthFailed") return "Google auth failed.";
+      return def || key;
+    };
+    const error401 = new ApiError("Invalid token", 401, {});
+    expect(getAuthErrorMessage(error401, undefined, mockT, "oauth")).toBe(
+      "Google auth failed.",
+    );
+  });
 });

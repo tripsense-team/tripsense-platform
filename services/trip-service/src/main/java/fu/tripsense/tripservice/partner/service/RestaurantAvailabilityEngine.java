@@ -140,9 +140,11 @@ public class RestaurantAvailabilityEngine {
     LocalTime localStart = startZdt.toLocalTime();
     LocalTime localEnd = endZdt.toLocalTime();
 
-    boolean fitsInsideOpeningInterval = intervals.stream()
-        .filter(i -> i.getDayOfWeek() == dayOfWeek)
-        .anyMatch(i -> !localStart.isBefore(i.getOpensAt()) && !localEnd.isAfter(i.getClosesAt()));
+    boolean fitsInsideOpeningInterval = (intervals == null || intervals.isEmpty())
+        ? (!localStart.isBefore(LocalTime.of(8, 0)) && !localEnd.isAfter(LocalTime.of(22, 0)))
+        : intervals.stream()
+            .filter(i -> i.getDayOfWeek() == dayOfWeek)
+            .anyMatch(i -> !localStart.isBefore(i.getOpensAt()) && !localEnd.isAfter(i.getClosesAt()));
 
     if (!fitsInsideOpeningInterval) {
       throw new TripServiceException(

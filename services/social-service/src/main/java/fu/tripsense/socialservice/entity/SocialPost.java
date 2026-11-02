@@ -50,4 +50,11 @@ public class SocialPost {
 
   @Column(name = "deleted_by_user_id")
   private UUID deletedByUserId;
+
+  @Column(name = "visibility")
+  @Builder.Default
+  private String visibility = "PUBLIC";
+
+  @Column(name = "metadata", columnDefinition = "jsonb")
+  private String metadata;
 }

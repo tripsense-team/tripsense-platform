@@ -31,7 +31,13 @@ ziomap:
   timeout-ms: ${ZIOMAP_TIMEOUT_MS:2500}
   photo-display-approved: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:false}
   photo-max-width-px: ${ZIOMAP_PHOTO_MAX_WIDTH_PX:640}
-  photo-allowed-hosts: ${ZIOMAP_PHOTO_ALLOWED_HOSTS:lh3.googleusercontent.com,ziomap-api.socibi.com}
+  photo-allowed-hosts: ${ZIOMAP_PHOTO_ALLOWED_HOSTS:lh3.googleusercontent.com,ziomap-api.socibi.com,res.cloudinary.com}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  place-folder-prefix: ${CLOUDINARY_PLACE_FOLDER:tripsense/places}
 
 tripsense:
   explore-diagnostics:

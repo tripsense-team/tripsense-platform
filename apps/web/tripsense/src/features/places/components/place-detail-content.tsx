@@ -121,6 +121,12 @@ export function PlaceDetailContent({
 
   const reviewsLabel = locale === "vi" ? "đánh giá" : "reviews";
 
+  const [failedUrls, setFailedUrls] = React.useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    setFailedUrls({});
+  }, [place.id]);
+
   const displayPhotos = React.useMemo(() => {
     return approvedPhotoGallery(
       place.photoGallery,
@@ -128,6 +134,10 @@ export function PlaceDetailContent({
       place.photos
     );
   }, [place.photoGallery, place.primaryPhoto, place.photos]);
+
+  const validPhotos = React.useMemo(() => {
+    return displayPhotos.filter((p) => !failedUrls[p.url]);
+  }, [displayPhotos, failedUrls]);
 
   const descriptionText = React.useMemo(() => {
     if (place.description?.trim()) return place.description;
@@ -384,28 +394,29 @@ export function PlaceDetailContent({
           </div>
 
           {/* Adaptive gallery: render each verified photo exactly once */}
-          {displayPhotos.length === 0 ? (
+          {validPhotos.length === 0 ? (
             <div className="flex h-[240px] w-full flex-col items-center justify-center gap-3 rounded-2xl bg-muted text-muted-foreground sm:h-[300px]">
               <ImageOff className="h-8 w-8" aria-hidden="true" />
               <span className="text-sm font-medium">
                 {t("places.noLicensedPhotos", { defaultValue: "No photos available" })}
               </span>
             </div>
-          ) : displayPhotos.length <= 2 ? (
+          ) : validPhotos.length <= 2 ? (
             <div
               className={cn(
                 "grid h-[280px] w-full overflow-hidden rounded-2xl bg-muted select-none sm:h-[340px] md:h-[380px]",
-                displayPhotos.length === 2 ? "grid-cols-2 gap-2" : "grid-cols-1"
+                validPhotos.length === 2 ? "grid-cols-2 gap-2" : "grid-cols-1"
               )}
             >
-              {displayPhotos.map((photo, idx) => (
+              {validPhotos.map((photo, idx) => (
                 <div key={photo.url} className="group relative h-full w-full overflow-hidden bg-muted">
                   <Image
                     src={photo.url}
                     alt={idx === 0 ? place.name : `${place.name} - ${idx + 1}`}
                     fill
                     unoptimized
-                    sizes={displayPhotos.length === 1 ? "100vw" : "50vw"}
+                    sizes={validPhotos.length === 1 ? "100vw" : "50vw"}
+                    onError={() => setFailedUrls((prev) => ({ ...prev, [photo.url]: true }))}
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   {idx === 0 && (
@@ -420,11 +431,12 @@ export function PlaceDetailContent({
             <div className="grid h-[280px] w-full grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-muted select-none sm:h-[340px] md:h-[380px]">
               <div className="group relative h-full w-full overflow-hidden bg-muted">
                 <Image
-                  src={displayPhotos[0].url}
+                  src={validPhotos[0].url}
                   alt={place.name}
                   fill
                   unoptimized
                   sizes="(max-width: 1024px) 100vw, 50vw"
+                  onError={() => setFailedUrls((prev) => ({ ...prev, [validPhotos[0].url]: true }))}
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute bottom-2.5 right-2.5 h-6 w-6 rounded-full bg-black/40 text-white flex items-center justify-center drop-shadow-md">
@@ -435,17 +447,17 @@ export function PlaceDetailContent({
               <div
                 className={cn(
                   "grid h-full w-full gap-2",
-                  displayPhotos.length === 3
+                  validPhotos.length === 3
                     ? "grid-cols-1 grid-rows-2"
                     : "grid-cols-2 grid-rows-2"
                 )}
               >
-                {displayPhotos.slice(1).map((photo, idx) => (
+                {validPhotos.slice(1).map((photo, idx) => (
                   <div
                     key={photo.url}
                     className={cn(
                       "group relative h-full w-full overflow-hidden bg-muted",
-                      displayPhotos.length === 4 && idx === 2 && "col-span-2"
+                      validPhotos.length === 4 && idx === 2 && "col-span-2"
                     )}
                   >
                     <Image
@@ -454,6 +466,7 @@ export function PlaceDetailContent({
                       fill
                       unoptimized
                       sizes="25vw"
+                      onError={() => setFailedUrls((prev) => ({ ...prev, [photo.url]: true }))}
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>

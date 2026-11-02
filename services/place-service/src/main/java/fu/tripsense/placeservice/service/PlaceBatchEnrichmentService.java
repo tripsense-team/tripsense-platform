@@ -66,11 +66,13 @@ public class PlaceBatchEnrichmentService {
     long totalCount = repository.count();
     long pendingCount = repository.countPendingEnrichment();
     long enrichedCount = Math.max(0, totalCount - pendingCount);
+    long stalePhotosCount = repository.countPlacesWithStaleGooglePhotos();
 
     return PlaceStatsDto.builder()
         .totalPlaces(totalCount)
         .enrichedPlaces(enrichedCount)
         .pendingPlaces(pendingCount)
+        .stalePhotoPlaces(stalePhotosCount)
         .zioMapKeyConfigured(zioMapProvider.isApiKeyConfigured())
         .zioMapKeyMasked(zioMapProvider.getMaskedApiKey())
         .isJobRunning("RUNNING".equalsIgnoreCase(status))
@@ -121,11 +123,17 @@ public class PlaceBatchEnrichmentService {
             ? Math.max(1, Math.min(10, request.getConcurrency()))
             : 5;
     boolean forceAll = request != null && Boolean.TRUE.equals(request.getForceAll());
+    boolean stalePhotosOnly =
+        request != null && Boolean.TRUE.equals(request.getStalePhotosOnly());
 
-    List<Place> targets =
-        forceAll
-            ? repository.findAll(PageRequest.of(0, limit)).getContent()
-            : repository.findPendingEnrichment(PageRequest.of(0, limit));
+    List<Place> targets;
+    if (stalePhotosOnly) {
+      targets = repository.findPlacesWithStaleGooglePhotos(PageRequest.of(0, limit));
+    } else if (forceAll) {
+      targets = repository.findAll(PageRequest.of(0, limit)).getContent();
+    } else {
+      targets = repository.findPendingEnrichment(PageRequest.of(0, limit));
+    }
 
     if (targets.isEmpty()) {
       jobId = "batch-" + UUID.randomUUID().toString().substring(0, 8);
@@ -134,7 +142,7 @@ public class PlaceBatchEnrichmentService {
       processed.set(0);
       success.set(0);
       failed.set(0);
-      addLog("No places need enrichment. Database is fully up to date.");
+      addLog("No places need enrichment or photo migration. Database is fully up to date.");
       return getProgress();
     }
 
@@ -154,8 +162,8 @@ public class PlaceBatchEnrichmentService {
 
     addLog(
         String.format(
-            "Batch enrichment started for %d places with %d workers (forceAll=%b)",
-            targets.size(), concurrency, forceAll));
+            "Batch enrichment started for %d places with %d workers (forceAll=%b, stalePhotosOnly=%b)",
+            targets.size(), concurrency, forceAll, stalePhotosOnly));
 
     activeExecutor = Executors.newFixedThreadPool(concurrency);
     CompletableFuture.runAsync(() -> runPipeline(targets, activeExecutor));

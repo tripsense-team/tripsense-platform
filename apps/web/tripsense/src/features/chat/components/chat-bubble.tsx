@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ChatMessageItem, ChatUser } from "../types/chat.types";
 import { SharedTripCard } from "./shared-trip-card";
+import { ReservationOfferCard } from "./reservation-offer-card";
 import { CURRENT_USER_ID } from "../types/chat.types";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,9 @@ export interface ChatBubbleProps {
   onRetry?: (messageId: string) => void;
   showAvatar?: boolean;
   isConsecutive?: boolean;
+  onAcceptOffer?: (offerId: string) => Promise<void> | void;
+  onDeclineOffer?: (offerId: string, reason?: string) => Promise<void> | void;
+  onCancelOffer?: (offerId: string) => Promise<void> | void;
 }
 
 export function ChatBubble({
@@ -24,6 +28,9 @@ export function ChatBubble({
   onRetry,
   showAvatar = true,
   isConsecutive = false,
+  onAcceptOffer,
+  onDeclineOffer,
+  onCancelOffer,
 }: ChatBubbleProps) {
   const { t } = useTranslation();
   const isMe = message.senderId === CURRENT_USER_ID;
@@ -121,6 +128,18 @@ export function ChatBubble({
         {/* Shared Trip Card Preview */}
         {message.sharedTrip && (
           <SharedTripCard trip={message.sharedTrip} className="mb-1" />
+        )}
+
+        {/* Reservation Offer Card Preview */}
+        {message.offer && (
+          <ReservationOfferCard
+            offer={message.offer}
+            isMe={isMe}
+            onAccept={onAcceptOffer}
+            onDecline={onDeclineOffer}
+            onCancel={onCancelOffer}
+            className="mb-1"
+          />
         )}
 
         {/* Text Message Bubble */}

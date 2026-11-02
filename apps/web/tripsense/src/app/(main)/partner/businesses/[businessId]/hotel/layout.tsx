@@ -9,13 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Building2,
   BedDouble,
-  CalendarDays,
-  Users,
-  DollarSign,
   ArrowLeft,
   RefreshCw,
   AlertCircle,
   ShieldAlert,
+  Sparkles,
+  MessageSquare,
+  Utensils,
+  Compass,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
@@ -48,11 +49,10 @@ function PartnerHotelLayoutInner({
   const baseUrl = `/partner/businesses/${businessId}/hotel`;
 
   const navItems = [
-    { href: baseUrl, label: t("trip.hotels.tabProperty", { defaultValue: "Thông tin cơ sở" }), icon: Building2, exact: true },
-    { href: `${baseUrl}/rooms`, label: t("trip.hotels.tabRooms", { defaultValue: "Loại phòng" }), icon: BedDouble },
-    { href: `${baseUrl}/inventory`, label: t("trip.hotels.tabInventory", { defaultValue: "Lịch phòng & Giá" }), icon: CalendarDays },
-    { href: `${baseUrl}/bookings`, label: t("trip.hotels.tabBookings", { defaultValue: "Đơn đặt phòng" }), icon: Users },
-    { href: `${baseUrl}/commerce`, label: t("trip.hotels.tabCommerce", { defaultValue: "Đối soát doanh thu" }), icon: DollarSign },
+    { href: baseUrl, label: "Thông tin & Showcase", icon: Building2, exact: true },
+    { href: `${baseUrl}/rooms`, label: "Loại phòng & Ảnh", icon: BedDouble },
+    { href: "/chat", label: "Hộp thư đặt phòng", icon: MessageSquare },
+    { href: `/partner/services?businessId=${businessId}`, label: "Gói Hội Viên", icon: Sparkles },
   ];
 
   if (loading) {
@@ -90,14 +90,39 @@ function PartnerHotelLayoutInner({
           <AlertCircle className="h-6 w-6" />
         </div>
         <h2 className="text-xl font-bold text-foreground">
-          {t("trip.hotels.notHotelKind", { defaultValue: "Cơ sở này không thuộc danh mục khách sạn / lưu trú" })}
+          {business.kind === "RESTAURANT"
+            ? "Cơ sở này là Nhà hàng / Quán ăn ẩm thực"
+            : t("trip.hotels.notHotelKind", { defaultValue: "Cơ sở này không thuộc danh mục khách sạn / lưu trú" })}
         </h2>
-        <Button asChild variant="outline">
-          <Link href="/partner">
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            <span>{t("trip.hotels.backToPartnerHub", { defaultValue: "Quay lại Trung tâm Đối tác" })}</span>
-          </Link>
-        </Button>
+        <p className="text-sm text-muted-foreground">
+          {business.kind === "RESTAURANT"
+            ? "Vui lòng chuyển sang kênh Quản lý Nhà hàng & Thực đơn món ăn."
+            : "Vui lòng quay lại Trung tâm Đối tác để chọn đúng kênh quản lý."}
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {business.kind === "RESTAURANT" && (
+            <Button asChild className="gap-1.5 bg-primary text-primary-foreground">
+              <Link href={`/partner/businesses/${businessId}/restaurant-menu`}>
+                <Utensils className="h-4 w-4" />
+                <span>Đi đến Quản lý Thực đơn Nhà hàng</span>
+              </Link>
+            </Button>
+          )}
+          {business.kind === "TOUR_GUIDE" && (
+            <Button asChild className="gap-1.5 bg-primary text-primary-foreground">
+              <Link href={`/partner/businesses/${businessId}/guide-promotions`}>
+                <Compass className="h-4 w-4" />
+                <span>Đi đến Quản lý Tour Guide</span>
+              </Link>
+            </Button>
+          )}
+          <Button asChild variant="outline">
+            <Link href="/partner">
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
+              <span>{t("trip.hotels.backToPartnerHub", { defaultValue: "Quay lại Trung tâm Đối tác" })}</span>
+            </Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -139,11 +164,15 @@ function PartnerHotelLayoutInner({
             </Badge>
             {business.approvalValidity === "VALID" ? (
               <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-micro">
-                Đã duyệt
+                Đã xác thực
+              </Badge>
+            ) : business.operationState === "SUSPENDED" ? (
+              <Badge variant="destructive" className="text-micro">
+                Bị tạm khóa
               </Badge>
             ) : (
-              <Badge variant="secondary" className="text-micro">
-                Chờ duyệt
+              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-micro">
+                Chưa kích hoạt gói
               </Badge>
             )}
           </div>

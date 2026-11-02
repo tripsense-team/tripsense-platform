@@ -47,6 +47,25 @@ interface GuidePromotionsViewProps {
   businessId: string;
 }
 
+function formatPriceUnit(unit?: string): string {
+  switch (unit) {
+    case "PERSON":
+    case "PER_PERSON":
+      return "người";
+    case "GROUP":
+    case "PER_GROUP":
+      return "đoàn";
+    case "HOUR":
+    case "PER_HOUR":
+      return "giờ";
+    case "DAY":
+    case "PER_DAY":
+      return "ngày";
+    default:
+      return unit || "lượt";
+  }
+}
+
 export function GuidePromotionsView({ businessId }: GuidePromotionsViewProps) {
   const [business, setBusiness] = React.useState<BusinessDetailDto | null>(null);
   const [promotions, setPromotions] = React.useState<GuidePromotionDto[]>([]);
@@ -63,7 +82,7 @@ export function GuidePromotionsView({ businessId }: GuidePromotionsViewProps) {
   const [selectedSkills, setSelectedSkills] = React.useState<string[]>(["storytelling"]);
   const [experienceDuration, setExperienceDuration] = React.useState("3 giờ");
   const [priceAmount, setPriceAmount] = React.useState<number>(500000);
-  const [priceUnit, setPriceUnit] = React.useState<IndicativePriceUnit>("PER_PERSON");
+  const [priceUnit, setPriceUnit] = React.useState<IndicativePriceUnit>("PERSON");
   const [coverImageRef, setCoverImageRef] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -100,6 +119,11 @@ export function GuidePromotionsView({ businessId }: GuidePromotionsViewProps) {
     try {
       setSubmitting(true);
       setFormError(null);
+      const normalizedPriceUnit: IndicativePriceUnit =
+        priceUnit.startsWith("PER_")
+          ? (priceUnit.replace("PER_", "") as IndicativePriceUnit)
+          : priceUnit;
+
       const req: CreateGuidePromotionDraftRequest = {
         title: title.trim(),
         summary: summary.trim(),
@@ -109,7 +133,7 @@ export function GuidePromotionsView({ businessId }: GuidePromotionsViewProps) {
         experienceDuration,
         indicativePriceAmount: priceAmount,
         indicativePriceCurrency: "VND",
-        indicativePriceUnit: priceUnit,
+        indicativePriceUnit: normalizedPriceUnit,
         coverImageRef: coverImageRef.trim() || undefined,
         inclusions: ["Hướng dẫn viên chuyên nghiệp", "Nước uống"],
         exclusions: ["Chi phí cá nhân", "Vé vào cổng"],
@@ -117,12 +141,16 @@ export function GuidePromotionsView({ businessId }: GuidePromotionsViewProps) {
 
       const created = await createGuidePromotion(businessId, req);
 
-      // Auto submit draft for review if created
-      if (created.currentRevision) {
-        await submitGuidePromotion(businessId, created.id, {
-          expectedVersion: created.version,
-          expectedRevisionId: created.currentRevision.id,
-        });
+      // Auto submit draft for review if created and business profile is approved
+      if (created.currentRevision && business?.approvedRevisionId) {
+        try {
+          await submitGuidePromotion(businessId, created.id, {
+            expectedVersion: created.version,
+            expectedRevisionId: created.currentRevision.id,
+          });
+        } catch (subErr) {
+          console.warn("Could not auto-submit promotion:", subErr);
+        }
       }
 
       setCreateModalOpen(false);
@@ -265,7 +293,7 @@ export function GuidePromotionsView({ businessId }: GuidePromotionsViewProps) {
                     )}
                     {rev?.indicativePriceAmount && (
                       <Badge variant="outline" className="text-micro font-semibold text-primary">
-                        {rev.indicativePriceAmount.toLocaleString("vi-VN")} VND / {rev.indicativePriceUnit}
+                        {rev.indicativePriceAmount.toLocaleString("vi-VN")} VND / {formatPriceUnit(rev.indicativePriceUnit)}
                       </Badge>
                     )}
                   </div>
@@ -389,10 +417,10 @@ export function GuidePromotionsView({ businessId }: GuidePromotionsViewProps) {
                   onChange={(e) => setPriceUnit(e.target.value as IndicativePriceUnit)}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
                 >
-                  <option value="PER_PERSON">Theo người (PER_PERSON)</option>
-                  <option value="PER_GROUP">Theo đoàn (PER_GROUP)</option>
-                  <option value="PER_HOUR">Theo giờ (PER_HOUR)</option>
-                  <option value="PER_DAY">Theo ngày (PER_DAY)</option>
+                  <option value="PERSON">Theo người</option>
+                  <option value="GROUP">Theo đoàn</option>
+                  <option value="HOUR">Theo giờ</option>
+                  <option value="DAY">Theo ngày</option>
                 </select>
               </div>
             </div>

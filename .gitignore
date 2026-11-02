@@ -14,6 +14,7 @@ __pycache__/
 *.db
 
 # pnpm local content-addressable cache
+node_modules/
 /.pnpm-store/
 
 # Runtime logs

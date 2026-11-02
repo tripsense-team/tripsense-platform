@@ -1,5 +1,12 @@
 import { apiClient, authenticatedFetch } from "@/services/api-client";
-import type { ChatMessageItem, ChatUser, Conversation } from "../types/chat.types";
+import type {
+  ChatMessageItem,
+  ChatUser,
+  Conversation,
+  CreateReservationOfferPayload,
+  AcceptOfferResponse,
+  ReservationOfferPreview,
+} from "../types/chat.types";
 import { CURRENT_USER_ID } from "../types/chat.types";
 import type { SocialPostPageResponse } from "@/features/social-post/types";
 
@@ -11,12 +18,13 @@ export type ServerMessage = {
   conversationId: string;
   seq: string;
   senderId: string;
-  type: "TEXT" | "SHARED_TRIP";
+  type: "TEXT" | "SHARED_TRIP" | "RESERVATION_OFFER";
   text: string | null;
   sharedTrip: {
     id: string; title: string | null; location: string | null;
     durationDays: number | null; coverImage: string | null; available: boolean;
   } | null;
+  offer?: ReservationOfferPreview | null;
   createdAt: string;
   status: string;
 };
@@ -77,6 +85,32 @@ export const chatApi = {
       body: JSON.stringify({ clientMessageId, type: "TEXT", text }),
     }),
   sharedTrip: (id: string, clientMessageId: string, sharedPostId: string) => call<ServerMessage>(`/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({clientMessageId,type:"SHARED_TRIP",sharedPostId}) }),
+  createOffer: (conversationId: string, payload: CreateReservationOfferPayload) =>
+    call<ServerMessage>(`/conversations/${conversationId}/offers`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getOffer: (offerId: string) => call<ReservationOfferPreview>(`/offers/${offerId}`),
+  acceptOffer: (offerId: string) =>
+    call<AcceptOfferResponse>(`/offers/${offerId}/accept`, {
+      method: "POST",
+    }),
+  declineOffer: (offerId: string, reason?: string) =>
+    call<ReservationOfferPreview>(`/offers/${offerId}/decline`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+  cancelOffer: (offerId: string) =>
+    call<ReservationOfferPreview>(`/offers/${offerId}/cancel`, {
+      method: "POST",
+    }),
+  myOffers: (status?: string, businessType?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (businessType) params.set("businessType", businessType);
+    const qs = params.toString();
+    return call<ReservationOfferPreview[]>(`/offers/my${qs ? `?${qs}` : ""}`);
+  },
   read: (id: string, throughSeq: string) =>
     call<ServerConversation>(`/conversations/${id}/read`, { method: "PUT", body: JSON.stringify({ throughSeq }) }),
   delivered: (id: string, throughSeq: string) =>
@@ -113,7 +147,8 @@ export function toChatMessage(message: ServerMessage, ownId: string): ChatMessag
     clientMessageId:message.clientMessageId,
     seq:message.seq,
     senderId:message.senderId===ownId?CURRENT_USER_ID:message.senderId,
-    text:message.text || "",
+    type: message.type || "TEXT",
+    text: message.text || "",
     createdAt:message.createdAt,
     status:message.status==="read"?"read":message.status==="delivered"?"delivered":"sent",
     sharedPostId:trip?.id,
@@ -122,6 +157,7 @@ export function toChatMessage(message: ServerMessage, ownId: string): ChatMessag
       durationDays:trip.durationDays || 0,durationNights:Math.max(0,(trip.durationDays || 0)-1),
       coverImage:trip.coverImage || "",
     } : undefined,
+    offer: message.offer || undefined,
   };
 }
 
@@ -131,7 +167,7 @@ export function toConversation(server: ServerConversation, ownId: string, messag
     user:toChatUser(server.peer,server.online),
     state:server.state,
     requestDirection:server.requestDirection,
-    lastMessage:server.lastMessage?.text || (server.lastMessage?.type==="SHARED_TRIP" ? "Trip" : ""),
+    lastMessage:server.lastMessage?.text || (server.lastMessage?.type==="SHARED_TRIP" ? "Trip" : server.lastMessage?.type==="RESERVATION_OFFER" ? (server.lastMessage.offer ? `${server.lastMessage.offer.businessType === "HOTEL" ? "🏨" : "🍽️"} ${server.lastMessage.offer.itemTitle}` : "Phiếu đặt chỗ") : ""),
     lastMessageTime:server.lastMessage?.createdAt || server.updatedAt,
     lastMessageTimestamp:Date.parse(server.lastMessage?.createdAt || server.updatedAt),
     unreadCount:server.unreadCount,

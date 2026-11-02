@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { X, Sparkles, Check, ExternalLink, Star } from "lucide-react";
+import { X, Sparkles, Check, ExternalLink, Star, MessageSquare, Phone } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import type { MindtripHotel } from "../types";
@@ -70,7 +71,7 @@ export function MindtripBookStayModal({
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-[480px] rounded-3xl bg-card text-card-foreground border border-border shadow-2xl overflow-hidden p-6 sm:p-7 space-y-6 animate-in zoom-in-95 duration-200"
       >
-        {/* Close Button (Top Left - matching Mindtrip screenshot) */}
+        {/* Close Button (Top Left - matching Mindtrip style) */}
         <button
           type="button"
           onClick={onClose}
@@ -192,17 +193,41 @@ export function MindtripBookStayModal({
             </li>
           </ul>
 
-          {/* Primary Action Button: "Choose a room" */}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onChooseRoom();
-            }}
-            className="w-full py-3.5 px-6 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm tracking-wide transition-all shadow-sm active:scale-[0.99] cursor-pointer mt-2"
-          >
-            {locale === "vi" ? "Chọn phòng" : "Choose a room"}
-          </button>
+          {/* Actions: Primary Choose Room + Secondary Chat */}
+          <div className="space-y-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onChooseRoom();
+              }}
+              className="w-full py-3.5 px-6 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm tracking-wide transition-all shadow-sm active:scale-[0.99] cursor-pointer"
+            >
+              {locale === "vi" ? "Chọn phòng & Đặt ngay" : "Choose a room"}
+            </button>
+
+            {hotel.ownerUserId && (
+              <Link
+                href={`/chat?userId=${hotel.ownerUserId}&message=${encodeURIComponent(
+                  `Chào khách sạn, mình muốn hỏi thông tin tư vấn tại ${hotel.name}.`
+                )}`}
+                className="w-full py-2.5 px-5 rounded-full border border-border bg-card hover:bg-muted text-foreground font-semibold text-xs tracking-wide transition-all shadow-2xs active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                <span>{locale === "vi" ? "Nhắn tin tư vấn" : "Message hotel"}</span>
+              </Link>
+            )}
+          </div>
+
+          {hotel.phone && (
+            <a
+              href={`tel:${hotel.phone}`}
+              className="text-xs text-primary font-medium hover:underline flex items-center justify-center gap-1.5 pt-1"
+            >
+              <Phone className="h-3 w-3" />
+              <span>{locale === "vi" ? `Hoặc gọi lễ tân: ${hotel.phone}` : `Or call front desk: ${hotel.phone}`}</span>
+            </a>
+          )}
         </div>
 
         {/* Other Booking Options (OTA Price Comparison) */}

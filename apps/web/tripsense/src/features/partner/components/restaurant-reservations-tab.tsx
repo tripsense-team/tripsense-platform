@@ -12,6 +12,7 @@ import {
   RefreshCw,
   MessageSquare,
   User,
+  Phone,
   Check,
   X,
 } from "lucide-react";
@@ -163,28 +164,26 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
       case "REQUESTED":
         return (
           <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
-            <Clock className="mr-1 h-3 w-3" />
             {t("partner.restaurant.statusRequested", { defaultValue: "Chờ xác nhận" })}
           </Badge>
         );
       case "CONFIRMED":
         return (
-          <Badge className="bg-emerald-600 text-white font-medium hover:bg-emerald-600">
-            <CheckCircle2 className="mr-1 h-3 w-3" />
+          <Badge className="border-emerald-600/30 bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 font-semibold gap-1">
+            <CheckCircle2 className="h-3 w-3" />
             {t("partner.restaurant.statusConfirmed", { defaultValue: "Đã xác nhận" })}
           </Badge>
         );
       case "REJECTED":
         return (
-          <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive font-medium">
-            <XCircle className="mr-1 h-3 w-3" />
+          <Badge variant="destructive" className="gap-1 font-medium">
+            <XCircle className="h-3 w-3" />
             {t("partner.restaurant.statusRejected", { defaultValue: "Đã từ chối" })}
           </Badge>
         );
       case "CANCELLED":
         return (
           <Badge variant="secondary" className="text-muted-foreground font-medium">
-            <X className="mr-1 h-3 w-3" />
             {t("partner.restaurant.statusCancelled", { defaultValue: "Đã hủy" })}
           </Badge>
         );
@@ -193,40 +192,38 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
     }
   };
 
-  const filters = [
-    { key: "ALL", label: t("common.all", { defaultValue: "Tất cả" }) },
-    { key: "REQUESTED", label: t("partner.restaurant.filterRequested", { defaultValue: "Chờ xác nhận" }) },
-    { key: "CONFIRMED", label: t("partner.restaurant.filterConfirmed", { defaultValue: "Đã xác nhận" }) },
-    { key: "REJECTED", label: t("partner.restaurant.filterRejected", { defaultValue: "Đã từ chối" }) },
-    { key: "CANCELLED", label: t("partner.restaurant.filterCancelled", { defaultValue: "Đã hủy" }) },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Header controls & filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {filters.map((f) => (
+      {/* Filters & Refresh */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {[
+            { id: "ALL", label: t("common.all", { defaultValue: "Tất cả" }) },
+            { id: "REQUESTED", label: t("partner.restaurant.filterRequested", { defaultValue: "Chờ xác nhận" }) },
+            { id: "CONFIRMED", label: t("partner.restaurant.filterConfirmed", { defaultValue: "Đã xác nhận" }) },
+            { id: "REJECTED", label: t("partner.restaurant.filterRejected", { defaultValue: "Đã từ chối" }) },
+            { id: "CANCELLED", label: t("partner.restaurant.filterCancelled", { defaultValue: "Đã hủy" }) },
+          ].map((tab) => (
             <Button
-              key={f.key}
-              variant={filterState === f.key ? "default" : "outline"}
+              key={tab.id}
+              variant={filterState === tab.id ? "default" : "outline"}
               size="sm"
-              onClick={() => setFilterState(f.key)}
-              className="h-8 text-xs font-medium rounded-lg"
+              onClick={() => setFilterState(tab.id)}
+              className="h-8 text-xs font-medium"
             >
-              {f.label}
+              {tab.label}
             </Button>
           ))}
         </div>
 
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={loadReservations}
           disabled={loading}
-          className="h-8 text-xs self-start sm:self-auto"
+          className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground self-start sm:self-auto"
         >
-          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           {t("common.refresh", { defaultValue: "Làm mới" })}
         </Button>
       </div>
@@ -265,98 +262,117 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
         </Card>
       ) : (
         <div className="grid gap-4">
-          {reservations.map((item) => (
-            <Card key={item.id} className="border-border/70 shadow-xs hover:border-border transition-colors">
-              <CardContent className="p-5">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <User className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-semibold text-foreground">
-                            {item.customerName || t("partner.restaurant.anonymousCustomer", { defaultValue: "Khách hàng" })}
-                          </h4>
-                          {renderStateBadge(item.state)}
+          {reservations.map((item) => {
+            const contactMatch = item.notes?.match(/\[Khách đặt:\s*([^|]+)\|\s*SĐT:\s*([^\]]+)\]/);
+            const guestName = contactMatch ? contactMatch[1].trim() : item.customerName;
+            const guestPhone = contactMatch ? contactMatch[2].trim() : null;
+            const displayNotes = contactMatch
+              ? item.notes?.replace(contactMatch[0], "").replace(/^\s*-\s*(Ghi chú:\s*)?/, "").trim()
+              : item.notes;
+
+            return (
+              <Card key={item.id} className="border-border/70 shadow-xs hover:border-border transition-colors">
+                <CardContent className="p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <User className="h-4 w-4" />
                         </div>
-                        {item.customerEmail && (
-                          <p className="text-xs text-muted-foreground">{item.customerEmail}</p>
-                        )}
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-semibold text-foreground">
+                              {guestName || t("partner.restaurant.anonymousCustomer", { defaultValue: "Khách hàng" })}
+                            </h4>
+                            {renderStateBadge(item.state)}
+                            {guestPhone && (
+                              <a
+                                href={`tel:${guestPhone}`}
+                                title={t("partner.restaurant.callCustomer", { defaultValue: "Gọi xác nhận" })}
+                                className="inline-flex items-center gap-1 text-micro font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded-full transition-colors"
+                              >
+                                <Phone className="h-3 w-3" />
+                                <span>{guestPhone}</span>
+                              </a>
+                            )}
+                          </div>
+                          {item.customerEmail && (
+                            <p className="text-xs text-muted-foreground">{item.customerEmail}</p>
+                          )}
+                        </div>
                       </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="font-medium text-foreground">{formatDateTime(item.startAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span>
+                            {item.adults} {t("partner.restaurant.adults", { defaultValue: "người lớn" })}
+                            {item.children > 0 && `, ${item.children} ${t("partner.restaurant.childrenLabel", { defaultValue: "trẻ em" })}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {displayNotes && (
+                        <div className="rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground border border-border/40 mt-1">
+                          <span className="font-medium text-foreground mr-1.5">
+                            {t("partner.restaurant.specialNotes", { defaultValue: "Ghi chú:" })}
+                          </span>
+                          {displayNotes}
+                        </div>
+                      )}
+
+                      {item.decisionReason && (
+                        <div className="text-xs text-muted-foreground pt-0.5">
+                          <span className="font-medium">{t("partner.restaurant.decisionReason", { defaultValue: "Phản hồi quán:" })}</span>{" "}
+                          {item.decisionReason}
+                        </div>
+                      )}
+
+                      {item.cancellationReason && (
+                        <div className="text-xs text-muted-foreground pt-0.5">
+                          <span className="font-medium">{t("partner.restaurant.cancelReason", { defaultValue: "Lý do hủy:" })}</span>{" "}
+                          {item.cancellationReason}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="font-medium text-foreground">{formatDateTime(item.startAt)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span>
-                          {item.adults} {t("partner.restaurant.adults", { defaultValue: "người lớn" })}
-                          {item.children > 0 && `, ${item.children} ${t("partner.restaurant.childrenLabel", { defaultValue: "trẻ em" })}`}
-                        </span>
-                      </div>
-                    </div>
-
-                    {item.notes && (
-                      <div className="rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground border border-border/40 mt-1">
-                        <span className="font-medium text-foreground mr-1.5">
-                          {t("partner.restaurant.specialNotes", { defaultValue: "Ghi chú:" })}
-                        </span>
-                        {item.notes}
-                      </div>
-                    )}
-
-                    {item.decisionReason && (
-                      <div className="text-xs text-muted-foreground pt-0.5">
-                        <span className="font-medium">{t("partner.restaurant.decisionReason", { defaultValue: "Phản hồi quán:" })}</span>{" "}
-                        {item.decisionReason}
-                      </div>
-                    )}
-
-                    {item.cancellationReason && (
-                      <div className="text-xs text-muted-foreground pt-0.5">
-                        <span className="font-medium">{t("partner.restaurant.cancelReason", { defaultValue: "Lý do hủy:" })}</span>{" "}
-                        {item.cancellationReason}
+                    {/* Actions for REQUESTED */}
+                    {item.state === "REQUESTED" && (
+                      <div className="flex items-center gap-2 self-end sm:self-start shrink-0 pt-2 sm:pt-0">
+                        <Button
+                          size="sm"
+                          onClick={() => handleConfirm(item)}
+                          disabled={decidingId === item.id}
+                          className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1 shadow-xs"
+                        >
+                          {decidingId === item.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                          {t("partner.restaurant.confirmButton", { defaultValue: "Xác nhận đặt bàn" })}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenReject(item)}
+                          disabled={decidingId === item.id}
+                          className="h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 gap-1"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          {t("partner.restaurant.rejectButton", { defaultValue: "Từ chối" })}
+                        </Button>
                       </div>
                     )}
                   </div>
-
-                  {/* Actions for REQUESTED */}
-                  {item.state === "REQUESTED" && (
-                    <div className="flex items-center gap-2 self-end sm:self-start shrink-0 pt-2 sm:pt-0">
-                      <Button
-                        size="sm"
-                        onClick={() => handleConfirm(item)}
-                        disabled={decidingId === item.id}
-                        className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1 shadow-xs"
-                      >
-                        {decidingId === item.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Check className="h-3.5 w-3.5" />
-                        )}
-                        {t("partner.restaurant.confirmButton", { defaultValue: "Xác nhận đặt bàn" })}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleOpenReject(item)}
-                        disabled={decidingId === item.id}
-                        className="h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 gap-1"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        {t("partner.restaurant.rejectButton", { defaultValue: "Từ chối" })}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

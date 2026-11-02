@@ -110,16 +110,26 @@ public class TripServiceImpl implements TripService {
   @Transactional(readOnly = true)
   @Cacheable(
       cacheNames = "trip-list",
-      key = "#userId + ':' + #status + ':' + #from + ':' + #to + ':' + #page + ':' + #size")
+      key = "#userId + ':' + #status + ':' + #from + ':' + #to + ':' + #sort + ':' + #page + ':' + #size")
   @Override
   public TripListResponse listTrips(
-      UUID userId, TripStatus status, LocalDate from, LocalDate to, int page, int size) {
+      UUID userId, TripStatus status, LocalDate from, LocalDate to, String sort, int page, int size) {
     if (from != null && to != null && from.isAfter(to)) {
       throw new ValidationException("INVALID_TRIP_DATE_RANGE", "from must be on or before to");
     }
 
+    Sort sortOrder;
+    if ("startDateAsc".equalsIgnoreCase(sort) || "startDate".equalsIgnoreCase(sort)) {
+      sortOrder = Sort.by(Sort.Direction.ASC, "startDate");
+    } else if ("startDateDesc".equalsIgnoreCase(sort)) {
+      sortOrder = Sort.by(Sort.Direction.DESC, "startDate");
+    } else {
+      // Default: recent trips first so newest created/edited trips appear at the top
+      sortOrder = Sort.by(Sort.Direction.DESC, "updatedAt", "createdAt");
+    }
+
     PageRequest pageRequest =
-        PageRequest.of(page, Math.min(size, 100), Sort.by("startDate").ascending());
+        PageRequest.of(page, Math.min(size, 100), sortOrder);
 
     Specification<Trip> specification =
         (root, query, criteriaBuilder) -> {

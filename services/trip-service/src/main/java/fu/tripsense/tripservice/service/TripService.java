@@ -21,7 +21,12 @@ public interface TripService {
   TripResponse createTrip(UUID userId, CreateTripRequest request);
 
   TripListResponse listTrips(
-      UUID userId, TripStatus status, LocalDate from, LocalDate to, int page, int size);
+      UUID userId, TripStatus status, LocalDate from, LocalDate to, String sort, int page, int size);
+
+  default TripListResponse listTrips(
+      UUID userId, TripStatus status, LocalDate from, LocalDate to, int page, int size) {
+    return listTrips(userId, status, from, to, null, page, size);
+  }
 
   TripResponse getTrip(UUID userId, UUID tripId);
 

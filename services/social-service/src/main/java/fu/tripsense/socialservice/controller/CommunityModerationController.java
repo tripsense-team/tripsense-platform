@@ -44,6 +44,16 @@ public class CommunityModerationController {
         "Report submitted", service.reportReview(reviewId, currentUser.requiredUser(), request));
   }
 
+  @PostMapping("/chat/conversations/{conversationId}/messages/{messageId}/reports")
+  public ApiResponse<ReportReceiptResponse> reportChatMessage(
+      @PathVariable UUID conversationId,
+      @PathVariable UUID messageId,
+      @Valid @RequestBody SubmitReportRequest request) {
+    return ApiResponse.success(
+        "Report submitted",
+        service.reportChatMessage(conversationId, messageId, currentUser.requiredUser(), request));
+  }
+
   @GetMapping("/moderation/reports")
   public ApiResponse<ModerationReportPageResponse> listReports(
       @RequestParam(defaultValue = "PENDING") String status,

@@ -1,15 +1,20 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 
 interface TripTabsProps {
   active: "trips" | "calendar" | "receipts";
 }
 
 export function TripTabs({ active }: TripTabsProps) {
+  const { t } = useTranslation();
+
   const tabs = [
-    { href: "/trips", label: "Trips", value: "trips" },
-    { href: "/calendar", label: "Calendar", value: "calendar" },
-    { href: "/receipts", label: "Receipts", value: "receipts" },
+    { href: "/trips", label: t("trip.yourTrips", { defaultValue: "Trips" }), value: "trips" },
+    { href: "/calendar", label: t("trip.calendar", { defaultValue: "Calendar" }), value: "calendar" },
+    { href: "/reservations", label: t("reservations.title", { defaultValue: "Reservations" }), value: "receipts" },
   ] as const;
 
   return (

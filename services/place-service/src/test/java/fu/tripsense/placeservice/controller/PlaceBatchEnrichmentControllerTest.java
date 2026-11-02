@@ -160,4 +160,26 @@ class PlaceBatchEnrichmentControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data").value(true));
   }
+
+  @Test
+  void shouldTriggerStalePhotoMigration() throws Exception {
+    BatchEnrichmentProgressDto progress =
+        BatchEnrichmentProgressDto.builder()
+            .jobId("batch-1234")
+            .status("RUNNING")
+            .total(50)
+            .processed(0)
+            .success(0)
+            .failed(0)
+            .build();
+
+    when(enrichmentService.startBatchEnrichment(any())).thenReturn(progress);
+
+    mockMvc
+        .perform(post("/api/places/admin/migrate-stale-photos?limit=50&concurrency=2"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.jobId").value("batch-1234"))
+        .andExpect(jsonPath("$.data.status").value("RUNNING"));
+  }
 }
