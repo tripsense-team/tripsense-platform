@@ -115,7 +115,7 @@ export function InChatReservationCard({
       {/* Details Box */}
       <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-xl border border-border/40">
         <div>
-          <span className="text-[10px] uppercase font-bold text-muted-foreground/80 flex items-center gap-1 mb-0.5">
+          <span className="text-xs uppercase font-bold text-muted-foreground/80 flex items-center gap-1 mb-0.5">
             <Calendar className="h-3 w-3 text-primary" />
             {isRestaurant ? t("chat.offer.time") : t("chat.offer.checkIn")}
           </span>
@@ -127,7 +127,7 @@ export function InChatReservationCard({
         </div>
 
         <div>
-          <span className="text-[10px] uppercase font-bold text-muted-foreground/80 flex items-center gap-1 mb-0.5">
+          <span className="text-xs uppercase font-bold text-muted-foreground/80 flex items-center gap-1 mb-0.5">
             <Users className="h-3 w-3 text-primary" />
             {t("chat.offer.guests")}
           </span>
@@ -148,10 +148,10 @@ export function InChatReservationCard({
       {/* Price & Action */}
       <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
         <div>
-          <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+          <span className="text-xs uppercase font-bold text-muted-foreground block">
             {t("chat.offer.totalPrice")}
           </span>
-          <span className="text-base font-black text-primary">
+          <span className="text-base font-bold text-primary">
             {formatCurrency(offer.totalPrice, offer.currency)}
           </span>
         </div>

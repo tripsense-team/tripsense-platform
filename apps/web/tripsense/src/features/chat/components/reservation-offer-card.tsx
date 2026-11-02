@@ -277,14 +277,14 @@ export function ReservationOfferCard({
               <span className="text-[11px] uppercase font-semibold text-muted-foreground">
                 {t("chat.offer.totalPrice")}
               </span>
-              <div className="text-lg font-extrabold text-primary">
+              <div className="text-lg font-bold text-primary">
                 {formatCurrency(offer.totalPrice, offer.currency)}
               </div>
             </div>
 
             {isAccepted && offer.bookingCode && (
               <div className="text-right">
-                <span className="text-[10px] uppercase font-semibold text-muted-foreground">
+                <span className="text-xs uppercase font-semibold text-muted-foreground">
                   {t("chat.offer.bookingCodeLabel")}
                 </span>
                 <div className="font-mono text-xs font-bold text-foreground bg-muted px-2 py-0.5 rounded border border-border">
