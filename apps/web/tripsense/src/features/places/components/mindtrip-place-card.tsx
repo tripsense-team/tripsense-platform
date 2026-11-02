@@ -90,6 +90,16 @@ function MindtripPlaceCardComponent({
     setFailedUrls({});
   }, [place.id]);
 
+  const [priceCheckedAt] = React.useState(() => Date.now());
+  const evidence = place.priceEvidence;
+  const evidenceTime = evidence ? Date.parse(evidence.observedAt) : NaN;
+  const hasSourcedPrice = evidence && Number.isSafeInteger(evidence.amountVnd)
+    && evidence.amountVnd >= 0 && evidence.amountVnd <= 1_000_000_000
+    && ["PER_PERSON_VISIT", "PER_PERSON_NIGHT"].includes(evidence.basis)
+    && /^https:\/\//i.test(evidence.sourceUrl)
+    && Number.isFinite(evidenceTime) && evidenceTime <= priceCheckedAt
+    && evidenceTime >= priceCheckedAt - 30 * 24 * 60 * 60 * 1000;
+
   const primaryCategory =
     place.categories?.[0] || t("places.defaultCategory", { defaultValue: "Place" });
 
@@ -334,6 +344,17 @@ function MindtripPlaceCardComponent({
         {/* Row 4: Price Level / Nightly Rate */}
         {priceLabel ? (
           <div>{priceLabel}</div>
+        ) : hasSourcedPrice ? (
+          <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
+            <a href={evidence.sourceUrl} target="_blank" rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              title={place.dailyBudgetExceeded ? t("places.dailyBudget.exceeded") : undefined}>
+              {t(evidence.basis === "PER_PERSON_NIGHT" ? "places.dailyBudget.perNight" : "places.dailyBudget.perVisit", {
+                amount: new Intl.NumberFormat(locale).format(evidence.amountVnd),
+              })}
+              {place.dailyBudgetExceeded && ` · ${t("places.dailyBudget.exceeded")}`}
+            </a>
+          </p>
         ) : (
           <p className="text-xs sm:text-[13px] text-muted-foreground font-medium">
             {isStay ? (locale === "vi" ? "Liên hệ đặt phòng" : "Contact for rates") : "$$"}

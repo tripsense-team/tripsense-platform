@@ -230,7 +230,8 @@ public class PlaceServiceCandidateGenerator
       String description,
       Instant fetchedAt,
       String freshness,
-      String primaryType) {
+      String primaryType,
+      fu.tripsense.recommendation.domain.PriceEvidence priceEvidence) {
     PlaceSnapshot toDomain() {
       return new PlaceSnapshot(
           id,
@@ -257,7 +258,8 @@ public class PlaceServiceCandidateGenerator
           description,
           fetchedAt,
           freshness,
-          primaryType);
+          primaryType,
+          priceEvidence);
     }
   }
 

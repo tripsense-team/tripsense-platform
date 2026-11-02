@@ -1,0 +1,28 @@
+# Use with the root docker-compose.yml; all paths resolve from the root Compose file.
+# Shared environment is loaded after the base local env_file. Explicit environment
+# overrides in the root file also use env/.env.shared via the CLI --env-file flag.
+# Starting these services can run Flyway / AI migrations against the shared databases.
+x-shared-configuration: &shared-configuration
+  env_file:
+    - path: ./env/.env.shared
+      required: true
+
+services:
+  api-gateway:
+    <<: *shared-configuration
+  user-service:
+    <<: *shared-configuration
+  mail-service:
+    <<: *shared-configuration
+  trip-service:
+    <<: *shared-configuration
+  social-service:
+    <<: *shared-configuration
+  context-service:
+    <<: *shared-configuration
+  recommendation-service:
+    <<: *shared-configuration
+  place-service:
+    <<: *shared-configuration
+  ai-service:
+    <<: *shared-configuration

@@ -33,6 +33,7 @@ describe("PersonalizationEditor", () => {
     selections: {
       TRAVEL_PARTY: ["COUPLE"],
       BUDGET_TIER: ["MID_RANGE"],
+      DAILY_BUDGET_VND: ["700000"],
       STAY_STYLE: ["HOTEL", "RESORT"],
       FOOD_STYLE: ["LOCAL_FOOD", "CAFE"],
       ACTIVITY_INTEREST: ["NATURE", "BEACH"],
@@ -152,6 +153,7 @@ describe("PersonalizationEditor", () => {
     expect(savePayload.places.VISITED).toContain("da-nang");
     expect(savePayload.places.WANT_TO_VISIT).toContain("tokyo");
     expect(savePayload.selections.TRAVEL_PARTY).toEqual(["COUPLE"]);
+    expect(savePayload.selections.DAILY_BUDGET_VND).toEqual(["700000"]);
     // Verify HOME_CITY is saved as JSON string
     expect(savePayload.attributes?.HOME_CITY).toBeDefined();
     expect(JSON.parse(savePayload.attributes!.HOME_CITY).name).toBe("Đà Nẵng");

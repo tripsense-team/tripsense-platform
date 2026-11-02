@@ -93,7 +93,10 @@ export async function getExploreSections(params: {
     ...response.data,
     sections: response.data.sections.map((section) => ({
       ...section,
-      items: section.items.map((item) => ({ ...item, place: normalizePlace(item.place) })),
+      items: section.items.map((item) => ({ ...item, place: {
+        ...normalizePlace(item.place),
+        dailyBudgetExceeded: item.reasons?.some((reason) => reason.code === "DAILY_BUDGET_EXCEEDED") ?? false,
+      } })),
     })),
   };
 }
@@ -122,7 +125,8 @@ export async function getExploreForYou(params: {
     ...response.data,
     items: response.data.items.map((item) => ({
       ...item,
-      place: normalizePlace(item.place),
+      place: { ...normalizePlace(item.place),
+        dailyBudgetExceeded: item.reasons?.some((reason) => reason.code === "DAILY_BUDGET_EXCEEDED") ?? false },
     })),
   };
 }

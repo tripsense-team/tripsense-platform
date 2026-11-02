@@ -42,7 +42,8 @@ public class ExploreRecommendationCache {
         digest(
             properties.getVersions().toString()
                 + "|observed="
-                + properties.getProfile().toString());
+                + properties.getProfile().toString()
+                + "|budget-penalty=" + properties.getRanking().getBudgetMaximumPenalty());
   }
 
   public Optional<ExploreRecommendationResult> getFresh(
@@ -99,7 +100,8 @@ public class ExploreRecommendationCache {
 
   public String profileFingerprint(fu.tripsense.recommendation.domain.UserProfileSnapshot profile) {
     String material =
-        algorithmFingerprint
+        "daily-budget-v1|" + algorithmFingerprint
+            + "|" + profile.dailyBudgetVnd() + "|" + profile.budgetTier()
             + "|"
             + profile.personalizationEnabled()
             + "|"
@@ -129,7 +131,8 @@ public class ExploreRecommendationCache {
       String value = redis.opsForValue().get(key);
       return value == null
           ? Optional.empty()
-          : Optional.of(objectMapper.readValue(value, ExploreRecommendationResult.class));
+          : Optional.of(objectMapper.readValue(value, ExploreRecommendationResult.class))
+              .filter(r -> BudgetEvidenceFreshness.usable(r.recommendation()));
     } catch (RuntimeException | java.io.IOException exception) {
       RequestDiagnostics.mark("cache_read_error", true);
       log.warn(

@@ -67,6 +67,7 @@ tripsense:
       prior-rating: ${RECOMMENDATION_PRIOR_RATING:4.0}
       rating-confidence-threshold: ${RECOMMENDATION_RATING_CONFIDENCE:20.0}
     ranking:
+      budget-maximum-penalty: ${RECOMMENDATION_BUDGET_MAXIMUM_PENALTY:0.15}
       rrf-normalization-pivot: ${RECOMMENDATION_RRF_NORMALIZATION_PIVOT:0.01}
       dislike-conflict-penalty: ${RECOMMENDATION_DISLIKE_CONFLICT_PENALTY:0.50}
       quietness-weight: ${RECOMMENDATION_QUIETNESS_WEIGHT:0.15}

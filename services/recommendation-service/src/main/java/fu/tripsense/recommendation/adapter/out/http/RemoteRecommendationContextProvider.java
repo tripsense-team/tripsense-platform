@@ -163,7 +163,7 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
           "context_preferences_status", mappedSignals > 0 ? "available" : "empty");
       RequestDiagnostics.mark("context_preference_signals", mappedSignals);
       return new UserProfileSnapshot(
-          mappedSignals > 0 || observed.available(),
+          mappedSignals > 0 || dailyBudget(response.values()) != null || observed.available(),
           true,
           preferred,
           observed.dislikedCategories(),
@@ -172,7 +172,10 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
           observed.savedPlaceIds(),
           observed.addedToTripPlaceIds(),
           observed.negativePlaceIds(),
-          Instant.now());
+          Instant.now(),
+          dailyBudget(response.values()),
+          response.values().stream().filter(s -> "BUDGET_TIER".equals(s.dimensionCode()))
+              .map(PreferenceSignal::valueCode).sorted().findFirst().orElse(null));
     } catch (RuntimeException exception) {
       RequestDiagnostics.mark("context_preferences_status", "unavailable");
       RequestDiagnostics.mark("context_preference_signals", 0);
@@ -213,6 +216,16 @@ public class RemoteRecommendationContextProvider implements RecommendationContex
           (left, right) -> left.confidence() >= right.confidence() ? left : right);
     }
     return result;
+  }
+
+  private static Long dailyBudget(java.util.Collection<PreferenceSignal> signals) {
+    var amounts = signals.stream().filter(s -> "DAILY_BUDGET_VND".equals(s.dimensionCode()))
+        .map(PreferenceSignal::valueCode).distinct().toList();
+    if (amounts.size() != 1) return null;
+    String value = amounts.getFirst();
+    if (!value.matches("[1-9][0-9]{0,9}")) return null;
+    long amount = Long.parseLong(value);
+    return amount <= 1_000_000_000L ? amount : null;
   }
 
   private TripContextSnapshot getTrip(UUID tripId, String token) {

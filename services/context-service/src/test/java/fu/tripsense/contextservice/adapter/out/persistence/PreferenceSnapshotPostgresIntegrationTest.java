@@ -207,6 +207,8 @@ class PreferenceSnapshotPostgresIntegrationTest {
     data.queries.clear();
     assertThat(source.load(user, "TRIP_PLANNING").signals()).isEmpty();
     assertThat(data.queries).noneMatch(sql -> sql.contains("FROM preference_signals"));
+    // Legacy completed profile: monetary budgets were not required at the time.
+    jdbc.update("UPDATE onboarding_profiles SET status='COMPLETED', completed_at=CURRENT_TIMESTAMP WHERE user_id=?", user);
     onboarding.complete(user, draft.version());
     assertThat(source.load(user, "TRIP_PLANNING").signals())
         .extracting(PreferenceSignalReader.PreferenceSignal::dimensionCode)
@@ -220,6 +222,7 @@ class PreferenceSnapshotPostgresIntegrationTest {
     var draft =
         onboarding.save(
             user, new OnboardingCommand(0, Map.of("FOOD_STYLE", Set.of("CAFE")), Map.of()));
+    jdbc.update("UPDATE onboarding_profiles SET status='COMPLETED', completed_at=CURRENT_TIMESTAMP WHERE user_id=?", user);
     return onboarding.complete(user, draft.version());
   }
 

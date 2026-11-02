@@ -129,6 +129,9 @@ public class RecommendationProperties {
     private double historyWeight = 0.05;
     private double dislikeConflictPenalty = 0.50;
     private double negativeFeedbackPenalty = 0.40;
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    private double budgetMaximumPenalty = 0.15;
   }
 
   @Data
@@ -223,7 +226,7 @@ public class RecommendationProperties {
     private String fusion = "rrf-v1";
     private String embedding = "none";
     private String feature = "features-v2-availability-aware";
-    private String ranking = "heuristic-v2-evidence-aware";
+    private String ranking = "heuristic-v3-daily-budget";
     private String diversity = "mmr-v1";
   }
 }

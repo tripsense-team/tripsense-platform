@@ -552,7 +552,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       case "category", "categories" ->
           place.getCategories() != null && !place.getCategories().isEmpty();
       case "rating" -> place.getRating() != null;
-      case "price", "priceAmount" -> false;
+      case "price", "priceAmount" -> place.getPriceEvidence() != null
+          && place.getPriceEvidence().usableAt(Instant.now());
       default -> false;
     };
   }

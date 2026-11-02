@@ -14,7 +14,17 @@ public record UserProfileSnapshot(
     Set<String> savedPlaceIds,
     Set<String> addedToTripPlaceIds,
     Set<String> negativePlaceIds,
-    Instant updatedAt) {
+    Instant updatedAt,
+    Long dailyBudgetVnd,
+    String budgetTier) {
+  public UserProfileSnapshot(boolean available, boolean personalizationEnabled,
+      Set<String> preferredCategories, Set<String> dislikedCategories,
+      Map<String, Double> categoryAffinities, Set<String> seenPlaceIds, Set<String> savedPlaceIds,
+      Set<String> addedToTripPlaceIds, Set<String> negativePlaceIds, Instant updatedAt) {
+    this(available, personalizationEnabled, preferredCategories, dislikedCategories,
+        categoryAffinities, seenPlaceIds, savedPlaceIds, addedToTripPlaceIds, negativePlaceIds,
+        updatedAt, null, null);
+  }
   public UserProfileSnapshot {
     preferredCategories = preferredCategories == null ? Set.of() : Set.copyOf(preferredCategories);
     dislikedCategories = dislikedCategories == null ? Set.of() : Set.copyOf(dislikedCategories);
@@ -56,6 +66,6 @@ public record UserProfileSnapshot(
     places.addAll(savedPlaceIds);
     places.addAll(addedToTripPlaceIds);
     places.addAll(negativePlaceIds);
-    return categories.size() + places.size();
+    return categories.size() + places.size() + (dailyBudgetVnd == null ? 0 : 1);
   }
 }

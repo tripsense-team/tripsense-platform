@@ -140,6 +140,7 @@ public record RecommendationResponse(
         case MATCHES_USER_PREFERENCE -> "PREFERENCE";
         case MATCHES_TRIP_CONTEXT -> "CONTEXT";
         case PREVIOUSLY_SAVED -> "HISTORY";
+        case DAILY_BUDGET_EXCEEDED -> "BUDGET";
       };
     }
   }
@@ -161,7 +162,8 @@ public record RecommendationResponse(
       String openingHours,
       String businessStatus,
       String description,
-      String freshness) {
+      String freshness,
+      fu.tripsense.recommendation.domain.PriceEvidence priceEvidence) {
     static Place from(PlaceSnapshot value) {
       return new Place(
           value.id(),
@@ -180,7 +182,8 @@ public record RecommendationResponse(
           value.openingHours(),
           value.businessStatus(),
           value.description(),
-          value.freshness());
+          value.freshness(),
+          value.priceEvidence());
     }
   }
 

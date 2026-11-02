@@ -21,6 +21,8 @@ export interface PlacePhotoEvidence {
 }
 
 export interface Place {
+  priceEvidence?: { amountVnd: number; basis: "PER_PERSON_VISIT" | "PER_PERSON_NIGHT"; sourceUrl: string; observedAt: string };
+  dailyBudgetExceeded?: boolean;
   id: string;
   provider?: string;
   providerPlaceId?: string;

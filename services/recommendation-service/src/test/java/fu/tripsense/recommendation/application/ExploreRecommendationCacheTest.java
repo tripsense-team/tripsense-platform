@@ -11,6 +11,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 class ExploreRecommendationCacheTest {
+  @Test
+  void budgetChangesAndClearingUseDifferentCacheScopes() {
+    var cache = new ExploreRecommendationCache(null, new ObjectMapper(), new RecommendationProperties());
+    var first = new fu.tripsense.recommendation.domain.UserProfileSnapshot(true, true,
+        java.util.Set.of(), java.util.Set.of(), java.util.Map.of(), java.util.Set.of(),
+        java.util.Set.of(), java.util.Set.of(), java.util.Set.of(), null, 700000L, "MID_RANGE");
+    var second = new fu.tripsense.recommendation.domain.UserProfileSnapshot(true, true,
+        java.util.Set.of(), java.util.Set.of(), java.util.Map.of(), java.util.Set.of(),
+        java.util.Set.of(), java.util.Set.of(), java.util.Set.of(), null, 1000000L, "MID_RANGE");
+    assertThat(cache.profileFingerprint(first)).isNotEqualTo(cache.profileFingerprint(second));
+    assertThat(cache.profileFingerprint(first))
+        .isNotEqualTo(cache.profileFingerprint(fu.tripsense.recommendation.domain.UserProfileSnapshot.coldStart(true)));
+  }
 
   @Test
   void doesNotThrowWhenCacheSecretIsEmpty() {
