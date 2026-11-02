@@ -84,6 +84,16 @@ public class HotelService {
     return b;
   }
   private void currentIdentity(Map<String,Object> property,Map<String,Object> business) {
+    if (business.get("approved_revision_id") != null) {
+      var approvedList = db.queryForList("SELECT profile_snapshot->>'destination' AS destination,profile_snapshot->>'address' AS address FROM partner_application WHERE id=? AND business_id=? AND state='APPROVED'", business.get("approved_revision_id"), business.get("id"));
+      if (!approvedList.isEmpty()) {
+        var approved = approvedList.get(0);
+        check(Objects.equals(property.get("name"),business.get("display_name"))
+            && (approved.get("destination") == null || Objects.equals(property.get("destination"),approved.get("destination")))
+            && (approved.get("address") == null || Objects.equals(property.get("address"),approved.get("address"))),"HOTEL_PROFILE_OUTDATED");
+        return;
+      }
+    }
     check(Objects.equals(property.get("name"),business.get("display_name")),"HOTEL_PROFILE_OUTDATED");
   }
   private Instant now() { return db.queryForObject("SELECT clock_timestamp()",java.sql.Timestamp.class).toInstant(); }
@@ -118,6 +128,17 @@ public class HotelService {
       check(u.id().equals(b.get("owner_user_id")),"HOTEL_OWNER_REQUIRED");
       String destination = in.destination() != null && !in.destination().isBlank() ? in.destination().strip() : "Việt Nam";
       String address = in.address() != null && !in.address().isBlank() ? in.address().strip() : destination;
+      if (b.get("approved_revision_id") != null) {
+        var approvedList = db.queryForList("SELECT profile_snapshot->>'destination' AS destination,profile_snapshot->>'address' AS address FROM partner_application WHERE id=? AND business_id=? AND state='APPROVED'", b.get("approved_revision_id"), in.businessId());
+        if (!approvedList.isEmpty()) {
+          var approved = approvedList.get(0);
+          if (approved.get("destination") != null && approved.get("address") != null) {
+            check(Objects.equals(in.destination().strip(), approved.get("destination")) && Objects.equals(in.address().strip(), approved.get("address")), "HOTEL_PROFILE_MISMATCH");
+            destination = (String) approved.get("destination");
+            address = (String) approved.get("address");
+          }
+        }
+      }
       if(id!=null) {
         var existing=property(id);
         check(in.businessId().equals(existing.get("business_id")),"HOTEL_PROFILE_MISMATCH");
@@ -219,6 +240,11 @@ public class HotelService {
             AND b.publication_state='PUBLISHED'
             AND b.accepting_new=true
             AND NOT b.requires_reverification
+            AND (a.id IS NULL OR (
+                p.name=b.display_name
+                AND (a.profile_snapshot->>'destination' IS NULL OR p.destination=(a.profile_snapshot->>'destination'))
+                AND (a.profile_snapshot->>'address' IS NULL OR p.address=(a.profile_snapshot->>'address'))
+            ))
         ))
         AND ? >= (clock_timestamp() AT TIME ZONE p.time_zone)::date
         GROUP BY p.id, p.business_id, b.owner_user_id, r.id HAVING count(*)=? AND bool_and(NOT i.stop_sell) AND min(i.allocation-i.held-i.booked)>=?
