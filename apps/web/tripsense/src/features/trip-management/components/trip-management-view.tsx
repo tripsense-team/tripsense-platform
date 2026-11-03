@@ -213,7 +213,7 @@ export function TripManagementView({
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      void loadTrips(false);
+      void loadTrips(true);
     }
   }, [isAuthenticated, loadTrips]);
 

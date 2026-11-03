@@ -4,6 +4,7 @@ import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/features/auth";
 import {
+  listTrips,
   createTrip,
   updateTrip,
   deleteTrip,
@@ -17,8 +18,8 @@ import type {
 } from "../types";
 
 export async function fetchUserTripsQueryFn(): Promise<TripResponse[]> {
-  const trips = await useTripStore.getState().fetchTrips(true, 4);
-  return trips;
+  const page = await listTrips({ page: 0, size: 20, sort: "recent" });
+  return page?.content || [];
 }
 
 /**
@@ -54,10 +55,13 @@ export function useUserTrips() {
     initialData: zustandTrips.length > 0 ? zustandTrips : undefined,
   });
 
-  // Sync React Query updates into Zustand
+  // Sync React Query updates into Zustand only when Zustand store is empty
   React.useEffect(() => {
-    if (query.data && query.data.length >= 0) {
-      useTripStore.getState().setTrips(query.data);
+    if (query.data && query.data.length > 0) {
+      const current = useTripStore.getState().trips;
+      if (current.length === 0) {
+        useTripStore.getState().setTrips(query.data);
+      }
     }
   }, [query.data]);
 

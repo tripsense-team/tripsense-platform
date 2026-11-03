@@ -90,7 +90,7 @@ export const useTripStore = create<TripState>((set, get) => ({
         set({
           trips: content,
           page: 0,
-          pageSize: size,
+          pageSize: requestedSize ? Math.max(get().pageSize, requestedSize) : get().pageSize,
           totalElements,
           totalPages,
           hasMore,
@@ -176,13 +176,13 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   setTrips: (trips) => {
-    set({
+    set((state) => ({
       trips,
-      totalElements: trips.length,
+      totalElements: Math.max(state.totalElements, trips.length),
       hasFetched: true,
       lastFetchedAt: Date.now(),
       error: null,
-    });
+    }));
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("trip-management:count-changed", {

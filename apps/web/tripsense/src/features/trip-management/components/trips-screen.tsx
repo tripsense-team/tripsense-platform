@@ -111,22 +111,13 @@ export function TripsScreen({
 
     if (filter === "upcoming") {
       result = result.filter((trip) => {
-        const isDraftOrNoDates =
-          trip.status === "DRAFT" ||
-          trip.displayStatus === "DRAFT" ||
-          !trip.startDate ||
-          !trip.endDate;
-        if (isDraftOrNoDates) return false;
+        if (!trip.startDate || !trip.endDate) return false;
         const tripEnd = new Date(trip.endDate).getTime();
         return tripEnd >= now;
       });
     } else if (filter === "unscheduled") {
       result = result.filter(
-        (trip) =>
-          trip.status === "DRAFT" ||
-          trip.displayStatus === "DRAFT" ||
-          !trip.startDate ||
-          !trip.endDate,
+        (trip) => !trip.startDate || !trip.endDate,
       );
     }
 
@@ -192,13 +183,9 @@ export function TripsScreen({
     const past: TripResponse[] = [];
 
     filteredTrips.forEach((trip) => {
-      const isDraftOrNoDates =
-        trip.status === "DRAFT" ||
-        trip.displayStatus === "DRAFT" ||
-        !trip.startDate ||
-        !trip.endDate;
+      const hasDates = Boolean(trip.startDate && trip.endDate);
 
-      if (isDraftOrNoDates) {
+      if (!hasDates) {
         unscheduled.push(trip);
       } else {
         const tripEnd = new Date(trip.endDate).getTime();
@@ -410,7 +397,7 @@ export function TripsScreen({
           )}
         >
           <span>{t("trip.allTrips", { defaultValue: "All" })}</span>
-          <span className="opacity-80">({trips.length})</span>
+          <span className="opacity-80">({totalElements ?? trips.length})</span>
         </button>
 
         <button
@@ -592,10 +579,7 @@ function TripPoster({
 }) {
   const destination = titleCaseDestination(trip.destinationName);
   const coverImage = coverImageForTrip(trip);
-  const isUnscheduled =
-    trip.status === "DRAFT" ||
-    trip.displayStatus === "DRAFT" ||
-    !trip.startDate;
+  const isUnscheduled = !trip.startDate || !trip.endDate;
   const days = countTripDays(trip);
 
   const durationLabel =
