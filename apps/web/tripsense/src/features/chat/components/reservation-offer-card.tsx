@@ -227,8 +227,16 @@ export function ReservationOfferCard({
           {/* Tag & Item Title */}
           <div>
             <div className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-              <Ticket className="h-3.5 w-3.5 text-primary" />
-              <span>{t("chat.offer.tag")}</span>
+              {isRestaurant ? (
+                <UtensilsCrossed className="h-3.5 w-3.5 text-primary" />
+              ) : (
+                <Ticket className="h-3.5 w-3.5 text-primary" />
+              )}
+              <span>
+                {isRestaurant
+                  ? t("chat.offer.restaurantTag", { defaultValue: "Phiếu đặt bàn nhà hàng" })
+                  : t("chat.offer.tag")}
+              </span>
             </div>
             <h4 className="text-base font-bold text-foreground leading-snug line-clamp-2">
               {offer.itemTitle}
@@ -241,12 +249,24 @@ export function ReservationOfferCard({
             <div className="space-y-0.5">
               <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80 flex items-center gap-1">
                 <Calendar className="h-3 w-3 text-primary" />
-                {isRestaurant ? t("chat.offer.checkIn") : t("chat.offer.checkIn")}
+                {isRestaurant
+                  ? t("chat.offer.restaurantMealDate", { defaultValue: "Thời gian đến" })
+                  : t("chat.offer.checkIn")}
               </span>
               <p className="font-medium text-foreground">
-                {formatOfferDate(offer.checkInDate)}
-                {offer.checkOutDate ? ` → ${formatOfferDate(offer.checkOutDate)}` : ""}
-                {offer.reservationTime ? ` (${offer.reservationTime})` : ""}
+                {isRestaurant ? (
+                  <>
+                    {offer.reservationTime ? (
+                      <span className="font-bold text-primary mr-1">{offer.reservationTime}</span>
+                    ) : null}
+                    {formatOfferDate(offer.checkInDate)}
+                  </>
+                ) : (
+                  <>
+                    {formatOfferDate(offer.checkInDate)}
+                    {offer.checkOutDate ? ` → ${formatOfferDate(offer.checkOutDate)}` : ""}
+                  </>
+                )}
               </p>
             </div>
 
@@ -267,19 +287,48 @@ export function ReservationOfferCard({
           {offer.inclusions && (
             <div className="flex items-start gap-1.5 text-xs text-muted-foreground bg-primary/5 p-2 rounded-lg border border-primary/10">
               <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-              <span className="line-clamp-2 leading-relaxed">{offer.inclusions}</span>
+              <span className="line-clamp-2 leading-relaxed">
+                <span className="font-semibold text-foreground mr-1">
+                  {isRestaurant
+                    ? `${t("chat.offer.restaurantNotes", { defaultValue: "Ghi chú xếp bàn" })}:`
+                    : ""}
+                </span>
+                {offer.inclusions}
+              </span>
             </div>
           )}
 
           {/* Price & Booking Code Block */}
           <div className="pt-2 border-t border-dashed border-border flex items-baseline justify-between gap-2">
             <div>
-              <span className="text-[11px] uppercase font-semibold text-muted-foreground">
-                {t("chat.offer.totalPrice")}
+              <span className="text-[11px] uppercase font-semibold text-muted-foreground block mb-0.5">
+                {isRestaurant
+                  ? t("chat.offer.restaurantPriceLabel", { defaultValue: "Chi phí đặt bàn" })
+                  : t("chat.offer.totalPrice")}
               </span>
-              <div className="text-lg font-bold text-primary">
-                {formatCurrency(offer.totalPrice, offer.currency)}
-              </div>
+              {isRestaurant && (!offer.totalPrice || offer.totalPrice <= 0) ? (
+                <div>
+                  <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                    {t("chat.offer.freeTableReservation", { defaultValue: "Miễn phí đặt bàn (0 ₫)" })}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground leading-tight">
+                    {t("chat.offer.payAtRestaurantNote", {
+                      defaultValue: "Thanh toán món ăn trực tiếp tại quán sau khi dùng bữa",
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-lg font-bold text-primary">
+                    {formatCurrency(offer.totalPrice, offer.currency)}
+                  </div>
+                  {isRestaurant && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {t("chat.offer.depositNote", { defaultValue: "(Tiền cọc giữ chỗ)" })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {isAccepted && offer.bookingCode && (

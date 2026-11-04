@@ -117,12 +117,24 @@ export function InChatReservationCard({
         <div>
           <span className="text-xs uppercase font-bold text-muted-foreground/80 flex items-center gap-1 mb-0.5">
             <Calendar className="h-3 w-3 text-primary" />
-            {isRestaurant ? t("chat.offer.time") : t("chat.offer.checkIn")}
+            {isRestaurant
+              ? t("chat.offer.restaurantMealDate", { defaultValue: "Thời gian đến" })
+              : t("chat.offer.checkIn")}
           </span>
           <p className="font-semibold text-foreground">
-            {formatOfferDate(offer.checkInDate)}
-            {offer.checkOutDate ? ` → ${formatOfferDate(offer.checkOutDate)}` : ""}
-            {offer.reservationTime ? ` (${offer.reservationTime})` : ""}
+            {isRestaurant ? (
+              <>
+                {offer.reservationTime ? (
+                  <span className="font-bold text-primary mr-1">{offer.reservationTime}</span>
+                ) : null}
+                {formatOfferDate(offer.checkInDate)}
+              </>
+            ) : (
+              <>
+                {formatOfferDate(offer.checkInDate)}
+                {offer.checkOutDate ? ` → ${formatOfferDate(offer.checkOutDate)}` : ""}
+              </>
+            )}
           </p>
         </div>
 
@@ -141,19 +153,39 @@ export function InChatReservationCard({
       {offer.inclusions && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-primary/5 px-2.5 py-1.5 rounded-lg border border-primary/10">
           <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span className="truncate">{offer.inclusions}</span>
+          <span className="truncate">
+            <span className="font-semibold text-foreground mr-1">
+              {isRestaurant
+                ? `${t("chat.offer.restaurantNotes", { defaultValue: "Ghi chú xếp bàn" })}:`
+                : ""}
+            </span>
+            {offer.inclusions}
+          </span>
         </div>
       )}
 
       {/* Price & Action */}
       <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-bold text-muted-foreground block">
-            {t("chat.offer.totalPrice")}
+          <span className="text-xs uppercase font-bold text-muted-foreground block mb-0.5">
+            {isRestaurant
+              ? t("chat.offer.restaurantPriceLabel", { defaultValue: "Chi phí đặt bàn" })
+              : t("chat.offer.totalPrice")}
           </span>
-          <span className="text-base font-bold text-primary">
-            {formatCurrency(offer.totalPrice, offer.currency)}
-          </span>
+          {isRestaurant && (!offer.totalPrice || offer.totalPrice <= 0) ? (
+            <div>
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 block">
+                {t("chat.offer.freeTableReservation", { defaultValue: "Miễn phí đặt bàn (0 ₫)" })}
+              </span>
+              <span className="text-micro text-muted-foreground">
+                {t("chat.offer.payAtRestaurantShort", { defaultValue: "Thanh toán sau tại quán" })}
+              </span>
+            </div>
+          ) : (
+            <span className="text-base font-bold text-primary">
+              {formatCurrency(offer.totalPrice, offer.currency)}
+            </span>
+          )}
         </div>
 
         <Button

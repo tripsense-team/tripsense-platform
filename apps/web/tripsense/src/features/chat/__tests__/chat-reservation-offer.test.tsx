@@ -284,5 +284,72 @@ describe("Chat Reservation Offer API & Components", () => {
       expect(html).toContain("Khách sạn Mường Thanh Luxury");
       expect(html).toContain("Phòng Deluxe King view sông Hàn");
     });
+
+    it("renders restaurant table reservation card with free booking notice when totalPrice is 0", () => {
+      const restaurantOffer: ReservationOfferPreview = {
+        ...sampleOffer,
+        id: "off-res-1",
+        businessType: "RESTAURANT",
+        businessName: "Hawa's Food Đà Nẵng",
+        itemTitle: "Bàn 4 người view Cầu Rồng",
+        totalPrice: 0,
+        reservationTime: "19:00",
+        checkOutDate: undefined,
+        status: "ACCEPTED",
+        bookingCode: "TS-RES-998811",
+      };
+
+      const html = renderToString(
+        <InChatReservationCard
+          offer={restaurantOffer}
+        />
+      );
+
+      expect(html).toContain("#TS-RES-998811");
+      expect(html).toContain("Hawa&#x27;s Food Đà Nẵng");
+      expect(html).toContain("Bàn 4 người view Cầu Rồng");
+      expect(html).toContain("chat.offer.freeTableReservation");
+      expect(html).toContain("19:00");
+    });
+  });
+
+  describe("Restaurant Table Reservation Card Component", () => {
+    it("renders restaurant offer card with free reservation badge and confirm button", () => {
+      const restaurantOffer: ReservationOfferPreview = {
+        id: "off-res-2",
+        conversationId: "conv-1",
+        senderId: "partner-1",
+        recipientId: "guest-1",
+        businessType: "RESTAURANT",
+        businessId: "biz-res-1",
+        businessName: "Nhà hàng Hải sản Bé Mặn",
+        itemTitle: "Bàn 6 người ngoài trời",
+        checkInDate: "2026-11-15",
+        reservationTime: "18:30",
+        adultsCount: 4,
+        childrenCount: 2,
+        totalPrice: 0,
+        currency: "VND",
+        inclusions: "Giữ bàn 15 phút, có ghế trẻ em",
+        expiresAt: new Date(Date.now() + 3600000 * 24).toISOString(),
+        status: "PENDING",
+        createdAt: "2026-11-04T10:00:00Z",
+      };
+
+      const html = renderToString(
+        <ReservationOfferCard
+          offer={restaurantOffer}
+          isMe={false}
+        />
+      );
+
+      expect(html).toContain("Nhà hàng Hải sản Bé Mặn");
+      expect(html).toContain("Bàn 6 người ngoài trời");
+      expect(html).toContain("chat.offer.restaurantTag");
+      expect(html).toContain("chat.offer.freeTableReservation");
+      expect(html).toContain("chat.offer.acceptRestaurantAction");
+      expect(html).toContain("18:30");
+      expect(html).toContain("Giữ bàn 15 phút, có ghế trẻ em");
+    });
   });
 });
