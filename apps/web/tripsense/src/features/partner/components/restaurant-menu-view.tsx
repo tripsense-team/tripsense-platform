@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle,
@@ -59,13 +60,22 @@ interface RestaurantMenuViewProps {
 
 export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "reservations" ? "reservations" : "menu";
   const [business, setBusiness] = React.useState<BusinessDetailDto | null>(null);
   const [items, setItems] = React.useState<RestaurantMenuItemDto[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
-  const [activeTab, setActiveTab] = React.useState("menu");
+  const [activeTab, setActiveTab] = React.useState(initialTab);
+
+  React.useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "reservations" || tabParam === "menu") {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Image Upload & Swap State
   const batchUploadInputRef = React.useRef<HTMLInputElement | null>(null);

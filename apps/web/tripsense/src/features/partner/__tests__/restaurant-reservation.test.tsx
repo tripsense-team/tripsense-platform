@@ -3,6 +3,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { I18nProvider } from "@/i18n";
 import { RestaurantReservationDialog } from "../components/restaurant-reservation-dialog";
+import { PartnerBusinessCard } from "../components/partner-business-card";
+import type { BusinessDetailDto } from "../types";
 
 vi.mock("@/services/api-client", () => ({
   apiClient: vi.fn(),
@@ -54,5 +56,37 @@ describe("RestaurantReservationDialog Component", () => {
     expect(html).toContain("Người lớn (13+)");
     expect(html).toContain("Gửi yêu cầu đặt bàn");
     expect(html).toContain("Chưa trừ tiền và chưa tính là giữ bàn tự động");
+  });
+
+  it("renders PartnerBusinessCard with direct 'Yêu cầu đặt bàn' button linking to reservations tab", () => {
+    const mockRestaurant: BusinessDetailDto = {
+      id: "rest-123",
+      kind: "RESTAURANT",
+      displayName: "Lantern Kitchen Hoi An",
+      draftProfileJson: {},
+      draftSchemaVersion: 1,
+      approvalValidity: "VALID",
+      operationState: "ACTIVE",
+      publicationState: "PUBLISHED",
+      acceptingNew: true,
+      requiresReverification: false,
+      suspensionVersion: 0,
+      version: 1,
+      capabilities: ["RESTAURANT_LISTING", "RESTAURANT_MENU"],
+      myRole: "OWNER",
+      publicContactConsent: false,
+      createdAt: "2026-11-01T00:00:00Z",
+      updatedAt: "2026-11-01T00:00:00Z",
+    };
+
+    const html = renderToStaticMarkup(
+      <I18nProvider initialLocale="vi">
+        <PartnerBusinessCard business={mockRestaurant} />
+      </I18nProvider>
+    );
+
+    expect(html).toContain("Lantern Kitchen Hoi An");
+    expect(html).toContain("Yêu cầu đặt bàn");
+    expect(html).toContain("/partner/businesses/rest-123/restaurant-menu?tab=reservations");
   });
 });

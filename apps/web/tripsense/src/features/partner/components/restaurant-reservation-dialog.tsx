@@ -14,6 +14,7 @@ import {
   Info,
   User,
   Phone,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,17 +30,20 @@ import {
 import { useTranslation } from "@/i18n";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
+import { chatApi } from "@/features/chat/services/chat-api";
 import { createRestaurantReservation } from "../services/partner-api";
 import type { RestaurantReservationDto } from "../types";
 
 export function RestaurantReservationDialog({
   businessId,
   restaurantName,
+  ownerUserId,
   open,
   onOpenChange,
 }: {
   businessId: string;
   restaurantName: string;
+  ownerUserId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -139,6 +143,13 @@ export function RestaurantReservationDialog({
       setCreatedReservation(res);
       setConfirmedContact({ name: trimmedName, phone: cleanPhone });
       requestKeyRef.current = null;
+
+      // Automatically dispatch consultation message to the restaurant owner
+      if (ownerUserId && user?.id && ownerUserId !== user.id) {
+        const bookingSummaryMsg = `[Yêu cầu đặt bàn mới] Chào quán, mình đã gửi yêu cầu đặt bàn tại ${restaurantName}:\n- Thời gian: ${new Date(startInstant).toLocaleString("vi-VN")}\n- Số khách: ${numAdults} người lớn${numChildren > 0 ? `, ${numChildren} trẻ em` : ""}\n- Người đặt: ${trimmedName} (SĐT: ${cleanPhone})${notes.trim() ? `\n- Ghi chú: ${notes.trim()}` : ""}\nMã yêu cầu: #${res.id.slice(0, 8)}...\nNhờ quán kiểm tra và xác nhận giúp mình nhé!`;
+        void chatApi.sendDirectMessage(ownerUserId, bookingSummaryMsg).catch(() => undefined);
+      }
+
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
         window.dispatchEvent(
@@ -243,11 +254,19 @@ export function RestaurantReservationDialog({
             </p>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button asChild size="sm" variant="outline" className="flex-1 text-xs">
-                <Link href="/restaurants/reservations" onClick={handleClose}>
+                <Link href="/reservations?tab=restaurants" onClick={handleClose}>
                   {t("partner.restaurant.viewMyReservations", { defaultValue: "Đơn đặt bàn của tôi" })}
                 </Link>
               </Button>
-              <Button size="sm" onClick={handleClose} className="flex-1 text-xs">
+              {ownerUserId && (
+                <Button asChild size="sm" variant="secondary" className="flex-1 text-xs gap-1.5 font-medium">
+                  <Link href={`/chat?userId=${ownerUserId}`} onClick={handleClose}>
+                    <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                    <span>{t("partner.restaurant.chatWithOwner", { defaultValue: "Nhắn tin với quán" })}</span>
+                  </Link>
+                </Button>
+              )}
+              <Button size="sm" onClick={handleClose} className="text-xs">
                 {t("common.close")}
               </Button>
             </div>

@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |
 | `in-chat-reservation-offer` | DONE | `services/social-service`, `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./in-chat-reservation-offer.md) |
 | `onboarding-daily-budget-recommendations` | DONE | `apps/web/tripsense`, `services/context-service`, `services/place-service`, `services/recommendation-service` | [Docs](./onboarding-daily-budget-recommendations.md) |
 | `ai-curated-place-recommendations` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-curated-place-recommendations.md) |

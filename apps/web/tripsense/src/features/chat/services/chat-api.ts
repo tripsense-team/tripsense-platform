@@ -79,6 +79,11 @@ export const chatApi = {
       method: "POST",
       body: JSON.stringify({ recipientId }),
     }),
+  sendDirectMessage: async (recipientId: string, text: string) => {
+    const conv = await chatApi.create(recipientId);
+    const clientMessageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    return chatApi.send(conv.id, clientMessageId, text);
+  },
   send: (id: string, clientMessageId: string, text: string) =>
     call<ServerMessage>(`/conversations/${id}/messages`, {
       method: "POST",

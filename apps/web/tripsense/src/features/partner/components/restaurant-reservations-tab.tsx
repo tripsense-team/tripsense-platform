@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
+import { chatApi } from "@/features/chat/services/chat-api";
 import {
   getBusinessRestaurantReservations,
   decideRestaurantReservation,
@@ -84,6 +85,12 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
       setReservations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       setActionSuccess(t("partner.restaurant.confirmSuccess", { defaultValue: "Đã xác nhận đặt bàn thành công!" }));
 
+      if (item.customerId) {
+        const timeStr = new Date(item.startAt).toLocaleString("vi-VN");
+        const confirmMsg = `✅ [Xác nhận đặt bàn] Chào bạn, quán đã xác nhận yêu cầu đặt bàn của bạn vào lúc ${timeStr} (${item.adults + item.children} khách). Mã đặt bàn: #${item.id.slice(0, 8)}... Quán rất hân hạnh được đón tiếp bạn!`;
+        void chatApi.sendDirectMessage(item.customerId, confirmMsg).catch(() => undefined);
+      }
+
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
         window.dispatchEvent(
@@ -123,6 +130,12 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
       setReservations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       setRejectModalOpen(false);
       setActionSuccess(t("partner.restaurant.rejectSuccess", { defaultValue: "Đã từ chối yêu cầu đặt bàn." }));
+
+      if (targetReservation.customerId) {
+        const reasonPart = rejectReason.trim() ? ` Lý do: ${rejectReason.trim()}` : "";
+        const rejectMsg = `❌ [Thông báo đặt bàn] Rất tiếc, quán hiện không thể tiếp nhận yêu cầu đặt bàn #${targetReservation.id.slice(0, 8)}... của bạn.${reasonPart} Rất mong có dịp được đón tiếp bạn vào thời gian khác.`;
+        void chatApi.sendDirectMessage(targetReservation.customerId, rejectMsg).catch(() => undefined);
+      }
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("app:notifications-refresh"));

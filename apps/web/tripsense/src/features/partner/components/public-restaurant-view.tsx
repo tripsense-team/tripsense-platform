@@ -421,6 +421,7 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
       <RestaurantReservationDialog
         businessId={businessId}
         restaurantName={data.displayName}
+        ownerUserId={data.ownerUserId}
         open={reservationOpen}
         onOpenChange={setReservationOpen}
       />

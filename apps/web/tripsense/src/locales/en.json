@@ -1231,6 +1231,7 @@
       "cancelRequestButton": "Cancel request",
       "cancelSuccess": "Reservation cancelled successfully.",
       "category": "Category",
+      "chatWithOwner": "Chat with Restaurant",
       "childrenLabel": "Children (<12)",
       "chooseDishImage": "Choose photo",
       "confirmButton": "Confirm reservation",

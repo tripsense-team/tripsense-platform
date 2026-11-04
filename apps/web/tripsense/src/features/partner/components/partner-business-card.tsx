@@ -25,6 +25,7 @@ import {
   ArrowRight,
   Clock,
   CheckCircle,
+  Calendar,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -426,6 +427,17 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
               >
                 <Link href={`/partner/businesses/${business.id}/restaurant-menu`}>
                   <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn & Bảng giá
+                </Link>
+              </Button>
+
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
+              >
+                <Link href={`/partner/businesses/${business.id}/restaurant-menu?tab=reservations`}>
+                  <Calendar className="mr-1.5 h-3.5 w-3.5" /> Yêu cầu đặt bàn
                 </Link>
               </Button>
 
