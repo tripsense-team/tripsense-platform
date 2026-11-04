@@ -13,6 +13,7 @@ import {
   Info,
   ChevronRight,
   Store,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,7 @@ interface RestaurantOverviewCardProps {
   placeName: string;
   placeAddress?: string;
   placePhone?: string;
-  onOpenReservation: () => void;
+  onOpenReservation?: () => void;
 }
 
 export function RestaurantOverviewCard({
@@ -53,6 +54,12 @@ export function RestaurantOverviewCard({
   if (restaurant) {
     const menuItems = restaurant.menu || [];
     const topDishes = menuItems.slice(0, 4);
+    const inquiryMessage = encodeURIComponent(
+      `Xin chào nhà hàng ${restaurant.displayName}, tôi muốn hỏi về việc đặt bàn. Bạn có thể tư vấn và gửi phiếu giữ bàn giúp tôi được không?`,
+    );
+    const chatHref = restaurant.ownerUserId
+      ? `/chat?userId=${restaurant.ownerUserId}&message=${inquiryMessage}`
+      : `/chat?message=${inquiryMessage}`;
 
     return (
       <Card className="border-primary/25 bg-card shadow-sm rounded-2xl overflow-hidden">
@@ -79,18 +86,19 @@ export function RestaurantOverviewCard({
         </CardHeader>
 
         <CardContent className="p-4 sm:p-5 space-y-4">
-          {/* Reservation CTA Button */}
+          {/* Reservation CTA Button (Chat-First) */}
           <div className="space-y-1.5">
             <Button
-              type="button"
-              onClick={onOpenReservation}
+              asChild
               className="w-full h-10 gap-2 font-semibold shadow-xs text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Calendar className="h-4 w-4" />
-              {t("restaurant.reserveTable", { defaultValue: "Đặt bàn & Giữ chỗ ngay" })}
+              <Link href={chatHref}>
+                <MessageSquare className="h-4 w-4" />
+                {t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin đặt bàn qua Chat" })}
+              </Link>
             </Button>
             <p className="text-[11px] text-muted-foreground text-center">
-              {t("partner.restaurant.freeReservationHelp", { defaultValue: "Giữ bàn miễn phí · Xác nhận trực tiếp từ quán" })}
+              {t("partner.restaurant.freeReservationHelp", { defaultValue: "Trao đổi trực tiếp · Nhận phiếu giữ chỗ trong Chat" })}
             </p>
           </div>
 

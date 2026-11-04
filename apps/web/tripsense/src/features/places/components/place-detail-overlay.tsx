@@ -4,7 +4,6 @@ import * as React from "react";
 import { MindtripHotelDetailOverlay, placeToMindtripHotel, fetchDirectOffersForPlace, type MindtripHotel } from "@/features/hotels";
 import {
   RestaurantOverviewCard,
-  RestaurantReservationDialog,
   searchPublicRestaurants,
   type PublicRestaurantListingDto,
 } from "@/features/partner";
@@ -147,7 +146,6 @@ export function PlaceDetailOverlay({
 
   const [restaurantPartner, setRestaurantPartner] = React.useState<PublicRestaurantListingDto | null>(null);
   const [loadingRestaurant, setLoadingRestaurant] = React.useState(false);
-  const [reservationOpen, setReservationOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (isHotel) return;
@@ -253,20 +251,10 @@ export function PlaceDetailOverlay({
               placeName={place.name}
               placeAddress={place.address}
               placePhone={place.phone}
-              onOpenReservation={() => setReservationOpen(true)}
             />
           ) : undefined
         }
       />
-
-      {restaurantPartner && (
-        <RestaurantReservationDialog
-          businessId={restaurantPartner.id}
-          restaurantName={restaurantPartner.displayName}
-          open={reservationOpen}
-          onOpenChange={setReservationOpen}
-        />
-      )}
     </>
   );
 }
