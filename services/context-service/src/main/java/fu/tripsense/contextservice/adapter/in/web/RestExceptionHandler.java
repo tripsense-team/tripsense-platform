@@ -33,8 +33,16 @@ class RestExceptionHandler {
 
   @ExceptionHandler({IllegalArgumentException.class, MethodArgumentNotValidException.class})
   ResponseEntity<ApiError> invalid(Exception ex) {
+    String detail = ex.getMessage();
+    if (ex instanceof MethodArgumentNotValidException manve) {
+      detail =
+          manve.getBindingResult().getFieldErrors().stream()
+              .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+              .reduce((a, b) -> a + ", " + b)
+              .orElse(ex.getMessage());
+    }
     return ResponseEntity.badRequest()
-        .body(new ApiError("VALIDATION_FAILED", ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : "The onboarding data is invalid"));
+        .body(new ApiError("VALIDATION_FAILED", detail != null && !detail.isBlank() ? detail : "The onboarding data is invalid"));
   }
 
   @ExceptionHandler(UnauthenticatedException.class)

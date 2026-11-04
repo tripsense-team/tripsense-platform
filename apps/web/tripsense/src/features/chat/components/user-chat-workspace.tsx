@@ -35,6 +35,7 @@ export function UserChatWorkspace() {
   const [blocksOpen,setBlocksOpen] = React.useState(false);
   const [createOfferOpen, setCreateOfferOpen] = React.useState(false);
   const [partnerBusiness, setPartnerBusiness] = React.useState<{ name: string; kind: "HOTEL" | "RESTAURANT" | "GUIDE" } | null>(null);
+  const [partnerBusinesses, setPartnerBusinesses] = React.useState<Array<{ id: string; displayName: string; kind: string }>>([]);
   const [mobileView, setMobileView] = React.useState<"list" | "thread">("list");
   const [isLoading, setIsLoading] = React.useState(true);
   const alive = React.useRef(true);
@@ -48,6 +49,13 @@ export function UserChatWorkspace() {
     getPartnerContext()
       .then((ctx) => {
         if (ctx?.businesses && ctx.businesses.length > 0) {
+          setPartnerBusinesses(
+            ctx.businesses.map((b) => ({
+              id: b.id,
+              displayName: b.displayName,
+              kind: b.kind,
+            }))
+          );
           const first = ctx.businesses[0];
           setPartnerBusiness({
             name: first.displayName,
@@ -502,6 +510,7 @@ export function UserChatWorkspace() {
         onSubmit={handleCreateOffer}
         defaultBusinessName={partnerBusiness?.name || activeConversation?.user.name}
         defaultBusinessType={partnerBusiness?.kind || "RESTAURANT"}
+        partnerBusinesses={partnerBusinesses}
         recentMessages={activeConversation?.messages}
       />
     </div>

@@ -11,6 +11,7 @@ import { useTranslation } from "@/i18n";
 import { hotelApi } from "@/features/hotels/services/hotels-api";
 import type { HotelBooking } from "@/features/hotels/types";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
+import { CreateDirectBookingModal } from "@/features/partner";
 import {
   AlertCircle,
   RefreshCw,
@@ -19,6 +20,7 @@ import {
   CheckCircle2,
   CalendarDays,
   XCircle,
+  Plus,
 } from "lucide-react";
 
 type BookingFilterTab = "ALL" | "HELD" | "CONFIRMED" | "CHECKED_IN" | "CANCELLED";
@@ -34,6 +36,7 @@ export default function PartnerHotelBookingsPage() {
   const [filterState, setFilterState] = React.useState<BookingFilterTab>("ALL");
   const [cancelReason, setCancelReason] = React.useState("");
   const [cancelTargetId, setCancelTargetId] = React.useState<string | null>(null);
+  const [directBookingOpen, setDirectBookingOpen] = React.useState(false);
 
   const loadBookings = React.useCallback(async () => {
     if (!property) {
@@ -163,16 +166,27 @@ export default function PartnerHotelBookingsPage() {
             Theo dõi, xác nhận đơn giữ chỗ và xử lý nhận/trả phòng của khách lưu trú.
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void loadBookings()}
-          disabled={busy || loading}
-          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground self-start sm:self-auto"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          <span>Làm mới</span>
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button
+            size="sm"
+            onClick={() => setDirectBookingOpen(true)}
+            className="gap-1.5 text-xs shadow-xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>+ Đặt phòng trực tiếp</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void loadBookings()}
+            disabled={busy || loading}
+            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>Làm mới</span>
+          </Button>
+        </div>
       </div>
 
       {/* Symmetrical Filter Tabs */}
@@ -404,6 +418,14 @@ export default function PartnerHotelBookingsPage() {
           })}
         </div>
       )}
+
+      <CreateDirectBookingModal
+        open={directBookingOpen}
+        onOpenChange={setDirectBookingOpen}
+        initialBusinessId={businessId}
+        initialType="HOTEL"
+        onSuccess={() => void loadBookings()}
+      />
     </div>
   );
 }

@@ -34,7 +34,23 @@ export interface CreateReservationOfferModalProps {
   defaultBusinessName?: string;
   defaultBusinessType?: "HOTEL" | "RESTAURANT" | "GUIDE";
   recentMessages?: ChatMessageItem[];
+  partnerBusinesses?: Array<{ id: string; displayName: string; kind: string }>;
 }
+
+const HOTEL_ROOM_PRESETS = [
+  "Phòng Standard Giường Đôi",
+  "Phòng Deluxe Hướng Biển",
+  "Phòng Executive Suite",
+  "Phòng Family 2 Giường Lớn",
+  "Phòng VIP Ban Công",
+];
+
+const HOTEL_NOTE_PRESETS = [
+  "Miễn phí bữa sáng buffet",
+  "Hỗ trợ nhận phòng sớm / trả phòng trễ",
+  "Miễn phí xe đưa đón sân bay",
+  "Hủy phòng miễn phí trước 24 giờ",
+];
 
 const RESTAURANT_TABLE_PRESETS = [
   "Bàn 2 người",
@@ -110,6 +126,7 @@ export function CreateReservationOfferModal({
   defaultBusinessName = "",
   defaultBusinessType = "HOTEL",
   recentMessages,
+  partnerBusinesses,
 }: CreateReservationOfferModalProps) {
   const { t } = useTranslation();
 
@@ -134,6 +151,15 @@ export function CreateReservationOfferModal({
   const [validHours, setValidHours] = React.useState(24);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  const nightsCount = React.useMemo(() => {
+    if (!checkInDate || !checkOutDate) return 0;
+    const inD = new Date(checkInDate);
+    const outD = new Date(checkOutDate);
+    const diffTime = outD.getTime() - inD.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  }, [checkInDate, checkOutDate]);
   const [isAutoPrefilled, setIsAutoPrefilled] = React.useState(
     Boolean(initialParsed?.checkInDate || initialParsed?.adultsCount || initialParsed?.businessName)
   );
@@ -349,6 +375,39 @@ export function CreateReservationOfferModal({
             </div>
           </div>
 
+          {/* Quick Business Selection (if partner manages multiple) */}
+          {partnerBusinesses && partnerBusinesses.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground">
+                Cơ sở của bạn:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {partnerBusinesses.map((b) => {
+                  const isSelected = businessName === b.displayName;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setBusinessName(b.displayName);
+                        if (b.kind === "RESTAURANT") setBusinessType("RESTAURANT");
+                        else if (b.kind === "HOTEL") setBusinessType("HOTEL");
+                      }}
+                      className={cn(
+                        "text-[11px] px-2.5 py-1 rounded-full border transition-all cursor-pointer",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                          : "bg-muted/50 text-muted-foreground border-border/70 hover:border-primary/50 hover:text-foreground"
+                      )}
+                    >
+                      {b.displayName} ({b.kind === "RESTAURANT" ? "Nhà hàng" : "Khách sạn"})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Business Name */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground">
@@ -402,6 +461,27 @@ export function CreateReservationOfferModal({
                 ))}
               </div>
             )}
+
+            {/* Quick Chips for Hotel Rooms */}
+            {!isRestaurant && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {HOTEL_ROOM_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setItemTitle(preset)}
+                    className={cn(
+                      "text-[11px] px-2.5 py-1 rounded-full border transition-all cursor-pointer",
+                      itemTitle === preset
+                        ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                        : "bg-muted/50 text-muted-foreground border-border/70 hover:border-primary/50 hover:text-foreground"
+                    )}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Dates & Times */}
@@ -429,6 +509,11 @@ export function CreateReservationOfferModal({
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5 text-primary" />
                   <span>{t("chat.offer.checkOut")} *</span>
+                  {nightsCount > 0 && (
+                    <span className="ml-1 text-micro font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                      {nightsCount} đêm
+                    </span>
+                  )}
                 </label>
                 <Input
                   type="date"
@@ -593,6 +678,29 @@ export function CreateReservationOfferModal({
             {isRestaurant && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {RESTAURANT_NOTE_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setInclusions((prev) => {
+                        const trimmed = prev.trim();
+                        if (!trimmed) return preset;
+                        if (trimmed.includes(preset)) return trimmed;
+                        return `${trimmed}, ${preset}`;
+                      });
+                    }}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-foreground transition-all cursor-pointer"
+                  >
+                    + {preset}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Quick Note Presets for Hotel */}
+            {!isRestaurant && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {HOTEL_NOTE_PRESETS.map((preset) => (
                   <button
                     key={preset}
                     type="button"

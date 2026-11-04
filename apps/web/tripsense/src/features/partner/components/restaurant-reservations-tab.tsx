@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   Calendar,
   Clock,
@@ -15,6 +16,7 @@ import {
   Phone,
   Check,
   X,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,7 @@ import {
   getBusinessRestaurantReservations,
   decideRestaurantReservation,
 } from "../services/partner-api";
+import { CreateDirectBookingModal } from "./create-direct-booking-modal";
 import type { RestaurantReservationDto } from "../types";
 
 interface RestaurantReservationsTabProps {
@@ -54,6 +57,7 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
   const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
   const [targetReservation, setTargetReservation] = React.useState<RestaurantReservationDto | null>(null);
   const [rejectReason, setRejectReason] = React.useState("");
+  const [directBookingOpen, setDirectBookingOpen] = React.useState(false);
 
   const loadReservations = React.useCallback(async () => {
     try {
@@ -207,7 +211,22 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
 
   return (
     <div className="space-y-6">
-      {/* Filters & Refresh */}
+      {/* Link to central bookings hub */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-foreground">
+        <div className="flex items-center gap-2.5">
+          <Calendar className="h-4 w-4 text-primary shrink-0" />
+          <span>
+            TripSense đã có <strong>Trung tâm Quản lý Booking Đối tác</strong> tập trung — xem toàn bộ đơn đặt bàn & đặt phòng từ khách trực tiếp lẫn qua Chat tại một nơi duy nhất.
+          </span>
+        </div>
+        <Button asChild size="sm" variant="outline" className="h-8 text-xs shrink-0 border-primary/30 text-primary hover:bg-primary/10">
+          <Link href="/partner/bookings">
+            Mở Trung tâm Booking &rarr;
+          </Link>
+        </Button>
+      </div>
+
+      {/* Filters & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 flex-wrap">
           {[
@@ -229,16 +248,27 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
           ))}
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={loadReservations}
-          disabled={loading}
-          className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground self-start sm:self-auto"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          {t("common.refresh", { defaultValue: "Làm mới" })}
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button
+            size="sm"
+            onClick={() => setDirectBookingOpen(true)}
+            className="h-8 text-xs gap-1.5 shadow-xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Tạo đặt bàn trực tiếp</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadReservations}
+            disabled={loading}
+            className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            {t("common.refresh", { defaultValue: "Làm mới" })}
+          </Button>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -439,6 +469,14 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CreateDirectBookingModal
+        open={directBookingOpen}
+        onOpenChange={setDirectBookingOpen}
+        initialBusinessId={businessId}
+        initialType="RESTAURANT"
+        onSuccess={loadReservations}
+      />
     </div>
   );
 }

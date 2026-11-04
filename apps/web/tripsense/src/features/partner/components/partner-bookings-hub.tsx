@@ -26,6 +26,7 @@ import {
   Sparkles,
   ArrowUpDown,
   Compass,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ import { chatApi } from "@/features/chat/services/chat-api";
 import type { BusinessDetailDto, RestaurantReservationDto } from "../types";
 import type { HotelBooking, HotelProperty } from "@/features/hotels/types";
 import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
+import { CreateDirectBookingModal } from "./create-direct-booking-modal";
 
 export type BookingSourceType = "RESTAURANT" | "HOTEL" | "CHAT_OFFER";
 export type NormalizedBookingStatus =
@@ -125,6 +127,7 @@ export function PartnerBookingsHub({
   const [selectedStatus, setSelectedStatus] = React.useState<string>("ALL");
   const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [copiedCode, setCopiedCode] = React.useState<string | null>(null);
+  const [directBookingOpen, setDirectBookingOpen] = React.useState(false);
 
   // Reject Modal State
   const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
@@ -705,8 +708,17 @@ export function PartnerBookingsHub({
             </div>
           </div>
 
-          {/* Quick Refresh */}
+          {/* Quick Actions */}
           <div className="flex items-center gap-2 self-end md:self-auto">
+            <Button
+              size="sm"
+              onClick={() => setDirectBookingOpen(true)}
+              className="h-8 text-xs gap-1.5 shadow-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Tạo đơn đặt trực tiếp</span>
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -1203,6 +1215,15 @@ export function PartnerBookingsHub({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CreateDirectBookingModal
+        open={directBookingOpen}
+        onOpenChange={setDirectBookingOpen}
+        businesses={businesses}
+        initialBusinessId={selectedBusinessId !== "ALL" ? selectedBusinessId : undefined}
+        onSuccess={loadAllBookings}
+      />
     </div>
   );
 }
+

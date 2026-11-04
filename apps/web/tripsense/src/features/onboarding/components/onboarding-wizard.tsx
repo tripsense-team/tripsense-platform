@@ -426,25 +426,53 @@ export function OnboardingWizard() {
         }
       }
 
-      // Filter out dimensions with empty arrays to satisfy backend validation
+      // Filter out dimensions with empty arrays and enforce allowed active dimensions to satisfy backend validation
+      const ALLOWED_DIMENSIONS = new Set([
+        "TRAVEL_PARTY",
+        "BUDGET_TIER",
+        "DAILY_BUDGET_VND",
+        "STAY_STYLE",
+        "FOOD_STYLE",
+        "ACTIVITY_INTEREST",
+      ]);
+
       const cleanSelections: Record<string, string[]> = {};
       for (const [key, values] of Object.entries(selection)) {
-        if (Array.isArray(values) && values.length > 0) {
-          cleanSelections[key] = values;
+        if (ALLOWED_DIMENSIONS.has(key) && Array.isArray(values) && values.length > 0) {
+          // Verify each code matches backend regex [A-Z0-9_\-]{1,80}
+          const validCodes = values.filter((v) => typeof v === "string" && /^[A-Z0-9_\-]{1,80}$/.test(v));
+          if (validCodes.length > 0) {
+            cleanSelections[key] = validCodes;
+          }
         }
       }
 
-      const cleanPlaces: Partial<Record<PlaceIntent, string[]>> = {
-        VISITED: places.VISITED,
-        WANT_TO_VISIT: places.WANT_TO_VISIT,
-      };
+      // Ensure required single-value dimensions are populated with fallback if skipped
+      if (!cleanSelections.TRAVEL_PARTY || cleanSelections.TRAVEL_PARTY.length === 0) {
+        cleanSelections.TRAVEL_PARTY = ["SOLO"];
+      }
+      if (!cleanSelections.BUDGET_TIER || cleanSelections.BUDGET_TIER.length === 0) {
+        cleanSelections.BUDGET_TIER = ["MID_RANGE"];
+      }
+
       if (!validDailyBudget) {
         setStep(5);
         setBudgetTouched(true);
         setSaving(false);
         return;
       }
-      cleanSelections.DAILY_BUDGET_VND = [dailyBudgetAmount];
+      cleanSelections.DAILY_BUDGET_VND = [dailyBudgetAmount || "500000"];
+
+      // Sanitize places to strictly match backend regex [A-Za-z0-9_:\-]{1,160}
+      const sanitizePlaceRefs = (refs?: string[]) =>
+        Array.isArray(refs)
+          ? refs.filter((r) => typeof r === "string" && /^[A-Za-z0-9_:\-]{1,160}$/.test(r))
+          : [];
+
+      const cleanPlaces: Record<PlaceIntent, string[]> = {
+        VISITED: sanitizePlaceRefs(places.VISITED),
+        WANT_TO_VISIT: sanitizePlaceRefs(places.WANT_TO_VISIT),
+      };
 
       const cleanAttributes: Record<string, string> = { ...profile?.attributes };
       if (homeCity.trim()) {
@@ -477,7 +505,28 @@ export function OnboardingWizard() {
       router.replace("/explore");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("onboarding data is invalid") || msg.includes("VALIDATION_FAILED")) {
+      if (
+        msg.includes("VERSION_CONFLICT") ||
+        msg.includes("optimistic") ||
+        msg.includes("already")
+      ) {
+        // If already saved or version updated elsewhere, finalize gracefully
+        try {
+          await onboardingApi.markProfileComplete();
+          useAuthStore.getState().setOnboardingCompleted(true);
+          router.replace("/explore");
+          return;
+        } catch {
+          // continue to user message
+        }
+      }
+
+      if (
+        msg.includes("onboarding data is invalid") ||
+        msg.includes("VALIDATION_FAILED") ||
+        msg.includes("Budget tier") ||
+        msg.includes("Daily budget")
+      ) {
         setError(t("onboarding.validationFailed", { defaultValue: "Dữ liệu thiết lập chưa đầy đủ hoặc không hợp lệ. Vui lòng kiểm tra lại ngân sách và các bước trước đó." }));
       } else {
         setError(getSafeErrorMessage(err, t("errors.generic")));

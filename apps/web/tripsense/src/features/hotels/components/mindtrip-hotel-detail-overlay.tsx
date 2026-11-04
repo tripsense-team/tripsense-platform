@@ -267,18 +267,22 @@ export function MindtripHotelDetailOverlay({
             {locale === "vi" ? "Chọn phòng & Đặt ngay" : "Check availability"}
           </button>
 
-          {/* Secondary Action: Consultation message if owner configured */}
-          {currentHotelForBooking.ownerUserId && (
-            <Link
-              href={`/chat?userId=${currentHotelForBooking.ownerUserId}&message=${encodeURIComponent(
-                `Chào khách sạn, mình muốn hỏi thông tin tư vấn tại ${hotel.name}.`
-              )}`}
-              className="w-full py-2.5 px-5 rounded-full border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <MessageSquare className="h-3.5 w-3.5 text-primary" />
-              <span>{locale === "vi" ? "Nhắn tin tư vấn" : "Message hotel"}</span>
-            </Link>
-          )}
+          {/* Secondary Action: Consultation message & In-chat Booking */}
+          <Link
+            href={
+              currentHotelForBooking.ownerUserId
+                ? `/chat?userId=${currentHotelForBooking.ownerUserId}&message=${encodeURIComponent(
+                    `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
+                  )}`
+                : `/chat?message=${encodeURIComponent(
+                    `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
+                  )}`
+            }
+            className="w-full py-2.5 px-5 rounded-full border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-primary" />
+            <span>{locale === "vi" ? "Tư vấn & Đặt phòng qua Chat" : "Consult & Book via Chat"}</span>
+          </Link>
 
           <button
             type="button"
@@ -335,6 +339,22 @@ export function MindtripHotelDetailOverlay({
               <span>{locale === "vi" ? `Gọi đặt phòng: ${hotel.phone}` : `Call to reserve: ${hotel.phone}`}</span>
             </a>
           )}
+
+          <Link
+            href={
+              currentHotelForBooking.ownerUserId
+                ? `/chat?userId=${currentHotelForBooking.ownerUserId}&message=${encodeURIComponent(
+                    `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
+                  )}`
+                : `/chat?message=${encodeURIComponent(
+                    `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
+                  )}`
+            }
+            className="w-full py-2.5 px-4 rounded-full border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs text-center"
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-primary" />
+            <span>{locale === "vi" ? "Nhắn tin & Đặt phòng qua Chat" : "Message & Book via Chat"}</span>
+          </Link>
 
           <div className="pt-2 border-t border-border space-y-2">
             <a
