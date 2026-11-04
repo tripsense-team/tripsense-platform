@@ -57,8 +57,17 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
     try {
       setLoading(true);
       setError(null);
-      const res = await getMyRestaurantReservations(0, 50);
-      setReservations(res.content || []);
+      const res = await getMyRestaurantReservations(0, 100);
+      const rawList = res.content || [];
+      const sorted = [...rawList].sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeB !== timeA) return timeB - timeA;
+        const startA = a.startAt ? new Date(a.startAt).getTime() : 0;
+        const startB = b.startAt ? new Date(b.startAt).getTime() : 0;
+        return startB - startA;
+      });
+      setReservations(sorted);
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError", { defaultValue: "Không thể tải danh sách đặt bàn." })));
     } finally {
@@ -125,8 +134,25 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
     }
   };
 
-  const renderBadge = (state: string) => {
-    switch (state) {
+  const isItemExpired = (r: RestaurantReservationDto) => {
+    if (r.state !== "REQUESTED") return false;
+    try {
+      return new Date(r.startAt).getTime() < Date.now();
+    } catch {
+      return false;
+    }
+  };
+
+  const renderBadge = (item: RestaurantReservationDto) => {
+    if (isItemExpired(item)) {
+      return (
+        <Badge variant="outline" className="border-muted-foreground/30 bg-muted/60 text-muted-foreground font-medium">
+          <Clock className="mr-1 h-3 w-3" />
+          {t("partner.restaurant.statusExpired", { defaultValue: "Hết hạn" })}
+        </Badge>
+      );
+    }
+    switch (item.state) {
       case "REQUESTED":
         return (
           <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
@@ -156,12 +182,15 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
           </Badge>
         );
       default:
-        return <Badge variant="outline">{state}</Badge>;
+        return <Badge variant="outline">{item.state}</Badge>;
     }
   };
 
   const filtered = reservations.filter((r) => {
+    const expired = isItemExpired(r);
     if (filterState === "ALL") return true;
+    if (filterState === "EXPIRED") return expired;
+    if (filterState === "REQUESTED") return r.state === "REQUESTED" && !expired;
     return r.state === filterState;
   });
 
@@ -169,6 +198,7 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
     { key: "ALL", label: t("common.all", { defaultValue: "Tất cả" }) },
     { key: "REQUESTED", label: t("partner.restaurant.filterRequested", { defaultValue: "Chờ xác nhận" }) },
     { key: "CONFIRMED", label: t("partner.restaurant.filterConfirmed", { defaultValue: "Đã xác nhận" }) },
+    { key: "EXPIRED", label: t("partner.restaurant.filterExpired", { defaultValue: "Hết hạn" }) },
     { key: "REJECTED", label: t("partner.restaurant.filterRejected", { defaultValue: "Bị từ chối" }) },
     { key: "CANCELLED", label: t("partner.restaurant.filterCancelled", { defaultValue: "Đã hủy" }) },
   ];
@@ -282,7 +312,7 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
                       <h3 className="text-base font-bold text-foreground">
                         {item.businessName || item.businessNameSnapshot}
                       </h3>
-                      {renderBadge(item.state)}
+                      {renderBadge(item)}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
@@ -332,7 +362,7 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
                       </Link>
                     </Button>
 
-                    {item.state === "REQUESTED" && (
+                    {item.state === "REQUESTED" && !isItemExpired(item) && (
                       <Button
                         size="sm"
                         variant="ghost"

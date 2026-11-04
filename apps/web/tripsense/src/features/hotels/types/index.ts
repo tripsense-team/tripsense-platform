@@ -66,6 +66,7 @@ export type HotelBooking = {
   currency: string;
   status: string;
   expires_at: string;
+  created_at?: string;
 };
 
 export type VoucherDto = {

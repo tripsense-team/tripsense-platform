@@ -21,6 +21,7 @@ import {
   Check,
   X,
   Copy,
+  ChevronLeft,
   ChevronRight,
   ExternalLink,
   Sparkles,
@@ -60,7 +61,8 @@ export type NormalizedBookingStatus =
   | "CONFIRMED"
   | "COMPLETED"
   | "CANCELLED"
-  | "REJECTED";
+  | "REJECTED"
+  | "EXPIRED";
 
 export interface UnifiedPartnerBooking {
   id: string;
@@ -74,6 +76,7 @@ export interface UnifiedPartnerBooking {
   customerId?: string | null;
   threadId?: string | null;
 
+  createdAt?: string;
   startDateTime: string;
   endDateTime?: string | null;
   timeSlot?: string | null;
@@ -128,6 +131,7 @@ export function PartnerBookingsHub({
   const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [copiedCode, setCopiedCode] = React.useState<string | null>(null);
   const [directBookingOpen, setDirectBookingOpen] = React.useState(false);
+  const [currentPage, setCurrentPage] = React.useState<number>(1);
 
   // Reject Modal State
   const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
@@ -154,9 +158,15 @@ export function PartnerBookingsHub({
               ? item.notes?.replace(contactMatch[0], "").replace(/^\s*-\s*(Ghi chú:\s*)?/, "").trim()
               : item.notes;
 
+            const isExpired =
+              item.state === "REQUESTED" && new Date(item.startAt).getTime() < Date.now();
+
             let normStatus: NormalizedBookingStatus = "PENDING";
             let statusLabel = "Chờ xác nhận";
-            if (item.state === "CONFIRMED") {
+            if (isExpired) {
+              normStatus = "EXPIRED";
+              statusLabel = "Đã hết hạn";
+            } else if (item.state === "CONFIRMED") {
               normStatus = "CONFIRMED";
               statusLabel = "Đã xác nhận giữ bàn";
             } else if (item.state === "REJECTED") {
@@ -177,6 +187,7 @@ export function PartnerBookingsHub({
               customerPhone: guestPhone,
               customerEmail: item.customerEmail,
               customerId: item.customerId,
+              createdAt: item.createdAt || item.startAt,
               startDateTime: item.startAt,
               serviceTitle: `Bàn ${item.adults + item.children} khách`,
               adultsCount: item.adults,
@@ -209,9 +220,18 @@ export function PartnerBookingsHub({
             try {
               const bookingsRes = await hotelApi<HotelBooking[]>(`/properties/${prop.id}/bookings`);
               (bookingsRes || []).forEach((b) => {
+                const isHotelExpired =
+                  b.status === "EXPIRED" ||
+                  (["HELD", "PENDING"].includes(b.status) &&
+                    ((b.expires_at && new Date(b.expires_at).getTime() < Date.now()) ||
+                      (b.check_in && new Date(b.check_in).getTime() < Date.now())));
+
                 let normStatus: NormalizedBookingStatus = "PENDING";
                 let statusLabel = "Chờ xác nhận";
-                if (b.status === "CONFIRMED") {
+                if (isHotelExpired) {
+                  normStatus = "EXPIRED";
+                  statusLabel = "Đã hết hạn";
+                } else if (b.status === "CONFIRMED") {
                   normStatus = "CONFIRMED";
                   statusLabel = "Đã xác nhận";
                 } else if (b.status === "CHECKED_IN") {
@@ -220,7 +240,7 @@ export function PartnerBookingsHub({
                 } else if (b.status === "CHECKED_OUT") {
                   normStatus = "COMPLETED";
                   statusLabel = "Đã trả phòng";
-                } else if (["CANCELLED", "NO_SHOW", "EXPIRED"].includes(b.status)) {
+                } else if (["CANCELLED", "NO_SHOW"].includes(b.status)) {
                   normStatus = "CANCELLED";
                   statusLabel = b.status === "NO_SHOW" ? "Khách vắng mặt" : "Đã hủy";
                 }
@@ -235,6 +255,7 @@ export function PartnerBookingsHub({
                   customerPhone: null,
                   customerEmail: null,
                   customerId: null,
+                  createdAt: b.created_at || b.check_in,
                   startDateTime: b.check_in,
                   endDateTime: b.check_out,
                   serviceTitle: `${b.room_name} (${b.quantity} phòng)`,
@@ -268,17 +289,26 @@ export function PartnerBookingsHub({
             const matchedBiz = businesses.find((b) => b.id === offer.businessId);
             const bizName = matchedBiz?.displayName || offer.businessName;
 
+            const isOfferExpired =
+              offer.status === "EXPIRED" ||
+              (offer.status === "PENDING" &&
+                ((offer.expiresAt && new Date(offer.expiresAt).getTime() < Date.now()) ||
+                  (offer.checkInDate && new Date(offer.checkInDate).getTime() < Date.now())));
+
             let normStatus: NormalizedBookingStatus = "PENDING";
             let statusLabel = "Chờ khách xác nhận";
-            if (offer.status === "ACCEPTED") {
+            if (isOfferExpired) {
+              normStatus = "EXPIRED";
+              statusLabel = "Đã hết hạn";
+            } else if (offer.status === "ACCEPTED") {
               normStatus = "CONFIRMED";
               statusLabel = "Khách đã chốt đơn";
             } else if (offer.status === "DECLINED") {
               normStatus = "REJECTED";
               statusLabel = "Khách từ chối";
-            } else if (["CANCELLED", "EXPIRED"].includes(offer.status)) {
+            } else if (offer.status === "CANCELLED") {
               normStatus = "CANCELLED";
-              statusLabel = offer.status === "EXPIRED" ? "Đã hết hạn" : "Đã hủy";
+              statusLabel = "Đã hủy";
             }
 
             unifiedList.push({
@@ -290,6 +320,7 @@ export function PartnerBookingsHub({
               customerName: "Khách trò chuyện",
               customerId: offer.recipientId,
               threadId: offer.conversationId,
+              createdAt: offer.createdAt || offer.checkInDate,
               startDateTime: offer.checkInDate,
               endDateTime: offer.checkOutDate,
               timeSlot: offer.reservationTime,
@@ -314,11 +345,14 @@ export function PartnerBookingsHub({
 
       await Promise.all([Promise.all(restaurantPromises), hotelPromises, offersPromise]);
 
-      // Sort by newest first
+      // Sort by newest first: creation date descending, fallback to start time descending
       unifiedList.sort((a, b) => {
-        const tA = new Date(a.startDateTime).getTime();
-        const tB = new Date(b.startDateTime).getTime();
-        return tB - tA;
+        const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (tB !== tA) return tB - tA;
+        const sA = a.startDateTime ? new Date(a.startDateTime).getTime() : 0;
+        const sB = b.startDateTime ? new Date(b.startDateTime).getTime() : 0;
+        return sB - sA;
       });
 
       setBookings(unifiedList);
@@ -586,14 +620,28 @@ export function PartnerBookingsHub({
     });
   }, [bookings, selectedBusinessId, selectedServiceType, selectedStatus, searchQuery]);
 
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedBusinessId, selectedServiceType, selectedStatus, searchQuery]);
+
   // Metric counts
   const totalCount = bookings.length;
   const pendingCount = bookings.filter((b) => b.normalizedStatus === "PENDING").length;
   const confirmedCount = bookings.filter((b) => b.normalizedStatus === "CONFIRMED").length;
+  const expiredCount = bookings.filter((b) => b.normalizedStatus === "EXPIRED").length;
   const completedCount = bookings.filter((b) => b.normalizedStatus === "COMPLETED").length;
   const cancelledCount = bookings.filter(
     (b) => b.normalizedStatus === "CANCELLED" || b.normalizedStatus === "REJECTED",
   ).length;
+
+  const PAGE_SIZE = 8;
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedBookings = React.useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredBookings.slice(start, start + PAGE_SIZE);
+  }, [filteredBookings, safePage]);
 
   const formatSchedule = (item: UnifiedPartnerBooking) => {
     try {
@@ -740,6 +788,7 @@ export function PartnerBookingsHub({
               { id: "ALL", label: `Tất cả (${totalCount})` },
               { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
               { id: "CONFIRMED", label: `Đã xác nhận (${confirmedCount})` },
+              { id: "EXPIRED", label: `Hết hạn (${expiredCount})`, highlight: expiredCount > 0 },
               { id: "COMPLETED", label: `Hoàn tất (${completedCount})` },
               { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
             ].map((tab) => (
@@ -829,81 +878,84 @@ export function PartnerBookingsHub({
           )}
         </div>
       ) : (
-        <div className="grid gap-3.5">
-          {filteredBookings.map((item) => {
-            const isPending = item.normalizedStatus === "PENDING";
-            const isConfirmed = item.normalizedStatus === "CONFIRMED";
-            const isCompleted = item.normalizedStatus === "COMPLETED";
-            const isCancelled = item.normalizedStatus === "CANCELLED" || item.normalizedStatus === "REJECTED";
+        <div className="space-y-4">
+          <div className="grid gap-3.5">
+            {paginatedBookings.map((item) => {
+              const isPending = item.normalizedStatus === "PENDING";
+              const isConfirmed = item.normalizedStatus === "CONFIRMED";
+              const isCompleted = item.normalizedStatus === "COMPLETED";
+              const isCancelled = item.normalizedStatus === "CANCELLED" || item.normalizedStatus === "REJECTED";
 
-            return (
-              <Card
-                key={`${item.sourceType}-${item.id}`}
-                className="overflow-hidden border-border/80 shadow-2xs hover:border-primary/40 transition-colors"
-              >
-                <CardContent className="p-4 sm:p-5 space-y-3.5">
-                  {/* Top Bar: Service tag, Business name, Booking code & Status */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge
-                        variant="outline"
-                        className={`text-micro font-semibold gap-1 ${
-                          item.sourceType === "RESTAURANT"
-                            ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                            : item.sourceType === "HOTEL"
-                            ? "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                            : "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
-                        }`}
-                      >
-                        {item.sourceType === "RESTAURANT" ? (
-                          <>
-                            <Utensils className="h-3 w-3" /> Quán ăn / Nhà hàng
-                          </>
-                        ) : item.sourceType === "HOTEL" ? (
-                          <>
-                            <Hotel className="h-3 w-3" /> Khách sạn / Lưu trú
-                          </>
-                        ) : (
-                          <>
-                            <MessageSquare className="h-3 w-3" /> Phiếu đặt qua Chat
-                          </>
-                        )}
-                      </Badge>
+              return (
+                <Card
+                  key={`${item.sourceType}-${item.id}`}
+                  className="overflow-hidden border-border/80 shadow-2xs hover:border-primary/40 transition-colors"
+                >
+                  <CardContent className="p-4 sm:p-5 space-y-3.5">
+                    {/* Top Bar: Service tag, Business name, Booking code & Status */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge
+                          variant="outline"
+                          className={`text-micro font-semibold gap-1 ${
+                            item.sourceType === "RESTAURANT"
+                              ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                              : item.sourceType === "HOTEL"
+                              ? "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                              : "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                          }`}
+                        >
+                          {item.sourceType === "RESTAURANT" ? (
+                            <>
+                              <Utensils className="h-3 w-3" /> Quán ăn / Nhà hàng
+                            </>
+                          ) : item.sourceType === "HOTEL" ? (
+                            <>
+                              <Hotel className="h-3 w-3" /> Khách sạn / Lưu trú
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="h-3 w-3" /> Phiếu đặt qua Chat
+                            </>
+                          )}
+                        </Badge>
 
-                      <span className="text-xs font-semibold text-foreground">
-                        {item.businessName}
-                      </span>
+                        <span className="text-xs font-semibold text-foreground">
+                          {item.businessName}
+                        </span>
 
-                      <button
-                        onClick={() => handleCopyCode(item.bookingCode)}
-                        className="inline-flex items-center gap-1 font-mono text-micro text-muted-foreground hover:text-foreground bg-muted/40 px-2 py-0.5 rounded transition-colors"
-                        title="Sao chép mã đơn"
-                      >
-                        <span>{item.bookingCode}</span>
-                        <Copy className="h-3 w-3" />
-                        {copiedCode === item.bookingCode && (
-                          <span className="text-emerald-600 text-micro">Đã sao chép!</span>
-                        )}
-                      </button>
+                        <button
+                          onClick={() => handleCopyCode(item.bookingCode)}
+                          className="inline-flex items-center gap-1 font-mono text-micro text-muted-foreground hover:text-foreground bg-muted/40 px-2 py-0.5 rounded transition-colors"
+                          title="Sao chép mã đơn"
+                        >
+                          <span>{item.bookingCode}</span>
+                          <Copy className="h-3 w-3" />
+                          {copiedCode === item.bookingCode && (
+                            <span className="text-emerald-600 text-micro">Đã sao chép!</span>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-micro font-semibold uppercase ${
+                            isPending
+                              ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                              : isConfirmed
+                              ? "border-emerald-600/30 bg-emerald-600/15 text-emerald-700 dark:text-emerald-400"
+                              : isCompleted
+                              ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                              : item.normalizedStatus === "EXPIRED"
+                              ? "border-muted-foreground/30 bg-muted/60 text-muted-foreground"
+                              : "border-destructive/30 bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          {item.statusLabel}
+                        </Badge>
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={`text-micro font-semibold uppercase ${
-                          isPending
-                            ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                            : isConfirmed
-                            ? "border-emerald-600/30 bg-emerald-600/15 text-emerald-700 dark:text-emerald-400"
-                            : isCompleted
-                            ? "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            : "border-destructive/30 bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {item.statusLabel}
-                      </Badge>
-                    </div>
-                  </div>
 
                   {/* Main Grid: Customer info, Time & Service details */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1132,6 +1184,14 @@ export function PartnerBookingsHub({
                         </>
                       )}
 
+                      {/* Expired booking notice */}
+                      {item.normalizedStatus === "EXPIRED" && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-md border border-border/40">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>Đơn đã quá thời hạn xử lý</span>
+                        </div>
+                      )}
+
                       {/* Chat Offer details link */}
                       {item.sourceType === "CHAT_OFFER" && item.threadId && (
                         <Button asChild size="sm" className="h-8 text-xs font-semibold">
@@ -1148,6 +1208,69 @@ export function PartnerBookingsHub({
             );
           })}
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border/60 pt-4 px-1">
+            <span className="text-xs text-muted-foreground">
+              Trang {safePage} / {totalPages} ({filteredBookings.length} lượt đặt)
+            </span>
+            <div className="flex items-center gap-1.5 self-center sm:self-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="h-8 px-2.5 text-xs font-medium"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                Trước
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  if (
+                    pageNum === 1 ||
+                    pageNum === totalPages ||
+                    Math.abs(pageNum - safePage) <= 1
+                  ) {
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={pageNum === safePage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="h-8 w-8 p-0 text-xs font-semibold"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  }
+                  if (pageNum === safePage - 2 || pageNum === safePage + 2) {
+                    return (
+                      <span key={pageNum} className="text-muted-foreground px-1 text-xs">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="h-8 px-2.5 text-xs font-medium"
+              >
+                Sau
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
       )}
 
       {/* Reject Modal */}

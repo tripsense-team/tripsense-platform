@@ -21,9 +21,22 @@ import {
   CalendarDays,
   XCircle,
   Plus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
-type BookingFilterTab = "ALL" | "HELD" | "CONFIRMED" | "CHECKED_IN" | "CANCELLED";
+type BookingFilterTab = "ALL" | "HELD" | "CONFIRMED" | "EXPIRED" | "CHECKED_IN" | "CANCELLED";
+
+function isHotelBookingExpired(b: HotelBooking): boolean {
+  if (b.status === "EXPIRED") return true;
+  if (["HELD", "PENDING"].includes(b.status)) {
+    if (b.expires_at && new Date(b.expires_at).getTime() < Date.now()) return true;
+    if (b.check_in && new Date(b.check_in).getTime() < Date.now()) return true;
+  }
+  return false;
+}
+
+const PAGE_SIZE = 6;
 
 export default function PartnerHotelBookingsPage() {
   const { t } = useTranslation();
@@ -37,6 +50,7 @@ export default function PartnerHotelBookingsPage() {
   const [cancelReason, setCancelReason] = React.useState("");
   const [cancelTargetId, setCancelTargetId] = React.useState<string | null>(null);
   const [directBookingOpen, setDirectBookingOpen] = React.useState(false);
+  const [currentPage, setCurrentPage] = React.useState(1);
 
   const loadBookings = React.useCallback(async () => {
     if (!property) {
@@ -47,7 +61,15 @@ export default function PartnerHotelBookingsPage() {
     setError("");
     try {
       const data = await hotelApi<HotelBooking[]>(`/properties/${property.id}/bookings`);
-      setBookings(data);
+      const sorted = (data || []).sort((a, b) => {
+        const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (tB !== tA) return tB - tA;
+        const cA = a.check_in ? new Date(a.check_in).getTime() : 0;
+        const cB = b.check_in ? new Date(b.check_in).getTime() : 0;
+        return cB - cA;
+      });
+      setBookings(sorted);
     } catch (err) {
       setError(getSafeErrorMessage(err));
     } finally {
@@ -130,14 +152,36 @@ export default function PartnerHotelBookingsPage() {
   };
 
   const filteredBookings = React.useMemo(() => {
-    if (filterState === "ALL") return bookings;
-    if (filterState === "HELD") return bookings.filter((b) => b.status === "HELD");
-    if (filterState === "CONFIRMED") return bookings.filter((b) => b.status === "CONFIRMED");
-    if (filterState === "CHECKED_IN") return bookings.filter((b) => b.status === "CHECKED_IN");
-    if (filterState === "CANCELLED")
-      return bookings.filter((b) => ["CANCELLED", "NO_SHOW", "EXPIRED"].includes(b.status));
-    return bookings;
+    return bookings.filter((b) => {
+      const exp = isHotelBookingExpired(b);
+      if (filterState === "ALL") return true;
+      if (filterState === "EXPIRED") return exp;
+      if (filterState === "HELD") return b.status === "HELD" && !exp;
+      if (filterState === "CONFIRMED") return b.status === "CONFIRMED";
+      if (filterState === "CHECKED_IN") return b.status === "CHECKED_IN";
+      if (filterState === "CANCELLED")
+        return ["CANCELLED", "NO_SHOW"].includes(b.status);
+      return true;
+    });
   }, [bookings, filterState]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedBookings = React.useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredBookings.slice(start, start + PAGE_SIZE);
+  }, [filteredBookings, safePage]);
+
+  const handleFilterChange = (newFilter: BookingFilterTab) => {
+    setFilterState(newFilter);
+    setCurrentPage(1);
+  };
+
+  const heldCount = bookings.filter((b) => b.status === "HELD" && !isHotelBookingExpired(b)).length;
+  const confirmedCount = bookings.filter((b) => b.status === "CONFIRMED").length;
+  const expiredCount = bookings.filter((b) => isHotelBookingExpired(b)).length;
+  const checkedInCount = bookings.filter((b) => b.status === "CHECKED_IN").length;
+  const cancelledCount = bookings.filter((b) => ["CANCELLED", "NO_SHOW"].includes(b.status)).length;
 
   if (!property) {
     return (
@@ -193,16 +237,17 @@ export default function PartnerHotelBookingsPage() {
       <div className="flex items-center gap-1.5 flex-wrap">
         {[
           { id: "ALL", label: `Tất cả (${bookings.length})` },
-          { id: "HELD", label: `Chờ xác nhận (${bookings.filter((b) => b.status === "HELD").length})` },
-          { id: "CONFIRMED", label: `Đã xác nhận (${bookings.filter((b) => b.status === "CONFIRMED").length})` },
-          { id: "CHECKED_IN", label: `Đang lưu trú (${bookings.filter((b) => b.status === "CHECKED_IN").length})` },
-          { id: "CANCELLED", label: `Đã hủy / Vắng mặt (${bookings.filter((b) => ["CANCELLED", "NO_SHOW", "EXPIRED"].includes(b.status)).length})` },
+          { id: "HELD", label: `Chờ xác nhận (${heldCount})` },
+          { id: "CONFIRMED", label: `Đã xác nhận (${confirmedCount})` },
+          { id: "EXPIRED", label: `Hết hạn (${expiredCount})` },
+          { id: "CHECKED_IN", label: `Đang lưu trú (${checkedInCount})` },
+          { id: "CANCELLED", label: `Đã hủy / Vắng mặt (${cancelledCount})` },
         ].map((tab) => (
           <Button
             key={tab.id}
             variant={filterState === tab.id ? "default" : "outline"}
             size="sm"
-            onClick={() => setFilterState(tab.id as BookingFilterTab)}
+            onClick={() => handleFilterChange(tab.id as BookingFilterTab)}
             className="h-8 text-xs font-medium"
           >
             {tab.label}
@@ -239,49 +284,55 @@ export default function PartnerHotelBookingsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredBookings.map((b) => {
-            const isConfirmed = b.status === "CONFIRMED";
-            const isCheckedIn = b.status === "CHECKED_IN";
-            const isHeld = b.status === "HELD";
+          <div className="space-y-4">
+            {paginatedBookings.map((b) => {
+              const isExpired = isHotelBookingExpired(b);
+              const isConfirmed = b.status === "CONFIRMED";
+              const isCheckedIn = b.status === "CHECKED_IN";
+              const isHeld = b.status === "HELD" && !isExpired;
 
-            return (
-              <Card key={b.id} className="rounded-2xl border-border bg-card shadow-2xs hover:border-border transition-colors">
-                <CardContent className="p-4 sm:p-5 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-base text-foreground">{b.room_name}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-micro font-semibold uppercase ${
-                            b.status === "CONFIRMED"
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : b.status === "CHECKED_IN"
-                              ? "border-blue-500/30 bg-blue-500/10 text-blue-600"
+              return (
+                <Card key={b.id} className="rounded-2xl border-border bg-card shadow-2xs hover:border-border transition-colors">
+                  <CardContent className="p-4 sm:p-5 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-base text-foreground">{b.room_name}</span>
+                          <Badge
+                            variant="outline"
+                            className={`text-micro font-semibold uppercase ${
+                              isConfirmed
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : isCheckedIn
+                                ? "border-blue-500/30 bg-blue-500/10 text-blue-600"
+                                : isHeld
+                                ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : isExpired
+                                ? "border-muted-foreground/30 bg-muted/60 text-muted-foreground"
+                                : b.status === "CANCELLED"
+                                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                                : "border-muted text-muted-foreground"
+                            }`}
+                          >
+                            {isExpired
+                              ? "Đã hết hạn"
                               : b.status === "HELD"
-                              ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                              ? "Chờ xác nhận"
+                              : b.status === "CONFIRMED"
+                              ? "Đã xác nhận"
+                              : b.status === "CHECKED_IN"
+                              ? "Đang lưu trú"
+                              : b.status === "CHECKED_OUT"
+                              ? "Đã hoàn tất"
                               : b.status === "CANCELLED"
-                              ? "border-destructive/30 bg-destructive/10 text-destructive"
-                              : "border-muted text-muted-foreground"
-                          }`}
-                        >
-                          {b.status === "HELD"
-                            ? "Chờ xác nhận"
-                            : b.status === "CONFIRMED"
-                            ? "Đã xác nhận"
-                            : b.status === "CHECKED_IN"
-                            ? "Đang lưu trú"
-                            : b.status === "CHECKED_OUT"
-                            ? "Đã hoàn tất"
-                            : b.status === "CANCELLED"
-                            ? "Đã hủy"
-                            : b.status}
-                        </Badge>
+                              ? "Đã hủy"
+                              : b.status}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          Mã đơn: #{b.id.slice(0, 8)} · Thanh toán: {b.payment_method}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        Mã đơn: #{b.id.slice(0, 8)} · Thanh toán: {b.payment_method}
-                      </p>
-                    </div>
 
                     <div className="text-left sm:text-right">
                       <span className="text-base font-bold text-foreground">
@@ -312,8 +363,16 @@ export default function PartnerHotelBookingsPage() {
                     </div>
                   </div>
 
+                  {/* Operational Actions */}
+                  {isExpired && (
+                    <div className="pt-2 border-t border-border flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-md border border-border/40">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Đơn đặt phòng đã quá thời hạn xử lý</span>
+                    </div>
+                  )}
+
                   {/* Symmetrical Operational Actions (Manager only) */}
-                  {isManager && (
+                  {isManager && !isExpired && (
                     <div className="pt-2 border-t border-border flex flex-wrap items-center gap-2">
                       {/* Symmetrical ACCEPT action for HELD */}
                       {isHeld && (
@@ -417,6 +476,69 @@ export default function PartnerHotelBookingsPage() {
             );
           })}
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border/60 pt-4 px-1">
+            <span className="text-xs text-muted-foreground">
+              Trang {safePage} / {totalPages} ({filteredBookings.length} đơn đặt phòng)
+            </span>
+            <div className="flex items-center gap-1.5 self-center sm:self-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="h-8 px-2.5 text-xs font-medium"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                Trước
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  if (
+                    pageNum === 1 ||
+                    pageNum === totalPages ||
+                    Math.abs(pageNum - safePage) <= 1
+                  ) {
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={pageNum === safePage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="h-8 w-8 p-0 text-xs font-semibold"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  }
+                  if (pageNum === safePage - 2 || pageNum === safePage + 2) {
+                    return (
+                      <span key={pageNum} className="text-muted-foreground px-1 text-xs">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="h-8 px-2.5 text-xs font-medium"
+              >
+                Sau
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
       )}
 
       <CreateDirectBookingModal

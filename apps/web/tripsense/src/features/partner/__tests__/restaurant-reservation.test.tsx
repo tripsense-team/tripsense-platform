@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { I18nProvider } from "@/i18n";
 import { RestaurantReservationDialog } from "../components/restaurant-reservation-dialog";
 import { PartnerBusinessCard } from "../components/partner-business-card";
-import type { BusinessDetailDto } from "../types";
+import { isReservationExpired } from "../components/restaurant-reservations-tab";
+import type { BusinessDetailDto, RestaurantReservationDto } from "../types";
 
 vi.mock("@/services/api-client", () => ({
   apiClient: vi.fn(),
@@ -90,5 +91,52 @@ describe("RestaurantReservationDialog Component", () => {
     expect(html).toContain("Lantern Kitchen Hoi An");
     expect(html).toContain("Chat với khách");
     expect(html).toContain("/chat");
+  });
+
+  it("correctly identifies expired restaurant reservations without waiting for manual rejection", () => {
+    const pastRequested: RestaurantReservationDto = {
+      id: "res-past",
+      businessId: "rest-123",
+      businessName: "Lantern Kitchen",
+      customerId: "cust-1",
+      customerName: "Tran Van Tri",
+      startAt: "2020-01-01T19:00:00Z",
+      timeZone: "Asia/Ho_Chi_Minh",
+      adults: 2,
+      children: 0,
+      state: "REQUESTED",
+      version: 1,
+      createdAt: "2020-01-01T10:00:00Z",
+      updatedAt: "2020-01-01T10:00:00Z",
+    };
+
+    const futureRequested: RestaurantReservationDto = {
+      id: "res-future",
+      businessId: "rest-123",
+      businessName: "Lantern Kitchen",
+      customerId: "cust-2",
+      customerName: "Tran Van Tri",
+      startAt: "2099-01-01T19:00:00Z",
+      timeZone: "Asia/Ho_Chi_Minh",
+      adults: 2,
+      children: 0,
+      state: "REQUESTED",
+      version: 1,
+      createdAt: "2099-01-01T10:00:00Z",
+      updatedAt: "2099-01-01T10:00:00Z",
+    };
+
+    const confirmedPast: RestaurantReservationDto = {
+      ...pastRequested,
+      id: "res-confirmed",
+      state: "CONFIRMED",
+    };
+
+    // Past requested must be immediately expired
+    expect(isReservationExpired(pastRequested)).toBe(true);
+    // Future requested is active
+    expect(isReservationExpired(futureRequested)).toBe(false);
+    // Already confirmed reservation is not treated as expired pending
+    expect(isReservationExpired(confirmedPast)).toBe(false);
   });
 });
