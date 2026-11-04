@@ -1,5 +1,5 @@
 -- ==============================================================================
--- V2__add_outbox_pending_index.sql
+-- V3__add_outbox_pending_index.sql
 -- Optimize outbox worker polling for unprocessed context events
 -- ==============================================================================
 
