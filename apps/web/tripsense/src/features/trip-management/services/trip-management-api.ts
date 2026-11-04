@@ -52,6 +52,38 @@ export function createTrip(payload: CreateTripRequest): Promise<TripResponse> {
   );
 }
 
+export interface ImportCommunityTripRequest {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ImportedTripResponse {
+  tripId: string;
+  sourcePostId: string;
+  name: string;
+  dayCount: number;
+  itemCount: number;
+  importedAt: string;
+}
+
+export function importCommunityTrip(
+  postId: string,
+  payload: ImportCommunityTripRequest,
+  idempotencyKey: string,
+): Promise<ImportedTripResponse> {
+  return unwrap(
+    apiClient<ApiResponse<ImportedTripResponse>>(
+      `/api/trips/imports/community-shares/${postId}`,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(payload),
+      },
+    ),
+  );
+}
+
 export function getTrip(tripId: string): Promise<TripResponse> {
   return unwrap(apiClient<ApiResponse<TripResponse>>(`/api/trips/${tripId}`));
 }

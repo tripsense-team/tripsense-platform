@@ -90,6 +90,31 @@ public class SocialPostController {
             postId, currentUser.requiredUser(), request, idempotencyKey));
   }
 
+  @PutMapping("/posts/{postId}/save")
+  public ApiResponse<Void> savePost(@PathVariable UUID postId) {
+    service.savePost(postId, currentUser.requiredUser());
+    return ApiResponse.success("Post saved", null);
+  }
+
+  @DeleteMapping("/posts/{postId}/save")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void unsavePost(@PathVariable UUID postId) {
+    service.unsavePost(postId, currentUser.requiredUser());
+  }
+
+  @GetMapping("/me/saved-posts")
+  public ApiResponse<fu.tripsense.socialservice.dto.response.SavedPostPageResponse> savedPosts(
+      @RequestParam(defaultValue = "TRIP_SHARE") String type,
+      @RequestParam(required = false) String cursor,
+      @RequestParam(defaultValue = "20") int size) {
+    if (!"TRIP_SHARE".equalsIgnoreCase(type)) {
+      throw new fu.tripsense.socialservice.exception.SocialException(
+          HttpStatus.BAD_REQUEST, "INVALID_POST_TYPE", "Only TRIP_SHARE saves are supported");
+    }
+    return ApiResponse.success(
+        service.listSavedTripShares(currentUser.requiredUser(), cursor, size));
+  }
+
   @PatchMapping("/posts/{postId}/visibility")
   public ApiResponse<SocialPostResponse> updateVisibility(
       @PathVariable UUID postId,

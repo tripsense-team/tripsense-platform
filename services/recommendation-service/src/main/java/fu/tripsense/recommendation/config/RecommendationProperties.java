@@ -98,6 +98,7 @@ public class RecommendationProperties {
 
     private Duration maximumPlaceAge = Duration.ofDays(30);
     private Duration parallelTimeout = Duration.ofSeconds(3);
+    private boolean mediaReadyOnly = false;
   }
 
   @Data

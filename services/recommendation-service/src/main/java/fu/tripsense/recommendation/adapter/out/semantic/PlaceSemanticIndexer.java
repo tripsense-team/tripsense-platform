@@ -36,4 +36,9 @@ public class PlaceSemanticIndexer implements PlaceIndexer {
         document.contentHash());
     return true;
   }
+
+  @Override
+  public void remove(String placeId) {
+    vectors.delete(placeId);
+  }
 }

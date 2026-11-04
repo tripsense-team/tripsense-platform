@@ -27,6 +27,7 @@ public class PlaceServiceCandidateGenerator
   private final int sourceLimit;
   private final int candidateMultiplier;
   private final long maximumPlaceAgeSeconds;
+  private final boolean mediaReadyOnly;
 
   public PlaceServiceCandidateGenerator(
       RestClient recommendationRestClient, RecommendationProperties properties) {
@@ -35,6 +36,7 @@ public class PlaceServiceCandidateGenerator
     this.sourceLimit = properties.getRetrieval().getSourceLimit();
     this.candidateMultiplier = properties.getRetrieval().getCandidateMultiplier();
     this.maximumPlaceAgeSeconds = properties.getRetrieval().getMaximumPlaceAge().toSeconds();
+    this.mediaReadyOnly = properties.getRetrieval().isMediaReadyOnly();
   }
 
   @Override
@@ -58,7 +60,8 @@ public class PlaceServiceCandidateGenerator
             Math.min(sourceLimit, Math.max(context.limit() * candidateMultiplier, context.limit())),
             List.of("id", "location", "categories"),
             maximumPlaceAgeSeconds,
-            context.allowExternalRefresh());
+            context.allowExternalRefresh(),
+            mediaReadyOnly);
     try {
       Envelope envelope =
           restClient
@@ -113,7 +116,8 @@ public class PlaceServiceCandidateGenerator
                     target,
                     maximumPlaceAgeSeconds,
                     List.of("id", "location", "categories"),
-                    false))
+                    false,
+                    mediaReadyOnly))
             .retrieve()
             .body(CategoryEnvelope.class);
     if (response == null
@@ -156,7 +160,8 @@ public class PlaceServiceCandidateGenerator
       int targetPerCategory,
       long maximumAgeSeconds,
       List<String> requiredFields,
-      boolean allowExternalRefresh) {}
+      boolean allowExternalRefresh,
+      boolean mediaReadyOnly) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record CategoryEnvelope(boolean success, CategoryBatch data) {}
@@ -198,7 +203,8 @@ public class PlaceServiceCandidateGenerator
       int targetCount,
       List<String> requiredFields,
       long maximumAgeSeconds,
-      boolean allowExternalRefresh) {}
+      boolean allowExternalRefresh,
+      boolean mediaReadyOnly) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record Envelope(boolean success, ResultDto data) {}

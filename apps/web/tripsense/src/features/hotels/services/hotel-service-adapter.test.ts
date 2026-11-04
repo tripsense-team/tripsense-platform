@@ -39,6 +39,18 @@ describe("hotel discovery authority and deduplication", () => {
     expect(hotels[0].rooms?.[0].sleeps).toBe(2);
   });
 
+  it("searches Place Service by the typed hotel name beyond the initial browse snapshot", async () => {
+    hotelApi.mockResolvedValue([]);
+    searchPlaces.mockResolvedValue({ success: true, data: [{
+      id: "manual-hotel", name: "long1 hotel", city: "Đà Nẵng", categories: ["hotel"],
+    }] });
+
+    const hotels = await searchRealHotels("Đà Nẵng", "2026-11-05", "2026-11-06", 2, 1, "long1 hotel");
+
+    expect(searchPlaces).toHaveBeenCalledWith({ q: "long1 hotel", category: "STAY", limit: 24 });
+    expect(hotels.map((hotel) => hotel.name)).toEqual(["long1 hotel"]);
+  });
+
   it("merges partner property and Place record of the same hotel into a single rich bookable card", async () => {
     hotelApi.mockResolvedValue([
       offer("property-a", "Khách sạn Mường Thanh Luxury Sông Hàn", "115 Nguyễn Văn Linh, Hải Châu"),

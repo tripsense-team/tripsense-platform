@@ -57,6 +57,12 @@ jwt:
 place-service:
   url: ${PLACE_SERVICE_URL:http://localhost:${PLACE_SERVICE_PORT:8083}}
 
+social-service:
+  url: ${SOCIAL_SERVICE_URL:http://localhost:${SOCIAL_SERVICE_PORT:8086}}
+  import-internal-key: ${COMMUNITY_IMPORT_INTERNAL_KEY:}
+  connect-timeout: ${SOCIAL_SERVICE_CONNECT_TIMEOUT:2s}
+  read-timeout: ${SOCIAL_SERVICE_READ_TIMEOUT:5s}
+
 hotel:
   mail:
     url: ${HOTEL_MAIL_URL:http://localhost:8082}

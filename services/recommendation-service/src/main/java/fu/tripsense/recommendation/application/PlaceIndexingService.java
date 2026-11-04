@@ -53,5 +53,10 @@ public class PlaceIndexingService {
     return indexer.isPresent();
   }
 
+  public void removePlace(String placeId) {
+    if (placeId == null || placeId.isBlank() || indexer.isEmpty()) return;
+    indexer.get().remove(placeId);
+  }
+
   public record IndexOutcome(int submitted, int indexed, int skipped) {}
 }

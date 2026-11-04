@@ -9,7 +9,6 @@ import {
   Clock,
   Edit3,
   Eye,
-  FileDown,
   Globe2,
   Loader2,
   Lock,
@@ -19,14 +18,14 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import { ImportCommunityTripDialog } from "./import-community-trip-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { useTranslation } from "@/i18n";
-import { downloadTripIcs } from "@/features/trip-management/utils/export-itinerary";
-import type { TripResponse } from "@/features/trip-management/types";
+import type { I18nContextValue } from "@/i18n/i18n-context";
 import { socialPostRepository } from "../services";
 import type {
   SocialPost,
@@ -43,12 +42,12 @@ interface SharedTripDetailViewProps {
 
 const visibilityOptions: Array<{
   value: Visibility;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { value: "PUBLIC", label: "Công khai", icon: Globe2 },
-  { value: "UNLISTED", label: "Có liên kết", icon: Eye },
-  { value: "PRIVATE", label: "Chỉ mình tôi", icon: Lock },
+  { value: "PUBLIC", labelKey: "social.tripShareVisibilityPublic", icon: Globe2 },
+  { value: "UNLISTED", labelKey: "social.tripShareVisibilityUnlisted", icon: Eye },
+  { value: "PRIVATE", labelKey: "social.tripShareVisibilityPrivate", icon: Lock },
 ];
 
 function initials(name: string) {
@@ -62,18 +61,19 @@ function initials(name: string) {
       .toUpperCase() || "TS"
   );
 }
-function dateRange(start?: string, end?: string) {
-  return start && end ? `${start} – ${end}` : start || end || "Ngày đi được ẩn";
+function dateRange(start: string | undefined, end: string | undefined, locale: string, hidden: string) {
+  if (!start && !end) return hidden;
+  const format = new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
+  const value = (date?: string) => date ? format.format(new Date(`${date}T00:00:00`)) : null;
+  return start && end ? `${value(start)} – ${value(end)}` : value(start) || value(end) || hidden;
 }
-function visibilityLabel(value?: Visibility) {
-  return (
-    visibilityOptions.find((item) => item.value === value)?.label || "Công khai"
-  );
+function visibilityLabel(value: Visibility | undefined, t: (key: string) => string) {
+  return t(visibilityOptions.find((item) => item.value === value)?.labelKey || "social.tripShareVisibilityPublic");
 }
 
 function getLocalizedPublicItemTitle(
   item: { title: string; type?: string },
-  t: (key: string, ...args: any[]) => string,
+  t: I18nContextValue["t"],
 ): string {
   if (
     item.type === "HOTEL" &&
@@ -101,7 +101,7 @@ export function SharedTripDetailView({
   detail,
   onUpdated,
 }: SharedTripDetailViewProps) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const trip = post.trip;
   const [editing, setEditing] = React.useState(false);
@@ -115,6 +115,7 @@ export function SharedTripDetailView({
     React.useState<TripSharePreviewResponse | null>(null);
   const [previewing, setPreviewing] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
   if (!trip) return null;
   const owner = user?.id === post.author.id;
   const publication = detail?.publication;
@@ -132,9 +133,9 @@ export function SharedTripDetailView({
         await socialPostRepository.updatePostVisibility(post.id, visibility);
       setEditing(false);
       onUpdated?.();
-    } catch (cause) {
+    } catch {
       setError(
-        cause instanceof Error ? cause.message : "Không thể cập nhật bài viết.",
+        t("social.tripShareUpdateFailed"),
       );
     } finally {
       setSaving(false);
@@ -149,11 +150,9 @@ export function SharedTripDetailView({
       setManagementPreview(
         await socialPostRepository.previewTripShare(detail.sourceTripId),
       );
-    } catch (cause) {
+    } catch {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Không thể tạo bản xem trước mới.",
+        t("social.tripSharePreviewFailed"),
       );
     } finally {
       setPreviewing(false);
@@ -175,69 +174,14 @@ export function SharedTripDetailView({
       );
       setManagementPreview(null);
       onUpdated?.();
-    } catch (cause) {
+    } catch {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Không thể cập nhật bản chia sẻ.",
+        t("social.tripShareRefreshFailed"),
       );
     } finally {
       setRefreshing(false);
     }
   }
-
-  const handleExportIcs = () => {
-    if (!trip || !publication) return;
-    const convertedItinerary = {
-      tripId: trip.tripId || post.id,
-      days: publication.days.map((d) => ({
-        id: `day-${d.dayNumber}`,
-        dayNumber: d.dayNumber,
-        date: d.date || "",
-        version: 1,
-        items: d.items.map((it, idx) => ({
-          id: `item-${d.dayNumber}-${idx}`,
-          dayId: `day-${d.dayNumber}`,
-          placeId: null,
-          title: it.title,
-          notes: null,
-          sortOrder: it.order,
-          type: "ACTIVITY" as const,
-          startTime: it.startTime || null,
-          endTime: it.endTime || null,
-          durationMinutes: it.durationMinutes || null,
-          status: "PLANNED" as const,
-          placeNameSnapshot: it.placeName || null,
-          placeAddressSnapshot: null,
-          latSnapshot: null,
-          lngSnapshot: null,
-          version: 1,
-          warnings: [],
-        })),
-      })),
-    };
-    const mockTrip: TripResponse = {
-      id: trip.tripId || post.id,
-      name: trip.name,
-      destinationName: trip.destinationName,
-      destinationPlaceId: null,
-      startDate: trip.startDate || new Date().toISOString().split("T")[0],
-      endDate: trip.endDate || new Date().toISOString().split("T")[0],
-      status: "CONFIRMED",
-      displayStatus: "UPCOMING",
-      visibility: "PUBLIC",
-      ownerId: post.author.id,
-      travelerCount: null,
-      budgetAmount: null,
-      budgetCurrency: null,
-      notes: null,
-      coverImageUrl: trip.coverImageUrl || null,
-      version: 1,
-      createdAt: (post as any).publishedAt || new Date().toISOString(),
-      updatedAt: (post as any).publishedAt || new Date().toISOString(),
-    };
-    downloadTripIcs(mockTrip, convertedItinerary);
-  };
 
   return (
     <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
@@ -252,10 +196,10 @@ export function SharedTripDetailView({
               <h2 className="font-bold">{post.author.name}</h2>
               <div className="mt-1 flex items-center gap-2">
                 <Badge variant="secondary" className="rounded-full">
-                  {visibilityLabel(post.visibility)}
+                  {visibilityLabel(post.visibility, t)}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  Bản sao hành trình
+                  {t("social.tripShareSnapshotLabel")}
                 </span>
               </div>
             </div>
@@ -267,7 +211,7 @@ export function SharedTripDetailView({
               className="rounded-full"
               onClick={() => setEditing(true)}
             >
-              <Edit3 className="h-4 w-4" /> Chỉnh sửa
+              <Edit3 className="h-4 w-4" /> {t("social.tripShareEdit")}
             </Button>
           )}
         </div>
@@ -280,7 +224,7 @@ export function SharedTripDetailView({
               className="min-h-28 rounded-xl"
             />
             <div className="grid gap-2 sm:grid-cols-3">
-              {visibilityOptions.map(({ value, label, icon: Icon }) => (
+              {visibilityOptions.map(({ value, labelKey, icon: Icon }) => (
                 <button
                   key={value}
                   type="button"
@@ -288,23 +232,23 @@ export function SharedTripDetailView({
                   className={`flex items-center gap-2 rounded-xl border p-3 text-sm font-bold ${visibility === value ? "border-primary bg-primary/10 text-primary" : "border-border"}`}
                 >
                   <Icon className="h-4 w-4" />
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditing(false)}>
-                <X className="h-4 w-4" /> Hủy
+                <X className="h-4 w-4" /> {t("social.tripShareCancel")}
               </Button>
               <Button onClick={save} disabled={saving}>
-                <Check className="h-4 w-4" /> {saving ? "Đang lưu..." : "Lưu"}
+                <Check className="h-4 w-4" /> {t(saving ? "social.tripShareSaving" : "social.tripShareSave")}
               </Button>
             </div>
           </div>
         ) : (
           <p className="mt-5 whitespace-pre-line text-base leading-7">
-            {post.content || "Hành trình này được chia sẻ từ My Trips."}
+            {post.content || t("social.tripShareDefaultCaption")}
           </p>
         )}
       </section>
@@ -320,13 +264,13 @@ export function SharedTripDetailView({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-            Chưa có ảnh bìa
+            {t("social.tripShareCoverMissing")}
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
         <div className="absolute left-5 top-5 flex gap-2">
           <Badge className="rounded-full bg-background text-foreground hover:bg-background">
-            <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Bản sao an toàn
+            <ShieldCheck className="mr-1 h-3.5 w-3.5" /> {t("social.tripShareSafeCopy")}
           </Badge>
         </div>
         <div className="absolute bottom-7 left-6 right-6 text-white">
@@ -344,37 +288,36 @@ export function SharedTripDetailView({
         <div className="grid gap-3 sm:grid-cols-3">
           <Stat
             icon={CalendarDays}
-            label="Thời gian"
-            value={`${publication?.datePrecision === "EXACT" ? dateRange(trip.startDate, trip.endDate) : "Ngày đi được ẩn"} · ${publicSummary?.dayCount ?? trip.dayCount ?? 0} ngày`}
+            label={t("social.tripShareDurationLabel")}
+            value={`${publication?.datePrecision === "EXACT" ? dateRange(trip.startDate, trip.endDate, locale, t("social.tripShareDatesHidden")) : t("social.tripShareDatesHidden")} · ${t("social.tripShareDaysCount", { count: publicSummary?.dayCount ?? trip.dayCount ?? 0 })}`}
           />
           <Stat
             icon={MapPin}
-            label="Điểm đến"
+            label={t("social.tripShareDestinationLabel")}
             value={publicSummary?.destinationName || trip.destinationName}
           />
           <Stat
             icon={Route}
-            label="Hoạt động công khai"
-            value={`${publicSummary?.itineraryItemCount ?? trip.itineraryItemCount ?? 0} mục`}
+            label={t("social.tripSharePublicActivitiesLabel")}
+            value={t("social.tripShareItemsCount", { count: publicSummary?.itineraryItemCount ?? trip.itineraryItemCount ?? 0 })}
           />
         </div>
         {publication ? (
           <div className="mt-7">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold">Lịch trình công khai</h3>
+                <h3 className="text-lg font-bold">{t("social.tripSharePublicItinerary")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Bản đã đóng băng · revision {publication.publicationRevision}
+                  {t("social.tripShareFrozenRevision", { revision: publication.publicationRevision })}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
-                  variant="outline"
                   size="sm"
                   className="rounded-full gap-1.5"
-                  onClick={handleExportIcs}
+                  onClick={() => setImportOpen(true)}
                 >
-                  <FileDown className="h-4 w-4" /> Xuất file .ics
+                  <Route className="h-4 w-4" /> {t("social.importTripAction")}
                 </Button>
                 {detail?.canManagePublication && (
                   <Button
@@ -389,7 +332,7 @@ export function SharedTripDetailView({
                     ) : (
                       <RefreshCw className="h-4 w-4" />
                     )}{" "}
-                    Cập nhật bản chia sẻ
+                    {t("social.tripShareRefresh")}
                   </Button>
                 )}
               </div>
@@ -404,8 +347,8 @@ export function SharedTripDetailView({
                     {day.dayNumber}
                   </span>
                   <h4 className="font-bold">
-                    Ngày {day.dayNumber}
-                    {day.date ? ` · ${day.date}` : ""}
+                    {t("social.tripShareDayLabel", { count: day.dayNumber })}
+                    {day.date ? ` · ${dateRange(day.date, day.date, locale, "")}` : ""}
                   </h4>
                   <div className="mt-3 space-y-2">
                     {day.items.length ? (
@@ -435,7 +378,7 @@ export function SharedTripDetailView({
                                 ? ` – ${item.endTime.slice(0, 5)}`
                                 : ""}
                               {item.durationMinutes
-                                ? ` · ${item.durationMinutes} phút`
+                                ? ` · ${t("social.tripShareMinutes", { count: item.durationMinutes })}`
                                 : ""}
                             </p>
                           )}
@@ -443,7 +386,7 @@ export function SharedTripDetailView({
                       ))
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Không có hoạt động công khai trong ngày này.
+                        {t("social.tripShareNoActivities")}
                       </p>
                     )}
                   </div>
@@ -455,10 +398,9 @@ export function SharedTripDetailView({
           <div className="mt-6 flex gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
             <div>
-              <p className="font-bold">Bài chia sẻ cũ chỉ có bản tóm tắt</p>
+              <p className="font-bold">{t("social.tripShareSummaryOnlyTitle")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Chủ bài viết cần xem trước và tái xuất bản để có timeline an
-                toàn.
+                {t("social.tripShareSummaryOnlyDescription")}
               </p>
               {detail?.canManagePublication && (
                 <Button
@@ -472,7 +414,7 @@ export function SharedTripDetailView({
                   ) : (
                     <RefreshCw className="h-4 w-4" />
                   )}{" "}
-                  Xem trước để tái xuất bản
+                  {t("social.tripSharePreviewRepublish")}
                 </Button>
               )}
             </div>
@@ -481,22 +423,24 @@ export function SharedTripDetailView({
         {managementPreview && (
           <div className="mt-6 rounded-2xl border border-primary/25 bg-primary/5 p-5">
             <p className="text-xs font-bold uppercase tracking-wider text-primary">
-              Xác nhận bản cập nhật
+              {t("social.tripShareConfirmUpdate")}
             </p>
             <h3 className="mt-1 font-bold">
               {managementPreview.snapshot.summary.name}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              {managementPreview.snapshot.summary.dayCount} ngày ·{" "}
-              {managementPreview.snapshot.summary.itineraryItemCount} hoạt động
-              · revision {managementPreview.snapshot.publicationRevision}
+              {t("social.tripShareUpdateSummary", {
+                days: managementPreview.snapshot.summary.dayCount,
+                items: managementPreview.snapshot.summary.itineraryItemCount,
+                revision: managementPreview.snapshot.publicationRevision,
+              })}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <Button
                 variant="ghost"
                 onClick={() => setManagementPreview(null)}
               >
-                Hủy
+                {t("social.tripShareCancel")}
               </Button>
               <Button onClick={confirmRefresh} disabled={refreshing}>
                 {refreshing ? (
@@ -504,7 +448,7 @@ export function SharedTripDetailView({
                 ) : (
                   <Check className="h-4 w-4" />
                 )}{" "}
-                Xác nhận cập nhật
+                {t("social.tripShareConfirmUpdateAction")}
               </Button>
             </div>
           </div>
@@ -513,7 +457,7 @@ export function SharedTripDetailView({
           <p className="mt-4 text-sm font-semibold text-destructive">{error}</p>
         )}
         <div className="mt-6">
-          <h3 className="font-bold">Điểm nhấn hành trình</h3>
+          <h3 className="font-bold">{t("social.tripShareHighlightsTitle")}</h3>
           {trip.highlights?.length ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {trip.highlights.map((item, index) => (
@@ -522,7 +466,7 @@ export function SharedTripDetailView({
                   className="rounded-2xl border border-border bg-muted/40 p-4"
                 >
                   <p className="text-xs font-bold text-primary">
-                    Ngày {item.dayNumber}
+                    {t("social.tripShareDayLabel", { count: item.dayNumber })}
                   </p>
                   <p className="mt-1 font-bold">
                     {item.placeName || getLocalizedPublicItemTitle(item, t)}
@@ -532,24 +476,29 @@ export function SharedTripDetailView({
             </div>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
-              Chưa có điểm nhấn công khai.
+              {t("social.tripShareNoHighlights")}
             </p>
           )}
         </div>
         <div className="mt-6 flex gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div>
-            <p className="font-bold">Nội dung riêng tư đã được loại bỏ</p>
+            <p className="font-bold">{t("social.tripSharePrivacyRemovedTitle")}</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Trang này không hiển thị ghi chú, ngân sách, người tham gia, thông
-              tin đặt chỗ, địa chỉ chi tiết hoặc tọa độ. Đây là bản đã đóng
-              băng: sửa, lưu trữ hoặc xóa chuyến đi gốc không tự thay đổi bài
-              Community; chủ bài phải cập nhật hoặc xóa bài riêng. Bản đồ được
-              tạm hoãn cho đến khi có Place ID công khai an toàn.
+              {t("social.tripSharePrivacyRemovedDescription")}
             </p>
           </div>
         </div>
       </section>
+      <ImportCommunityTripDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        postId={post.id}
+        defaultName={t("social.importTripDefaultName", {
+          name: publicSummary?.name || trip.name,
+        })}
+        dayCount={publicSummary?.dayCount ?? trip.dayCount ?? 1}
+      />
     </article>
   );
 }

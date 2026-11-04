@@ -220,12 +220,20 @@ services:
     environment:
       MONGODB_URI: ${DOCKER_MONGODB_URI:-mongodb://mongodb:27017/tripsense_places}
       MONGODB_DATABASE: ${MONGODB_DATABASE:-tripsense_places}
+      PLACE_ADMIN_CATALOG_WRITES_ENABLED: ${PLACE_ADMIN_CATALOG_WRITES_ENABLED:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       SERVER_PORT: 8082
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
+      ZIOMAP_PHOTO_PERSISTENCE_APPROVED: ${ZIOMAP_PHOTO_PERSISTENCE_APPROVED:-false}
+      ZIOMAP_PHOTO_PERSISTENCE_LICENSE_EVIDENCE_URL: ${ZIOMAP_PHOTO_PERSISTENCE_LICENSE_EVIDENCE_URL:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_PLACE_FOLDER_PREFIX: ${CLOUDINARY_PLACE_FOLDER_PREFIX:-tripsense/places}
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
@@ -273,6 +281,7 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}
       RECOMMENDATION_CACHE_KEY_SECRET: ${RECOMMENDATION_CACHE_KEY_SECRET:-}
+      RECOMMENDATION_MEDIA_READY_ONLY: ${RECOMMENDATION_MEDIA_READY_ONLY:-false}
     depends_on:
       recommendation-db:
         condition: service_healthy
@@ -432,6 +441,8 @@ services:
       REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set; run Docker Compose with --env-file env/.env}
       AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
+      COMMUNITY_IMPORT_INTERNAL_KEY: ${COMMUNITY_IMPORT_INTERNAL_KEY:?COMMUNITY_IMPORT_INTERNAL_KEY must be set; run Docker Compose with --env-file env/.env}
+      SOCIAL_SERVICE_URL: http://social-service:8086
       PLACE_SERVICE_URL: http://place-service:8082
       EMAIL_SERVICE_URL: http://mail-service:8082
       WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3000}
@@ -477,6 +488,8 @@ services:
       TRIP_SERVICE_URL: http://trip-service:8084
       PLACE_SERVICE_URL: http://place-service:8082
       COMMUNITY_REVIEWS_WRITE_ENABLED: ${COMMUNITY_REVIEWS_WRITE_ENABLED:-false}
+      COMMUNITY_IMPORT_INTERNAL_KEY: ${COMMUNITY_IMPORT_INTERNAL_KEY:?COMMUNITY_IMPORT_INTERNAL_KEY must be set; run Docker Compose with --env-file env/.env}
+      COMMUNITY_SAVED_CURSOR_SECRET: ${COMMUNITY_SAVED_CURSOR_SECRET:?COMMUNITY_SAVED_CURSOR_SECRET must be set; run Docker Compose with --env-file env/.env}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
       EUREKA_CLIENT_ENABLED: "true"
       EUREKA_REGISTER: "true"

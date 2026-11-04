@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approvedAttributionUrl, approvedPhoto, approvedPhotoGallery, hasFreshPhotoLookup } from "./approved-photo";
+import { approvedAttributionUrl, approvedPhoto, approvedPhotoGallery, freshApprovedPhotoGallery, hasFreshPhotoLookup } from "./approved-photo";
 import type { Place } from "../types";
 
 const photo = {
@@ -35,6 +35,36 @@ describe("approvedPhoto", () => {
     expect(hasFreshPhotoLookup(place, now - 60_000, now)).toBe(true);
     expect(hasFreshPhotoLookup(place, now - 5 * 60_000, now)).toBe(false);
     expect(hasFreshPhotoLookup(place, undefined, now)).toBe(false);
+  });
+
+  it("keeps durable Cloudinary media after the provider URL TTL", () => {
+    const durable = {
+      ...photo,
+      source: "cloudinary",
+      url: "https://res.cloudinary.com/tripsense/image/upload/place-1",
+      fetchedAt: "2025-01-01T00:00:00Z",
+    };
+    expect(
+      freshApprovedPhotoGallery(
+        { photos: [], photoGallery: [durable], primaryPhoto: durable },
+        Date.parse("2026-11-03T00:00:00Z"),
+      ),
+    ).toEqual([durable]);
+  });
+
+  it("does not render expired provider media while a fresh URL is requested", () => {
+    const now = Date.parse("2026-10-28T12:00:00Z");
+    const place: Place = {
+      id: "place-1",
+      name: "Cafe",
+      categories: [],
+      photos: [],
+      photoGallery: [
+        { ...photo, fetchedAt: "2026-09-24T12:00:00Z" },
+      ],
+    };
+
+    expect(freshApprovedPhotoGallery(place, now)).toEqual([]);
   });
 
   it("rejects generic Unsplash images because they are not evidence for a place", () => {

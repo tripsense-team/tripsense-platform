@@ -2,6 +2,7 @@ package fu.tripsense.placeservice.service;
 
 import fu.tripsense.placeservice.domain.model.UserPlaceCollection;
 import fu.tripsense.placeservice.domain.model.UserSavedPlace;
+import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.domain.repository.UserPlaceCollectionRepository;
 import fu.tripsense.placeservice.domain.repository.UserSavedPlaceRepository;
@@ -178,6 +179,7 @@ public class UserSavedPlaceService {
             .collect(Collectors.toMap(PlaceDto::getId, Function.identity(), (left, right) -> left));
     List<SavedPlaceDto> content =
         pageRefs.stream()
+            .filter(placeById::containsKey)
             .map(
                 ref -> {
                   List<UserSavedPlace> values = grouped.get(ref);
@@ -216,9 +218,10 @@ public class UserSavedPlaceService {
   }
 
   private void requireCanonicalPlace(String placeRef) {
-    if (placeRef == null
-        || !placeRef.matches("[A-Za-z0-9._:-]{1,200}")
-        || !places.existsById(placeRef)) {
+    Place place = placeRef == null || !placeRef.matches("[A-Za-z0-9._:-]{1,200}")
+        ? null : places.findById(placeRef).orElse(null);
+    if (place == null || place.getLifecycleStatus()
+        == fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED) {
       throw new PlaceActionException(
           HttpStatus.UNPROCESSABLE_ENTITY, "PLACE_NOT_CANONICAL", "Place could not be resolved");
     }

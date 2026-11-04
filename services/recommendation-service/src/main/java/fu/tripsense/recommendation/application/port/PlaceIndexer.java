@@ -4,4 +4,6 @@ import fu.tripsense.recommendation.domain.PlaceSnapshot;
 
 public interface PlaceIndexer {
   boolean indexIfChanged(PlaceSnapshot place);
+
+  void remove(String placeId);
 }

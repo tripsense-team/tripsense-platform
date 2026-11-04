@@ -72,7 +72,8 @@ export function PostComposer({ onPostCreated, className }: PostComposerProps) {
   );
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const mediaFilesRef = React.useRef(mediaFiles);
-  const displayName = profile?.email?.split("@")[0] || user?.name || "Bạn";
+  const displayName =
+    profile?.displayName || user?.name || t("common.guestUser");
   const avatar = profile?.avatarUrl || user?.avatar;
   const initials = displayName
     .trim()

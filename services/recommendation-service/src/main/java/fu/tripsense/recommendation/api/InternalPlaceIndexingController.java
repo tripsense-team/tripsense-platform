@@ -9,6 +9,9 @@ import fu.tripsense.recommendation.security.InternalApiKeyAuthorizer;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,5 +46,14 @@ public class InternalPlaceIndexingController {
             outcome.indexed(),
             outcome.skipped(),
             indexingService.isSemanticEnabled()));
+  }
+
+  @DeleteMapping("/{placeId}")
+  public ResponseEntity<Void> removePlace(
+      @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
+      @PathVariable String placeId) {
+    authorizer.requireAuthorized(apiKey);
+    indexingService.removePlace(placeId);
+    return ResponseEntity.noContent().build();
   }
 }

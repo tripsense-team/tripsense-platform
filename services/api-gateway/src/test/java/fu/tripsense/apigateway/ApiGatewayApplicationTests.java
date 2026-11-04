@@ -100,10 +100,11 @@ class ApiGatewayApplicationTests {
                         GatewayRoutesConfig.COLLECTION_WRITES_ROUTE_ID,
                         GatewayRoutesConfig.SAVED_MEMBERSHIP_WRITES_ROUTE_ID,
                         GatewayRoutesConfig.TRIP_PLACE_WRITES_ROUTE_ID,
+                        GatewayRoutesConfig.COMMUNITY_TRIP_IMPORT_ROUTE_ID,
                         GatewayRoutesConfig.REVIEW_WRITES_ROUTE_ID,
                         GatewayRoutesConfig.REVIEW_READS_ROUTE_ID)
                     .contains(route.getId()))
-        .hasSize(5)
+        .hasSize(6)
         .allSatisfy(route -> assertThat(route.getFilters()).isNotEmpty());
   }
 }

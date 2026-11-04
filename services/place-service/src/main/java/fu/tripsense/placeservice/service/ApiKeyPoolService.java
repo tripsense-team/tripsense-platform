@@ -512,6 +512,17 @@ public class ApiKeyPoolService {
           false, "429: Hết hạn mức truy vấn nhà cung cấp (Quota Exceeded)", ApiKeyStatus.EXHAUSTED);
     } catch (org.springframework.web.client.HttpClientErrorException.Unauthorized
         | org.springframework.web.client.HttpClientErrorException.Forbidden e) {
+      String providerResponse = e.getResponseBodyAsString();
+      if (containsQuotaSignal(providerResponse) || containsQuotaSignal(e.getMessage())) {
+        log.warn(
+            "[ApiKeyPool] Validation quota exhausted for provider {}: {}",
+            provider,
+            e.getMessage());
+        return new KeyValidationResult(
+            false,
+            "Hết hạn mức truy vấn nhà cung cấp (Quota Exceeded)",
+            ApiKeyStatus.EXHAUSTED);
+      }
       log.warn("[ApiKeyPool] Validation 401/403 for provider {}: {}", provider, e.getMessage());
       return new KeyValidationResult(
           false, "401/403: API Key không hợp lệ hoặc IP bị chặn bởi nhà cung cấp", ApiKeyStatus.INVALID);
@@ -524,6 +535,16 @@ public class ApiKeyPoolService {
       return new KeyValidationResult(false, "Lỗi kiểm tra kết nối: " + e.getMessage(), ApiKeyStatus.EXHAUSTED);
     }
     return new KeyValidationResult(false, "Phản hồi không xác định từ nhà cung cấp", ApiKeyStatus.EXHAUSTED);
+  }
+
+  private boolean containsQuotaSignal(String value) {
+    if (value == null) return false;
+    String lower = value.toLowerCase(java.util.Locale.ROOT);
+    return lower.contains("quota")
+        || lower.contains("credit")
+        || lower.contains("rate limit")
+        || lower.contains("too many requests")
+        || lower.contains("usage limit");
   }
 
   public Map<String, Object> testKeyById(String id) {
@@ -602,7 +623,7 @@ public class ApiKeyPoolService {
         repository.findByProviderAndStatus(provider, ApiKeyStatus.INVALID);
     for (ApiKeyPoolItem item : invalidList) {
       String reason = item.getFailureReason();
-      if (reason != null && reason.toLowerCase().matches(".*(quota|rate limit|exhausted|limit:).*")) {
+      if (containsQuotaSignal(reason)) {
         item.setStatus(ApiKeyStatus.INACTIVE);
         item.setFailureReason(null);
         item.setExhaustedAt(null);

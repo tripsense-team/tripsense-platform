@@ -21,7 +21,11 @@ import {
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { Place } from "../types";
-import { approvedPhotoGallery } from "../utils/approved-photo";
+import { loadPlacePhotoGallery } from "../services/place-photo-enrichment";
+import {
+  approvedPhotoGallery,
+  freshApprovedPhotoGallery,
+} from "../utils/approved-photo";
 
 export interface MindtripPlaceCardProps {
   place: Place;
@@ -82,7 +86,14 @@ function MindtripPlaceCardComponent({
   className,
 }: MindtripPlaceCardProps) {
   const { t, locale } = useTranslation();
+  const visibilityRef = React.useRef<HTMLDivElement>(null);
   const [photoIndex, setPhotoIndex] = React.useState(0);
+  const [failedPhotoUrls, setFailedPhotoUrls] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const [loadedPhotos, setLoadedPhotos] = React.useState(() =>
+    freshApprovedPhotoGallery(place),
+  );
   const [priceCheckedAt] = React.useState(() => Date.now());
   const evidence = place.priceEvidence;
   const evidenceTime = evidence ? Date.parse(evidence.observedAt) : NaN;
@@ -114,17 +125,74 @@ function MindtripPlaceCardComponent({
     );
   }, [place.categories, place.name]);
 
-  const displayPhotos = React.useMemo(() => {
-    return approvedPhotoGallery(
+  const photosEnabled = process.env.NEXT_PUBLIC_PLACE_PHOTOS_ENABLED === "true";
+  const freshPlacePhotos = React.useMemo(
+    () => freshApprovedPhotoGallery(place),
+    [place],
+  );
+  const candidatePhotos = React.useMemo(
+    () =>
+      photosEnabled
+        ? loadedPhotos.length > 0
+          ? loadedPhotos
+          : freshPlacePhotos
+        : approvedPhotoGallery(
+            place.photoGallery,
+            place.primaryPhoto,
+            place.photos,
+          ),
+    [
+      freshPlacePhotos,
+      loadedPhotos,
+      photosEnabled,
       place.photoGallery,
       place.primaryPhoto,
       place.photos,
-    );
-  }, [
-    place.photoGallery,
-    place.primaryPhoto,
-    place.photos,
-  ]);
+    ],
+  );
+  const displayPhotos = React.useMemo(
+    () => candidatePhotos.filter((photo) => !failedPhotoUrls.has(photo.url)),
+    [candidatePhotos, failedPhotoUrls],
+  );
+
+  React.useEffect(() => {
+    if (!photosEnabled || freshPlacePhotos.length > 0) return;
+    const element = visibilityRef.current;
+    if (!element) return;
+
+    let active = true;
+    let requested = false;
+    const requestPhotos = () => {
+      if (requested) return;
+      requested = true;
+      void loadPlacePhotoGallery(place).then((photos) => {
+        if (active && photos.length > 0) setLoadedPhotos(photos);
+      });
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      requestPhotos();
+    } else {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            requestPhotos();
+            observer.disconnect();
+          }
+        },
+        { rootMargin: "200px" },
+      );
+      observer.observe(element);
+      return () => {
+        active = false;
+        observer.disconnect();
+      };
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [freshPlacePhotos.length, photosEnabled, place]);
 
   const safePhotoIndex = displayPhotos.length > 0
     ? Math.min(photoIndex, displayPhotos.length - 1)
@@ -158,6 +226,7 @@ function MindtripPlaceCardComponent({
 
   return (
     <div
+      ref={visibilityRef}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -189,6 +258,13 @@ function MindtripPlaceCardComponent({
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             unoptimized
             className="object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => {
+              setFailedPhotoUrls((previous) => {
+                const next = new Set(previous);
+                next.add(currentPhoto.url);
+                return next;
+              });
+            }}
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted text-muted-foreground">

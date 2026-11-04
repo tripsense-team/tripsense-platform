@@ -186,7 +186,8 @@ export async function searchRealHotels(
   checkIn?: string,
   checkOut?: string,
   guests: number = 2,
-  quantity: number = 1
+  quantity: number = 1,
+  searchTerm: string = "",
 ): Promise<MindtripHotel[]> {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -244,7 +245,7 @@ export async function searchRealHotels(
   let placeHotels: MindtripHotel[] = [];
   try {
     const placesRes = await searchPlaces({
-      q: destination && destination !== "all" ? `khách sạn ở ${destination}` : "khách sạn",
+      q: searchTerm.trim() || (destination && destination !== "all" ? `khách sạn ở ${destination}` : "khách sạn"),
       category: "STAY",
       limit: 24,
     });
@@ -376,7 +377,11 @@ export async function searchRealHotels(
     return 0;
   });
 
-  return deduplicatedHotels;
+  const normalizedSearch = normalizeHotelString(searchTerm);
+  if (!normalizedSearch) return deduplicatedHotels;
+  return deduplicatedHotels.filter((hotel) =>
+    [hotel.name, hotel.district, hotel.city, hotel.address]
+      .some((value) => normalizeHotelString(value || "").includes(normalizedSearch)));
 }
 
 export type DirectBookingCriteria = {

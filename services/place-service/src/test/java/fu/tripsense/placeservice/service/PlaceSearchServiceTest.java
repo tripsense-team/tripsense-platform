@@ -25,6 +25,7 @@ import fu.tripsense.placeservice.service.impl.PlaceSearchServiceImpl;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -145,6 +146,28 @@ class PlaceSearchServiceTest {
         List.of("hotel-provider"), result.stream().map(PlaceDto::getProviderPlaceId).toList());
     verify(cache)
         .putSearchResults(eq("STAY|khách sạn"), anyDouble(), anyDouble(), anyInt(), eq(48), any());
+  }
+
+  @Test
+  void specificStaySearchFindsStoredHotelOutsideGenericBrowseResults() {
+    Place stored = Place.builder().id("manual-hotel").name("long1 hotel")
+        .primaryType("hotel").categories(List.of("lodging"))
+        .lastFetchedAt(Instant.now()).build();
+    PlaceDto hotel = PlaceDto.builder().id("manual-hotel").name("long1 hotel")
+        .categories(List.of("lodging")).build();
+    when(cache.getSearchResults(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(Optional.empty());
+    when(repository.searchByText(eq("long1 hotel"), any(Pageable.class)))
+        .thenReturn(List.of(stored));
+    when(persistence.toDto(stored)).thenReturn(hotel);
+
+    List<PlaceDto> result = service.searchPlaces("long1 hotel", null, null, null, 24,
+        PlaceBrowseCategory.STAY);
+
+    assertEquals(List.of(hotel), result);
+    verify(cache).putSearchResults(eq("STAY|long1 hotel"), anyDouble(), anyDouble(), anyInt(),
+        eq(24), any());
+    verify(provider, never()).textSearch(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt());
   }
 
   @Test

@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   Camera,
   Compass,
   Lightbulb,
   Map,
   MessageCircle,
+  Bookmark,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -160,7 +162,6 @@ export function SocialFeedScreen() {
     </main>
   );
 }
-
 function CommunityHero({ onCreate }: { onCreate: () => void }) {
   const { t } = useTranslation();
 
@@ -179,17 +180,23 @@ function CommunityHero({ onCreate }: { onCreate: () => void }) {
             {t("social.communityHeroSubtitle")}
           </p>
         </div>
-        <Button
-          onClick={onCreate}
-          className="w-fit rounded-full px-6 font-bold shadow-sm"
-        >
-          <Sparkles className="h-4 w-4" /> {t("social.publishNow")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="rounded-full px-5 font-bold">
+            <Link href="/community/saved">
+              <Bookmark className="h-4 w-4" /> {t("social.savedTripsTitle")}
+            </Link>
+          </Button>
+          <Button
+            onClick={onCreate}
+            className="w-fit rounded-full px-6 font-bold shadow-sm"
+          >
+            <Sparkles className="h-4 w-4" /> {t("social.publishNow")}
+          </Button>
+        </div>
       </div>
     </header>
   );
 }
-
 function CommunityRail() {
   const { t } = useTranslation();
   const {
@@ -264,20 +271,5 @@ function RailCard({
       </p>
       <div className="mt-4 border-t border-border pt-4">{children}</div>
     </section>
-  );
-}
-
-function RailTip({
-  icon: Icon,
-  text,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  text: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 text-muted-foreground">
-      <Icon className="h-4 w-4 text-primary" />
-      <span>{text}</span>
-    </div>
   );
 }

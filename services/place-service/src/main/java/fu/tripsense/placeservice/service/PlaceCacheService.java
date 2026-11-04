@@ -34,4 +34,6 @@ public interface PlaceCacheService {
   void putPlaceDetails(String placeId, PlaceDto place);
 
   default void invalidatePriceEvidence(String placeId) {}
+
+  default void invalidatePlaceCatalog(String placeId) {}
 }

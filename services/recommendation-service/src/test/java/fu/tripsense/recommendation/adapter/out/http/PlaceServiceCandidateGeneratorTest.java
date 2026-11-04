@@ -33,6 +33,7 @@ class PlaceServiceCandidateGeneratorTest {
         .andExpect(method(POST))
         .andExpect(jsonPath("$.query").value("quiet cafe"))
         .andExpect(jsonPath("$.allowExternalRefresh").value(true))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(false))
         .andRespond(
             withSuccess(
                 """

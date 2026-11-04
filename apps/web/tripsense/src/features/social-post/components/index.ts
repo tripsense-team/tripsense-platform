@@ -23,3 +23,5 @@ export * from "./trending-destinations-widget";
 export * from "./image-lightbox";
 export * from "./report-post-dialog";
 export * from "./trip-sharing-workspace";
+export * from "./import-community-trip-dialog";
+export * from "./saved-trip-shares-screen";

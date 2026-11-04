@@ -37,6 +37,7 @@ class GatewayRoutesConfig {
   static final String COLLECTION_WRITES_ROUTE_ID = "place-collection-writes";
   static final String SAVED_MEMBERSHIP_WRITES_ROUTE_ID = "saved-membership-writes";
   static final String TRIP_PLACE_WRITES_ROUTE_ID = "trip-place-writes";
+  static final String COMMUNITY_TRIP_IMPORT_ROUTE_ID = "community-trip-import";
   static final String REVIEW_WRITES_ROUTE_ID = "community-review-writes";
   static final String REVIEW_READS_ROUTE_ID = "community-review-reads";
 
@@ -88,6 +89,8 @@ class GatewayRoutesConfig {
       @Qualifier("savedMembershipWriteRateLimiter")
           RedisRateLimiter savedMembershipWriteRateLimiter,
       @Qualifier("tripPlaceWriteRateLimiter") RedisRateLimiter tripPlaceWriteRateLimiter,
+      @Qualifier("communityTripImportRateLimiter")
+          RedisRateLimiter communityTripImportRateLimiter,
       @Qualifier("reviewWriteRateLimiter") RedisRateLimiter reviewWriteRateLimiter,
       @Qualifier("reviewReadRateLimiter") RedisRateLimiter reviewReadRateLimiter,
       @Qualifier("clientIpKeyResolver") KeyResolver clientIpKeyResolver,
@@ -162,6 +165,42 @@ class GatewayRoutesConfig {
                                 }))
                     .uri(PLACE_SERVICE_URI))
         .route(
+            "place-admin-catalog-writes",
+            route ->
+                route
+                    .path("/api/places/admin/catalog", "/api/places/admin/catalog/**")
+                    .and()
+                    .method(HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE)
+                    .filters(
+                        filters ->
+                            filters
+                                .setRequestSize(256L * 1024)
+                                .requestRateLimiter(
+                                    config -> {
+                                      config.setRateLimiter(placeRedisRateLimiter);
+                                      config.setKeyResolver(authenticatedActorKeyResolver);
+                                      config.setDenyEmptyKey(true);
+                                    }))
+                    .uri(PLACE_SERVICE_URI))
+        .route(
+            "place-media-admin-upload",
+            route ->
+                route
+                    .path("/api/places/admin/*/media")
+                    .and()
+                    .method(HttpMethod.POST)
+                    .filters(
+                        filters ->
+                            filters
+                                .setRequestSize(11L * 1024 * 1024)
+                                .requestRateLimiter(
+                                    config -> {
+                                      config.setRateLimiter(placeRedisRateLimiter);
+                                      config.setKeyResolver(authenticatedActorKeyResolver);
+                                      config.setDenyEmptyKey(true);
+                                    }))
+                    .uri(PLACE_SERVICE_URI))
+        .route(
             PLACE_SERVICE_ROUTE_ID,
             route -> {
               var r = route.path(PLACE_SERVICE_PATH);
@@ -223,6 +262,24 @@ class GatewayRoutesConfig {
                                   config.setKeyResolver(authenticatedActorKeyResolver);
                                   config.setDenyEmptyKey(true);
                                 }))
+                    .uri(TRIP_SERVICE_URI))
+        .route(
+            COMMUNITY_TRIP_IMPORT_ROUTE_ID,
+            route ->
+                route
+                    .path("/api/trips/imports/community-shares/*")
+                    .and()
+                    .method(HttpMethod.POST)
+                    .filters(
+                        filters ->
+                            filters
+                                .setResponseHeader("Cache-Control", "private, no-store")
+                                .requestRateLimiter(
+                                    config -> {
+                                      config.setRateLimiter(communityTripImportRateLimiter);
+                                      config.setKeyResolver(authenticatedActorKeyResolver);
+                                      config.setDenyEmptyKey(true);
+                                    }))
                     .uri(TRIP_SERVICE_URI))
         .route(
             "partner-restaurant-menu-image-upload",
@@ -453,6 +510,11 @@ class GatewayRoutesConfig {
   @Bean
   RedisRateLimiter tripPlaceWriteRateLimiter() {
     return perMinuteRateLimiter(30);
+  }
+
+  @Bean
+  RedisRateLimiter communityTripImportRateLimiter() {
+    return perMinuteRateLimiter(10);
   }
 
   @Bean

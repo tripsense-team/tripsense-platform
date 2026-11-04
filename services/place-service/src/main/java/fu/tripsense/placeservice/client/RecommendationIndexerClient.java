@@ -71,4 +71,26 @@ public class RecommendationIndexerClient {
           }
         });
   }
+
+  public void triggerDeindexingAsync(String placeId) {
+    if (placeId == null || placeId.isBlank()) return;
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            String baseUrl = properties.getRecommendationServiceUrl();
+            if (baseUrl == null || baseUrl.isBlank()) baseUrl = "http://localhost:8088";
+            restClient
+                .delete()
+                .uri(baseUrl + "/api/recommendations/internal/places/{placeId}", placeId)
+                .header("X-Internal-Api-Key", properties.getRecommendationInternalApiKey())
+                .retrieve()
+                .toBodilessEntity();
+            log.info("Triggered async recommendation de-indexing for placeId={}", placeId);
+          } catch (Exception exception) {
+            log.warn(
+                "Async recommendation de-indexing notification failed: errorType={}",
+                exception.getClass().getSimpleName());
+          }
+        });
+  }
 }

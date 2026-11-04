@@ -1,6 +1,7 @@
 package fu.tripsense.placeservice.domain.repository;
 
 import fu.tripsense.placeservice.domain.model.Place;
+import fu.tripsense.placeservice.domain.model.PlaceMediaState;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -36,4 +37,6 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
           "{ $or: [ { 'reviews': { $size: 0 } }, { 'reviews': null }, { 'photos': { $size: 0 } }, { 'photos': null }, { 'rating': null } ] }",
       count = true)
   long countPendingEnrichment();
+
+  long countByMediaState(PlaceMediaState mediaState);
 }

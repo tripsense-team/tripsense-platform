@@ -123,6 +123,14 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
     request.body(Map.of("points", List.of(point))).retrieve().toBodilessEntity();
   }
 
+  @Override
+  public void delete(String placeId) {
+    RestClient.RequestBodySpec request = restClient.post().uri(
+        properties.getQdrantUrl() + "/collections/" + properties.getCollection() + "/points/delete?wait=true");
+    configure(request);
+    request.body(Map.of("points", List.of(pointId(placeId)))).retrieve().toBodilessEntity();
+  }
+
   private void ensureCollection(int vectorSize) {
     try {
       request(
