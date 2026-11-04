@@ -490,25 +490,81 @@ export function OnboardingWizard() {
         ? freeText.trim().slice(0, 2000)
         : undefined;
 
-      const saved = await onboardingApi.save({
-        version: profile?.version ?? 0,
-        selections: cleanSelections,
-        places: cleanPlaces,
-        attributes: cleanAttributes,
-        freeText: cleanFreeText,
-      });
+      let targetVersion = profile?.version ?? 0;
+      let savedProfile: OnboardingProfile | null = null;
 
-      const completed = await onboardingApi.complete(saved.version);
-      setProfile(completed);
-      await onboardingApi.markProfileComplete();
-      useAuthStore.getState().setOnboardingCompleted(true);
-      router.replace("/explore");
+      try {
+        savedProfile = await onboardingApi.save({
+          version: targetVersion,
+          selections: cleanSelections,
+          places: cleanPlaces,
+          attributes: cleanAttributes,
+          freeText: cleanFreeText,
+        });
+      } catch (saveErr) {
+        // If version conflict occurred, refresh latest profile and retry save once
+        const errObj = saveErr as Record<string, unknown>;
+        const errCode = (errObj?.data as Record<string, unknown>)?.code || "";
+        const errMsg = String(saveErr instanceof Error ? saveErr.message : "");
+        const isConflict =
+          errObj?.status === 409 ||
+          errCode === "VERSION_CONFLICT" ||
+          errMsg.includes("VERSION_CONFLICT") ||
+          errMsg.includes("optimistic") ||
+          errMsg.includes("changed by another request");
+
+        if (isConflict) {
+          const fresh = await onboardingApi.get().catch(() => null);
+          if (fresh) {
+            if (fresh.status === "COMPLETED") {
+              await onboardingApi.markProfileComplete().catch(() => undefined);
+              useAuthStore.getState().setOnboardingCompleted(true);
+              router.replace("/explore");
+              return;
+            }
+            targetVersion = fresh.version;
+            savedProfile = await onboardingApi.save({
+              version: targetVersion,
+              selections: cleanSelections,
+              places: cleanPlaces,
+              attributes: cleanAttributes,
+              freeText: cleanFreeText,
+            });
+          } else {
+            throw saveErr;
+          }
+        } else {
+          throw saveErr;
+        }
+      }
+
+      if (savedProfile) {
+        const completed = await onboardingApi.complete(savedProfile.version).catch(async (completeErr) => {
+          // If already completed or version mismatch, verify latest state
+          const latest = await onboardingApi.get().catch(() => null);
+          if (latest?.status === "COMPLETED") {
+            return latest;
+          }
+          throw completeErr;
+        });
+        setProfile(completed);
+        await onboardingApi.markProfileComplete();
+        useAuthStore.getState().setOnboardingCompleted(true);
+        router.replace("/explore");
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
+      const rawData = typeof err === "object" && err !== null && "data" in err ? (err as { data?: unknown }).data : null;
+      const errorCode = typeof rawData === "object" && rawData !== null && "code" in rawData ? String((rawData as { code?: unknown }).code) : "";
+      const rawDetail = typeof rawData === "object" && rawData !== null && "message" in rawData ? String((rawData as { message?: unknown }).message) : "";
+      const combined = `${msg} ${errorCode} ${rawDetail}`.toLowerCase();
+
       if (
-        msg.includes("VERSION_CONFLICT") ||
-        msg.includes("optimistic") ||
-        msg.includes("already")
+        combined.includes("conflict") ||
+        combined.includes("version") ||
+        combined.includes("optimistic") ||
+        combined.includes("already") ||
+        combined.includes("completed")
       ) {
         // If already saved or version updated elsewhere, finalize gracefully
         try {
@@ -522,14 +578,16 @@ export function OnboardingWizard() {
       }
 
       if (
-        msg.includes("onboarding data is invalid") ||
-        msg.includes("VALIDATION_FAILED") ||
-        msg.includes("Budget tier") ||
-        msg.includes("Daily budget")
+        combined.includes("invalid") ||
+        combined.includes("validation_failed") ||
+        combined.includes("budget tier") ||
+        combined.includes("daily budget") ||
+        combined.includes("unsupported") ||
+        combined.includes("answers must be provided")
       ) {
         setError(t("onboarding.validationFailed", { defaultValue: "Dữ liệu thiết lập chưa đầy đủ hoặc không hợp lệ. Vui lòng kiểm tra lại ngân sách và các bước trước đó." }));
       } else {
-        setError(getSafeErrorMessage(err, t("errors.generic")));
+        setError(getSafeErrorMessage(err, t("onboarding.submitError", { defaultValue: "Không thể hoàn tất thiết lập lúc này. Vui lòng thử lại sau." })));
       }
     } finally {
       setSaving(false);

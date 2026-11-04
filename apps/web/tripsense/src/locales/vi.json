@@ -1126,7 +1126,9 @@
     "TRAVEL_PARTY": {
       "subtitle": "Thông tin này giúp gợi ý phù hợp với nhịp đi của bạn.",
       "title": "Bạn thường đi du lịch cùng ai?"
-    }
+    },
+    "validationFailed": "Dữ liệu thiết lập chưa đầy đủ hoặc không hợp lệ. Vui lòng kiểm tra lại ngân sách và các bước trước đó.",
+    "submitError": "Không thể hoàn tất thiết lập lúc này. Vui lòng thử lại sau."
   },
   "partner": {
     "analytics": {
@@ -1244,6 +1246,7 @@
       "cancelModalDesc": "Bạn có chắc chắn muốn hủy yêu cầu đặt bàn này không?",
       "cancelModalTitle": "Hủy yêu cầu đặt bàn",
       "cancelReason": "Lý do hủy:",
+      "cancelledByCustomer": "Khách đã hủy yêu cầu",
       "cancelReasonPlaceholder": "Lý do hủy (thay đổi lịch trình, tìm được quán khác...)",
       "cancelRequestButton": "Hủy yêu cầu",
       "cancelSuccess": "Đã hủy yêu cầu đặt bàn thành công.",
@@ -1312,6 +1315,7 @@
       "publicMenuEmpty": "Nhà hàng hiện chưa cập nhật thực đơn chi tiết trực tuyến.",
       "publicMenuTitle": "Thực đơn món ăn",
       "rejectButton": "Từ chối",
+      "bookDirect": "Đặt bàn trực tiếp tại quán",
       "rejectDesc": "Vui lòng cung cấp lý do từ chối để thực khách nắm được thông tin.",
       "rejectReasonPlaceholder": "Nhập lý do từ chối (tùy chọn)...",
       "rejectSuccess": "Đã từ chối yêu cầu đặt bàn.",

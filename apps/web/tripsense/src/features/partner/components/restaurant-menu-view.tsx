@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle,
@@ -29,6 +30,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RestaurantReservationsTab } from "./restaurant-reservations-tab";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +61,18 @@ interface RestaurantMenuViewProps {
 
 export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = React.useState<string>(
+    tabParam === "reservations" ? "reservations" : "menu",
+  );
+
+  React.useEffect(() => {
+    if (tabParam === "reservations" || tabParam === "menu") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
   const [business, setBusiness] = React.useState<BusinessDetailDto | null>(null);
   const [items, setItems] = React.useState<RestaurantMenuItemDto[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -375,7 +390,19 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
         </div>
       </div>
 
-      <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="h-10 p-1 mb-6 bg-muted/60 border border-border/60">
+          <TabsTrigger value="menu" className="gap-2 text-xs sm:text-sm font-semibold">
+            <Utensils className="h-4 w-4" />
+            <span>{t("partner.restaurant.tabMenu", { defaultValue: "Thực đơn & Bảng giá" })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="reservations" className="gap-2 text-xs sm:text-sm font-semibold">
+            <Calendar className="h-4 w-4" />
+            <span>{t("partner.restaurant.tabReservations", { defaultValue: "Yêu cầu đặt bàn" })}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="menu" className="space-y-6 mt-0">
           {/* Notifications */}
           {error && (
             <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-2">
@@ -623,7 +650,12 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
               )}
             </CardContent>
           </Card>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="reservations" className="space-y-6 mt-0">
+          <RestaurantReservationsTab businessId={businessId} />
+        </TabsContent>
+      </Tabs>
 
       {/* Lightbox Dialog: Fullscreen Preview */}
       <Dialog open={Boolean(lightboxPhoto)} onOpenChange={(open) => !open && setLightboxPhoto(null)}>

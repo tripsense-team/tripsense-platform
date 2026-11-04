@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useTranslation } from "@/i18n";
+import { RestaurantReservationDialog } from "./restaurant-reservation-dialog";
 import type { PublicRestaurantListingDto } from "../types";
 
 interface RestaurantOverviewCardProps {
@@ -39,6 +40,7 @@ export function RestaurantOverviewCard({
   onOpenReservation,
 }: RestaurantOverviewCardProps) {
   const { t } = useTranslation();
+  const [directReservationOpen, setDirectReservationOpen] = React.useState(false);
 
   if (loading) {
     return (
@@ -86,19 +88,36 @@ export function RestaurantOverviewCard({
         </CardHeader>
 
         <CardContent className="p-4 sm:p-5 space-y-4">
-          {/* Reservation CTA Button (Chat-First) */}
-          <div className="space-y-1.5">
+          {/* Reservation Action Buttons: Direct Booking & Chat */}
+          <div className="space-y-2">
+            <Button
+              type="button"
+              onClick={() => {
+                if (onOpenReservation) {
+                  onOpenReservation();
+                } else {
+                  setDirectReservationOpen(true);
+                }
+              }}
+              className="w-full h-10 gap-2 font-bold shadow-xs text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Calendar className="h-4 w-4" />
+              <span>{t("partner.restaurant.bookDirect", { defaultValue: "Đặt bàn trực tiếp tại quán" })}</span>
+            </Button>
+
             <Button
               asChild
-              className="w-full h-10 gap-2 font-semibold shadow-xs text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90"
+              variant="outline"
+              className="w-full h-9 gap-2 font-semibold shadow-xs text-xs sm:text-sm border-border/80 text-foreground hover:bg-muted/60"
             >
               <Link href={chatHref}>
-                <MessageSquare className="h-4 w-4" />
-                {t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin đặt bàn qua Chat" })}
+                <MessageSquare className="h-4 w-4 text-primary" />
+                <span>{t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin đặt bàn qua Chat" })}</span>
               </Link>
             </Button>
+
             <p className="text-[11px] text-muted-foreground text-center">
-              {t("partner.restaurant.freeReservationHelp", { defaultValue: "Trao đổi trực tiếp · Nhận phiếu giữ chỗ trong Chat" })}
+              {t("partner.restaurant.freeReservationHelp", { defaultValue: "Giữ bàn miễn phí · Xác nhận trực tiếp từ quán" })}
             </p>
           </div>
 
@@ -162,6 +181,14 @@ export function RestaurantOverviewCard({
             )}
           </div>
         </CardContent>
+
+        <RestaurantReservationDialog
+          businessId={restaurant.id}
+          restaurantName={restaurant.displayName}
+          ownerUserId={restaurant.ownerUserId}
+          open={directReservationOpen}
+          onOpenChange={setDirectReservationOpen}
+        />
       </Card>
     );
   }

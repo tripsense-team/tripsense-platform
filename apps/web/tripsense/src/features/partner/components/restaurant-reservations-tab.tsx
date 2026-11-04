@@ -378,7 +378,9 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
                       {item.cancellationReason && (
                         <div className="text-xs text-muted-foreground pt-0.5">
                           <span className="font-medium">{t("partner.restaurant.cancelReason", { defaultValue: "Lý do hủy:" })}</span>{" "}
-                          {item.cancellationReason}
+                          {item.cancellationReason === "Cancelled by customer"
+                            ? t("partner.restaurant.cancelledByCustomer", { defaultValue: "Khách đã hủy yêu cầu" })
+                            : item.cancellationReason}
                         </div>
                       )}
                     </div>

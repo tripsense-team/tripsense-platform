@@ -361,11 +361,13 @@ export function PartnerBusinessCard({
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 w-full text-xs"
+            className="h-8 w-full text-xs font-medium"
             onClick={() => setProfileEditorOpen(true)}
           >
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            {business.requiresReverification ? t("partner.profileUpdate.resume") : t("partner.profileUpdate.edit")}
+            <Pencil className="mr-1.5 h-3.5 w-3.5 text-primary" />
+            {business.requiresReverification
+              ? t("partner.profileUpdate.resume", { defaultValue: "Hoàn tất gửi xét duyệt" })
+              : t("partner.profileUpdate.edit", { defaultValue: "Cập nhật hồ sơ" })}
           </Button>
         )}
         <div className="flex w-full items-center gap-2">
@@ -449,18 +451,19 @@ export function PartnerBusinessCard({
                 className="h-8 text-xs flex-1"
               >
                 <Link href={`/partner/businesses/${business.id}/restaurant-menu`}>
-                  <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn
+                  <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn & Bảng giá
                 </Link>
               </Button>
 
               <Button
-                type="button"
+                asChild
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs flex-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
-                onClick={() => onSelectBookings?.(business.id)}
               >
-                <Calendar className="mr-1.5 h-3.5 w-3.5" /> Đơn đặt bàn
+                <Link href={`/partner/businesses/${business.id}/restaurant-menu?tab=reservations`}>
+                  <Calendar className="mr-1.5 h-3.5 w-3.5" /> Yêu cầu đặt bàn
+                </Link>
               </Button>
 
               <Button

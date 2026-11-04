@@ -15,6 +15,7 @@ import {
   Utensils,
   ImagePlus,
   MessageSquare,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { getPublicRestaurant, recordRestaurantView } from "../services/partner-api";
+import { RestaurantReservationDialog } from "./restaurant-reservation-dialog";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +62,7 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [activeLightboxImage, setActiveLightboxImage] = React.useState<{ url: string; title: string } | null>(null);
+  const [reservationOpen, setReservationOpen] = React.useState(false);
 
   React.useEffect(() => {
     async function load() {
@@ -195,12 +198,22 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
             )}
           </div>
 
-          {/* Unified Action Buttons */}
+          {/* Unified Action Buttons: Direct Booking & Chat */}
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setReservationOpen(true)}
+              className="h-9 shadow-xs gap-1.5 font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Calendar className="h-4 w-4" />
+              <span>{t("partner.restaurant.bookDirect", { defaultValue: "Đặt bàn trực tiếp" })}</span>
+            </Button>
+
             <Button
               asChild
               size="sm"
-              className="h-9 shadow-xs gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+              variant="outline"
+              className="h-9 shadow-xs gap-1.5 font-semibold border-border/80 text-foreground hover:bg-muted/60"
             >
               <Link
                 href={
@@ -211,8 +224,8 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                     : "/chat"
                 }
               >
-                <MessageSquare className="h-4 w-4" />
-                <span>{t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin đặt bàn qua Chat" })}</span>
+                <MessageSquare className="h-4 w-4 text-primary" />
+                <span>{t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin qua Chat" })}</span>
               </Link>
             </Button>
 
@@ -396,23 +409,36 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                   {t("partner.restaurant.bottomReserveDesc", { defaultValue: "Nhắn tin trực tiếp với quán trong mục Trò chuyện để nhận phiếu xác nhận giữ chỗ tốt nhất." })}
                 </p>
               </div>
-              <Button
-                asChild
-                className="font-semibold shadow-xs gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <Link
-                  href={
-                    data.ownerUserId
-                      ? `/chat?userId=${data.ownerUserId}&message=${encodeURIComponent(
-                          `Chào quán, mình muốn đặt bàn/tư vấn tại ${data.displayName}. Quán gửi phiếu xác nhận giúp mình nhé!`
-                        )}`
-                      : "/chat"
-                  }
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  onClick={() => setReservationOpen(true)}
+                  className="font-bold shadow-xs gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-9"
                 >
-                  <MessageSquare className="h-4 w-4" />
-                  {t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin đặt bàn qua Chat" })}
-                </Link>
-              </Button>
+                  <Calendar className="h-4 w-4" />
+                  <span>{t("partner.restaurant.bookDirect", { defaultValue: "Đặt bàn trực tiếp" })}</span>
+                </Button>
+
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="font-semibold shadow-xs gap-1.5 shrink-0 border-border/80 text-foreground hover:bg-muted/60 h-9"
+                >
+                  <Link
+                    href={
+                      data.ownerUserId
+                        ? `/chat?userId=${data.ownerUserId}&message=${encodeURIComponent(
+                            `Chào quán, mình muốn đặt bàn/tư vấn tại ${data.displayName}. Quán gửi phiếu xác nhận giúp mình nhé!`
+                          )}`
+                        : "/chat"
+                    }
+                  >
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    <span>{t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin qua Chat" })}</span>
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -437,6 +463,16 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
           </div>
         </DialogContent>
       </Dialog>
+
+      {data && (
+        <RestaurantReservationDialog
+          businessId={businessId}
+          restaurantName={data.displayName}
+          ownerUserId={data.ownerUserId}
+          open={reservationOpen}
+          onOpenChange={setReservationOpen}
+        />
+      )}
     </div>
   );
 }
