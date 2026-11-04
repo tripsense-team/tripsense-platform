@@ -476,7 +476,12 @@ export function OnboardingWizard() {
       useAuthStore.getState().setOnboardingCompleted(true);
       router.replace("/explore");
     } catch (err) {
-      setError(getSafeErrorMessage(err, t("errors.generic")));
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("onboarding data is invalid") || msg.includes("VALIDATION_FAILED")) {
+        setError(t("onboarding.validationFailed", { defaultValue: "Dữ liệu thiết lập chưa đầy đủ hoặc không hợp lệ. Vui lòng kiểm tra lại ngân sách và các bước trước đó." }));
+      } else {
+        setError(getSafeErrorMessage(err, t("errors.generic")));
+      }
     } finally {
       setSaving(false);
     }

@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { updateIntakeState, updatePublicationState } from "../services/partner-api";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { PartnerWizardModal } from "./partner-wizard-modal";
 import { useTranslation } from "@/i18n";
 import type { BusinessDetailDto } from "../types";
@@ -81,7 +82,12 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
       });
       onUpdated?.(updated);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Không thể thay đổi trạng thái công khai");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("REVERIFICATION_REQUIRED") || msg.includes("reverification")) {
+        setActionError("Cơ sở đang cần xác minh lại hồ sơ trước khi công khai");
+      } else {
+        setActionError(getSafeErrorMessage(err, "Không thể thay đổi trạng thái công khai"));
+      }
     } finally {
       setLoadingAction(false);
     }
@@ -98,7 +104,14 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
       });
       onUpdated?.(updated);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Không thể thay đổi tiếp nhận mới");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("READINESS_INCOMPLETE") || msg.includes("not eligible")) {
+        setActionError("Cơ sở chưa đủ điều kiện mở đón khách (Cần quyền Nhận đặt phòng và hoàn tất cấu hình phòng)");
+      } else if (msg.includes("REVERIFICATION_REQUIRED") || msg.includes("reverification")) {
+        setActionError("Cơ sở đang cần xác minh lại hồ sơ trước khi mở đón khách");
+      } else {
+        setActionError(getSafeErrorMessage(err, "Không thể thay đổi trạng thái đón tiếp"));
+      }
     } finally {
       setLoadingAction(false);
     }

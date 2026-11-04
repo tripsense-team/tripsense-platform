@@ -295,14 +295,18 @@ export function AdminPartnersView() {
         ? rawCaps.filter((cap) => cap.startsWith(expectedPrefix))
         : rawCaps;
 
-      const finalCaps =
-        filteredCaps.length > 0
-          ? filteredCaps
-          : selectedBizKind === "HOTEL"
-          ? (["HOTEL_LISTING", "HOTEL_INVENTORY", "HOTEL_BOOKING"] as PartnerCapability[])
+      const standardCapsForKind: PartnerCapability[] =
+        selectedBizKind === "HOTEL"
+          ? ["HOTEL_LISTING", "HOTEL_INVENTORY", "HOTEL_BOOKING"]
           : selectedBizKind === "RESTAURANT"
-          ? (["RESTAURANT_LISTING", "RESTAURANT_MENU"] as PartnerCapability[])
-          : (["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"] as PartnerCapability[]);
+          ? ["RESTAURANT_LISTING", "RESTAURANT_MENU"]
+          : ["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"];
+
+      // When approving, ensure all operational capabilities for the business kind are granted
+      const finalCaps =
+        decision === "APPROVE"
+          ? Array.from(new Set([...standardCapsForKind, ...filteredCaps]))
+          : filteredCaps;
 
       const capabilityDecisions = finalCaps.map((cap) => ({
         capability: cap,
@@ -654,10 +658,15 @@ export function AdminPartnersView() {
                 </div>
 
                 <div className="p-3.5 rounded-lg border border-border/70 bg-card space-y-2.5">
-                  <h3 className="font-semibold text-foreground text-xs flex items-center gap-1.5">
-                    <Layers className="h-3.5 w-3.5 text-primary" />
-                    {t("admin.partners.requestedCapabilities")}
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5 text-primary" />
+                      {t("admin.partners.requestedCapabilities")}
+                    </h3>
+                    <span className="text-[11px] text-muted-foreground">
+                      (Cấp đầy đủ quyền đón khách khi phê duyệt)
+                    </span>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {selectedApp.requestedCapabilities?.map((c) => {
                       const info = CAPABILITY_INFO[c];
