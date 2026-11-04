@@ -20,6 +20,4 @@ export * from "./components/restaurant-menu-ai-upload-modal";
 export * from "./components/restaurant-overview-card";
 export * from "./components/customer-reservations-view";
 export * from "./components/partner-subscription-view";
-
-
-
+export * from "./components/partner-bookings-hub";

@@ -40,9 +40,15 @@ interface PartnerBusinessCardProps {
   business: BusinessDetailDto;
   onUpdated?: (updated: BusinessDetailDto) => void;
   onProfileUpdateSubmitted?: () => void;
+  onSelectBookings?: (businessId: string) => void;
 }
 
-export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmitted }: PartnerBusinessCardProps) {
+export function PartnerBusinessCard({
+  business,
+  onUpdated,
+  onProfileUpdateSubmitted,
+  onSelectBookings,
+}: PartnerBusinessCardProps) {
   const { t } = useTranslation();
   const [loadingAction, setLoadingAction] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
@@ -106,8 +112,16 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
       onUpdated?.(updated);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("READINESS_INCOMPLETE") || msg.includes("not eligible")) {
-        setActionError("Cơ sở chưa đủ điều kiện mở đón khách (Cần quyền Nhận đặt phòng và hoàn tất cấu hình phòng)");
+      const rawData = typeof err === "object" && err !== null && "data" in err ? (err as { data?: unknown }).data : null;
+      const errorCode = typeof rawData === "object" && rawData !== null && "code" in rawData ? String((rawData as { code?: unknown }).code) : "";
+      const rawDetail = typeof rawData === "object" && rawData !== null && "message" in rawData ? String((rawData as { message?: unknown }).message) : "";
+      if (
+        msg.includes("READINESS_INCOMPLETE") ||
+        msg.toLowerCase().includes("not eligible") ||
+        errorCode === "READINESS_INCOMPLETE" ||
+        rawDetail.toLowerCase().includes("not eligible")
+      ) {
+        setActionError("Cơ sở chưa đủ điều kiện mở đón khách (Cần được cấp quyền nhận khách và hoàn tất cấu hình phòng/thực đơn)");
       } else if (msg.includes("REVERIFICATION_REQUIRED") || msg.includes("reverification")) {
         setActionError("Cơ sở đang cần xác minh lại hồ sơ trước khi mở đón khách");
       } else {
@@ -390,8 +404,17 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
                 className="h-8 text-xs flex-1"
               >
                 <Link href={`/partner/businesses/${business.id}/hotel`}>
-                  <BedDouble className="mr-1.5 h-3.5 w-3.5" /> Quản lý phòng & cơ sở
+                  <BedDouble className="mr-1.5 h-3.5 w-3.5" /> Quản lý phòng
                 </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
+                onClick={() => onSelectBookings?.(business.id)}
+              >
+                <Calendar className="mr-1.5 h-3.5 w-3.5" /> Đơn đặt phòng
               </Button>
               <Button
                 asChild
@@ -426,15 +449,25 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
                 className="h-8 text-xs flex-1"
               >
                 <Link href={`/partner/businesses/${business.id}/restaurant-menu`}>
-                  <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn & Bảng giá
+                  <Utensils className="mr-1.5 h-3.5 w-3.5" /> Thực đơn
                 </Link>
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
+                onClick={() => onSelectBookings?.(business.id)}
+              >
+                <Calendar className="mr-1.5 h-3.5 w-3.5" /> Đơn đặt bàn
               </Button>
 
               <Button
                 asChild
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs flex-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
+                className="h-8 text-xs flex-1"
               >
                 <Link href="/chat">
                   <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Chat với khách
@@ -448,7 +481,7 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
                 className="h-8 text-xs flex-1 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-medium"
               >
                 <Link href={`/partner/businesses/${business.id}/subscription`}>
-                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Gói Hội Viên
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Gói Pro
                 </Link>
               </Button>
               <Button

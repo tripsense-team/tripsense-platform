@@ -34,7 +34,7 @@ class RestExceptionHandler {
   @ExceptionHandler({IllegalArgumentException.class, MethodArgumentNotValidException.class})
   ResponseEntity<ApiError> invalid(Exception ex) {
     return ResponseEntity.badRequest()
-        .body(new ApiError("VALIDATION_FAILED", "The onboarding data is invalid"));
+        .body(new ApiError("VALIDATION_FAILED", ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : "The onboarding data is invalid"));
   }
 
   @ExceptionHandler(UnauthenticatedException.class)
