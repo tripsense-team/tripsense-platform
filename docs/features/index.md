@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `admin-place-map-reverse-geocoding` | IMPLEMENTING; automated checks pass, live provider acceptance pending | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./admin-place-map-reverse-geocoding.md) |
 | `admin-shared-place-catalog-crud` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./admin-shared-place-catalog-crud.md) |
 | `onboarding-daily-budget-recommendations` | DONE | `apps/web/tripsense`, `services/context-service`, `services/place-service`, `services/recommendation-service` | [Docs](./onboarding-daily-budget-recommendations.md) |
 | `ai-curated-place-recommendations` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-curated-place-recommendations.md) |

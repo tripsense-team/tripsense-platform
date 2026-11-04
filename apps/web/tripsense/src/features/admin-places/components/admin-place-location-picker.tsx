@@ -66,5 +66,9 @@ export function AdminPlaceLocationPicker({ value, onChange }: AdminPlaceLocation
 
   if (!key) return <p role="status" className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">{t("admin.places.locationMapUnavailable")}</p>;
 
-  return <div ref={containerRef} aria-label={t("admin.places.locationMapLabel")} className="h-56 w-full overflow-hidden rounded-xl border border-border bg-muted" />;
+  return (
+    <div className="h-56 w-full overflow-hidden rounded-xl border border-border bg-muted">
+      <div ref={containerRef} aria-label={t("admin.places.locationMapLabel")} className="h-full w-full" />
+    </div>
+  );
 }

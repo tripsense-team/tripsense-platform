@@ -4,9 +4,15 @@ import type {
   AdminPlaceMutation,
   AdminPlacePage,
   ApiEnvelope,
+  ReverseGeocodeResult,
 } from "../types";
 
 const BASE = "/api/places/admin/catalog";
+
+export async function reverseGeocodeAdminPlace(lat: number, lng: number, signal?: AbortSignal) {
+  const query = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+  return apiClient<ApiEnvelope<ReverseGeocodeResult>>(`${BASE}/reverse-geocode?${query}`, { signal });
+}
 
 export interface ListAdminPlacesParams {
   q?: string;

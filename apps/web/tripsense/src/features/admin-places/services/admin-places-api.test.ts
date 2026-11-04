@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "@/services/api-client";
 import {
-  archiveAdminPlace, createAdminPlace, listAdminPlaces, restoreAdminPlace, updateAdminPlace,
+  archiveAdminPlace, createAdminPlace, listAdminPlaces, restoreAdminPlace,
+  reverseGeocodeAdminPlace, updateAdminPlace,
 } from "./admin-places-api";
 
 vi.mock("@/services/api-client", () => ({ apiClient: vi.fn() }));
@@ -29,6 +30,16 @@ describe("admin places API", () => {
     expect(apiClient).toHaveBeenCalledWith("/api/places/admin/catalog", expect.objectContaining({
       method: "POST", body: JSON.stringify(payload),
     }));
+  });
+
+  it("looks up map addresses through the admin gateway API with cancellation", async () => {
+    vi.mocked(apiClient).mockResolvedValue({ success: true, data: { matched: false, address: null } });
+    const controller = new AbortController();
+    await reverseGeocodeAdminPlace(16.05, 108.2, controller.signal);
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/places/admin/catalog/reverse-geocode?lat=16.05&lng=108.2",
+      { signal: controller.signal },
+    );
   });
 
   it("uses revision preconditions for every mutation of an existing place", async () => {

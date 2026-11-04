@@ -12,6 +12,8 @@ import fu.tripsense.recommendation.domain.QuietnessEvidence;
 import fu.tripsense.recommendation.domain.RecommendationContext;
 import fu.tripsense.recommendation.domain.RetrievalEvidence;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +30,8 @@ public class PlaceServiceCandidateGenerator
   private final int candidateMultiplier;
   private final long maximumPlaceAgeSeconds;
   private final boolean mediaReadyOnly;
+  private final int mediaMinimumReadyCandidates;
+  private final double mediaMinimumCoverage;
 
   public PlaceServiceCandidateGenerator(
       RestClient recommendationRestClient, RecommendationProperties properties) {
@@ -37,6 +41,8 @@ public class PlaceServiceCandidateGenerator
     this.candidateMultiplier = properties.getRetrieval().getCandidateMultiplier();
     this.maximumPlaceAgeSeconds = properties.getRetrieval().getMaximumPlaceAge().toSeconds();
     this.mediaReadyOnly = properties.getRetrieval().isMediaReadyOnly();
+    this.mediaMinimumReadyCandidates = properties.getRetrieval().getMediaMinimumReadyCandidates();
+    this.mediaMinimumCoverage = properties.getRetrieval().getMediaMinimumCoverage();
   }
 
   @Override
@@ -51,46 +57,83 @@ public class PlaceServiceCandidateGenerator
 
   @Override
   public CandidateGenerationResult generate(RecommendationContext context) {
+    int target = Math.min(sourceLimit, Math.max(context.limit() * candidateMultiplier, context.limit()));
     PlaceRequest request =
         new PlaceRequest(
             retrievalQuery(context),
             context.anchor() == null ? null : context.anchor().lat(),
             context.anchor() == null ? null : context.anchor().lng(),
             context.radiusMeters(),
-            Math.min(sourceLimit, Math.max(context.limit() * candidateMultiplier, context.limit())),
+            mediaReadyOnly ? Math.max(target, mediaMinimumReadyCandidates) : target,
             List.of("id", "location", "categories"),
             maximumPlaceAgeSeconds,
             context.allowExternalRefresh(),
-            mediaReadyOnly);
+            false);
     try {
-      Envelope envelope =
-          restClient
-              .post()
-              .uri(baseUrl + "/api/places/recommendations")
-              .body(request)
-              .retrieve()
-              .body(Envelope.class);
+      Envelope envelope = fetchRecommendations(request);
       if (envelope == null || !envelope.success() || envelope.data() == null) {
         throw new IllegalStateException("Place response has no data");
       }
+      boolean gateDeferred = false;
+      if (mediaReadyOnly) {
+        if (meetsMediaThreshold(envelope.data().candidates())) {
+          try {
+            Envelope ready = fetchRecommendations(new PlaceRequest(
+                request.query(), request.lat(), request.lng(), request.radiusMeters(),
+                request.targetCount(), request.requiredFields(), request.maximumAgeSeconds(),
+                false, true));
+            if (ready != null && ready.success() && ready.data() != null
+                && ready.data().candidates().size() >= mediaMinimumReadyCandidates
+                && ready.data().candidates().size()
+                    >= envelope.data().candidates().size() * mediaMinimumCoverage
+                && ready.data().candidates().stream().allMatch(this::isReady)) {
+              envelope = ready;
+            } else {
+              gateDeferred = true;
+            }
+          } catch (RuntimeException ignored) {
+            gateDeferred = true;
+          }
+        } else {
+          gateDeferred = true;
+        }
+      }
       RetrievalEvidence evidence = mapEvidence(envelope.data().evidence());
+      ResultDto selectedData = envelope.data();
       List<Candidate> candidates =
-          java.util.stream.IntStream.range(0, envelope.data().candidates().size())
+          java.util.stream.IntStream.range(0, Math.min(target, selectedData.candidates().size()))
               .mapToObj(
                   index -> {
-                    PlaceDto place = envelope.data().candidates().get(index);
+                    PlaceDto place = selectedData.candidates().get(index);
                     return new Candidate(
                         place.id(), source(), index + 1, null, place.toDomain(), evidence);
                   })
               .toList();
-      List<String> degradations =
+      List<String> degradations = new ArrayList<>(
           evidence == null || "SUFFICIENT".equals(evidence.status())
               ? List.of()
-              : List.of("PLACE_RETRIEVAL_" + evidence.status());
+              : List.of("PLACE_RETRIEVAL_" + evidence.status()));
+      if (gateDeferred) degradations.add("MEDIA_GATE_BELOW_SAFE_THRESHOLD");
       return new CandidateGenerationResult(source(), candidates, degradations);
     } catch (RuntimeException exception) {
       throw new DownstreamServiceException("place-service", exception);
     }
+  }
+
+  private Envelope fetchRecommendations(PlaceRequest request) {
+    return restClient.post().uri(baseUrl + "/api/places/recommendations")
+        .body(request).retrieve().body(Envelope.class);
+  }
+
+  private boolean isReady(PlaceDto place) {
+    return place != null && place.media() != null && "READY".equals(place.media().state());
+  }
+
+  private boolean meetsMediaThreshold(List<PlaceDto> places) {
+    if (places == null || places.size() < mediaMinimumReadyCandidates) return false;
+    long ready = places.stream().filter(this::isReady).count();
+    return ready >= mediaMinimumReadyCandidates
+        && ready >= places.size() * mediaMinimumCoverage;
   }
 
   private String retrievalQuery(RecommendationContext context) {
@@ -103,40 +146,70 @@ public class PlaceServiceCandidateGenerator
           RecommendationContext context,
           List<fu.tripsense.recommendation.domain.DiscoveryCategory> categories,
           int target) {
-    var response =
-        restClient
-            .post()
-            .uri(baseUrl + "/api/places/recommendations/categories")
-            .body(
-                new CategoryRequest(
-                    context.anchor().lat(),
-                    context.anchor().lng(),
-                    context.radiusMeters(),
-                    categories,
-                    target,
-                    maximumPlaceAgeSeconds,
-                    List.of("id", "location", "categories"),
-                    false,
-                    mediaReadyOnly))
-            .retrieve()
-            .body(CategoryEnvelope.class);
+    CategoryRequest request = new CategoryRequest(
+        context.anchor().lat(), context.anchor().lng(), context.radiusMeters(), categories,
+        mediaReadyOnly ? Math.max(target, mediaMinimumReadyCandidates) : target,
+        maximumPlaceAgeSeconds, List.of("id", "location", "categories"), false, false);
+    var response = fetchCategories(request);
     if (response == null
         || !response.success()
         || response.data() == null
         || response.data().groups() == null)
       throw new IllegalStateException("Category retrieval unavailable");
+    var readyByCategory = new HashMap<fu.tripsense.recommendation.domain.DiscoveryCategory, CategoryGroup>();
+    var baselineByCategory = new HashMap<fu.tripsense.recommendation.domain.DiscoveryCategory, CategoryGroup>();
+    if (mediaReadyOnly) {
+      response.data().groups().stream().filter(g -> g != null && g.category() != null)
+          .forEach(g -> baselineByCategory.put(g.category(), g));
+      List<fu.tripsense.recommendation.domain.DiscoveryCategory> eligible = response.data().groups()
+          .stream().filter(g -> g != null && meetsMediaThreshold(g.places()))
+          .map(CategoryGroup::category).toList();
+      if (!eligible.isEmpty()) {
+        try {
+          CategoryEnvelope ready = fetchCategories(new CategoryRequest(
+              request.lat(), request.lng(), request.radiusMeters(), eligible,
+              request.targetPerCategory(), request.maximumAgeSeconds(), request.requiredFields(),
+              false, true));
+          if (ready != null && ready.success() && ready.data() != null && ready.data().groups() != null) {
+            for (CategoryGroup group : ready.data().groups()) {
+              if (group != null && group.category() != null
+                  && baselineByCategory.containsKey(group.category())
+                  && group.places() != null
+                  && group.places().size() >= mediaMinimumReadyCandidates
+                  && group.places().size() >= baselineByCategory.get(group.category())
+                      .places().size() * mediaMinimumCoverage
+                  && group.places().stream().allMatch(this::isReady)) {
+                readyByCategory.put(group.category(), group);
+              }
+            }
+          }
+        } catch (RuntimeException ignored) {
+          // Baseline groups remain available when the optional gate cannot be applied.
+        }
+      }
+    }
     return new fu.tripsense.recommendation.application.port.CategoryCandidateSource.Batch(
         response.data().groups().stream()
             .filter(g -> g != null && categories.contains(g.category()))
             .limit(4)
             .map(
-                g ->
+                g -> {
+                  CategoryGroup selected = readyByCategory.getOrDefault(g.category(), g);
+                  List<String> degradations = new ArrayList<>(
+                      selected.degradations() == null ? List.of() : selected.degradations());
+                  if (mediaReadyOnly && selected == g)
+                    degradations.add("MEDIA_GATE_BELOW_SAFE_THRESHOLD");
+                  return
                     new fu.tripsense.recommendation.application.port.CategoryCandidateSource.Group(
-                        g.category(),
-                        g.status(),
-                        categoryCandidates(g).stream().limit(target).toList(),
-                        g.degradations() == null ? List.of() : g.degradations()))
+                        selected.category(), selected.status(),
+                        categoryCandidates(selected).stream().limit(target).toList(), degradations);
+                })
             .toList());
+  }
+
+  private CategoryEnvelope fetchCategories(CategoryRequest request) {
+    return restClient.post().uri(baseUrl + "/api/places/recommendations/categories")
+        .body(request).retrieve().body(CategoryEnvelope.class);
   }
 
   public List<Candidate> categoryCandidates(CategoryGroup group) {
@@ -237,7 +310,8 @@ public class PlaceServiceCandidateGenerator
       Instant fetchedAt,
       String freshness,
       String primaryType,
-      fu.tripsense.recommendation.domain.PriceEvidence priceEvidence) {
+      fu.tripsense.recommendation.domain.PriceEvidence priceEvidence,
+      MediaDto media) {
     PlaceSnapshot toDomain() {
       return new PlaceSnapshot(
           id,
@@ -268,6 +342,9 @@ public class PlaceServiceCandidateGenerator
           priceEvidence);
     }
   }
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record MediaDto(String state) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record LocationDto(double lat, double lng) {}

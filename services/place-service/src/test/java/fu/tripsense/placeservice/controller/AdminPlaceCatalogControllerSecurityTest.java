@@ -15,6 +15,7 @@ import fu.tripsense.placeservice.dto.AdminPlaceCatalogDtos.Page;
 import fu.tripsense.placeservice.security.JwtAuthenticationFilter;
 import fu.tripsense.placeservice.security.JwtService;
 import fu.tripsense.placeservice.service.AdminPlaceCatalogService;
+import fu.tripsense.placeservice.service.AdminPlaceReverseGeocodeService;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +73,24 @@ class AdminPlaceCatalogControllerSecurityTest {
     verify(service).list(null, "ACTIVE", "ALL", null, null, null, 24);
   }
 
+  @Test
+  void reverseGeocodeRequiresAdminAndReturnsOnlySafeFields() throws Exception {
+    AdminPlaceReverseGeocodeService lookup = context.getBean(AdminPlaceReverseGeocodeService.class);
+    mvc.perform(get("/api/places/admin/catalog/reverse-geocode").param("lat", "16.05").param("lng", "108.2"))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/places/admin/catalog/reverse-geocode").param("lat", "16.05").param("lng", "108.2")
+        .with(user("traveler").roles("USER"))).andExpect(status().isForbidden());
+    verifyNoInteractions(lookup);
+    when(lookup.lookup(16.05, 108.2))
+        .thenReturn(new AdminPlaceReverseGeocodeService.Result(true, "Đà Nẵng", 12.0, "MAPVINA"));
+    mvc.perform(get("/api/places/admin/catalog/reverse-geocode").param("lat", "16.05").param("lng", "108.2")
+        .with(user("admin").roles("ADMIN")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.address").value("Đà Nẵng"))
+        .andExpect(jsonPath("$.data.key").doesNotExist());
+    verify(lookup).lookup(16.05, 108.2);
+  }
+
   @Configuration
   @EnableWebMvc
   @Import({SecurityConfig.class, GlobalExceptionHandler.class})
@@ -80,8 +99,13 @@ class AdminPlaceCatalogControllerSecurityTest {
       return mock(AdminPlaceCatalogService.class);
     }
 
-    @Bean AdminPlaceCatalogController adminPlaceCatalogController(AdminPlaceCatalogService service) {
-      return new AdminPlaceCatalogController(service, true);
+    @Bean AdminPlaceReverseGeocodeService reverseGeocodeService() {
+      return mock(AdminPlaceReverseGeocodeService.class);
+    }
+
+    @Bean AdminPlaceCatalogController adminPlaceCatalogController(AdminPlaceCatalogService service,
+        AdminPlaceReverseGeocodeService reverseGeocodeService) {
+      return new AdminPlaceCatalogController(service, true, reverseGeocodeService);
     }
 
     @Bean JwtAuthenticationFilter jwtFilter() {

@@ -50,6 +50,13 @@ export interface AdminPlacePage {
   nextCursor: string | null;
 }
 
+export interface ReverseGeocodeResult {
+  matched: boolean;
+  address: string | null;
+  distanceMeters: number | null;
+  source: "MAPVINA";
+}
+
 export interface ApiEnvelope<T> {
   success: boolean;
   data: T;

@@ -355,6 +355,14 @@
       "provider": "Provider: {{name}}",
       "restore": "Restore",
       "retry": "Retry",
+      "reverseGeocode": {
+        "error": "Could not look up an address. Enter it manually or choose another point.",
+        "filled": "Address filled from the map. Please review it before saving.",
+        "loading": "Looking up the address for this point...",
+        "noMatch": "No precise street address found here. Enter the address manually.",
+        "suggestion": "Suggested address: {{address}}",
+        "useSuggestion": "Use suggested address"
+      },
       "reviewsCount": "({{count}} reviews)",
       "save": "Save",
       "saving": "Saving...",

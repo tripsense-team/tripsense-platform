@@ -355,6 +355,14 @@
       "provider": "Nguồn: {{name}}",
       "restore": "Khôi phục",
       "retry": "Thử lại",
+      "reverseGeocode": {
+        "error": "Không tra được địa chỉ. Hãy nhập thủ công hoặc chọn điểm khác.",
+        "filled": "Đã điền địa chỉ từ bản đồ. Vui lòng kiểm tra trước khi lưu.",
+        "loading": "Đang tìm địa chỉ cho vị trí này...",
+        "noMatch": "Không tìm thấy địa chỉ đường phố đủ chính xác. Hãy nhập địa chỉ thủ công.",
+        "suggestion": "Địa chỉ gợi ý: {{address}}",
+        "useSuggestion": "Dùng địa chỉ gợi ý"
+      },
       "reviewsCount": "({{count}} đánh giá)",
       "save": "Lưu",
       "saving": "Đang lưu...",

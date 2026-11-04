@@ -7,6 +7,7 @@ import fu.tripsense.placeservice.dto.ApiResponse;
 import fu.tripsense.placeservice.exception.PlaceActionException;
 import fu.tripsense.placeservice.security.AuthenticatedUser;
 import fu.tripsense.placeservice.service.AdminPlaceCatalogService;
+import fu.tripsense.placeservice.service.AdminPlaceReverseGeocodeService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import org.springframework.http.CacheControl;
@@ -31,11 +32,20 @@ import org.springframework.beans.factory.annotation.Value;
 public class AdminPlaceCatalogController {
   private final AdminPlaceCatalogService service;
   private final boolean writesEnabled;
+  private final AdminPlaceReverseGeocodeService reverseGeocodeService;
 
   public AdminPlaceCatalogController(AdminPlaceCatalogService service,
-      @Value("${tripsense.places.admin.catalog-writes-enabled:false}") boolean writesEnabled) {
+      @Value("${tripsense.places.admin.catalog-writes-enabled:false}") boolean writesEnabled,
+      AdminPlaceReverseGeocodeService reverseGeocodeService) {
     this.service = service;
     this.writesEnabled = writesEnabled;
+    this.reverseGeocodeService = reverseGeocodeService;
+  }
+
+  @GetMapping("/reverse-geocode")
+  public ResponseEntity<ApiResponse<AdminPlaceReverseGeocodeService.Result>> reverseGeocode(
+      @RequestParam double lat, @RequestParam double lng) {
+    return noStore(ApiResponse.ok(reverseGeocodeService.lookup(lat, lng)));
   }
 
   @GetMapping

@@ -20,7 +20,7 @@ import { loadPlacePhotoGallery } from "@/features/places/services/place-photo-en
 import { approvedPhoto } from "@/features/places/utils/approved-photo";
 import {
   archiveAdminPlace, createAdminPlace, getAdminPlace, listAdminPlaces,
-  restoreAdminPlace, updateAdminPlace,
+  restoreAdminPlace, reverseGeocodeAdminPlace, updateAdminPlace,
 } from "../services/admin-places-api";
 import type { AdminPlaceDetail, AdminPlaceMutation, AdminPlaceSummary } from "../types";
 
@@ -90,6 +90,21 @@ export function AdminPlacesView() {
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = React.useState(false);
   const [actionId, setActionId] = React.useState<string | null>(null);
+  const [lookupState, setLookupState] = React.useState<"idle" | "loading" | "filled" | "suggestion" | "noMatch" | "error">("idle");
+  const [suggestedAddress, setSuggestedAddress] = React.useState<string | null>(null);
+  const lookupSequence = React.useRef(0);
+  const addressEditSequence = React.useRef(0);
+  const lookupAbort = React.useRef<AbortController | null>(null);
+
+  const resetLookup = () => {
+    lookupSequence.current += 1;
+    lookupAbort.current?.abort();
+    lookupAbort.current = null;
+    setLookupState("idle");
+    setSuggestedAddress(null);
+  };
+
+  React.useEffect(() => () => lookupAbort.current?.abort(), []);
 
   const safeError = React.useCallback((reason: unknown) => {
     if (reason instanceof ApiError && reason.status === 409) return t("admin.places.errors.conflict");
@@ -118,12 +133,12 @@ export function AdminPlacesView() {
     void load();
   }, [lifecycle, source, category]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setError(null); setDialogOpen(true); };
+  const openCreate = () => { resetLookup(); setEditing(null); setForm(EMPTY_FORM); setError(null); setDialogOpen(true); };
   const openEdit = async (id: string) => {
     setActionId(id); setError(null);
     try {
       const response = await getAdminPlace(id);
-      setEditing(response.data); setForm(formFromPlace(response.data)); setDialogOpen(true);
+      resetLookup(); setEditing(response.data); setForm(formFromPlace(response.data)); setDialogOpen(true);
     } catch (reason) { setError(safeError(reason)); }
     finally { setActionId(null); }
   };
@@ -141,7 +156,7 @@ export function AdminPlacesView() {
       }
       if (editing) await updateAdminPlace(editing.id, editing.version, payload);
       else await createAdminPlace(payload);
-      setDialogOpen(false); await load();
+      resetLookup(); setDialogOpen(false); await load();
     } catch (reason) { setError(safeError(reason)); }
     finally { setSaving(false); }
   };
@@ -158,8 +173,39 @@ export function AdminPlacesView() {
     finally { setActionId(null); }
   };
 
-  const updateField = (key: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+  const updateField = (key: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    if (key === "address") {
+      addressEditSequence.current += 1;
+      if (lookupState === "filled") setLookupState("idle");
+    }
     setForm((current) => ({ ...current, [key]: event.target.value }));
+  };
+
+  const selectMapLocation = async ({ lat, lng }: { lat: number; lng: number }) => {
+    lookupAbort.current?.abort();
+    const controller = new AbortController();
+    lookupAbort.current = controller;
+    const sequence = ++lookupSequence.current;
+    const editSequence = addressEditSequence.current;
+    setForm((current) => ({ ...current, lat: String(lat), lng: String(lng) }));
+    setSuggestedAddress(null);
+    setLookupState("loading");
+    try {
+      const response = await reverseGeocodeAdminPlace(lat, lng, controller.signal);
+      if (sequence !== lookupSequence.current || controller.signal.aborted) return;
+      const address = response.data.matched ? response.data.address?.trim() : null;
+      if (!address) { setLookupState("noMatch"); return; }
+      if (addressEditSequence.current !== editSequence) {
+        setSuggestedAddress(address);
+        setLookupState("suggestion");
+        return;
+      }
+      setForm((current) => ({ ...current, address }));
+      setLookupState("filled");
+    } catch {
+      if (sequence === lookupSequence.current && !controller.signal.aborted) setLookupState("error");
+    }
+  };
 
   return <div className="space-y-6">
     <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
@@ -192,44 +238,74 @@ export function AdminPlacesView() {
       />)}</div>}
     {nextCursor && <div className="text-center"><Button variant="outline" disabled={loadingMore} onClick={() => void load(nextCursor, true)}>{loadingMore ? t("admin.places.loading") : t("admin.places.loadMore")}</Button></div>}
 
-    <Dialog open={dialogOpen} onOpenChange={(open) => !saving && setDialogOpen(open)}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>{editing ? t("admin.places.editTitle") : t("admin.places.createTitle")}</DialogTitle><DialogDescription>{t("admin.places.formDescription")}</DialogDescription></DialogHeader>
-      <form onSubmit={submit} className="space-y-5"><div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t("admin.places.fields.name")}><Input required maxLength={200} value={form.name} onChange={updateField("name")} /></Field>
-        <Field label={t("admin.places.fields.primaryType")}><select value={form.primaryType} onChange={updateField("primaryType")} className={selectClass}><option value="">—</option><option value="tourist_attraction">tourist_attraction</option><option value="restaurant">restaurant</option><option value="cafe">cafe</option><option value="hotel">hotel</option><option value="museum">museum</option><option value="park">park</option></select></Field>
-        <Field label={t("admin.places.fields.categories")}><Input required value={form.categories} onChange={updateField("categories")} /></Field>
-        <Field label={t("admin.places.fields.city")}><Input required maxLength={120} value={form.city} onChange={updateField("city")} /></Field>
-        <Field label={t("admin.places.fields.address")} wide><Input required maxLength={500} value={form.address} onChange={updateField("address")} /></Field>
-        <Field label={t("admin.places.fields.oldAddress")} wide><Input maxLength={500} value={form.oldAddress} onChange={updateField("oldAddress")} /></Field>
-        <div className="space-y-2 sm:col-span-2">
-          <Label>{t("admin.places.locationMapLabel")}</Label>
-          <p className="text-xs text-muted-foreground">{t("admin.places.locationMapHint")}</p>
-          <AdminPlaceLocationPicker
-            value={selectedLocation(form)}
-            onChange={({ lat, lng }) => setForm((current) => ({ ...current, lat: String(lat), lng: String(lng) }))}
-          />
-          {selectedLocation(form) && <p role="status" className="text-xs text-muted-foreground">{t("admin.places.locationSelected", { lat: Number(form.lat).toFixed(5), lng: Number(form.lng).toFixed(5) })}</p>}
-          <details className="rounded-xl border border-border px-3 py-2 text-sm">
-            <summary className="cursor-pointer text-muted-foreground">{t("admin.places.manualCoordinates")}</summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <Field label={t("admin.places.fields.latitude")}><Input type="number" min="-90" max="90" step="any" value={form.lat} onChange={updateField("lat")} /></Field>
-              <Field label={t("admin.places.fields.longitude")}><Input type="number" min="-180" max="180" step="any" value={form.lng} onChange={updateField("lng")} /></Field>
+    <Dialog open={dialogOpen} onOpenChange={(open) => { if (!saving) { if (!open) resetLookup(); setDialogOpen(open); } }}>
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-border pb-4 pl-6 pr-14 pt-6">
+          <DialogTitle>{editing ? t("admin.places.editTitle") : t("admin.places.createTitle")}</DialogTitle>
+          <DialogDescription>{t("admin.places.formDescription")}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-6 py-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("admin.places.fields.name")}><Input required maxLength={200} value={form.name} onChange={updateField("name")} /></Field>
+              <Field label={t("admin.places.fields.primaryType")}><select value={form.primaryType} onChange={updateField("primaryType")} className={selectClass}><option value="">—</option><option value="tourist_attraction">tourist_attraction</option><option value="restaurant">restaurant</option><option value="cafe">cafe</option><option value="hotel">hotel</option><option value="museum">museum</option><option value="park">park</option></select></Field>
+              <Field label={t("admin.places.fields.categories")}><Input required value={form.categories} onChange={updateField("categories")} /></Field>
+              <Field label={t("admin.places.fields.city")}><Input required maxLength={120} value={form.city} onChange={updateField("city")} /></Field>
+              <Field label={t("admin.places.fields.address")} wide><Input required maxLength={500} value={form.address} onChange={updateField("address")} /></Field>
+              <Field label={t("admin.places.fields.oldAddress")} wide><Input maxLength={500} value={form.oldAddress} onChange={updateField("oldAddress")} /></Field>
             </div>
-          </details>
-        </div>
-        <Field label={t("admin.places.fields.district")}><Input value={form.district} onChange={updateField("district")} /></Field>
-        <Field label={t("admin.places.fields.phone")}><Input value={form.phone} onChange={updateField("phone")} /></Field>
-        <Field label={t("admin.places.fields.website")} wide><Input type="url" placeholder="https://" value={form.website} onChange={updateField("website")} /></Field>
-        <Field label={t("admin.places.fields.socials")} wide><Input placeholder="https://..., https://..." value={form.socials} onChange={updateField("socials")} /></Field>
-        <Field label={t("admin.places.fields.openingHours")}><Input value={form.openingHours} onChange={updateField("openingHours")} /></Field>
-        <Field label={t("admin.places.fields.businessStatus")}><Input value={form.businessStatus} onChange={updateField("businessStatus")} /></Field>
-        <Field label={t("admin.places.fields.description")} wide><Textarea maxLength={4000} rows={4} value={form.description} onChange={updateField("description")} /></Field>
-      </div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => setDialogOpen(false)}>{t("admin.places.cancel")}</Button><Button type="submit" disabled={saving}>{saving ? t("admin.places.saving") : t("admin.places.save")}</Button></DialogFooter></form>
-    </DialogContent></Dialog>
+
+            <section className="min-w-0 space-y-3">
+              <div className="space-y-1">
+                <Label>{t("admin.places.locationMapLabel")}</Label>
+                <p className="text-xs text-muted-foreground">{t("admin.places.locationMapHint")}</p>
+              </div>
+              <AdminPlaceLocationPicker
+                value={selectedLocation(form)}
+                onChange={(location) => void selectMapLocation(location)}
+              />
+              {selectedLocation(form) && <p role="status" className="text-xs text-muted-foreground">{t("admin.places.locationSelected", { lat: Number(form.lat).toFixed(5), lng: Number(form.lng).toFixed(5) })}</p>}
+              {lookupState !== "idle" && <div role="status" className="text-xs text-muted-foreground">
+                {lookupState === "loading" && t("admin.places.reverseGeocode.loading")}
+                {lookupState === "filled" && t("admin.places.reverseGeocode.filled")}
+                {lookupState === "noMatch" && t("admin.places.reverseGeocode.noMatch")}
+                {lookupState === "error" && t("admin.places.reverseGeocode.error")}
+                {lookupState === "suggestion" && suggestedAddress && <span className="flex flex-wrap items-center gap-2">
+                  <span>{t("admin.places.reverseGeocode.suggestion", { address: suggestedAddress })}</span>
+                  <Button type="button" size="sm" variant="outline" onClick={() => { addressEditSequence.current += 1; setForm((current) => ({ ...current, address: suggestedAddress })); setSuggestedAddress(null); setLookupState("filled"); }}>{t("admin.places.reverseGeocode.useSuggestion")}</Button>
+                </span>}
+              </div>}
+              <details className="block rounded-xl border border-border px-3 py-2 text-sm">
+                <summary className="cursor-pointer text-muted-foreground">{t("admin.places.manualCoordinates")}</summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Field label={t("admin.places.fields.latitude")}><Input type="number" min="-90" max="90" step="any" value={form.lat} onChange={(event) => { resetLookup(); setForm((current) => ({ ...current, lat: event.target.value })); }} /></Field>
+                  <Field label={t("admin.places.fields.longitude")}><Input type="number" min="-180" max="180" step="any" value={form.lng} onChange={(event) => { resetLookup(); setForm((current) => ({ ...current, lng: event.target.value })); }} /></Field>
+                </div>
+              </details>
+            </section>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("admin.places.fields.district")}><Input value={form.district} onChange={updateField("district")} /></Field>
+              <Field label={t("admin.places.fields.phone")}><Input value={form.phone} onChange={updateField("phone")} /></Field>
+              <Field label={t("admin.places.fields.website")} wide><Input type="url" placeholder="https://" value={form.website} onChange={updateField("website")} /></Field>
+              <Field label={t("admin.places.fields.socials")} wide><Input placeholder="https://..., https://..." value={form.socials} onChange={updateField("socials")} /></Field>
+              <Field label={t("admin.places.fields.openingHours")}><Input value={form.openingHours} onChange={updateField("openingHours")} /></Field>
+              <Field label={t("admin.places.fields.businessStatus")}><Input value={form.businessStatus} onChange={updateField("businessStatus")} /></Field>
+              <Field label={t("admin.places.fields.description")} wide><Textarea maxLength={4000} rows={4} value={form.description} onChange={updateField("description")} /></Field>
+            </div>
+          </div>
+          <div className="shrink-0 space-y-3 border-t border-border bg-background px-6 py-4">
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+            <DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={() => { resetLookup(); setDialogOpen(false); }}>{t("admin.places.cancel")}</Button><Button type="submit" disabled={saving || lookupState === "loading"}>{saving ? t("admin.places.saving") : t("admin.places.save")}</Button></DialogFooter>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   </div>;
 }
 
 function Field({ label, wide, children }: { label: string; wide?: boolean; children: React.ReactNode }) {
-  return <div className={`${fieldClass} ${wide ? "sm:col-span-2" : ""}`}><Label>{label}</Label>{children}</div>;
+  return <div className={`${fieldClass} min-w-0 ${wide ? "sm:col-span-2" : ""}`}><Label>{label}</Label>{children}</div>;
 }
 
 function approvedCoverUrl(url: string | null): string | null {

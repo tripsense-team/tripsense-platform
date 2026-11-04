@@ -94,6 +94,10 @@ public class PlaceMediaService {
       boolean makePrimary) {
     Place place = requirePlace(placeId);
     validateRights(sourceType, licenseType, licenseEvidenceUrl);
+    String normalizedLicenseEvidenceUrl = normalizeHttpsUrl(licenseEvidenceUrl, false);
+    List<PlaceMediaAsset.Attribution> normalizedAttribution =
+        attribution(attributionLabel, attributionUrl);
+    String creator = currentUser.userId().toString();
     String assetId = "pm_" + UUID.randomUUID();
     PlaceMediaStorage.StoredMedia stored = storage.upload(placeId, assetId, file);
     PlaceMediaAsset asset =
@@ -104,8 +108,8 @@ public class PlaceMediaService {
             .storagePublicId(stored.publicId())
             .sourceType(sourceType)
             .licenseType(licenseType)
-            .licenseEvidenceUrl(normalizeHttpsUrl(licenseEvidenceUrl, false))
-            .attribution(attribution(attributionLabel, attributionUrl))
+            .licenseEvidenceUrl(normalizedLicenseEvidenceUrl)
+            .attribution(normalizedAttribution)
             .checksumSha256(stored.checksumSha256())
             .mimeType(stored.mimeType())
             .byteSize(stored.byteSize())
@@ -117,22 +121,24 @@ public class PlaceMediaService {
                     : PlaceMediaAsset.ModerationStatus.PENDING)
             .healthStatus(PlaceMediaAsset.HealthStatus.HEALTHY)
             .verifiedAt(makePrimary ? Instant.now() : null)
-            .createdBy(currentUser.userId().toString())
+            .createdBy(creator)
             .build();
+    boolean assetSaved = false;
     try {
       rejectDuplicate(stored.checksumSha256());
       asset = assets.save(asset);
+      assetSaved = true;
       if (makePrimary) setPrimaryInternal(place, asset);
       else updatePlaceState(placeId, PlaceMediaState.REVIEW_REQUIRED, "REVIEW_PENDING");
-      return response(asset);
     } catch (org.springframework.dao.DuplicateKeyException exception) {
-      bestEffortDelete(placeId, stored.publicId());
+      cleanupFailedUpload(placeId, assetId, stored.publicId(), assetSaved);
       throw new PlaceActionException(
           HttpStatus.CONFLICT, "DUPLICATE_MEDIA", "This image is already stored");
     } catch (RuntimeException exception) {
-      bestEffortDelete(placeId, stored.publicId());
+      cleanupFailedUpload(placeId, assetId, stored.publicId(), assetSaved);
       throw exception;
     }
+    return response(asset);
   }
 
   public PlaceMediaAdminDtos.AssetAdminResponse approve(
@@ -386,16 +392,18 @@ public class PlaceMediaService {
             .verifiedAt(Instant.now())
             .createdBy(creator)
             .build();
+    boolean assetSaved = false;
     try {
       rejectDuplicate(stored.checksumSha256());
       asset = assets.save(asset);
+      assetSaved = true;
       setPrimaryInternal(place, asset);
     } catch (org.springframework.dao.DuplicateKeyException exception) {
-      bestEffortDelete(place.getId(), stored.publicId());
+      cleanupFailedUpload(place.getId(), assetId, stored.publicId(), assetSaved);
       throw new PlaceActionException(
           HttpStatus.CONFLICT, "DUPLICATE_MEDIA", "This image is already stored");
     } catch (RuntimeException exception) {
-      bestEffortDelete(place.getId(), stored.publicId());
+      cleanupFailedUpload(place.getId(), assetId, stored.publicId(), assetSaved);
       throw exception;
     }
   }
@@ -580,6 +588,22 @@ public class PlaceMediaService {
     } catch (RuntimeException exception) {
       log.warn("Place media cleanup failed placeId={} type={}", placeId, exception.getClass().getSimpleName());
     }
+  }
+
+  private void cleanupFailedUpload(
+      String placeId, String assetId, String publicId, boolean assetSaved) {
+    try {
+      // A failed acknowledged save can still have reached MongoDB. Check before deleting the object.
+      if (assetSaved || assets.existsById(assetId)) {
+        // Never remove the object while a persisted asset may still project its delivery URL.
+        assets.deleteById(assetId);
+      }
+    } catch (RuntimeException exception) {
+      log.warn("Place media metadata cleanup failed placeId={} type={}",
+          placeId, exception.getClass().getSimpleName());
+      return;
+    }
+    bestEffortDelete(placeId, publicId);
   }
 
   private static final class RightsNotApprovedException extends RuntimeException {}

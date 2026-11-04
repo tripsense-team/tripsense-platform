@@ -165,6 +165,21 @@ class GatewayRoutesConfig {
                                 }))
                     .uri(PLACE_SERVICE_URI))
         .route(
+            "place-admin-reverse-geocode",
+            route ->
+                route
+                    .path("/api/places/admin/catalog/reverse-geocode")
+                    .and()
+                    .method(HttpMethod.GET)
+                    .filters(filters -> filters
+                        .setResponseHeader("Cache-Control", "no-store")
+                        .requestRateLimiter(config -> {
+                          config.setRateLimiter(placeRedisRateLimiter);
+                          config.setKeyResolver(authenticatedActorKeyResolver);
+                          config.setDenyEmptyKey(true);
+                        }))
+                    .uri(PLACE_SERVICE_URI))
+        .route(
             "place-admin-catalog-writes",
             route ->
                 route

@@ -343,6 +343,7 @@ Human approval received on 2026-11-03. Application implementation must begin onl
 
 - Place Service owns durable Cloudinary metadata, license evidence, health state, admin APIs, migration/index creation, idempotent backfill and provider-import rights gating.
 - Recommendation/Place contracts support opt-in `mediaReadyOnly` filtering; evidence counts are calculated after the media gate.
+- The opt-in recommendation media gate now checks the current Place Service candidate coverage (default 95% and at least 20 READY candidates) before requesting READY-only results. If the threshold or READY-only response fails, it preserves the baseline result and reports `MEDIA_GATE_BELOW_SAFE_THRESHOLD`. This is a request-level safety guard; the planned operator-controlled `REPORT_ONLY`/`WARN`/`ENFORCE` rollout and live destination audit remain pending.
 - Web cards consume stable Cloudinary assets, advance past failed approved assets and end in a labelled non-photo state.
 - Automated verification passed: Place Service full suite, Recommendation Service 238 tests, API Gateway 14 tests, web 400 tests, TypeScript, i18n parity, lint (warnings only) and production build.
 - Live acceptance remains pending because no real Cloudinary credentials or recorded ZioMap persistent-storage/redistribution approval were provided. `ZIOMAP_PHOTO_PERSISTENCE_APPROVED` therefore remains `false` by default and must not be enabled without that evidence.

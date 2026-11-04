@@ -48,6 +48,16 @@ class ApiGatewayApplicationTests {
   }
 
   @Test
+  void adminReverseGeocodeHasDedicatedRateLimitedPlaceRoute() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+    assertThat(routes).isNotNull().anySatisfy(route -> {
+      assertThat(route.getId()).isEqualTo("place-admin-reverse-geocode");
+      assertThat(route.getUri()).isEqualTo(URI.create("lb://place-service"));
+      assertThat(route.getFilters()).isNotEmpty();
+    });
+  }
+
+  @Test
   void tripServiceRouteUsesDiscoveryLoadBalancer() {
     List<Route> routes = routeLocator.getRoutes().collectList().block();
 

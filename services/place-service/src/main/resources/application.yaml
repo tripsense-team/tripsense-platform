@@ -40,6 +40,11 @@ ziomap:
   photo-persistence-approved: ${ZIOMAP_PHOTO_PERSISTENCE_APPROVED:false}
   photo-persistence-license-evidence-url: ${ZIOMAP_PHOTO_PERSISTENCE_LICENSE_EVIDENCE_URL:}
 
+mapvina:
+  base-url: ${MAPVINA_BASE_URL:https://maps.mapvina.com}
+  api-key: ${MAPVINA_API_KEY:}
+  timeout-ms: ${MAPVINA_TIMEOUT_MS:3000}
+
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}
   api-key: ${CLOUDINARY_API_KEY:}
