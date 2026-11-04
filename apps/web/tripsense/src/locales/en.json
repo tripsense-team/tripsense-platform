@@ -1123,12 +1123,12 @@
       "subtitle": "Pick one or more stays that feel right for you.",
       "title": "Where do you like to stay?"
     },
+    "submitError": "Unable to complete onboarding at this time. Please try again later.",
     "TRAVEL_PARTY": {
       "subtitle": "This helps tailor suggestions to your travel rhythm.",
       "title": "Who do you usually travel with?"
     },
-    "validationFailed": "The onboarding data is incomplete or invalid. Please check your budget and previous steps.",
-    "submitError": "Unable to complete onboarding at this time. Please try again later."
+    "validationFailed": "The onboarding data is incomplete or invalid. Please check your budget and previous steps."
   },
   "partner": {
     "analytics": {
@@ -1239,14 +1239,15 @@
       "askOwner": "Message restaurant",
       "available": "Available",
       "availableLabel": "Ready to serve",
+      "bookDirect": "Book Table Directly",
       "bookingDetailsTitle": "Reservation details",
       "bottomReserveDesc": "Reserve in advance so the restaurant can prepare the best seating for you.",
       "bottomReserveTitle": "Planning to visit?",
       "callCustomer": "Call guest",
+      "cancelledByCustomer": "Cancelled by customer",
       "cancelModalDesc": "Are you sure you want to cancel this reservation request?",
       "cancelModalTitle": "Cancel Reservation Request",
       "cancelReason": "Cancellation reason:",
-      "cancelledByCustomer": "Cancelled by customer",
       "cancelReasonPlaceholder": "Reason for cancellation (change of schedule, found another place...)",
       "cancelRequestButton": "Cancel request",
       "cancelSuccess": "Reservation cancelled successfully.",
@@ -1316,7 +1317,6 @@
       "publicContactConsent": "Show contact information publicly",
       "publicMenuEmpty": "This restaurant has not published its detailed online menu yet.",
       "publicMenuTitle": "Food & Beverage Menu",
-      "bookDirect": "Book Table Directly",
       "rejectButton": "Reject",
       "rejectDesc": "Please provide a reason for declining so the guest understands.",
       "rejectReasonPlaceholder": "Enter reason for rejection (optional)...",
