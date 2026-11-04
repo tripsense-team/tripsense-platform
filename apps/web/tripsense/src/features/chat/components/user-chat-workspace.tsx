@@ -13,6 +13,7 @@ import { ShareTripDialog } from "./share-trip-dialog";
 import { BlockedUsersDialog } from "./blocked-users-dialog";
 import { CreateReservationOfferModal } from "./create-reservation-offer-modal";
 import type { CreateReservationOfferPayload } from "../types/chat.types";
+import { getPartnerContext } from "@/features/partner/services/partner-api";
 import { useSearchParams } from "next/navigation";
 import { ChatSidebarSkeleton, ChatThreadSkeleton } from "./chat-states";
 import { cn } from "@/lib/utils";
@@ -33,12 +34,29 @@ export function UserChatWorkspace() {
   const [shareTripOpen,setShareTripOpen] = React.useState(false);
   const [blocksOpen,setBlocksOpen] = React.useState(false);
   const [createOfferOpen, setCreateOfferOpen] = React.useState(false);
+  const [partnerBusiness, setPartnerBusiness] = React.useState<{ name: string; kind: "HOTEL" | "RESTAURANT" | "GUIDE" } | null>(null);
   const [mobileView, setMobileView] = React.useState<"list" | "thread">("list");
   const [isLoading, setIsLoading] = React.useState(true);
   const alive = React.useRef(true);
   const currentId = React.useRef("");
   const refreshRef = React.useRef<() => Promise<void>>(async () => {});
   React.useEffect(() => { currentId.current = activeConvId; }, [activeConvId]);
+
+  // Load partner business context if current user is a partner
+  React.useEffect(() => {
+    if (!userId) return;
+    getPartnerContext()
+      .then((ctx) => {
+        if (ctx?.businesses && ctx.businesses.length > 0) {
+          const first = ctx.businesses[0];
+          setPartnerBusiness({
+            name: first.displayName,
+            kind: first.kind === "TOUR_GUIDE" ? "GUIDE" : (first.kind as "HOTEL" | "RESTAURANT"),
+          });
+        }
+      })
+      .catch(() => null);
+  }, [userId]);
 
   // Handle direct navigation to user via /chat?userId=...
   React.useEffect(() => {
@@ -482,7 +500,8 @@ export function UserChatWorkspace() {
         open={createOfferOpen}
         onOpenChange={setCreateOfferOpen}
         onSubmit={handleCreateOffer}
-        defaultBusinessName={activeConversation?.user.name}
+        defaultBusinessName={partnerBusiness?.name || activeConversation?.user.name}
+        defaultBusinessType={partnerBusiness?.kind || "RESTAURANT"}
         recentMessages={activeConversation?.messages}
       />
     </div>

@@ -58,12 +58,13 @@ describe("RestaurantReservationDialog Component", () => {
     expect(html).toContain("Chưa trừ tiền và chưa tính là giữ bàn tự động");
   });
 
-  it("renders PartnerBusinessCard with direct 'Yêu cầu đặt bàn' button linking to reservations tab", () => {
+  it("renders PartnerBusinessCard with direct 'Chat với khách' button linking to chat", () => {
     const mockRestaurant: BusinessDetailDto = {
       id: "rest-123",
       kind: "RESTAURANT",
+      ownerUserId: "owner-1",
       displayName: "Lantern Kitchen Hoi An",
-      draftProfileJson: {},
+      draftProfile: {},
       draftSchemaVersion: 1,
       approvalValidity: "VALID",
       operationState: "ACTIVE",
@@ -74,7 +75,8 @@ describe("RestaurantReservationDialog Component", () => {
       version: 1,
       capabilities: ["RESTAURANT_LISTING", "RESTAURANT_MENU"],
       myRole: "OWNER",
-      publicContactConsent: false,
+      publicEligible: true,
+      newIntakeEligible: true,
       createdAt: "2026-11-01T00:00:00Z",
       updatedAt: "2026-11-01T00:00:00Z",
     };
@@ -86,7 +88,7 @@ describe("RestaurantReservationDialog Component", () => {
     );
 
     expect(html).toContain("Lantern Kitchen Hoi An");
-    expect(html).toContain("Yêu cầu đặt bàn");
-    expect(html).toContain("/partner/businesses/rest-123/restaurant-menu?tab=reservations");
+    expect(html).toContain("Chat với khách");
+    expect(html).toContain("/chat");
   });
 });

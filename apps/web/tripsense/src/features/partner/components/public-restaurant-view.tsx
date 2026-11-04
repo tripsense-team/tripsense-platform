@@ -22,7 +22,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { getPublicRestaurant, recordRestaurantView } from "../services/partner-api";
-import { RestaurantReservationDialog } from "./restaurant-reservation-dialog";
 import {
   Dialog,
   DialogContent,
@@ -60,7 +59,6 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
   const [data, setData] = React.useState<PublicRestaurantListingDto | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [reservationOpen, setReservationOpen] = React.useState(false);
   const [activeLightboxImage, setActiveLightboxImage] = React.useState<{ url: string; title: string } | null>(null);
 
   React.useEffect(() => {
@@ -200,31 +198,23 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
           {/* Unified Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <Button
+              asChild
               size="sm"
-              onClick={() => setReservationOpen(true)}
               className="h-9 shadow-xs gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Utensils className="h-4 w-4" />
-              <span>{t("restaurant.reserveTable", { defaultValue: "Đặt bàn giữ chỗ" })}</span>
-            </Button>
-
-            {data.ownerUserId && (
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="h-9 shadow-xs gap-1.5 font-medium text-muted-foreground hover:text-foreground"
+              <Link
+                href={
+                  data.ownerUserId
+                    ? `/chat?userId=${data.ownerUserId}&message=${encodeURIComponent(
+                        `Chào quán, mình muốn đặt bàn/tư vấn tại ${data.displayName}. Quán gửi phiếu xác nhận giúp mình nhé!`
+                      )}`
+                    : "/chat"
+                }
               >
-                <Link
-                  href={`/chat?userId=${data.ownerUserId}&message=${encodeURIComponent(
-                    `Chào quán, mình muốn hỏi thêm thông tin tư vấn tại ${data.displayName}.`
-                  )}`}
-                >
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                  <span>{t("partner.restaurant.askOwner", { defaultValue: "Nhắn tin tư vấn" })}</span>
-                </Link>
-              </Button>
-            )}
+                <MessageSquare className="h-4 w-4" />
+                <span>{t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin đặt bàn qua Chat" })}</span>
+              </Link>
+            </Button>
 
             <Button asChild size="sm" variant="outline" className="h-9 shadow-xs gap-1.5 font-medium">
               <a href={mapSearchUrl} target="_blank" rel="noopener noreferrer">
@@ -403,28 +393,30 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                   {t("partner.restaurant.bottomReserveTitle", { defaultValue: "Quý khách dự định ghé dùng bữa?" })}
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  {t("partner.restaurant.bottomReserveDesc", { defaultValue: "Đặt bàn trước nhanh chóng để nhà hàng chuẩn bị chu đáo và giữ chỗ tốt nhất." })}
+                  {t("partner.restaurant.bottomReserveDesc", { defaultValue: "Nhắn tin trực tiếp với quán trong mục Trò chuyện để nhận phiếu xác nhận giữ chỗ tốt nhất." })}
                 </p>
               </div>
               <Button
-                onClick={() => setReservationOpen(true)}
+                asChild
                 className="font-semibold shadow-xs gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                <Utensils className="h-4 w-4" />
-                {t("restaurant.reserveTable", { defaultValue: "Đặt bàn giữ chỗ ngay" })}
+                <Link
+                  href={
+                    data.ownerUserId
+                      ? `/chat?userId=${data.ownerUserId}&message=${encodeURIComponent(
+                          `Chào quán, mình muốn đặt bàn/tư vấn tại ${data.displayName}. Quán gửi phiếu xác nhận giúp mình nhé!`
+                        )}`
+                      : "/chat"
+                  }
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  {t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin đặt bàn qua Chat" })}
+                </Link>
               </Button>
             </div>
           </div>
         )}
       </div>
-
-      <RestaurantReservationDialog
-        businessId={businessId}
-        restaurantName={data.displayName}
-        ownerUserId={data.ownerUserId}
-        open={reservationOpen}
-        onOpenChange={setReservationOpen}
-      />
     
       {/* Lightbox Dialog: Xem ảnh phóng to */}
       <Dialog open={Boolean(activeLightboxImage)} onOpenChange={(open) => !open && setActiveLightboxImage(null)}>

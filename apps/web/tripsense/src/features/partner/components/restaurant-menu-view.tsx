@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle,
@@ -23,14 +22,13 @@ import {
   ImagePlus,
   X,
   Maximize2,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RestaurantReservationsTab } from "./restaurant-reservations-tab";
 import {
   Dialog,
   DialogContent,
@@ -60,22 +58,12 @@ interface RestaurantMenuViewProps {
 
 export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
   const { t } = useTranslation();
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") === "reservations" ? "reservations" : "menu";
   const [business, setBusiness] = React.useState<BusinessDetailDto | null>(null);
   const [items, setItems] = React.useState<RestaurantMenuItemDto[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
-  const [activeTab, setActiveTab] = React.useState(initialTab);
-
-  React.useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "reservations" || tabParam === "menu") {
-      setActiveTab(tabParam);
-    }
-  }, [searchParams]);
 
   // Image Upload & Swap State
   const batchUploadInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -357,6 +345,13 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-8 text-xs font-medium border-primary/30 text-primary hover:bg-primary/5">
+            <Link href="/chat">
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-primary" />
+              Hộp thoại Chat với khách
+            </Link>
+          </Button>
+
           <Button asChild variant="outline" size="sm" className="h-8 text-xs">
             <Link href={`/restaurants/${businessId}`} target="_blank">
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
@@ -364,38 +359,23 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
             </Link>
           </Button>
 
-          {activeTab === "menu" && (
-            <Button
-              size="sm"
-              onClick={handleSaveMenu}
-              disabled={saving}
-              className="h-8 text-xs gap-1.5 font-medium shadow-xs"
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Lưu thay đổi
-            </Button>
-          )}
+          <Button
+            size="sm"
+            onClick={handleSaveMenu}
+            disabled={saving}
+            className="h-8 text-xs gap-1.5 font-medium shadow-xs"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            Lưu thay đổi
+          </Button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="h-10 p-1 bg-muted/60 border border-border/50">
-          <TabsTrigger value="menu" className="gap-2 text-xs font-medium">
-            <Utensils className="h-3.5 w-3.5" />
-            Thực đơn & Bảng giá
-          </TabsTrigger>
-          <TabsTrigger value="reservations" className="gap-2 text-xs font-medium">
-            <Calendar className="h-3.5 w-3.5" />
-            Yêu cầu đặt bàn
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="menu" className="space-y-6 mt-0">
+      <div className="space-y-6">
           {/* Notifications */}
           {error && (
             <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-2">
@@ -643,12 +623,7 @@ export function RestaurantMenuView({ businessId }: RestaurantMenuViewProps) {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="reservations" className="mt-0">
-          <RestaurantReservationsTab businessId={businessId} />
-        </TabsContent>
-      </Tabs>
+      </div>
 
       {/* Lightbox Dialog: Fullscreen Preview */}
       <Dialog open={Boolean(lightboxPhoto)} onOpenChange={(open) => !open && setLightboxPhoto(null)}>

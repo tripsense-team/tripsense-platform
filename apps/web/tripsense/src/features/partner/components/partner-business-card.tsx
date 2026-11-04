@@ -436,8 +436,8 @@ export function PartnerBusinessCard({ business, onUpdated, onProfileUpdateSubmit
                 size="sm"
                 className="h-8 text-xs flex-1 border-primary/30 text-primary hover:bg-primary/5 font-medium"
               >
-                <Link href={`/partner/businesses/${business.id}/restaurant-menu?tab=reservations`}>
-                  <Calendar className="mr-1.5 h-3.5 w-3.5" /> Yêu cầu đặt bàn
+                <Link href="/chat">
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Chat với khách
                 </Link>
               </Button>
 
