@@ -8,6 +8,11 @@ import {
   revokeContactConsent,
   uploadRestaurantMenuImage,
   deleteUnreferencedRestaurantMenuImage,
+  getSubscriptionPlans,
+  getPartnerSubscription,
+  createSubscriptionCheckout,
+  getSubscriptionOrderStatus,
+  verifyManualSubscriptionPayment,
 } from "../services/partner-api";
 import { apiClient } from "@/services/api-client";
 
@@ -377,4 +382,72 @@ describe("Partner Frontend API Service", () => {
     );
     expect(cancelled.state).toBe("CANCELLED");
   });
+
+  it("fetches subscription plans for business kind", async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: [{ planId: "REST_PLAN_1_YEAR", name: "Gói Kim Cương (1 Năm)", priceVnd: 1599000 }],
+    } as any);
+
+    const plans = await getSubscriptionPlans("RESTAURANT");
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/subscription-plans?businessKind=RESTAURANT",
+      expect.anything(),
+    );
+    expect(plans).toHaveLength(1);
+    expect(plans[0].planId).toBe("REST_PLAN_1_YEAR");
+  });
+
+  it("creates subscription checkout and fetches order status", async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: { orderId: "ord-1", orderCode: 30000001, amount: 1599000, paymentStatus: "PENDING" },
+    } as any);
+
+    const checkout = await createSubscriptionCheckout("biz-1", { planId: "REST_PLAN_1_YEAR" });
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/partners/businesses/biz-1/subscription/checkout",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ planId: "REST_PLAN_1_YEAR" }),
+      }),
+    );
+    expect(checkout.orderCode).toBe(30000001);
+
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: { orderCode: 30000001, status: "PAID", amount: 1599000 },
+    } as any);
+
+    const status = await getSubscriptionOrderStatus("biz-1", 30000001);
+    expect(status.status).toBe("PAID");
+  });
+
+  it("verifies manual subscription payment and returns active subscription", async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: {
+        businessId: "biz-1",
+        status: "ACTIVE",
+        isActive: true,
+        daysRemaining: 365,
+        badgeLabel: "Verified Partner",
+      },
+    } as any);
+
+    const result = await verifyManualSubscriptionPayment("biz-1", 30000001);
+
+    expect(apiClient).toHaveBeenCalledWith(
+      "/api/partners/businesses/biz-1/subscription/orders/30000001/verify-manual",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(result.status).toBe("ACTIVE");
+    expect(result.isActive).toBe(true);
+    expect(result.badgeLabel).toBe("Verified Partner");
+  });
 });
+

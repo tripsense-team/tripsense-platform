@@ -27,6 +27,7 @@ public class RestaurantService {
   private final PartnerBusinessCapabilityRepository capabilityRepository;
   private final PartnerApplicationRepository applicationRepository;
   private final RestaurantMenuItemRepository menuRepository;
+  private final fu.tripsense.tripservice.partner.repository.PartnerSubscriptionRepository subscriptionRepository;
   private final ObjectMapper objectMapper;
   private final RestaurantMenuImageStorage imageStorage;
 
@@ -180,22 +181,25 @@ public class RestaurantService {
             .filter(c -> c.getRevokedAt() == null)
             .isPresent();
 
+    if (!hasListingCap && business.getApprovalValidity() == ApprovalValidity.VALID) {
+      hasListingCap = true;
+    }
+
     if (!business.isPublicEligible(hasListingCap)) {
       throw new TripServiceException(
           "RESTAURANT_NOT_FOUND", "Restaurant is not public eligible", HttpStatus.NOT_FOUND);
     }
 
-    // Retrieve approved application snapshot
-    PartnerApplication approvedApp =
-        applicationRepository
-            .findById(business.getApprovedRevisionId())
-            .orElseThrow(
-                () ->
-                    new TripServiceException(
-                        "RESTAURANT_NOT_FOUND", "Approved revision not found", HttpStatus.NOT_FOUND));
-
-    Map<String, Object> snapshot =
-        approvedApp.getProfileSnapshot() != null ? approvedApp.getProfileSnapshot() : Map.of();
+    Map<String, Object> snapshot = Map.of();
+    if (business.getApprovedRevisionId() != null) {
+      snapshot = applicationRepository
+          .findById(business.getApprovedRevisionId())
+          .map(PartnerApplication::getProfileSnapshot)
+          .orElse(Map.of());
+    }
+    if (snapshot == null || snapshot.isEmpty()) {
+      snapshot = business.getDraftProfileJson() != null ? business.getDraftProfileJson() : Map.of();
+    }
 
     String address = (String) snapshot.getOrDefault("address", "");
     String destination = (String) snapshot.getOrDefault("destination", "");
@@ -222,8 +226,15 @@ public class RestaurantService {
       publicPhone = (String) snapshot.get("phone");
     }
 
+    boolean verified = subscriptionRepository.findByBusinessId(businessId)
+        .filter(s -> s.getStatus() == fu.tripsense.tripservice.partner.enums.SubscriptionStatus.ACTIVE
+            && s.getValidTo() != null
+            && s.getValidTo().isAfter(java.time.Instant.now()))
+        .isPresent();
+
     return PublicRestaurantListingDto.builder()
         .id(businessId)
+        .ownerUserId(business.getOwnerUserId())
         .displayName(business.getDisplayName())
         .address(address)
         .destination(destination)
@@ -232,6 +243,8 @@ public class RestaurantService {
         .menu(menu)
         .publicEmail(publicEmail)
         .publicPhone(publicPhone)
+        .verifiedPartner(verified)
+        .badgeLabel(verified ? "Verified Partner" : null)
         .build();
   }
 
@@ -247,7 +260,6 @@ public class RestaurantService {
     }
 
     return businesses.stream()
-        .limit(50)
         .map(b -> {
           try {
             return getPublicRestaurant(b.getId());
@@ -256,6 +268,8 @@ public class RestaurantService {
           }
         })
         .filter(Objects::nonNull)
+        .sorted((a, b) -> Boolean.compare(b.verifiedPartner(), a.verifiedPartner()))
+        .limit(50)
         .toList();
   }
 

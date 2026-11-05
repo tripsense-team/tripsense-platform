@@ -46,6 +46,11 @@ export interface ChatThreadProps {
   onShareTrip?: () => void;
   onLoadOlder?: () => void;
   onOpenNewChat: () => void;
+  onCreateOffer?: () => void;
+  onAcceptOffer?: (offerId: string) => Promise<void> | void;
+  onDeclineOffer?: (offerId: string, reason?: string) => Promise<void> | void;
+  onCancelOffer?: (offerId: string) => Promise<void> | void;
+  initialText?: string;
   className?: string;
 }
 
@@ -94,6 +99,11 @@ export function ChatThread({
   onShareTrip,
   onLoadOlder,
   onOpenNewChat,
+  onCreateOffer,
+  onAcceptOffer,
+  onDeclineOffer,
+  onCancelOffer,
+  initialText,
   className,
 }: ChatThreadProps) {
   const { t } = useTranslation();
@@ -354,6 +364,9 @@ export function ChatThread({
                   onRetry={onRetryMessage}
                   isConsecutive={item.isConsecutive}
                   showAvatar={item.showAvatar}
+                  onAcceptOffer={onAcceptOffer}
+                  onDeclineOffer={onDeclineOffer}
+                  onCancelOffer={onCancelOffer}
                 />
               );
             })
@@ -364,8 +377,10 @@ export function ChatThread({
 
       {/* 4. Compact Sticky Bottom Composer aligned to max-w-4xl */}
       <ChatComposer
+        initialText={initialText}
         onSendMessage={onSendMessage}
         onShareTrip={onShareTrip}
+        onCreateOffer={onCreateOffer}
         disabled={conversation.isRequest || conversation.state === "PENDING" || conversation.state === "DECLINED"}
         disabledPlaceholder={t("chat.composer.requestLockedPlaceholder")}
       />

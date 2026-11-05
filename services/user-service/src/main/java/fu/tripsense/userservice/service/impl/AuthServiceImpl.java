@@ -80,6 +80,9 @@ public class AuthServiceImpl implements AuthService {
   private final UserValidator userValidator;
   private final EmailVerificationValidator emailVerificationValidator;
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private fu.tripsense.userservice.repository.AuthVerificationCodeRepository authVerificationCodeRepository;
+
   @Value("${jwt.idle-timeout-days}")
   private int idleTimeoutDays;
 
@@ -471,6 +474,18 @@ public class AuthServiceImpl implements AuthService {
             .build();
 
     passwordResetCodeRepository.save(resetCode);
+
+    if (authVerificationCodeRepository != null) {
+      authVerificationCodeRepository.save(
+          fu.tripsense.userservice.entity.AuthVerificationCode.builder()
+              .user(user)
+              .purpose("PASSWORD_RESET")
+              .codeHash(codeHash)
+              .expiresAt(now.plusMinutes(10))
+              .attemptCount(0)
+              .build());
+    }
+
     emailClient.sendPasswordResetCode(user.getEmail(), rawCode);
   }
 
@@ -508,6 +523,16 @@ public class AuthServiceImpl implements AuthService {
     // OTP matched! Mark as expired
     resetCode.setExpiresAt(now);
     passwordResetCodeRepository.save(resetCode);
+
+    if (authVerificationCodeRepository != null) {
+      authVerificationCodeRepository
+          .findTopByUserIdAndPurposeOrderByCreatedAtDesc(user.getId(), "PASSWORD_RESET")
+          .ifPresent(c -> {
+            c.setConsumedAt(now);
+            c.setExpiresAt(now);
+            authVerificationCodeRepository.save(c);
+          });
+    }
 
     // Update password
     user.setPassword(passwordEncoder.encode(request.newPassword()));

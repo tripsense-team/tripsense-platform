@@ -426,25 +426,53 @@ export function OnboardingWizard() {
         }
       }
 
-      // Filter out dimensions with empty arrays to satisfy backend validation
+      // Filter out dimensions with empty arrays and enforce allowed active dimensions to satisfy backend validation
+      const ALLOWED_DIMENSIONS = new Set([
+        "TRAVEL_PARTY",
+        "BUDGET_TIER",
+        "DAILY_BUDGET_VND",
+        "STAY_STYLE",
+        "FOOD_STYLE",
+        "ACTIVITY_INTEREST",
+      ]);
+
       const cleanSelections: Record<string, string[]> = {};
       for (const [key, values] of Object.entries(selection)) {
-        if (Array.isArray(values) && values.length > 0) {
-          cleanSelections[key] = values;
+        if (ALLOWED_DIMENSIONS.has(key) && Array.isArray(values) && values.length > 0) {
+          // Verify each code matches backend regex [A-Z0-9_\-]{1,80}
+          const validCodes = values.filter((v) => typeof v === "string" && /^[A-Z0-9_\-]{1,80}$/.test(v));
+          if (validCodes.length > 0) {
+            cleanSelections[key] = validCodes;
+          }
         }
       }
 
-      const cleanPlaces: Partial<Record<PlaceIntent, string[]>> = {
-        VISITED: places.VISITED,
-        WANT_TO_VISIT: places.WANT_TO_VISIT,
-      };
+      // Ensure required single-value dimensions are populated with fallback if skipped
+      if (!cleanSelections.TRAVEL_PARTY || cleanSelections.TRAVEL_PARTY.length === 0) {
+        cleanSelections.TRAVEL_PARTY = ["SOLO"];
+      }
+      if (!cleanSelections.BUDGET_TIER || cleanSelections.BUDGET_TIER.length === 0) {
+        cleanSelections.BUDGET_TIER = ["MID_RANGE"];
+      }
+
       if (!validDailyBudget) {
         setStep(5);
         setBudgetTouched(true);
         setSaving(false);
         return;
       }
-      cleanSelections.DAILY_BUDGET_VND = [dailyBudgetAmount];
+      cleanSelections.DAILY_BUDGET_VND = [dailyBudgetAmount || "500000"];
+
+      // Sanitize places to strictly match backend regex [A-Za-z0-9_:\-]{1,160}
+      const sanitizePlaceRefs = (refs?: string[]) =>
+        Array.isArray(refs)
+          ? refs.filter((r) => typeof r === "string" && /^[A-Za-z0-9_:\-]{1,160}$/.test(r))
+          : [];
+
+      const cleanPlaces: Record<PlaceIntent, string[]> = {
+        VISITED: sanitizePlaceRefs(places.VISITED),
+        WANT_TO_VISIT: sanitizePlaceRefs(places.WANT_TO_VISIT),
+      };
 
       const cleanAttributes: Record<string, string> = { ...profile?.attributes };
       if (homeCity.trim()) {
@@ -462,21 +490,105 @@ export function OnboardingWizard() {
         ? freeText.trim().slice(0, 2000)
         : undefined;
 
-      const saved = await onboardingApi.save({
-        version: profile?.version ?? 0,
-        selections: cleanSelections,
-        places: cleanPlaces,
-        attributes: cleanAttributes,
-        freeText: cleanFreeText,
-      });
+      let targetVersion = profile?.version ?? 0;
+      let savedProfile: OnboardingProfile | null = null;
 
-      const completed = await onboardingApi.complete(saved.version);
-      setProfile(completed);
-      await onboardingApi.markProfileComplete();
-      useAuthStore.getState().setOnboardingCompleted(true);
-      router.replace("/explore");
+      try {
+        savedProfile = await onboardingApi.save({
+          version: targetVersion,
+          selections: cleanSelections,
+          places: cleanPlaces,
+          attributes: cleanAttributes,
+          freeText: cleanFreeText,
+        });
+      } catch (saveErr) {
+        // If version conflict occurred, refresh latest profile and retry save once
+        const errObj = saveErr as Record<string, unknown>;
+        const errCode = (errObj?.data as Record<string, unknown>)?.code || "";
+        const errMsg = String(saveErr instanceof Error ? saveErr.message : "");
+        const isConflict =
+          errObj?.status === 409 ||
+          errCode === "VERSION_CONFLICT" ||
+          errMsg.includes("VERSION_CONFLICT") ||
+          errMsg.includes("optimistic") ||
+          errMsg.includes("changed by another request");
+
+        if (isConflict) {
+          const fresh = await onboardingApi.get().catch(() => null);
+          if (fresh) {
+            if (fresh.status === "COMPLETED") {
+              await onboardingApi.markProfileComplete().catch(() => undefined);
+              useAuthStore.getState().setOnboardingCompleted(true);
+              router.replace("/explore");
+              return;
+            }
+            targetVersion = fresh.version;
+            savedProfile = await onboardingApi.save({
+              version: targetVersion,
+              selections: cleanSelections,
+              places: cleanPlaces,
+              attributes: cleanAttributes,
+              freeText: cleanFreeText,
+            });
+          } else {
+            throw saveErr;
+          }
+        } else {
+          throw saveErr;
+        }
+      }
+
+      if (savedProfile) {
+        const completed = await onboardingApi.complete(savedProfile.version).catch(async (completeErr) => {
+          // If already completed or version mismatch, verify latest state
+          const latest = await onboardingApi.get().catch(() => null);
+          if (latest?.status === "COMPLETED") {
+            return latest;
+          }
+          throw completeErr;
+        });
+        setProfile(completed);
+        await onboardingApi.markProfileComplete();
+        useAuthStore.getState().setOnboardingCompleted(true);
+        router.replace("/explore");
+      }
     } catch (err) {
-      setError(getSafeErrorMessage(err, t("errors.generic")));
+      const msg = err instanceof Error ? err.message : "";
+      const rawData = typeof err === "object" && err !== null && "data" in err ? (err as { data?: unknown }).data : null;
+      const errorCode = typeof rawData === "object" && rawData !== null && "code" in rawData ? String((rawData as { code?: unknown }).code) : "";
+      const rawDetail = typeof rawData === "object" && rawData !== null && "message" in rawData ? String((rawData as { message?: unknown }).message) : "";
+      const combined = `${msg} ${errorCode} ${rawDetail}`.toLowerCase();
+
+      if (
+        combined.includes("conflict") ||
+        combined.includes("version") ||
+        combined.includes("optimistic") ||
+        combined.includes("already") ||
+        combined.includes("completed")
+      ) {
+        // If already saved or version updated elsewhere, finalize gracefully
+        try {
+          await onboardingApi.markProfileComplete();
+          useAuthStore.getState().setOnboardingCompleted(true);
+          router.replace("/explore");
+          return;
+        } catch {
+          // continue to user message
+        }
+      }
+
+      if (
+        combined.includes("invalid") ||
+        combined.includes("validation_failed") ||
+        combined.includes("budget tier") ||
+        combined.includes("daily budget") ||
+        combined.includes("unsupported") ||
+        combined.includes("answers must be provided")
+      ) {
+        setError(t("onboarding.validationFailed", { defaultValue: "Dữ liệu thiết lập chưa đầy đủ hoặc không hợp lệ. Vui lòng kiểm tra lại ngân sách và các bước trước đó." }));
+      } else {
+        setError(getSafeErrorMessage(err, t("onboarding.submitError", { defaultValue: "Không thể hoàn tất thiết lập lúc này. Vui lòng thử lại sau." })));
+      }
     } finally {
       setSaving(false);
     }

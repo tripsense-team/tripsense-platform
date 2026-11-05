@@ -22,7 +22,7 @@ import lombok.Setter;
 public class SocialReport {
   @Id private UUID id;
 
-  @Column(name = "target_type", nullable = false, length = 16)
+  @Column(name = "target_type", nullable = false, length = 32)
   private String targetType;
 
   @Column(name = "target_id", nullable = false)
@@ -30,6 +30,9 @@ public class SocialReport {
 
   @Column(name = "post_id")
   private UUID postId;
+
+  @Column(name = "conversation_id")
+  private UUID conversationId;
 
   @Column(name = "reporter_id", nullable = false)
   private UUID reporterId;

@@ -4,6 +4,8 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |
+| `in-chat-reservation-offer` | DONE | `services/social-service`, `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./in-chat-reservation-offer.md) |
 | `onboarding-daily-budget-recommendations` | DONE | `apps/web/tripsense`, `services/context-service`, `services/place-service`, `services/recommendation-service` | [Docs](./onboarding-daily-budget-recommendations.md) |
 | `ai-curated-place-recommendations` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-curated-place-recommendations.md) |
 | `observed-history-unattributed-latency` | IMPLEMENTING; diagnosis code + 231 tests complete, runtime cause identification pending | `services/recommendation-service`; local analyzer | [Docs](./observed-history-unattributed-latency.md) |
@@ -22,7 +24,9 @@ Track every feature that enters the multi-agent workflow.
 | `explore-parallel-local-hybrid-retrieval` | DONE | `services/recommendation-service` | [Docs](./explore-parallel-local-hybrid-retrieval.md) |
 | `explore-local-candidate-refresh-policy` | DONE | `services/recommendation-service`; `services/place-service` regression tests | [Docs](./explore-local-candidate-refresh-policy.md) |
 | `group-c-product-expansion` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; identity remains in `user-service` | [Docs](./group-c-product-expansion.md) |
-| `restaurant-booking-availability-engine` | APPROVED | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-availability-engine.md) |
+| `partner-cleanup-and-unified-subscription-redesign` | DONE | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway`, `services/ai-service` | [Docs](./partner-cleanup-and-unified-subscription-redesign.md) |
+| `partner-subscription-model` | SUPERSEDED | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway`, `services/ai-service` | [Docs](./partner-subscription-model.md) |
+| `restaurant-booking-availability-engine` | SUPERSEDED (by subscription model) | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-availability-engine.md) |
 | `partner-analytics` | IMPLEMENTING | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./partner-analytics.md) |
 | `hotel-live-place-photos` | DONE | `apps/web/tripsense`, existing `services/place-service` and `services/api-gateway` | [Docs](./hotel-live-place-photos.md) |
 | `partner-hotel-checkin-ampm` | IMPLEMENTING | `apps/web/tripsense`; existing hotel property API contracts | [Docs](./partner-hotel-checkin-ampm.md) |
@@ -92,6 +96,9 @@ Track every feature that enters the multi-agent workflow.
 | `profile-password-management` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/user-service`, `services/mail-service` | [Docs](./profile-password-management.md) |
 | `mindtrip-trip-creation-handoff` | APPROVED | `apps/web/tripsense`, `services/trip-service`, `services/ai-service` | [Docs](./mindtrip-trip-creation-handoff.md) |
 | `restaurant-menu-ai-extraction-and-reservation-integration` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/ai-service`, `services/api-gateway` | [Docs](./restaurant-menu-ai-extraction-and-reservation-integration.md) |
+| `place-permanent-photo-storage` | DONE | `services/place-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./place-permanent-photo-storage.md) |
+| `partner-service-first-onboarding-and-subscription-flow` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/api-gateway` | [Docs](./partner-service-first-onboarding-and-subscription-flow.md) |
+| `unified-hotel-restaurant-reservation-experience` | DONE | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./unified-hotel-restaurant-reservation-experience.md) |
 
 ## Statuses
 

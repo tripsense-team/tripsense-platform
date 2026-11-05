@@ -29,6 +29,9 @@ public class VerificationServiceImpl implements VerificationService {
   private final EmailVerificationValidator emailVerificationValidator;
   private final EmailClient emailClient;
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private fu.tripsense.userservice.repository.AuthVerificationCodeRepository authVerificationCodeRepository;
+
   @Override
   @Transactional
   public void createAndSendVerificationCode(User user) {
@@ -60,6 +63,18 @@ public class VerificationServiceImpl implements VerificationService {
             .build();
 
     emailVerificationCodeRepository.save(verificationCode);
+
+    if (authVerificationCodeRepository != null) {
+      authVerificationCodeRepository.save(
+          fu.tripsense.userservice.entity.AuthVerificationCode.builder()
+              .user(user)
+              .purpose("EMAIL_VERIFICATION")
+              .codeHash(codeHash)
+              .expiresAt(now.plusMinutes(10))
+              .attemptCount(0)
+              .build());
+    }
+
     emailClient.sendVerificationCode(user.getEmail(), rawCode);
   }
 
@@ -74,6 +89,16 @@ public class VerificationServiceImpl implements VerificationService {
 
     codeEntity.setVerifiedAt(now);
     emailVerificationCodeRepository.save(codeEntity);
+
+    if (authVerificationCodeRepository != null) {
+      authVerificationCodeRepository
+          .findTopByUserIdAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+              codeEntity.getUser().getId(), "EMAIL_VERIFICATION")
+          .ifPresent(c -> {
+            c.setConsumedAt(now);
+            authVerificationCodeRepository.save(c);
+          });
+    }
 
     User user = codeEntity.getUser();
     user.setStatus(UserStatus.ACTIVE);

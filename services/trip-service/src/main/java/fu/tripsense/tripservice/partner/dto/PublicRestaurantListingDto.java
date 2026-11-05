@@ -7,6 +7,7 @@ import lombok.Builder;
 @Builder
 public record PublicRestaurantListingDto(
     UUID id,
+    UUID ownerUserId,
     String displayName,
     String address,
     String destination,
@@ -14,5 +15,7 @@ public record PublicRestaurantListingDto(
     List<String> cuisineTags,
     List<RestaurantMenuItemDto> menu,
     String publicEmail,
-    String publicPhone
+    String publicPhone,
+    boolean verifiedPartner,
+    String badgeLabel
 ) {}

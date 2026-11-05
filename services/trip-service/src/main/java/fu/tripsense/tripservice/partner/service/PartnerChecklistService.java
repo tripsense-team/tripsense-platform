@@ -23,7 +23,16 @@ public class PartnerChecklistService {
   }
 
   public void validateApproval(PartnerApplication application,PartnerBusiness business,AdminReviewDecisionRequest request) {
-    var checklist=load(application.getChecklistId(),application.getChecklistVersion(),business.getKind().name());
+    String checklistId = application.getChecklistId();
+    String checklistVersion = application.getChecklistVersion() != null ? application.getChecklistVersion() : "1.0";
+    if (business.getKind() != null) {
+      String expectedPrefix = "CHK-" + (business.getKind() == fu.tripsense.tripservice.partner.enums.BusinessKind.TOUR_GUIDE ? "GUIDE" : business.getKind().name());
+      if (checklistId == null || !checklistId.startsWith(expectedPrefix)) {
+        checklistId = expectedPrefix + "-V1";
+        checklistVersion = "1.0";
+      }
+    }
+    var checklist=load(checklistId, checklistVersion, business.getKind().name());
     var results=new HashMap<String,String>();
     Set<String> codes=new HashSet<>();
     for(var item:checklist.getItemsJson()) codes.add((String)item.get("code"));

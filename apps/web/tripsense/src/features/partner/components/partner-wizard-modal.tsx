@@ -1080,76 +1080,85 @@ export function PartnerWizardModal({
                   </>
                 )}
 
-                {/* Legal & Ownership Proof (HOTEL / RESTAURANT) */}
-                {(kind === "HOTEL" || kind === "RESTAURANT") && (
-                  <div className="space-y-3 pt-2 border-t border-border/60">
-                    <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-primary" /> Minh chứng pháp lý & quyền sở hữu
-                    </span>
+                {/* Legal & Ownership Proof / Professional Verification */}
+                <div className="space-y-3 pt-2 border-t border-border/60">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-primary" />
+                    {kind === "TOUR_GUIDE"
+                      ? "Minh chứng nghiệp vụ & Thẻ hành nghề Hướng dẫn viên"
+                      : "Minh chứng pháp lý & quyền sở hữu cơ sở"}
+                  </span>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Mã số thuế doanh nghiệp / Hộ kinh doanh
-                        </label>
-                        <Input
-                          placeholder="VD: 0401234567"
-                          value={taxCode}
-                          onChange={(e) => setTaxCode(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Số Giấy phép kinh doanh / ĐKKD
-                        </label>
-                        <Input
-                          placeholder="VD: GP-2023-HA-012"
-                          value={licenseNumber}
-                          onChange={(e) => setLicenseNumber(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Người đại diện pháp luật
-                        </label>
-                        <Input
-                          placeholder="Họ và tên chủ sở hữu"
-                          value={legalRepresentative}
-                          onChange={(e) => setLegalRepresentative(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Số điện thoại liên hệ xác minh
-                        </label>
-                        <Input
-                          placeholder="VD: 0912345678"
-                          value={contactPhone}
-                          onChange={(e) => setContactPhone(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                        Liên kết tài liệu minh chứng (Giấy phép kinh doanh, Giấy chứng nhận quyền sở hữu)
+                        {kind === "TOUR_GUIDE"
+                          ? "Mã số thuế cá nhân (nếu có)"
+                          : "Mã số thuế doanh nghiệp / Hộ kinh doanh"}
                       </label>
                       <Input
-                        placeholder="https://drive.google.com/file/d/..."
-                        value={proofDocumentUrl}
-                        onChange={(e) => setProofDocumentUrl(e.target.value)}
+                        placeholder="VD: 0401234567"
+                        value={taxCode}
+                        onChange={(e) => setTaxCode(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                        {kind === "TOUR_GUIDE"
+                          ? "Số thẻ Hướng dẫn viên du lịch (Quốc tế / Nội địa)"
+                          : "Số Giấy phép kinh doanh / ĐKKD"}
+                      </label>
+                      <Input
+                        placeholder={kind === "TOUR_GUIDE" ? "VD: 148192384" : "VD: GP-2023-HA-012"}
+                        value={licenseNumber}
+                        onChange={(e) => setLicenseNumber(e.target.value)}
                         className="text-xs"
                       />
                     </div>
                   </div>
-                )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                        {kind === "TOUR_GUIDE"
+                          ? "Họ và tên Hướng dẫn viên (theo CCCD / Thẻ HDV)"
+                          : "Người đại diện pháp luật"}
+                      </label>
+                      <Input
+                        placeholder={kind === "TOUR_GUIDE" ? "Họ và tên đầy đủ" : "Họ và tên chủ sở hữu"}
+                        value={legalRepresentative}
+                        onChange={(e) => setLegalRepresentative(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                        Số điện thoại liên hệ xác minh
+                      </label>
+                      <Input
+                        placeholder="VD: 0912345678"
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      {kind === "TOUR_GUIDE"
+                        ? "Liên kết ảnh chụp Thẻ Hướng dẫn viên du lịch / Chứng chỉ hành nghề"
+                        : "Liên kết tài liệu minh chứng (Giấy phép kinh doanh, Giấy chứng nhận quyền sở hữu)"}
+                    </label>
+                    <Input
+                      placeholder="https://drive.google.com/file/d/..."
+                      value={proofDocumentUrl}
+                      onChange={(e) => setProofDocumentUrl(e.target.value)}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
 
                 {/* Description / Bio */}
                 <div>

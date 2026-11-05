@@ -131,12 +131,30 @@ public class TripShareWriter {
     share.setCurrentSnapshotVersion(1);
     tripShares.save(share);
 
+    posts.findById(postId).ifPresent(p -> {
+      p.setVisibility(visibility);
+      try {
+        p.setMetadata(objectMapper.writeValueAsString(java.util.Map.of(
+            "source_trip_id", sourceTripId.toString(),
+            "trip_name", snapshot.summary().name(),
+            "destination_name", snapshot.summary().destinationName() != null ? snapshot.summary().destinationName() : "",
+            "cover_image_url", snapshot.summary().coverImageUrl() != null ? snapshot.summary().coverImageUrl() : "",
+            "day_count", snapshot.summary().dayCount(),
+            "itinerary_item_count", snapshot.summary().itineraryItemCount(),
+            "publication_revision", snapshot.publicationRevision()
+        )));
+        posts.save(p);
+      } catch (Exception ignored) {
+      }
+    });
+
     return SocialPost.builder()
         .id(postId)
         .authorId(user.id())
         .authorDisplayName(authorName)
         .authorEmail(user.email())
         .postType("TRIP_SHARE")
+        .visibility(visibility)
         .idempotencyKey(idempotencyKey)
         .content(caption)
         .likeCount(0)

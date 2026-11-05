@@ -343,16 +343,22 @@ export function UserSidebar({
                   const partnerHref = "/partner";
                   const isPartner = isUserPartner(user);
                   const isServicesActive =
-                    pathname === "/partner/services" || pathname?.startsWith("/partner/services/");
+                    pathname === "/partner/services" ||
+                    pathname?.startsWith("/partner/services/");
+                  const isSubscriptionActive =
+                    pathname === "/partner/subscription" ||
+                    pathname?.startsWith("/partner/subscription/") ||
+                    Boolean(pathname?.includes("/subscription"));
                   const isAnalyticsActive = pathname === "/partner/analytics" || pathname?.startsWith("/partner/analytics/");
                   const isPartnerActive =
                     (pathname === partnerHref || pathname?.startsWith(`${partnerHref}/`)) &&
-                    !isServicesActive && !isAnalyticsActive;
+                    !isServicesActive && !isSubscriptionActive && !isAnalyticsActive;
                   const partnerTitle = isUserPartner(user)
-                    ? "Trung tâm Đối tác"
-                    : "Trở thành đối tác";
-                  const servicesTitle = t("nav.partnerServices");
-                  const analyticsTitle = t("nav.partnerAnalytics");
+                    ? t("nav.partnerBusinesses", { defaultValue: "Cơ sở kinh doanh" })
+                    : t("nav.becomePartner", { defaultValue: "Trở thành đối tác" });
+                  const servicesTitle = t("nav.partnerServices", { defaultValue: "Dịch vụ & Thực đơn" });
+                  const subscriptionTitle = t("nav.partnerSubscription", { defaultValue: "Gói Hội Viên Pro" });
+                  const analyticsTitle = t("nav.partnerAnalytics", { defaultValue: "Thống kê & Tiếp cận" });
                   const partnerLinkClass = cn(
                     "flex min-h-[38px] items-center gap-3 rounded-full px-3 py-2 text-[13px] transition-all duration-150 group",
                     collapsed && "justify-center p-0 w-9 h-9 min-h-9 mx-auto shrink-0",
@@ -406,6 +412,26 @@ export function UserSidebar({
                     </Link>
                   );
 
+                  const subscriptionElement = (
+                    <Link
+                      href="/partner/subscription"
+                      aria-current={isSubscriptionActive ? "page" : undefined}
+                      className={cn(
+                        partnerLinkClass,
+                        isSubscriptionActive
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
+                          : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
+                      )}
+                    >
+                      <Sparkles className={partnerIconClass(isSubscriptionActive)} />
+                      {!collapsed && (
+                        <span className="block min-w-0 flex-1 truncate font-medium">
+                          {subscriptionTitle}
+                        </span>
+                      )}
+                    </Link>
+                  );
+
                   const analyticsElement = (
                     <Link
                       href="/partner/analytics"
@@ -441,6 +467,14 @@ export function UserSidebar({
                         )}
                         {isPartner && (
                           <Tooltip>
+                            <TooltipTrigger asChild>{subscriptionElement}</TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={12}>
+                              <span>{subscriptionTitle}</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {isPartner && (
+                          <Tooltip>
                             <TooltipTrigger asChild>{analyticsElement}</TooltipTrigger>
                             <TooltipContent side="right" sideOffset={12}><span>{analyticsTitle}</span></TooltipContent>
                           </Tooltip>
@@ -452,6 +486,7 @@ export function UserSidebar({
                     <>
                       {partnerElement}
                       {isPartner && servicesElement}
+                      {isPartner && subscriptionElement}
                       {isPartner && analyticsElement}
                     </>
                   );

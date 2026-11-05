@@ -281,7 +281,14 @@ export function PublicGuideProfileView({ guideId }: PublicGuideProfileViewProps)
 
                   {promo.indicativePriceAmount && (
                     <p className="text-xs font-semibold text-primary pt-1">
-                      Giá từ: {promo.indicativePriceAmount.toLocaleString("vi-VN")} VND / {promo.indicativePriceUnit}
+                      Giá từ: {promo.indicativePriceAmount.toLocaleString("vi-VN")} VND /{" "}
+                      {promo.indicativePriceUnit === "PERSON" || promo.indicativePriceUnit === "PER_PERSON"
+                        ? "người"
+                        : promo.indicativePriceUnit === "GROUP" || promo.indicativePriceUnit === "PER_GROUP"
+                          ? "đoàn"
+                          : promo.indicativePriceUnit === "HOUR" || promo.indicativePriceUnit === "PER_HOUR"
+                            ? "giờ"
+                            : "ngày"}
                     </p>
                   )}
                 </CardContent>

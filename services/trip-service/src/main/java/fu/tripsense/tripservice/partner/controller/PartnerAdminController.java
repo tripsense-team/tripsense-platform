@@ -46,13 +46,25 @@ public class PartnerAdminController {
                 () ->
                     new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND, "Business not found"));
+    String kind = business.getKind() != null ? business.getKind().name() : null;
+    String checklistId = app.getChecklistId();
+    String checklistVersion = app.getChecklistVersion() != null ? app.getChecklistVersion() : "1.0";
+
+    if (business.getKind() != null) {
+      String expectedPrefix = "CHK-" + (business.getKind() == fu.tripsense.tripservice.partner.enums.BusinessKind.TOUR_GUIDE ? "GUIDE" : business.getKind().name());
+      if (checklistId == null || !checklistId.startsWith(expectedPrefix)) {
+        checklistId = expectedPrefix + "-V1";
+        checklistVersion = "1.0";
+      }
+    }
+
     return ResponseEntity.ok(
         ApiResponse.success(
             checklistService
                 .load(
-                    app.getChecklistId(),
-                    app.getChecklistVersion(),
-                    business.getKind() != null ? business.getKind().name() : null)
+                    checklistId,
+                    checklistVersion,
+                    kind)
                 .getItemsJson()));
   }
 

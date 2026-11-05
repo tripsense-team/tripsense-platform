@@ -148,6 +148,8 @@ export function offersToHotel(offers: HotelOffer[], nights: number, quantity = 1
   return {
     id: first.property_id,
     propertyId: first.property_id,
+    businessId: first.business_id,
+    ownerUserId: first.owner_user_id,
     name: first.name,
     address: first.address,
     city: first.destination,
@@ -419,7 +421,7 @@ export async function fetchDirectOffersForPlace(
   checkOut: string,
   guests = 2,
   quantity = 1
-): Promise<{ hasDirectBooking: true; propertyId: string; rooms: MindtripHotel["rooms"]; pricePerNight: number; currency: string } | null> {
+): Promise<{ hasDirectBooking: true; propertyId: string; businessId?: string; ownerUserId?: string; rooms: MindtripHotel["rooms"]; pricePerNight: number; currency: string } | null> {
   try {
     const destination = place.city || place.district || "all";
     const tomorrow = new Date();
@@ -499,7 +501,7 @@ export async function fetchDirectOffersForPlace(
     const pricePerNight = Math.min(...bestMatch.map((o) => o.total)) / nights / quantity;
     const currency = bestMatch[0].currency;
 
-    return { hasDirectBooking: true, propertyId, rooms, pricePerNight, currency };
+    return { hasDirectBooking: true, propertyId, businessId: bestMatch[0].business_id, ownerUserId: bestMatch[0].owner_user_id, rooms, pricePerNight, currency };
   } catch {
     return null;
   }

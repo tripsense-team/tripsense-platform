@@ -7,10 +7,14 @@ import {
   Building2,
   Utensils,
   Compass,
+  Ticket,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserBookingsView } from "@/features/hotels";
 import { CustomerReservationsView } from "@/features/partner";
+import { chatApi } from "@/features/chat/services/chat-api";
+import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
+import { InChatReservationCard } from "./in-chat-reservation-card";
 import { useTranslation } from "@/i18n";
 
 interface UnifiedReservationsHubProps {
@@ -31,6 +35,34 @@ export function UnifiedReservationsHub({
       : defaultTab;
 
   const [activeTab, setActiveTab] = React.useState<string>(initialTab);
+  const [chatOffers, setChatOffers] = React.useState<ReservationOfferPreview[]>([]);
+  const targetBookingId = searchParams.get("bookingId");
+
+  React.useEffect(() => {
+    let canceled = false;
+    chatApi
+      .myOffers("ACCEPTED")
+      .then((offers) => {
+        if (!canceled && Array.isArray(offers)) {
+          setChatOffers(offers);
+        }
+      })
+      .catch(() => {
+        // Silently fail if unauthenticated or network error
+      });
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  const hotelOffers = React.useMemo(
+    () => chatOffers.filter((o) => o.businessType === "HOTEL" || o.businessType === "GUIDE"),
+    [chatOffers]
+  );
+  const restaurantOffers = React.useMemo(
+    () => chatOffers.filter((o) => o.businessType === "RESTAURANT"),
+    [chatOffers]
+  );
 
   React.useEffect(() => {
     if (tabParam === "restaurants" || tabParam === "hotels") {
@@ -110,11 +142,49 @@ export function UnifiedReservationsHub({
       {/* Main Content Area */}
       <div className="flex-1 py-6">
         {activeTab === "hotels" ? (
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 space-y-6">
+            {hotelOffers.length > 0 && (
+              <section className="space-y-3" aria-label={t("reservations.inChatTickets", { defaultValue: "Đơn đặt xác nhận qua Chat" })}>
+                <div className="flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-primary" />
+                  <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    {t("reservations.inChatTickets", { defaultValue: "Đơn đặt xác nhận qua Chat" })} ({hotelOffers.length})
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {hotelOffers.map((offer) => (
+                    <InChatReservationCard
+                      key={offer.id}
+                      offer={offer}
+                      isTarget={targetBookingId === offer.bookingId || targetBookingId === offer.id}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
             <UserBookingsView hideHeader onExploreStays={() => router.push("/hotels")} />
           </div>
         ) : (
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 space-y-6">
+            {restaurantOffers.length > 0 && (
+              <section className="space-y-3" aria-label={t("reservations.inChatTickets", { defaultValue: "Đơn đặt xác nhận qua Chat" })}>
+                <div className="flex items-center gap-2">
+                  <Ticket className="h-4 w-4 text-primary" />
+                  <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                    {t("reservations.inChatTickets", { defaultValue: "Đơn đặt xác nhận qua Chat" })} ({restaurantOffers.length})
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {restaurantOffers.map((offer) => (
+                    <InChatReservationCard
+                      key={offer.id}
+                      offer={offer}
+                      isTarget={targetBookingId === offer.bookingId || targetBookingId === offer.id}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
             <CustomerReservationsView hideHeader />
           </div>
         )}

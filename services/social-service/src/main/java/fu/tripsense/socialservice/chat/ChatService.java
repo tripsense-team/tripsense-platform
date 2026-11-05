@@ -5,7 +5,11 @@ import fu.tripsense.socialservice.client.PublicProfileClientResponse;
 import fu.tripsense.socialservice.client.UserPublicProfileClient;
 import fu.tripsense.socialservice.exception.SocialException;
 import fu.tripsense.socialservice.security.CurrentUserProvider;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -180,6 +184,8 @@ public class ChatService {
             (row, n) -> new long[] {row.getLong(1), row.getLong(2)},
             conversation,
             sender);
+    UUID offerId = uuid(r, "offer_id");
+    ReservationOffer offer = offerId == null ? null : reservationOffer(offerId);
     String status = "sent";
     if (!receipt.isEmpty())
       status =
@@ -195,8 +201,52 @@ public class ChatService {
         r.getString("type"),
         r.getString("text"),
         card,
+        offer,
         time(r, "created_at"),
         status);
+  }
+
+  public ReservationOffer reservationOffer(UUID offerId) {
+    if (offerId == null) return null;
+    List<ReservationOffer> list =
+        db.query(
+            "SELECT * FROM chat_reservation_offers WHERE id=?",
+            this::mapReservationOffer,
+            offerId);
+    return list.isEmpty() ? null : list.getFirst();
+  }
+
+  private ReservationOffer mapReservationOffer(ResultSet r, int ignored) throws SQLException {
+    java.sql.Date checkIn = r.getDate("check_in_date");
+    java.sql.Date checkOut = r.getDate("check_out_date");
+    java.sql.Time resTime = r.getTime("reservation_time");
+    return new ReservationOffer(
+        uuid(r, "id"),
+        uuid(r, "conversation_id"),
+        uuid(r, "message_id"),
+        uuid(r, "sender_id"),
+        uuid(r, "recipient_id"),
+        r.getString("business_type"),
+        uuid(r, "business_id"),
+        r.getString("business_name"),
+        r.getString("business_thumbnail"),
+        r.getString("item_title"),
+        checkIn == null ? null : checkIn.toLocalDate(),
+        checkOut == null ? null : checkOut.toLocalDate(),
+        resTime == null ? null : resTime.toLocalTime(),
+        r.getInt("adults_count"),
+        r.getInt("children_count"),
+        r.getBigDecimal("total_price"),
+        r.getBigDecimal("deposit_amount"),
+        r.getString("currency"),
+        r.getString("inclusions"),
+        time(r, "expires_at"),
+        r.getString("status"),
+        r.getString("decline_reason"),
+        uuid(r, "booking_id"),
+        r.getString("booking_code"),
+        time(r, "created_at"),
+        time(r, "updated_at"));
   }
 
   private TripCard tripCard(UUID postId) {
@@ -535,6 +585,216 @@ public class ChatService {
     }
 
     return new SendOutcome(existingMessage(user, request.clientMessageId()), true);
+  }
+
+  @Transactional
+  public Message createOffer(UUID conversationId, CreateReservationOffer request) {
+    UUID user = me();
+    if (request == null || request.clientMessageId() == null || request.businessId() == null) {
+      throw error(HttpStatus.BAD_REQUEST, "INVALID_OFFER", "Missing required offer fields");
+    }
+    if (request.checkInDate() == null || request.itemTitle() == null || request.itemTitle().isBlank()) {
+      throw error(HttpStatus.BAD_REQUEST, "INVALID_OFFER", "Item title and check-in date are required");
+    }
+
+    Thread t = requireThread(conversationId, user, false);
+    pairLock(t.low, t.high);
+    t = requireThread(conversationId, user, true);
+    assertAllowed(user, t.peer(user));
+
+    UUID offerId = UUID.randomUUID();
+    UUID messageId = UUID.randomUUID();
+    UUID recipient = t.peer(user);
+
+    int validHours = request.validHours() == null || request.validHours() <= 0 ? 24 : request.validHours();
+    Instant expiresAt = Instant.now().plus(validHours, ChronoUnit.HOURS);
+
+    java.sql.Date sqlCheckIn = java.sql.Date.valueOf(request.checkInDate());
+    java.sql.Date sqlCheckOut = request.checkOutDate() == null ? null : java.sql.Date.valueOf(request.checkOutDate());
+    java.sql.Time sqlTime = request.reservationTime() == null ? null : java.sql.Time.valueOf(request.reservationTime());
+
+    db.update(
+        """
+        INSERT INTO chat_reservation_offers(
+          id, conversation_id, message_id, sender_id, recipient_id,
+          business_type, business_id, business_name, business_thumbnail, item_title,
+          check_in_date, check_out_date, reservation_time,
+          adults_count, children_count, total_price, deposit_amount, currency,
+          inclusions, expires_at, status, created_at, updated_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',now(),now())
+        """,
+        offerId,
+        conversationId,
+        messageId,
+        user,
+        recipient,
+        request.businessType() == null ? "HOTEL" : request.businessType().toUpperCase(),
+        request.businessId(),
+        request.businessName() == null ? "Cơ sở đối tác" : request.businessName(),
+        request.businessThumbnail(),
+        request.itemTitle(),
+        sqlCheckIn,
+        sqlCheckOut,
+        sqlTime,
+        request.adultsCount() == null ? 1 : request.adultsCount(),
+        request.childrenCount() == null ? 0 : request.childrenCount(),
+        request.totalPrice() == null ? BigDecimal.ZERO : request.totalPrice(),
+        request.depositAmount() == null ? BigDecimal.ZERO : request.depositAmount(),
+        request.currency() == null ? "VND" : request.currency(),
+        request.inclusions(),
+        Timestamp.from(expiresAt));
+
+    Long newSeq =
+        db.queryForObject(
+            """
+            INSERT INTO chat_messages(id, conversation_id, sender_id, client_message_id, type, text, offer_id, created_at)
+            VALUES (?,?,?,?,'RESERVATION_OFFER',null,?,now()) RETURNING seq
+            """,
+            Long.class,
+            messageId,
+            conversationId,
+            user,
+            request.clientMessageId(),
+            offerId);
+
+    db.update(
+        "UPDATE chat_conversations SET state=CASE WHEN state IN ('DRAFT','DECLINED') THEN 'PENDING' ELSE state END, last_message_seq=?, version=version+1, updated_at=now() WHERE id=?",
+        newSeq,
+        conversationId);
+
+    changed(t, "MESSAGE_CREATED");
+
+    return existingMessage(user, request.clientMessageId());
+  }
+
+  public ReservationOffer getOffer(UUID offerId) {
+    UUID user = me();
+    ReservationOffer offer = reservationOffer(offerId);
+    if (offer == null) {
+      throw error(HttpStatus.NOT_FOUND, "OFFER_NOT_FOUND", "Offer not found");
+    }
+    requireThread(offer.conversationId(), user, false);
+    return offer;
+  }
+
+  public List<ReservationOffer> myOffers(String status, String businessType) {
+    UUID user = me();
+    StringBuilder sql =
+        new StringBuilder(
+            "SELECT * FROM chat_reservation_offers WHERE (recipient_id = ? OR sender_id = ?)");
+    List<Object> params = new ArrayList<>();
+    params.add(user);
+    params.add(user);
+
+    if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+      sql.append(" AND status = ?");
+      params.add(status.toUpperCase().trim());
+    }
+
+    if (businessType != null && !businessType.isBlank() && !"ALL".equalsIgnoreCase(businessType)) {
+      sql.append(" AND business_type = ?");
+      params.add(businessType.toUpperCase().trim());
+    }
+
+    sql.append(" ORDER BY created_at DESC LIMIT 100");
+    return db.query(sql.toString(), this::mapReservationOffer, params.toArray());
+  }
+
+  @Transactional
+  public AcceptOfferResponse acceptOffer(UUID offerId) {
+    UUID user = me();
+    ReservationOffer offer = reservationOffer(offerId);
+    if (offer == null) {
+      throw error(HttpStatus.NOT_FOUND, "OFFER_NOT_FOUND", "Offer not found");
+    }
+    if (!offer.recipientId().equals(user)) {
+      throw error(HttpStatus.FORBIDDEN, "FORBIDDEN", "Only the offer recipient can accept this offer");
+    }
+    if (!"PENDING".equals(offer.status())) {
+      throw error(HttpStatus.CONFLICT, "INVALID_OFFER_STATE", "Offer is no longer pending");
+    }
+    if (Instant.now().isAfter(offer.expiresAt())) {
+      db.update("UPDATE chat_reservation_offers SET status='EXPIRED', updated_at=now() WHERE id=?", offerId);
+      throw error(HttpStatus.CONFLICT, "OFFER_EXPIRED", "Offer has expired");
+    }
+
+    UUID bookingId = UUID.randomUUID();
+    String prefix = "RESTAURANT".equalsIgnoreCase(offer.businessType()) ? "TS-RES-" : "TS-HTL-";
+    String bookingCode = prefix + offer.id().toString().substring(0, 8).toUpperCase();
+
+    int updated =
+        db.update(
+            "UPDATE chat_reservation_offers SET status='ACCEPTED', booking_id=?, booking_code=?, updated_at=now() WHERE id=? AND status='PENDING'",
+            bookingId,
+            bookingCode,
+            offerId);
+
+    if (updated == 0) {
+      throw error(HttpStatus.CONFLICT, "CONCURRENT_ACCEPT", "Offer was already accepted or modified");
+    }
+
+    Thread t = requireThread(offer.conversationId(), user, false);
+    changed(t, "OFFER_UPDATED");
+
+    String redirectTab = "RESTAURANT".equalsIgnoreCase(offer.businessType()) ? "restaurants" : "hotels";
+    String redirectUrl = "/reservations?tab=" + redirectTab + "&bookingId=" + bookingId;
+
+    return new AcceptOfferResponse(
+        offerId,
+        "ACCEPTED",
+        bookingId,
+        bookingCode,
+        redirectUrl,
+        "Xác nhận đặt chỗ thành công!");
+  }
+
+  @Transactional
+  public ReservationOffer declineOffer(UUID offerId, String reason) {
+    UUID user = me();
+    ReservationOffer offer = reservationOffer(offerId);
+    if (offer == null) {
+      throw error(HttpStatus.NOT_FOUND, "OFFER_NOT_FOUND", "Offer not found");
+    }
+    if (!offer.recipientId().equals(user)) {
+      throw error(HttpStatus.FORBIDDEN, "FORBIDDEN", "Only the offer recipient can decline this offer");
+    }
+    if (!"PENDING".equals(offer.status())) {
+      throw error(HttpStatus.CONFLICT, "INVALID_OFFER_STATE", "Offer is no longer pending");
+    }
+
+    db.update(
+        "UPDATE chat_reservation_offers SET status='DECLINED', decline_reason=?, updated_at=now() WHERE id=? AND status='PENDING'",
+        reason,
+        offerId);
+
+    Thread t = requireThread(offer.conversationId(), user, false);
+    changed(t, "OFFER_UPDATED");
+
+    return reservationOffer(offerId);
+  }
+
+  @Transactional
+  public ReservationOffer cancelOffer(UUID offerId) {
+    UUID user = me();
+    ReservationOffer offer = reservationOffer(offerId);
+    if (offer == null) {
+      throw error(HttpStatus.NOT_FOUND, "OFFER_NOT_FOUND", "Offer not found");
+    }
+    if (!offer.senderId().equals(user)) {
+      throw error(HttpStatus.FORBIDDEN, "FORBIDDEN", "Only the creator can cancel this offer");
+    }
+    if (!"PENDING".equals(offer.status())) {
+      throw error(HttpStatus.CONFLICT, "INVALID_OFFER_STATE", "Offer is no longer pending");
+    }
+
+    db.update(
+        "UPDATE chat_reservation_offers SET status='CANCELLED', updated_at=now() WHERE id=? AND status='PENDING'",
+        offerId);
+
+    Thread t = requireThread(offer.conversationId(), user, false);
+    changed(t, "OFFER_UPDATED");
+
+    return reservationOffer(offerId);
   }
 
   @Transactional

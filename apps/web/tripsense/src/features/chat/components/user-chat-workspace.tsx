@@ -11,6 +11,9 @@ import { ChatThread } from "./chat-thread";
 import { NewChatDialog } from "./new-chat-dialog";
 import { ShareTripDialog } from "./share-trip-dialog";
 import { BlockedUsersDialog } from "./blocked-users-dialog";
+import { CreateReservationOfferModal } from "./create-reservation-offer-modal";
+import type { CreateReservationOfferPayload } from "../types/chat.types";
+import { getPartnerContext } from "@/features/partner/services/partner-api";
 import { useSearchParams } from "next/navigation";
 import { ChatSidebarSkeleton, ChatThreadSkeleton } from "./chat-states";
 import { cn } from "@/lib/utils";
@@ -20,6 +23,7 @@ export function UserChatWorkspace() {
   const searchParams = useSearchParams();
   const targetUserId = searchParams.get("userId");
   const targetThreadId = searchParams.get("t") || searchParams.get("id");
+  const initialDraft = searchParams.get("message") || searchParams.get("draft") || "";
   const userId = useAuthStore((state) => state.user?.id);
   const authVersion = useAuthStore((state) => state.authVersion);
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
@@ -29,12 +33,38 @@ export function UserChatWorkspace() {
   const [isNewChatOpen, setIsNewChatOpen] = React.useState(false);
   const [shareTripOpen,setShareTripOpen] = React.useState(false);
   const [blocksOpen,setBlocksOpen] = React.useState(false);
+  const [createOfferOpen, setCreateOfferOpen] = React.useState(false);
+  const [partnerBusiness, setPartnerBusiness] = React.useState<{ name: string; kind: "HOTEL" | "RESTAURANT" | "GUIDE" } | null>(null);
+  const [partnerBusinesses, setPartnerBusinesses] = React.useState<Array<{ id: string; displayName: string; kind: string }>>([]);
   const [mobileView, setMobileView] = React.useState<"list" | "thread">("list");
   const [isLoading, setIsLoading] = React.useState(true);
   const alive = React.useRef(true);
   const currentId = React.useRef("");
   const refreshRef = React.useRef<() => Promise<void>>(async () => {});
   React.useEffect(() => { currentId.current = activeConvId; }, [activeConvId]);
+
+  // Load partner business context if current user is a partner
+  React.useEffect(() => {
+    if (!userId) return;
+    getPartnerContext()
+      .then((ctx) => {
+        if (ctx?.businesses && ctx.businesses.length > 0) {
+          setPartnerBusinesses(
+            ctx.businesses.map((b) => ({
+              id: b.id,
+              displayName: b.displayName,
+              kind: b.kind,
+            }))
+          );
+          const first = ctx.businesses[0];
+          setPartnerBusiness({
+            name: first.displayName,
+            kind: first.kind === "TOUR_GUIDE" ? "GUIDE" : (first.kind as "HOTEL" | "RESTAURANT"),
+          });
+        }
+      })
+      .catch(() => null);
+  }, [userId]);
 
   // Handle direct navigation to user via /chat?userId=...
   React.useEffect(() => {
@@ -274,6 +304,110 @@ export function UserChatWorkspace() {
     setConversations((old)=>old.map((c)=>c.id===activeConvId?{...c,messages:[...c.messages,draft]}:c));
     void sendWithKey(activeConvId,"",key,postId);
   };
+  const handleCreateOffer = async (payload: Omit<CreateReservationOfferPayload, "clientMessageId">) => {
+    if (!activeConvId || !userId) return;
+    const key = crypto.randomUUID();
+    const fullPayload: CreateReservationOfferPayload = {
+      ...payload,
+      clientMessageId: key,
+    };
+    try {
+      const sent = await chatApi.createOffer(activeConvId, fullPayload);
+      if (!alive.current) return;
+      setConversations((old) =>
+        old.map((c) =>
+          c.id !== activeConvId
+            ? c
+            : {
+                ...c,
+                messages: [...c.messages, toChatMessage(sent, userId)],
+              }
+        )
+      );
+      await refresh();
+    } catch (err) {
+      throw err;
+    }
+  };
+  const handleAcceptOffer = async (offerId: string) => {
+    if (!activeConvId || !userId) return;
+    try {
+      const result = await chatApi.acceptOffer(offerId);
+      if (!alive.current) return;
+      setConversations((old) =>
+        old.map((c) =>
+          c.id !== activeConvId
+            ? c
+            : {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.offer?.id === offerId
+                    ? {
+                        ...m,
+                        offer: {
+                          ...m.offer,
+                          status: "ACCEPTED",
+                          bookingId: result.bookingId,
+                          bookingCode: result.bookingCode,
+                        },
+                      }
+                    : m
+                ),
+              }
+        )
+      );
+      await refresh();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("chat:unread-changed"));
+      }
+    } catch (err) {
+      console.error("Failed to accept offer", err);
+    }
+  };
+  const handleDeclineOffer = async (offerId: string, reason?: string) => {
+    if (!activeConvId || !userId) return;
+    try {
+      const updatedOffer = await chatApi.declineOffer(offerId, reason);
+      if (!alive.current) return;
+      setConversations((old) =>
+        old.map((c) =>
+          c.id !== activeConvId
+            ? c
+            : {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.offer?.id === offerId ? { ...m, offer: updatedOffer } : m
+                ),
+              }
+        )
+      );
+      await refresh();
+    } catch (err) {
+      console.error("Failed to decline offer", err);
+    }
+  };
+  const handleCancelOffer = async (offerId: string) => {
+    if (!activeConvId || !userId) return;
+    try {
+      const updatedOffer = await chatApi.cancelOffer(offerId);
+      if (!alive.current) return;
+      setConversations((old) =>
+        old.map((c) =>
+          c.id !== activeConvId
+            ? c
+            : {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.offer?.id === offerId ? { ...m, offer: updatedOffer } : m
+                ),
+              }
+        )
+      );
+      await refresh();
+    } catch (err) {
+      console.error("Failed to cancel offer", err);
+    }
+  };
   const loadOlder = async () => {
     const cursor=activeConversation?.olderCursor;
     if(!activeConvId || !cursor || !userId)return;
@@ -342,6 +476,7 @@ export function UserChatWorkspace() {
               )}
             />
             <ChatThread
+ initialText={initialDraft}
               conversation={activeConversation}
               onBackToList={() => setMobileView("list")}
               onSendMessage={sendMessage}
@@ -354,6 +489,10 @@ export function UserChatWorkspace() {
               onShareTrip={() => setShareTripOpen(true)}
               onLoadOlder={() => { void loadOlder(); }}
               onOpenNewChat={() => setIsNewChatOpen(true)}
+              onCreateOffer={() => setCreateOfferOpen(true)}
+              onAcceptOffer={handleAcceptOffer}
+              onDeclineOffer={handleDeclineOffer}
+              onCancelOffer={handleCancelOffer}
               className={cn(
                 "bg-card border border-border/70 rounded-2xl md:rounded-3xl shadow-xs overflow-hidden",
                 mobileView === "list" ? "hidden md:flex" : "flex"
@@ -365,6 +504,15 @@ export function UserChatWorkspace() {
       <NewChatDialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen} onSelectUser={selectUser} currentUserId={userId || ""} />
       <ShareTripDialog open={shareTripOpen} onOpenChange={setShareTripOpen} userId={userId || ""} onSelect={sendSharedTrip} />
       <BlockedUsersDialog open={blocksOpen} onOpenChange={setBlocksOpen} onChanged={() => { void refresh(); }} />
+      <CreateReservationOfferModal
+        open={createOfferOpen}
+        onOpenChange={setCreateOfferOpen}
+        onSubmit={handleCreateOffer}
+        defaultBusinessName={partnerBusiness?.name || activeConversation?.user.name}
+        defaultBusinessType={partnerBusiness?.kind || "RESTAURANT"}
+        partnerBusinesses={partnerBusinesses}
+        recentMessages={activeConversation?.messages}
+      />
     </div>
   );
 }

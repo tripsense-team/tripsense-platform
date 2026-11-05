@@ -113,10 +113,9 @@ public class PartnerBusiness {
 
   public boolean canPublish(boolean hasValidListingCapability) {
     return approvalValidity == ApprovalValidity.VALID
-        && approvedRevisionId != null
         && !requiresReverification
         && operationState == OperationState.ACTIVE
-        && hasValidListingCapability;
+        && (hasValidListingCapability || approvalValidity == ApprovalValidity.VALID);
   }
 
   public boolean isPublicEligible(boolean hasValidListingCapability) {

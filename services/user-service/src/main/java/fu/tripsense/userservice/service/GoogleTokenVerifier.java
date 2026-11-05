@@ -18,6 +18,9 @@ public class GoogleTokenVerifier {
   @Value("${oauth.google.client-id:}")
   private String googleClientId;
 
+  @Value("${oauth.google.acceptable-time-skew-seconds:86400}")
+  private long acceptableTimeSkewSeconds = 86400L;
+
   private GoogleIdTokenVerifier verifier;
 
   @PostConstruct
@@ -27,8 +30,12 @@ public class GoogleTokenVerifier {
           new GoogleIdTokenVerifier.Builder(
               new NetHttpTransport(), GsonFactory.getDefaultInstance());
       builder.setAudience(Collections.singletonList(googleClientId.trim()));
+      long skew = Math.max(300L, acceptableTimeSkewSeconds);
+      builder.setAcceptableTimeSkewSeconds(skew);
       this.verifier = builder.build();
-      log.info("GoogleTokenVerifier initialized with audience client-id configured");
+      log.info(
+          "GoogleTokenVerifier initialized with audience client-id configured (acceptableTimeSkewSeconds={})",
+          skew);
     } else {
       this.verifier = null;
       log.warn(
@@ -50,13 +57,39 @@ public class GoogleTokenVerifier {
     try {
       GoogleIdToken idToken = verifier.verify(idTokenString);
       if (idToken == null) {
-        log.warn("Google ID token verification failed: token is null/invalid/expired");
+        logDiagnosticFailure(idTokenString);
         throw new BadCredentialsException("Invalid or expired Google ID token");
       }
       return idToken.getPayload();
+    } catch (BadCredentialsException bce) {
+      throw bce;
     } catch (Exception e) {
       log.error("Exception during Google ID token verification: {}", e.getMessage());
       throw new BadCredentialsException("Failed to verify Google ID token: " + e.getMessage(), e);
+    }
+  }
+
+  private void logDiagnosticFailure(String idTokenString) {
+    try {
+      GoogleIdToken unverified =
+          GoogleIdToken.parse(GsonFactory.getDefaultInstance(), idTokenString);
+      if (unverified != null && unverified.getPayload() != null) {
+        GoogleIdToken.Payload p = unverified.getPayload();
+        log.warn(
+            "Google ID token verification failed. token_aud={}, expected_aud={}, token_iss={}, token_iat={}, token_exp={}, server_now_epoch={}",
+            p.getAudience(),
+            googleClientId,
+            p.getIssuer(),
+            p.getIssuedAtTimeSeconds(),
+            p.getExpirationTimeSeconds(),
+            System.currentTimeMillis() / 1000L);
+      } else {
+        log.warn("Google ID token verification failed: parsed payload is null");
+      }
+    } catch (Exception parseEx) {
+      log.warn(
+          "Google ID token verification failed and unverified parse threw: {}",
+          parseEx.getMessage());
     }
   }
 }

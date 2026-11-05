@@ -1,17 +1,28 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { usePartnerHotel } from "@/features/hotels/context/partner-hotel-context";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/i18n";
 import { hotelApi } from "@/features/hotels/services/hotels-api";
-import { HotelAmPmTimeField } from "@/features/hotels/components/hotel-ampm-time-field";
 import { formatHotelTime } from "@/features/hotels/utils/hotel-time";
-import { getBusinessApplications } from "@/features/partner/services/partner-api";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
-import { CheckCircle2, Clock, MapPin, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  MapPin,
+  RefreshCw,
+  AlertTriangle,
+  MessageSquare,
+  BedDouble,
+  Pencil,
+  Sparkles,
+  Phone,
+  Eye,
+} from "lucide-react";
 import { PartnerWizardModal } from "@/features/partner/components/partner-wizard-modal";
 
 export default function PartnerHotelPropertyPage() {
@@ -22,45 +33,13 @@ export default function PartnerHotelPropertyPage() {
   const [success, setSuccess] = React.useState("");
   const [profileEditorOpen, setProfileEditorOpen] = React.useState(false);
 
-  const approvedProfile = business?.draftProfile ?? {};
-  const destination = String(approvedProfile.destination ?? "");
+  const approvedProfile = (business?.draftProfile as Record<string, unknown>) ?? {};
+  const destination = String(approvedProfile.destination ?? "Đà Nẵng");
   const address = String(approvedProfile.address ?? "");
+  const phone = String(approvedProfile.phone ?? "");
 
-  const handleSyncApproved = async () => {
-    if (!property || !business || !isOwner || busy) return;
-    setBusy(true);
-    setError("");
-    setSuccess("");
-    try {
-      const apps = await getBusinessApplications(business.id);
-      const revision = apps.find((a) => a.id === business.approvedRevisionId);
-      const snapshot = revision?.profileSnapshot;
-      if (!snapshot?.destination || !snapshot?.address) {
-        throw new Error("Hồ sơ đã duyệt chưa có đầy đủ thông tin điểm đến và địa chỉ");
-      }
-      await hotelApi(`/properties/${property.id}`, "PUT", {
-        businessId: business.id,
-        name: business.displayName,
-        destination: String(snapshot.destination),
-        address: String(snapshot.address),
-        timeZone: property.time_zone || "Asia/Ho_Chi_Minh",
-        checkInTime: property.check_in_time || "14:00",
-        checkOutTime: property.check_out_time || "11:00",
-      });
-      setSuccess(t("trip.hotels.syncSuccess", { defaultValue: "Đã đồng bộ thông tin khách sạn với hồ sơ đã duyệt!" }));
-      await refresh();
-    } catch (e) {
-      setError(getSafeErrorMessage(e, t("trip.hotels.failed", { defaultValue: "Đồng bộ thất bại" })));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleCreateProperty = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleQuickActivate = async () => {
     if (!business || !isOwner || busy) return;
-    const form = e.currentTarget;
-    const data = new FormData(form);
     setBusy(true);
     setError("");
     setSuccess("");
@@ -68,16 +47,16 @@ export default function PartnerHotelPropertyPage() {
       await hotelApi("/properties", "POST", {
         businessId: business.id,
         name: business.displayName,
-        destination: String(data.get("destination")),
-        address: String(data.get("address")),
-        timeZone: String(data.get("timeZone") || "Asia/Ho_Chi_Minh"),
-        checkInTime: String(data.get("checkInTime") || "14:00"),
-        checkOutTime: String(data.get("checkOutTime") || "11:00"),
+        destination: destination || "Đà Nẵng",
+        address: address || business.displayName,
+        timeZone: "Asia/Ho_Chi_Minh",
+        checkInTime: "14:00",
+        checkOutTime: "11:00",
       });
-      setSuccess(t("trip.hotels.propertyCreatedSuccess", { defaultValue: "Đã đăng ký cơ sở lưu trú thành công!" }));
+      setSuccess("Đã kích hoạt trang Showcase cơ sở lưu trú thành công!");
       await refresh();
     } catch (e) {
-      setError(getSafeErrorMessage(e, t("trip.hotels.failed", { defaultValue: "Đăng ký cơ sở thất bại" })));
+      setError(getSafeErrorMessage(e, "Kích hoạt trang cơ sở thất bại"));
     } finally {
       setBusy(false);
     }
@@ -91,6 +70,7 @@ export default function PartnerHotelPropertyPage() {
           <span>{t("partner.profileUpdate.waitingReview")}</span>
         </div>
       )}
+
       {error && (
         <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive" role="alert">
           {error}
@@ -104,138 +84,135 @@ export default function PartnerHotelPropertyPage() {
         </div>
       )}
 
-      {property ? (
-        /* Existing Property Card */
-        <Card className="rounded-2xl border-border">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-lg font-bold">{property.name}</CardTitle>
-                <CardDescription className="text-xs">
-                  ID: <span className="font-mono">{property.id}</span> · Trạng thái:{" "}
-                  <span className="font-semibold text-foreground uppercase">{property.status}</span>
-                </CardDescription>
+      {/* Feature Showcase Card */}
+      <Card className="rounded-2xl border-border overflow-hidden">
+        <CardHeader className="bg-muted/30 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-lg font-bold text-foreground">
+                  {property ? property.name : business?.displayName}
+                </CardTitle>
+                <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs">
+                  {property ? "Đang mở đón khách" : "Sẵn sàng kích hoạt"}
+                </Badge>
               </div>
-
-              {isOwner && (
-                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                  {business?.approvalValidity === "VALID" && business.latestApplicationState !== "SUBMITTED" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setProfileEditorOpen(true)}
-                      className="gap-1.5 text-xs"
-                    >
-                      {t(business.requiresReverification ? "partner.profileUpdate.resume" : "partner.profileUpdate.edit")}
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSyncApproved}
-                    disabled={busy || Boolean(business?.requiresReverification)}
-                    className="gap-1.5 text-xs"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
-                    <span>{t("trip.hotels.syncApproved", { defaultValue: "Đồng bộ từ hồ sơ duyệt" })}</span>
-                  </Button>
-                </div>
-              )}
+              <CardDescription className="text-xs">
+                Mô hình: Giới thiệu Showcase hình ảnh & Đặt phòng trực tiếp qua Tin nhắn (0% hoa hồng)
+              </CardDescription>
             </div>
-          </CardHeader>
 
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/60">
-                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div className="space-y-0.5">
-                  <span className="text-micro text-muted-foreground font-semibold uppercase block">Địa chỉ & Điểm đến</span>
-                  <p className="font-medium text-foreground">{property.address || address}</p>
-                  <p className="text-xs text-muted-foreground">{property.destination || destination}</p>
-                </div>
+            {isOwner && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setProfileEditorOpen(true)}
+                  className="gap-1.5 text-xs h-8"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span>Chỉnh sửa hồ sơ & Tải ảnh</span>
+                </Button>
+                <Button asChild size="sm" className="gap-1.5 text-xs h-8 bg-primary text-primary-foreground font-semibold">
+                  <Link href="/chat">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>Hộp thư khách hàng</span>
+                  </Link>
+                </Button>
               </div>
+            )}
+          </div>
+        </CardHeader>
 
-              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/60">
-                <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div className="space-y-0.5">
-                  <span className="text-micro text-muted-foreground font-semibold uppercase block">Chính sách nhận / trả phòng</span>
-                  <p className="font-medium text-foreground">
-                    Check-in: {formatHotelTime(property.check_in_time)} · Check-out: {formatHotelTime(property.check_out_time)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Múi giờ: {property.time_zone}</p>
-                </div>
+        <CardContent className="space-y-6 pt-5">
+          {/* Info Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/60">
+              <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-0.5 min-w-0">
+                <span className="text-[11px] text-muted-foreground font-semibold uppercase block">Địa chỉ & Điểm đến</span>
+                <p className="font-medium text-foreground truncate">{property?.address || address || "Chưa cập nhật địa chỉ"}</p>
+                <p className="text-xs text-muted-foreground">{property?.destination || destination || "Việt Nam"}</p>
               </div>
             </div>
 
-            {!isOwner && (
-              <p className="text-xs text-muted-foreground italic">
-                * Bạn đang đăng nhập với vai trò Quản lý (Manager). Chỉ Chủ cơ sở (Owner) mới có quyền chỉnh sửa hoặc đồng bộ thông tin cơ sở.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        /* Create / Register Property Card */
-        <Card className="rounded-2xl border-border">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold">
-              {t("trip.hotels.registerPropertyTitle", { defaultValue: "Khởi tạo cơ sở lưu trú" })}
-            </CardTitle>
-            <CardDescription className="text-xs">
-              {t("trip.hotels.registerPropertyDesc", { defaultValue: "Khai báo cơ sở lưu trú tương ứng với hồ sơ kinh doanh đã được duyệt." })}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            {isOwner ? (
-              <form onSubmit={handleCreateProperty} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Tên cơ sở kinh doanh</label>
-                  <Input value={business?.displayName || ""} disabled className="bg-muted/50" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Tỉnh / Thành phố điểm đến</label>
-                  <Input name="destination" defaultValue={destination} required readOnly placeholder="Ví dụ: Đà Nẵng" />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Múi giờ</label>
-                  <Input name="timeZone" defaultValue="Asia/Ho_Chi_Minh" required />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Địa chỉ chi tiết</label>
-                  <Input name="address" defaultValue={address} required readOnly placeholder="Số nhà, tên đường, quận/huyện" />
-                </div>
-
-                <HotelAmPmTimeField
-                  name="checkInTime"
-                  label={t("trip.hotels.checkInTime")}
-                  defaultValue="14:00"
-                />
-
-                <HotelAmPmTimeField
-                  name="checkOutTime"
-                  label={t("trip.hotels.checkOutTime")}
-                  defaultValue="11:00"
-                />
-
-                <div className="sm:col-span-2 pt-2">
-                  <Button type="submit" disabled={busy} className="w-full sm:w-auto">
-                    {busy ? "Đang xử lý..." : "Đăng ký cơ sở lưu trú"}
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>Cơ sở này chưa được khởi tạo. Vui lòng liên hệ Chủ cơ sở (Owner) để hoàn tất đăng ký ban đầu.</span>
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/60">
+              <Clock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-muted-foreground font-semibold uppercase block">Giờ nhận / trả phòng tham khảo</span>
+                <p className="font-medium text-foreground">
+                  Check-in: {property ? formatHotelTime(property.check_in_time) : "14:00"} · Check-out: {property ? formatHotelTime(property.check_out_time) : "11:00"}
+                </p>
+                <p className="text-xs text-muted-foreground">Múi giờ: Asia/Ho_Chi_Minh</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/60">
+              <Phone className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+              <div className="space-y-0.5 min-w-0">
+                <span className="text-[11px] text-muted-foreground font-semibold uppercase block">Hotline tư vấn</span>
+                <p className="font-medium text-foreground truncate">{phone || "Chưa có hotline"}</p>
+                <p className="text-xs text-muted-foreground">Khách du lịch có thể gọi hoặc nhắn tin</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Activate if not yet created */}
+          {!property && isOwner && (
+            <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <h4 className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>Kích hoạt trang Showcase trên TripSense</span>
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Đưa cơ sở lưu trú của bạn lên danh sách tìm kiếm để khách du lịch có thể xem ảnh và nhắn tin đặt phòng ngay hôm nay.
+                </p>
+              </div>
+              <Button onClick={handleQuickActivate} disabled={busy} className="h-9 font-semibold text-xs shrink-0">
+                {busy ? "Đang kích hoạt..." : "Kích hoạt Showcase ngay"}
+              </Button>
+            </div>
+          )}
+
+          {/* Chat Inquiries Promotion Banner */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <h4 className="font-bold text-sm text-foreground">Quy trình đón khách qua Tin Nhắn Chat</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-muted-foreground">
+              <div className="p-3 rounded-lg bg-muted/40 space-y-1">
+                <span className="font-bold text-foreground block">1. Khách xem hình ảnh & giá</span>
+                <p>Khách du lịch tìm kiếm khách sạn, ngắm bộ sưu tập ảnh và mức giá tham khảo của các loại phòng.</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/40 space-y-1">
+                <span className="font-bold text-foreground block">2. Nhắn tin đặt phòng trực tiếp</span>
+                <p>Khách bấm nút &quot;Nhắn tin đặt phòng&quot;. Yêu cầu và thông tin ngày giờ được gửi thẳng vào hộp thư chat của bạn.</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/40 space-y-1">
+                <span className="font-bold text-foreground block">3. Xác nhận & 0% Hoa hồng</span>
+                <p>Bạn trao đổi trực tiếp, thỏa thuận đặt cọc hoặc chốt nhận khách mà không phải chia sẻ hoa hồng cho bên thứ ba.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Button asChild size="sm" variant="default" className="gap-1.5 text-xs h-8">
+                <Link href="/chat">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span>Mở Hộp thư Tin nhắn khách hàng</span>
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs h-8">
+                <Link href={`/partner/businesses/${business?.id}/hotel/rooms`}>
+                  <BedDouble className="h-3.5 w-3.5" />
+                  <span>Quản lý loại phòng & hình ảnh</span>
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {business && (
         <PartnerWizardModal
           open={profileEditorOpen}

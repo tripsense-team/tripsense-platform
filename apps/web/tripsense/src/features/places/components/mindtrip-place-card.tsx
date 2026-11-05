@@ -83,6 +83,13 @@ function MindtripPlaceCardComponent({
 }: MindtripPlaceCardProps) {
   const { t, locale } = useTranslation();
   const [photoIndex, setPhotoIndex] = React.useState(0);
+  const [failedUrls, setFailedUrls] = React.useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    setPhotoIndex(0);
+    setFailedUrls({});
+  }, [place.id]);
+
   const [priceCheckedAt] = React.useState(() => Date.now());
   const evidence = place.priceEvidence;
   const evidenceTime = evidence ? Date.parse(evidence.observedAt) : NaN;
@@ -126,19 +133,23 @@ function MindtripPlaceCardComponent({
     place.photos,
   ]);
 
-  const safePhotoIndex = displayPhotos.length > 0
-    ? Math.min(photoIndex, displayPhotos.length - 1)
+  const validPhotos = React.useMemo(() => {
+    return displayPhotos.filter((p) => !failedUrls[p.url]);
+  }, [displayPhotos, failedUrls]);
+
+  const safePhotoIndex = validPhotos.length > 0
+    ? Math.min(photoIndex, validPhotos.length - 1)
     : 0;
-  const currentPhoto = displayPhotos[safePhotoIndex];
+  const currentPhoto = validPhotos[safePhotoIndex];
 
   const handlePrevPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setPhotoIndex((prev) => (prev > 0 ? prev - 1 : displayPhotos.length - 1));
+    setPhotoIndex((prev) => (prev > 0 ? prev - 1 : validPhotos.length - 1));
   };
 
   const handleNextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setPhotoIndex((prev) => (prev < displayPhotos.length - 1 ? prev + 1 : 0));
+    setPhotoIndex((prev) => (prev < validPhotos.length - 1 ? prev + 1 : 0));
   };
 
   const handleToggleFav = (e: React.MouseEvent) => {
@@ -188,10 +199,13 @@ function MindtripPlaceCardComponent({
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             unoptimized
+            onError={() => {
+              setFailedUrls((prev) => ({ ...prev, [currentPhoto.url]: true }));
+            }}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted text-muted-foreground">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-muted/80 via-muted to-muted/60 text-muted-foreground select-none p-4 text-center">
             <ImageOff className="h-6 w-6" aria-hidden="true" />
             <span className="text-xs">
               {t("places.noLicensedPhotos", { defaultValue: "No photos available" })}
@@ -200,7 +214,7 @@ function MindtripPlaceCardComponent({
         )}
 
         {/* Carousel Left / Right Navigation Arrows */}
-        {displayPhotos.length > 1 && (
+        {validPhotos.length > 1 && (
           <>
             <button
               type="button"
@@ -271,9 +285,9 @@ function MindtripPlaceCardComponent({
         )}
 
         {/* Pagination Dots (Center Bottom) */}
-        {displayPhotos.length > 1 && (
+        {validPhotos.length > 1 && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 pointer-events-none">
-            {displayPhotos.slice(0, 5).map((_, idx) => (
+            {validPhotos.slice(0, 5).map((_, idx) => (
               <span
                 key={idx}
                 className={cn(

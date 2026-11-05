@@ -236,9 +236,11 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
                     url ->
                         new PlacePhotoDto(
                             url,
-                            StringUtils.hasText(place.getProvider())
-                                ? place.getProvider()
-                                : "ziomap",
+                            url != null && url.contains("res.cloudinary.com")
+                                ? "cloudinary"
+                                : (StringUtils.hasText(place.getProvider())
+                                    ? place.getProvider()
+                                    : "ziomap"),
                             List.of(),
                             place.getLastFetchedAt() != null
                                 ? place.getLastFetchedAt()

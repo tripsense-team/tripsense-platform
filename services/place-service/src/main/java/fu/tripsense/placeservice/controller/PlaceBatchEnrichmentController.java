@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
@@ -64,6 +65,19 @@ public class PlaceBatchEnrichmentController {
         request != null ? request : BatchEnrichmentRequest.builder().build();
     BatchEnrichmentProgressDto progress = enrichmentService.startBatchEnrichment(effectiveRequest);
     return ResponseEntity.ok(ApiResponse.ok(progress));
+  }
+
+  @PostMapping("/migrate-stale-photos")
+  public ResponseEntity<ApiResponse<BatchEnrichmentProgressDto>> migrateStalePhotos(
+      @RequestParam(name = "limit", defaultValue = "100") int limit,
+      @RequestParam(name = "concurrency", defaultValue = "3") int concurrency) {
+    BatchEnrichmentRequest request =
+        BatchEnrichmentRequest.builder()
+            .limit(limit)
+            .concurrency(concurrency)
+            .stalePhotosOnly(true)
+            .build();
+    return ResponseEntity.ok(ApiResponse.ok(enrichmentService.startBatchEnrichment(request)));
   }
 
   @GetMapping("/batch-enrich/progress")

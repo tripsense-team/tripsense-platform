@@ -35,8 +35,28 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/hotels/bookings",
+        destination: "/reservations?tab=hotels",
+        permanent: true,
+      },
+      {
+        source: "/restaurants/reservations",
+        destination: "/reservations?tab=restaurants",
+        permanent: true,
+      },
+      {
+        source: "/hotels/notifications",
+        destination: "/notifications",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
-    const gatewayUrl = (process.env.API_GATEWAY_URL || "http://localhost:8080").replace(/\/$/, "");
+    const rawGatewayUrl = process.env.API_GATEWAY_URL || "http://localhost:8080";
+    const gatewayUrl = rawGatewayUrl.replace(/\/api(\/:path\*)?\/?$/, "").replace(/\/$/, "");
     return [
       {
         source: "/api/:path*",

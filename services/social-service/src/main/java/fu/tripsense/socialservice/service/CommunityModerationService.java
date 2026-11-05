@@ -56,6 +56,12 @@ public class CommunityModerationService {
   }
 
   @Transactional
+  public ReportReceiptResponse reportChatMessage(
+      UUID conversationId, UUID messageId, AuthenticatedUser reporter, SubmitReportRequest request) {
+    return createReport("CHAT_MESSAGE", messageId, null, conversationId, reporter, request);
+  }
+
+  @Transactional
   public ReportReceiptResponse reportPost(
       UUID postId, AuthenticatedUser reporter, SubmitReportRequest request) {
     SocialPost post = viewablePost(postId, reporter);
@@ -155,6 +161,16 @@ public class CommunityModerationService {
       UUID postId,
       AuthenticatedUser reporter,
       SubmitReportRequest request) {
+    return createReport(targetType, targetId, postId, null, reporter, request);
+  }
+
+  private ReportReceiptResponse createReport(
+      String targetType,
+      UUID targetId,
+      UUID postId,
+      UUID conversationId,
+      AuthenticatedUser reporter,
+      SubmitReportRequest request) {
     String reason = request.reason().trim().toUpperCase(Locale.ROOT);
     if (!REASONS.contains(reason)) {
       throw new SocialException(
@@ -180,6 +196,7 @@ public class CommunityModerationService {
                   .targetType(targetType)
                   .targetId(targetId)
                   .postId(postId)
+                  .conversationId(conversationId)
                   .reporterId(reporter.id())
                   .reason(reason)
                   .details(normalize(request.details()))

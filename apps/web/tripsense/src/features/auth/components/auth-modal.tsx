@@ -154,6 +154,7 @@ export function AuthModal({
         err,
         "Đăng nhập bằng Google không thành công. Vui lòng thử lại.",
         t,
+        "oauth",
       );
       setErrorMsg(errorText);
 
@@ -204,6 +205,7 @@ export function AuthModal({
           err,
           "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
           t,
+        "oauth",
         ),
       );
     } finally {
@@ -235,6 +237,7 @@ export function AuthModal({
           err,
           "Đăng ký không thành công. Email có thể đã được sử dụng.",
           t,
+        "oauth",
         ),
       );
     } finally {
@@ -285,6 +288,7 @@ export function AuthModal({
           err,
           "Không thể gửi lại mã xác thực. Vui lòng thử lại sau.",
           t,
+        "oauth",
         ),
       );
     } finally {
@@ -312,6 +316,7 @@ export function AuthModal({
           err,
           "Có lỗi xảy ra. Vui lòng thử lại.",
           t,
+        "oauth",
         ),
       );
     } finally {
@@ -350,6 +355,7 @@ export function AuthModal({
           err,
           "Mã OTP không hợp lệ hoặc đã hết hạn.",
           t,
+        "oauth",
         ),
       );
     } finally {
@@ -857,3 +863,4 @@ export function AuthModal({
     </Dialog>
   );
 }
+

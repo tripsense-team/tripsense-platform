@@ -8,6 +8,7 @@ export function getAuthErrorMessage(
   err: unknown,
   fallback = "Đã có lỗi xảy ra. Vui lòng thử lại sau.",
   t?: (key: string, ...args: any[]) => string,
+  context?: "standard" | "oauth",
 ): string {
   const tr = (key: string, def: string) => {
     if (!t) return def;
@@ -17,6 +18,12 @@ export function getAuthErrorMessage(
 
   if (err instanceof ApiError) {
     if (err.status === 401) {
+      if (context === "oauth") {
+        return tr(
+          "errors.googleAuthFailed",
+          "Đăng nhập Google không thành công. Vui lòng thử lại hoặc đăng nhập bằng email và mật khẩu.",
+        );
+      }
       return tr(
         "errors.badCredentials",
         "Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.",

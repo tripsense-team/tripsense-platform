@@ -156,7 +156,15 @@ export interface CommunityPublicationRequest {
   enabled: boolean;
 }
 
-export type IndicativePriceUnit = "PER_PERSON" | "PER_GROUP" | "PER_HOUR" | "PER_DAY";
+export type IndicativePriceUnit =
+  | "PERSON"
+  | "GROUP"
+  | "HOUR"
+  | "DAY"
+  | "PER_PERSON"
+  | "PER_GROUP"
+  | "PER_HOUR"
+  | "PER_DAY";
 
 export interface GuidePromotionRevisionDto {
   id: string;
@@ -482,6 +490,7 @@ export interface RestaurantMenuBatchRequest {
 
 export interface PublicRestaurantListingDto {
   id: string;
+  ownerUserId?: string;
   displayName: string;
   address?: string;
   destination?: string;
@@ -490,6 +499,8 @@ export interface PublicRestaurantListingDto {
   menu: RestaurantMenuItemDto[];
   publicEmail?: string;
   publicPhone?: string;
+  verifiedPartner?: boolean;
+  badgeLabel?: string;
 }
 
 export interface RestaurantReservationDto {
@@ -558,3 +569,48 @@ export interface PartnerNotificationDto {
   targetUri?: string;
   createdAt: string;
 }
+
+export type SubscriptionStatus = "TRIAL" | "ACTIVE" | "EXPIRED" | "SUSPENDED";
+
+export interface PartnerSubscriptionPlanDto {
+  planId: string;
+  businessKind: BusinessKind;
+  name: string;
+  durationDays: number;
+  priceVnd: number;
+  originalPriceVnd?: number;
+  discountPercent?: number;
+  tagline?: string;
+  badgeLabel?: string;
+  displayOrder: number;
+}
+
+export interface PartnerSubscriptionDto {
+  businessId: string;
+  businessKind: BusinessKind;
+  status: SubscriptionStatus;
+  currentPlan?: PartnerSubscriptionPlanDto | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+  daysRemaining: number;
+  isActive: boolean;
+  badgeLabel?: string | null;
+}
+
+export interface SubscriptionCheckoutRequest {
+  planId: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+}
+
+export interface SubscriptionCheckoutResponse {
+  orderId: string;
+  orderCode: number;
+  planId: string;
+  planName: string;
+  amount: number;
+  qrCode?: string;
+  paymentUrl?: string;
+  paymentStatus: string;
+}
+
