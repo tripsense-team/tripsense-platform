@@ -191,7 +191,7 @@ export function UnifiedReservationsHub({
                   className="gap-2 px-4 text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs"
                 >
                   <Car className="h-4 w-4" />
-                  <span>Thuê xe & Dịch vụ</span>
+                  <span>{t("reservations.tabRentals", { defaultValue: "Thuê xe & Dịch vụ" })}</span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -226,26 +226,11 @@ export function UnifiedReservationsHub({
           </div>
         ) : activeTab === "restaurants" ? (
           <div className="mx-auto max-w-5xl px-4 sm:px-6 space-y-6">
-            {restaurantOffers.length > 0 && (
-              <section className="space-y-3" aria-label={t("reservations.inChatTickets", { defaultValue: "Đơn đặt xác nhận qua Chat" })}>
-                <div className="flex items-center gap-2">
-                  <Ticket className="h-4 w-4 text-primary" />
-                  <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                    {t("reservations.inChatTickets", { defaultValue: "Đơn đặt xác nhận qua Chat" })} ({restaurantOffers.length})
-                  </h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {restaurantOffers.map((offer) => (
-                    <InChatReservationCard
-                      key={offer.id}
-                      offer={offer}
-                      isTarget={targetBookingId === offer.bookingId || targetBookingId === offer.id}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-            <CustomerReservationsView hideHeader />
+            <CustomerReservationsView
+              hideHeader
+              chatOffers={restaurantOffers}
+              targetBookingId={targetBookingId}
+            />
           </div>
         ) : (
           <div className="mx-auto max-w-5xl px-4 sm:px-6 space-y-6">

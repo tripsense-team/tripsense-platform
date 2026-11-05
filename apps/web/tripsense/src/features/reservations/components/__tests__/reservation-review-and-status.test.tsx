@@ -8,6 +8,7 @@ import {
   type ReservationReview,
 } from "../reservation-review-modal";
 import { InChatReservationCard } from "../in-chat-reservation-card";
+import { CustomerReservationsView } from "@/features/partner/components/customer-reservations-view";
 import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
 
 vi.mock("@/components/ui/dialog", () => ({
@@ -126,6 +127,7 @@ describe("InChatReservationCard - Completed State & Time Formatting", () => {
       expiresAt: "2020-01-01T23:59:59Z",
       status: "ACCEPTED",
       bookingCode: "TS-RES-PAST1",
+      createdAt: "2020-01-01T00:00:00Z",
     };
 
     const html = renderToString(<InChatReservationCard offer={pastOffer} />);
@@ -160,6 +162,7 @@ describe("InChatReservationCard - Completed State & Time Formatting", () => {
       expiresAt: "2099-12-31T23:59:59Z",
       status: "ACCEPTED",
       bookingCode: "TS-RES-FUT1",
+      createdAt: "2026-11-05T00:00:00Z",
     };
 
     const html = renderToString(<InChatReservationCard offer={futureOffer} />);
@@ -168,5 +171,50 @@ describe("InChatReservationCard - Completed State & Time Formatting", () => {
     expect(html).not.toContain("Đã hoàn thành");
     expect(html).not.toContain("⭐ Đánh giá trải nghiệm");
     expect(html).toContain("18:30");
+  });
+});
+
+describe("CustomerReservationsView - Unified Dining Experience", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("renders unified dining reservations from both chat and direct channels without disjointed sections", () => {
+    const chatOffer: ReservationOfferPreview = {
+      id: "offer-unified-1",
+      conversationId: "conv-1",
+      senderId: "p1",
+      recipientId: "c1",
+      businessType: "RESTAURANT",
+      businessId: "biz-1",
+      businessName: "Bánh Xèo Làng",
+      itemTitle: "Bàn 4 người",
+      checkInDate: "2020-01-01",
+      reservationTime: "19:00:00",
+      adultsCount: 2,
+      childrenCount: 0,
+      totalPrice: 0,
+      currency: "VND",
+      expiresAt: "2020-01-01T23:59:59Z",
+      status: "ACCEPTED",
+      bookingCode: "TS-RES-C566E221",
+      createdAt: "2020-01-01T00:00:00Z",
+    };
+
+    const html = renderToString(
+      <CustomerReservationsView hideHeader={true} chatOffers={[chatOffer]} />
+    );
+
+    // Should render unified card with restaurant name prominently
+    expect(html).toContain("Bánh Xèo Làng");
+    expect(html).toContain("TS-RES-C566E221");
+    // Should render in-chat tag
+    expect(html).toContain("Đặt qua Chat");
+    // Should render completed badge since date is past
+    expect(html).toContain("Đã hoàn thành");
+    // Should render Rate experience button
+    expect(html).toContain("Đánh giá trải nghiệm");
+    // Should render Open chat button
+    expect(html).toContain("Mở đoạn chat");
   });
 });
