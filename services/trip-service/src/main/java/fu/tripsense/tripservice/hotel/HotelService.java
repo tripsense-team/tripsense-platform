@@ -109,7 +109,35 @@ public class HotelService {
   }
   public List<Map<String,Object>> properties(AuthenticatedUser u,boolean all) {
     if(all) { admin(u); return db.queryForList("SELECT * FROM hotel_property ORDER BY created_at DESC LIMIT 100"); }
+    if(u != null) { ensurePropertiesForUser(u.id()); }
     return db.queryForList("SELECT p.* FROM hotel_property p WHERE (p.business_id IS NULL AND p.owner_id=?) OR EXISTS (SELECT 1 FROM partner_business_member m WHERE m.business_id=p.business_id AND m.user_id=? AND m.state='ACTIVE' AND m.role IN ('OWNER','MANAGER')) ORDER BY p.created_at DESC LIMIT 100",u.id(),u.id());
+  }
+  private void ensurePropertiesForUser(UUID userId) {
+    try {
+      db.update("""
+          INSERT INTO hotel_property (
+              id, business_id, owner_id, owner_email, name, destination, address,
+              time_zone, check_in_time, check_out_time, status, created_at
+          )
+          SELECT
+              gen_random_uuid(),
+              b.id,
+              b.owner_user_id,
+              COALESCE(b.draft_profile_json->>'email', 'partner@tripsense.vn'),
+              b.display_name,
+              COALESCE(NULLIF(b.draft_profile_json->>'destination', ''), 'Đà Nẵng'),
+              COALESCE(NULLIF(b.draft_profile_json->>'address', ''), b.display_name),
+              'Asia/Ho_Chi_Minh', '14:00', '11:00', 'ACTIVE', clock_timestamp()
+          FROM partner_business b
+          WHERE b.kind = 'HOTEL'
+            AND b.owner_user_id = ?
+            AND b.approval_validity = 'VALID'
+            AND NOT EXISTS (
+                SELECT 1 FROM hotel_property p WHERE p.business_id = b.id
+            )
+          ON CONFLICT (business_id) DO NOTHING
+          """, userId);
+    } catch (Exception ignored) {}
   }
   public Map<String,Object> details(UUID id,AuthenticatedUser u) {
     var p=one("""

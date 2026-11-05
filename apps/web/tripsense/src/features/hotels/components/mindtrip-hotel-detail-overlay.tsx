@@ -8,12 +8,17 @@ import {
   Phone,
   Navigation,
   MessageSquare,
+  CheckCircle2,
+  Sparkles,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { PlaceDetailContent } from "@/features/places/components/place-detail-content";
 import type { Place } from "@/features/places/types";
+import type { PublicHotelListingDto } from "@/features/partner";
 import type { MindtripHotel } from "../types";
 import { MindtripBookStayModal } from "./mindtrip-book-stay-modal";
 import { MindtripAvailableRoomsView } from "./mindtrip-available-rooms-view";
@@ -22,6 +27,7 @@ import { getExistingHotelPhotos, loadHotelPhotoGallery } from "../services/hotel
 
 export interface MindtripHotelDetailOverlayProps {
   hotel: MindtripHotel;
+  hotelPartner?: PublicHotelListingDto | null;
   isFavorite?: boolean;
   isAddedToTrip?: boolean;
   onClose: () => void;
@@ -38,6 +44,7 @@ export interface MindtripHotelDetailOverlayProps {
 
 export function MindtripHotelDetailOverlay({
   hotel,
+  hotelPartner,
   isFavorite = false,
   isAddedToTrip = false,
   onClose,
@@ -112,6 +119,8 @@ export function MindtripHotelDetailOverlay({
       setDirectBooking({
         hasDirectBooking: true,
         propertyId: hotel.propertyId || hotel.id,
+        businessId: hotel.businessId,
+        ownerUserId: hotel.ownerUserId,
         rooms: hotel.rooms,
         pricePerNight: hotel.pricePerNight,
         currency: hotel.currency || "VND",
@@ -153,6 +162,8 @@ export function MindtripHotelDetailOverlay({
     hotel.rooms?.length,
     hotel.currency,
     hotel.propertyId,
+    hotel.businessId,
+    hotel.ownerUserId,
     activeCheckIn,
     activeCheckOut,
     activeGuests,
@@ -164,18 +175,40 @@ export function MindtripHotelDetailOverlay({
   const effectiveCurrency = directBooking?.currency ?? hotel.currency ?? "VND";
 
   const currentHotelForBooking: MindtripHotel = React.useMemo(() => {
-    if (!directBooking) return hotel;
+    if (!directBooking) {
+      return {
+        ...hotel,
+        businessId: hotel.businessId || hotelPartner?.id,
+        ownerUserId: hotel.ownerUserId || hotelPartner?.ownerUserId,
+        propertyId: hotel.propertyId || hotelPartner?.propertyId,
+      };
+    }
     return {
       ...hotel,
       hasDirectBooking: true,
       propertyId: directBooking.propertyId,
-      businessId: directBooking.businessId || hotel.businessId,
-      ownerUserId: directBooking.ownerUserId || hotel.ownerUserId,
+      businessId: directBooking.businessId || hotel.businessId || hotelPartner?.id,
+      ownerUserId: directBooking.ownerUserId || hotel.ownerUserId || hotelPartner?.ownerUserId,
       pricePerNight: directBooking.pricePerNight,
       currency: directBooking.currency,
       rooms: directBooking.rooms,
     };
-  }, [hotel, directBooking]);
+  }, [hotel, directBooking, hotelPartner]);
+
+  const currentUserId = useAuthStore((state) => state.user?.id);
+  const resolvedOwnerUserId = currentHotelForBooking.ownerUserId || hotelPartner?.ownerUserId;
+  const resolvedBusinessId = currentHotelForBooking.businessId || hotelPartner?.id;
+  const isOwner = Boolean(
+    currentUserId && resolvedOwnerUserId && currentUserId === resolvedOwnerUserId
+  );
+  const isPartner = Boolean(hotelPartner || resolvedOwnerUserId);
+
+  const inquiryMessage = encodeURIComponent(
+    `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
+  );
+  const chatHref = resolvedOwnerUserId
+    ? `/chat?userId=${resolvedOwnerUserId}&message=${inquiryMessage}`
+    : `/chat?message=${inquiryMessage}`;
 
   const place: Place = React.useMemo(() => {
     const photoGallery = loadedPhotos.length > 0 ? loadedPhotos : getExistingHotelPhotos(hotel);
@@ -225,8 +258,52 @@ export function MindtripHotelDetailOverlay({
   // Right column booking / contact card
   const overviewAside = (
     <div className="rounded-3xl border border-border bg-card p-5 sm:p-6 space-y-4 shadow-sm">
+      {/* Case 0: Owner Management Banner */}
+      {isOwner && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+              <Sparkles className="h-3 w-3" />
+              <span>{locale === "vi" ? "Cơ sở lưu trú của bạn" : "Your Property"}</span>
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {effectivePrice
+              ? (locale === "vi"
+                  ? `Khách sạn của bạn đang mở bán giỏ phòng trực tuyến (giá từ ${new Intl.NumberFormat("vi-VN").format(effectivePrice)} ${effectiveCurrency}/đêm) và đón tiếp khách.`
+                  : `Your property is published with online inventory (from ${new Intl.NumberFormat("en-US").format(effectivePrice)} ${effectiveCurrency}/night) and receiving guests.`)
+              : (locale === "vi"
+                  ? "Cơ sở của bạn đã được duyệt và đang mở đón khách qua tin nhắn. Hãy thiết lập các hạng phòng để mở giỏ phòng trực tuyến tức thì."
+                  : "Your property is approved and receiving guests via chat. Configure room types to enable instant online booking.")}
+          </p>
+          <Link
+            href={resolvedBusinessId ? `/partner/businesses/${resolvedBusinessId}/hotel` : "/partner"}
+            className="w-full py-2.5 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs text-center cursor-pointer"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            <span>{locale === "vi" ? "Quản lý cơ sở & Giỏ phòng" : "Manage Hotel & Rooms"}</span>
+          </Link>
+        </div>
+      )}
+
       {isDirectBookable && effectivePrice ? (
         <>
+          {/* Partner Status Badge */}
+          {isPartner && (
+            <div className="flex items-center justify-between pb-1 border-b border-border/50">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                <CheckCircle2 className="h-3 w-3" />
+                <span>{locale === "vi" ? "Đối tác chính thức" : "Verified Partner"}</span>
+              </span>
+              {hotelPartner?.acceptingNew !== false && (
+                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{locale === "vi" ? "Đang mở đón khách" : "Open for guests"}</span>
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Price Display */}
           <div>
             <div className="flex items-baseline gap-1.5">
@@ -267,30 +344,10 @@ export function MindtripHotelDetailOverlay({
             {locale === "vi" ? "Chọn phòng & Đặt ngay" : "Check availability"}
           </button>
 
-          {/* Secondary Action: Consultation message if owner configured */}
-          {currentHotelForBooking.ownerUserId && (
-            <Link
-              href={`/chat?userId=${currentHotelForBooking.ownerUserId}&message=${encodeURIComponent(
-                `Chào khách sạn, mình muốn hỏi thông tin tư vấn tại ${hotel.name}.`
-              )}`}
-              className="w-full py-2.5 px-5 rounded-full border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <MessageSquare className="h-3.5 w-3.5 text-primary" />
-              <span>{locale === "vi" ? "Nhắn tin tư vấn" : "Message hotel"}</span>
-            </Link>
-          )}
-          {/* Secondary Action: Consultation message & In-chat Booking */}
+          {/* Secondary Action: In-chat Booking */}
           <Link
-            href={
-              currentHotelForBooking.ownerUserId
-                ? `/chat?userId=${currentHotelForBooking.ownerUserId}&message=${encodeURIComponent(
-                  `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
-                )}`
-                : `/chat?message=${encodeURIComponent(
-                  `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
-                )}`
-            }
-            className="w-full py-2.5 px-5 rounded-full border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs"
+            href={chatHref}
+            className="w-full py-2.5 px-5 rounded-full border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs text-center"
           >
             <MessageSquare className="h-3.5 w-3.5 text-primary" />
             <span>{locale === "vi" ? "Tư vấn & Đặt phòng qua Chat" : "Consult & Book via Chat"}</span>
@@ -304,7 +361,7 @@ export function MindtripHotelDetailOverlay({
             <span>{locale === "vi" ? "Xem danh sách hạng phòng & giá" : "Browse room types & rates"}</span>
           </button>
 
-          {/* Secondary Button: Set price alert */}
+          {/* Price Alert */}
           <button
             type="button"
             onClick={() => setPriceAlertActive((prev) => !prev)}
@@ -328,8 +385,65 @@ export function MindtripHotelDetailOverlay({
             )}
           </button>
         </>
+      ) : isPartner ? (
+        /* Case B: Verified Partner without Direct Room Inventory (or Dates Sold Out) */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>{locale === "vi" ? "Đối tác chính thức trên TripSense" : "TripSense Verified Partner"}</span>
+            </span>
+            {hotelPartner?.acceptingNew !== false && (
+              <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{locale === "vi" ? "Đang mở đón khách" : "Open for guests"}</span>
+              </span>
+            )}
+          </div>
+
+          <div>
+            <h4 className="font-bold text-sm text-foreground">
+              {locale === "vi" ? "Đặt phòng qua Chat & Lễ tân" : "Book via Chat & Reception"}
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              {locale === "vi"
+                ? "Khách sạn đón tiếp và nhận yêu cầu đặt phòng trực tiếp qua Tin nhắn Chat (0% phụ phí). Quý khách có thể nhắn tin trực tiếp để kiểm tra phòng trống và nhận giá ưu đãi tốt nhất."
+                : "This property accepts direct booking inquiries via Chat with 0% extra fees. Message the hotel directly to check availability and receive personalized offers."}
+            </p>
+          </div>
+
+          <Link
+            href={chatHref}
+            className="w-full py-3 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs text-center cursor-pointer"
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span>{locale === "vi" ? "Nhắn tin & Đặt phòng qua Chat" : "Message & Book via Chat"}</span>
+          </Link>
+
+          {(hotel.phone || hotelPartner?.publicPhone) && (
+            <a
+              href={`tel:${hotel.phone || hotelPartner?.publicPhone}`}
+              className="w-full py-2.5 px-4 rounded-full border border-border bg-card hover:bg-muted text-foreground font-semibold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs"
+            >
+              <Phone className="h-3.5 w-3.5 text-primary" />
+              <span>{locale === "vi" ? `Gọi đặt phòng: ${hotel.phone || hotelPartner?.publicPhone}` : `Call to reserve: ${hotel.phone || hotelPartner?.publicPhone}`}</span>
+            </a>
+          )}
+
+          <div className="pt-2 border-t border-border space-y-2">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${hotel.name} ${hotel.address || ""}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-4 rounded-full border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Navigation className="h-3.5 w-3.5" />
+              <span>{locale === "vi" ? "Xem chỉ đường Google Maps" : "Get directions on Google Maps"}</span>
+            </a>
+          </div>
+        </div>
       ) : (
-        /* Truthful Online Booking Not Yet Enabled State */
+        /* Case C: Truthful Online Booking Not Yet Enabled State for 3rd-Party Places */
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold text-sm">
             <Info className="h-4 w-4 shrink-0" />
@@ -353,15 +467,7 @@ export function MindtripHotelDetailOverlay({
           )}
 
           <Link
-            href={
-              currentHotelForBooking.ownerUserId
-                ? `/chat?userId=${currentHotelForBooking.ownerUserId}&message=${encodeURIComponent(
-                  `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
-                )}`
-                : `/chat?message=${encodeURIComponent(
-                  `Chào khách sạn ${hotel.name}, mình muốn hỏi về việc đặt phòng từ ngày ${activeCheckIn} đến ${activeCheckOut} cho ${activeGuests} khách. Bạn có thể tư vấn và gửi phiếu giữ phòng qua chat giúp mình được không?`
-                )}`
-            }
+            href={chatHref}
             className="w-full py-2.5 px-4 rounded-full border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs text-center"
           >
             <MessageSquare className="h-3.5 w-3.5 text-primary" />

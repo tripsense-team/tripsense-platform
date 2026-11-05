@@ -259,6 +259,7 @@ class GatewayRoutesConfig {
                         "/api/guide-taxonomy",
                         "/api/partner-listings/**",
                         "/api/public/restaurants/**",
+                        "/api/public/hotels/**",
                         "/api/restaurants/**",
                         "/api/restaurant-reservation-requests/**",
                         "/api/me/restaurant-reservation-requests",

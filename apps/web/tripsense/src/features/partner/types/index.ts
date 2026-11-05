@@ -506,6 +506,24 @@ export interface PublicRestaurantListingDto {
   badgeLabel?: string;
 }
 
+export interface PublicHotelListingDto {
+  id: string;
+  ownerUserId: string;
+  displayName: string;
+  address?: string;
+  destination?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  publicEmail?: string;
+  publicPhone?: string;
+  verifiedPartner: boolean;
+  acceptingNew: boolean;
+  badgeLabel?: string | null;
+  propertyId?: string;
+  hasDirectInventory: boolean;
+  minPricePerNight?: number | null;
+}
+
 export interface RestaurantReservationDto {
   id: string;
   businessId: string;
