@@ -295,11 +295,24 @@ export function CreateReservationOfferModal({
       ? (reservationTime.length === 5 ? `${reservationTime}:00` : reservationTime)
       : undefined;
 
+    // Resolve real businessId from partnerBusinesses
+    const matchingBiz =
+      partnerBusinesses?.find((b) => b.displayName.toLowerCase() === businessName.trim().toLowerCase()) ||
+      partnerBusinesses?.find((b) => {
+        if (businessType === "RESTAURANT") return b.kind === "RESTAURANT";
+        if (businessType === "HOTEL") return b.kind === "HOTEL";
+        if (businessType === "RENTAL") return b.kind === "RENTAL_SERVICE";
+        return false;
+      }) ||
+      partnerBusinesses?.[0];
+
+    const resolvedBusinessId = matchingBiz?.id || "00000000-0000-0000-0000-000000000000";
+
     setIsSubmitting(true);
     try {
       await onSubmit({
         businessType,
-        businessId: "00000000-0000-0000-0000-000000000000",
+        businessId: resolvedBusinessId,
         businessName: businessName.trim(),
         itemTitle: itemTitle.trim(),
         checkInDate,

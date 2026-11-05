@@ -24,6 +24,16 @@ export interface PlaceDetailOverlayProps {
   className?: string;
 }
 
+function getCoreBusinessName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(nha hang|quan an|quan|tiem|com|pho|bun|banh|restaurant|cafe|ca phe|bar|pub|bistro|kitchen|eatery)\b/gi, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
 export function PlaceDetailOverlay({
   place,
   isFavorite = false,
@@ -156,31 +166,25 @@ export function PlaceDetailOverlay({
     searchPublicRestaurants(place.name)
       .then((results) => {
         if (cancelled) return;
+        const corePlaceName = getCoreBusinessName(place.name);
         const normPlaceName = place.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
         const match = results.find((r) => {
+          const coreRName = getCoreBusinessName(r.displayName);
           const normRName = r.displayName.toLowerCase().replace(/[^a-z0-9]/g, "");
-          return normRName.includes(normPlaceName) || normPlaceName.includes(normRName);
+
+          // 1. Exact or strong substring match on full normalized name
+          if (normPlaceName.length >= 4 && (normRName.includes(normPlaceName) || normPlaceName.includes(normRName))) {
+            return true;
+          }
+          // 2. Core distinguishing business name match (excluding generic prefixes like 'nhà hàng', 'quán')
+          if (corePlaceName.length >= 3 && coreRName.length >= 3) {
+            return corePlaceName === coreRName || corePlaceName.includes(coreRName) || coreRName.includes(corePlaceName);
+          }
+          return false;
         });
 
-        if (match) {
-          setRestaurantPartner(match);
-        } else {
-          // If query with place.name did not return a match, fetch all public restaurants to fuzzy match
-          searchPublicRestaurants()
-            .then((all) => {
-              if (cancelled) return;
-              const fuzzy = all.find((r) => {
-                const normRName = r.displayName.toLowerCase().replace(/[^a-z0-9]/g, "");
-                return (
-                  normRName.includes(normPlaceName) ||
-                  normPlaceName.includes(normRName) ||
-                  (normPlaceName.length >= 6 && normRName.length >= 6 && normPlaceName.slice(0, 6) === normRName.slice(0, 6))
-                );
-              });
-              setRestaurantPartner(fuzzy || null);
-            })
-            .catch(() => {});
-        }
+        setRestaurantPartner(match || null);
       })
       .catch(() => {})
       .finally(() => {

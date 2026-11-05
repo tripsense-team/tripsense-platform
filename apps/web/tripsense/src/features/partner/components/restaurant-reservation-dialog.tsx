@@ -258,7 +258,7 @@ export function RestaurantReservationDialog({
                   {t("partner.restaurant.viewMyReservations", { defaultValue: "Đơn đặt bàn của tôi" })}
                 </Link>
               </Button>
-              {ownerUserId && (
+              {ownerUserId && user?.id !== ownerUserId && (
                 <Button asChild size="sm" variant="secondary" className="flex-1 text-xs gap-1.5 font-medium">
                   <Link href={`/chat?userId=${ownerUserId}`} onClick={handleClose}>
                     <MessageSquare className="h-3.5 w-3.5 text-primary" />

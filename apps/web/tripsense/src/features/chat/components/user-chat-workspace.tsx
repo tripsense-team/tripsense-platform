@@ -69,6 +69,7 @@ export function UserChatWorkspace() {
   // Handle direct navigation to user via /chat?userId=...
   React.useEffect(() => {
     if (!userId || !targetUserId || isLoading) return;
+    if (targetUserId === userId) return;
 
     const existing = conversations.find((c) => c.user.id === targetUserId);
     if (existing) {
@@ -99,7 +100,7 @@ export function UserChatWorkspace() {
     return () => {
       canceled = true;
     };
-  }, [userId, targetUserId, isLoading]);
+  }, [userId, targetUserId, isLoading, conversations]);
 
   const refresh = React.useCallback(async () => {
     if (!userId) return;
@@ -113,11 +114,50 @@ export function UserChatWorkspace() {
         if (!cursor) break;
       }
       if (!alive.current) return;
-      setConversations((old) => rows.map((item) => toConversation(item, userId, old.find((entry) => entry.id === item.id)?.messages)));
+
       const targetFromUrl = searchParams.get("t") || searchParams.get("id");
+      const paramUserId = searchParams.get("userId");
+
+      let resolvedConvId: string | null = null;
+      let newConvToAdd: Conversation | null = null;
+
+      // Prioritize targetUserId if provided and not self-chat
+      if (paramUserId && paramUserId !== userId) {
+        const existingInRows = rows.find((r) => r.peer?.userId === paramUserId);
+        if (existingInRows) {
+          resolvedConvId = existingInRows.id;
+        } else {
+          try {
+            const server = await chatApi.create(paramUserId);
+            if (alive.current) {
+              const mapped = toConversation(server, userId);
+              newConvToAdd = mapped;
+              resolvedConvId = mapped.id;
+            }
+          } catch {
+            // Cannot create conversation (e.g. self-chat or invalid target)
+          }
+        }
+      }
+
+      setConversations((old) => {
+        const mappedRows = rows.map((item) =>
+          toConversation(item, userId, old.find((entry) => entry.id === item.id)?.messages)
+        );
+        if (newConvToAdd) {
+          return [newConvToAdd, ...mappedRows.filter((c) => c.id !== newConvToAdd!.id)];
+        }
+        return mappedRows;
+      });
+
       setActiveConvId((id) => {
+        if (resolvedConvId) return resolvedConvId;
         if (targetFromUrl && rows.some((row) => row.id === targetFromUrl)) {
           return targetFromUrl;
+        }
+        // If paramUserId was provided but cannot be resolved yet, do NOT accidentally switch to rows[0]
+        if (paramUserId && paramUserId !== userId) {
+          return id;
         }
         return id && rows.some((row) => row.id === id)
           ? id
@@ -128,7 +168,7 @@ export function UserChatWorkspace() {
     } finally {
       if (alive.current) setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, searchParams]);
   React.useEffect(() => { refreshRef.current = refresh; }, [refresh]);
 
   const loadThread = React.useCallback(async (id: string) => {
@@ -245,13 +285,20 @@ export function UserChatWorkspace() {
   React.useEffect(() => {
     if (activeConvId && typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      if (url.searchParams.get("t") !== activeConvId) {
+      const currentParamUserId = url.searchParams.get("userId");
+      if (currentParamUserId) {
+        const activeConv = conversations.find((c) => c.id === activeConvId);
+        if (activeConv?.user.id === currentParamUserId || currentParamUserId === userId) {
+          url.searchParams.set("t", activeConvId);
+          url.searchParams.delete("userId");
+          window.history.replaceState(null, "", url.toString());
+        }
+      } else if (url.searchParams.get("t") !== activeConvId) {
         url.searchParams.set("t", activeConvId);
-        url.searchParams.delete("userId");
         window.history.replaceState(null, "", url.toString());
       }
     }
-  }, [activeConvId]);
+  }, [activeConvId, conversations, userId]);
 
   const selectConversation = (id: string) => {
     setActiveConvId(id);

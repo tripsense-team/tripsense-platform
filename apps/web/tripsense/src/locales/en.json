@@ -1295,6 +1295,7 @@
       "invalidAdults": "Adults must be between 1 and 20.",
       "invalidFullName": "Please enter your full name for the reservation.",
       "invalidPhone": "Please enter a valid phone number (8 - 15 digits) for reservation confirmation.",
+      "manageMyRestaurant": "Manage Your Restaurant",
       "maxGuestsExceeded": "Maximum 20 total guests allowed.",
       "menuAndReservationTitle": "Menu & Reservations",
       "menuHighlights": "Signature dishes",
