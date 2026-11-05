@@ -393,10 +393,15 @@ export function MindtripHotelDetailOverlay({
               <CheckCircle2 className="h-3 w-3" />
               <span>{locale === "vi" ? "Đối tác chính thức trên TripSense" : "TripSense Verified Partner"}</span>
             </span>
-            {hotelPartner?.acceptingNew !== false && (
+            {hotelPartner?.acceptingNew ? (
               <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>{locale === "vi" ? "Đang mở đón khách" : "Open for guests"}</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+                <span>{locale === "vi" ? "Đang cập nhật giỏ phòng" : "Updating room inventory"}</span>
               </span>
             )}
           </div>

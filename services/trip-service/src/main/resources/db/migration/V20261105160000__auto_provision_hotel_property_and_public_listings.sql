@@ -33,35 +33,6 @@ WHERE b.kind = 'HOTEL'
       SELECT 1 FROM hotel_property p WHERE p.business_id = b.id
   );
 
--- Auto-provision a default room type and 90-day inventory for active hotel properties with 0 rooms
-DO $$
-DECLARE
-    r RECORD;
-    v_room_id UUID;
-    v_day INT;
-BEGIN
-    FOR r IN
-        SELECT p.id AS prop_id
-        FROM hotel_property p
-        JOIN partner_business b ON b.id = p.business_id
-        WHERE p.status = 'ACTIVE'
-          AND b.publication_state = 'PUBLISHED'
-          AND NOT EXISTS (
-              SELECT 1 FROM hotel_room_type rt WHERE rt.property_id = p.id
-          )
-    LOOP
-        v_room_id := gen_random_uuid();
-        INSERT INTO hotel_room_type (id, property_id, name, capacity)
-        VALUES (v_room_id, r.prop_id, 'Phòng Deluxe River View', 2);
-
-        FOR v_day IN 0..89 LOOP
-            INSERT INTO hotel_inventory (room_type_id, stay_date, allocation, nightly_price, stop_sell)
-            VALUES (v_room_id, CURRENT_DATE + v_day, 5, 650000.00, false)
-            ON CONFLICT (room_type_id, stay_date) DO NOTHING;
-        END LOOP;
-    END LOOP;
-END $$;
-
 -- Ensure Ibiza Riverfront Hotel has an active partner subscription
 INSERT INTO partner_subscription (
     id,
