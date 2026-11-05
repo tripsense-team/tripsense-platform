@@ -121,6 +121,13 @@ export function PartnerBusinessCard({
       const errorCode = typeof rawData === "object" && rawData !== null && "code" in rawData ? String((rawData as { code?: unknown }).code) : "";
       const rawDetail = typeof rawData === "object" && rawData !== null && "message" in rawData ? String((rawData as { message?: unknown }).message) : "";
       if (
+        msg.includes("HOTEL_ROOMS_REQUIRED") ||
+        errorCode === "HOTEL_ROOMS_REQUIRED" ||
+        msg.includes("hạng phòng") ||
+        rawDetail.includes("hạng phòng")
+      ) {
+        setActionError("Khách sạn cần tạo ít nhất một hạng phòng trước khi mở đón khách.");
+      } else if (
         msg.includes("READINESS_INCOMPLETE") ||
         msg.toLowerCase().includes("not eligible") ||
         errorCode === "READINESS_INCOMPLETE" ||
@@ -229,8 +236,17 @@ export function PartnerBusinessCard({
 
       <CardContent className="flex-1 px-5 py-2">
         {actionError && (
-          <div className="mb-3 rounded bg-destructive/10 p-2 text-xs text-destructive">
-            {actionError}
+          <div className="mb-3 rounded-md bg-destructive/10 p-2.5 text-xs text-destructive flex flex-col gap-1.5 border border-destructive/20">
+            <span className="font-medium">{actionError}</span>
+            {business.kind === "HOTEL" && (actionError.includes("hạng phòng") || actionError.includes("điều kiện")) && (
+              <Link
+                href={serviceLink}
+                className="inline-flex items-center gap-1 font-semibold text-primary underline underline-offset-2 hover:opacity-80"
+              >
+                <span>⚙️ Thiết lập hạng phòng ngay trong Quản lý phòng & cơ sở</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            )}
           </div>
         )}
 
@@ -308,6 +324,13 @@ export function PartnerBusinessCard({
             <p className="text-micro text-muted-foreground pt-1 flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
               <span>Chỉ cần up ảnh và thay ảnh thực đơn trực tiếp rất đơn giản, không cần nhập từng món lẻ.</span>
+            </p>
+          )}
+
+          {business.kind === "HOTEL" && (
+            <p className="text-micro text-muted-foreground pt-1 flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
+              <span>Khách sạn cần tạo ít nhất 1 loại phòng để kích hoạt mở đón khách và cho phép đặt online.</span>
             </p>
           )}
         </div>

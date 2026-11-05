@@ -29,6 +29,7 @@ public class PartnerBusinessService {
   private final PartnerReviewAuditRepository auditRepository;
   private final PartnerInvitationRepository invitationRepository;
   private final PartnerOutboxService outboxService;
+  private final org.springframework.jdbc.core.JdbcTemplate db;
 
   @Transactional
   public BusinessDetailDto createDraft(AuthenticatedUser user, CreateBusinessDraftRequest request) {
@@ -344,6 +345,28 @@ public class PartnerBusinessService {
             "Business is not eligible to accept new bookings or inquiries",
             HttpStatus.CONFLICT);
       }
+
+      // Hotel-specific requirement: Must have at least 1 room type configured before accepting bookings
+      if (business.getKind() == BusinessKind.HOTEL) {
+        Integer roomCount = 0;
+        try {
+          roomCount = db.queryForObject("""
+              SELECT count(rt.id)
+              FROM hotel_property p
+              JOIN hotel_room_type rt ON rt.property_id = p.id
+              WHERE p.business_id = ?
+              """, Integer.class, businessId);
+        } catch (Exception e) {
+          roomCount = 0;
+        }
+        if (roomCount == null || roomCount == 0) {
+          throw new TripServiceException(
+              "HOTEL_ROOMS_REQUIRED",
+              "Khách sạn cần tạo ít nhất một hạng phòng trước khi mở đón khách.",
+              HttpStatus.CONFLICT);
+        }
+      }
+
       business.setAcceptingNew(true);
     } else {
       business.setAcceptingNew(false);
@@ -804,7 +827,21 @@ public class PartnerBusinessService {
     boolean listingCap = caps.contains(getListingCapability(b.getKind()));
     boolean intakeCap = caps.contains(getIntakeCapability(b.getKind()));
     boolean publicEligible = b.isPublicEligible(listingCap);
-    boolean newIntakeEligible = b.isNewIntakeEligible(publicEligible, intakeCap, true);
+    boolean isReadinessMet = true;
+    if (b.getKind() == BusinessKind.HOTEL && db != null) {
+      try {
+        Integer roomCount = db.queryForObject("""
+            SELECT count(rt.id)
+            FROM hotel_property p
+            JOIN hotel_room_type rt ON rt.property_id = p.id
+            WHERE p.business_id = ?
+            """, Integer.class, b.getId());
+        isReadinessMet = (roomCount != null && roomCount > 0);
+      } catch (Exception e) {
+        isReadinessMet = false;
+      }
+    }
+    boolean newIntakeEligible = b.isNewIntakeEligible(publicEligible, intakeCap, isReadinessMet);
 
     return BusinessDetailDto.builder()
         .id(b.getId())

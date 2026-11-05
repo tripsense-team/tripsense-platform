@@ -22,3 +22,4 @@ public record PublicHotelListingDto(
     boolean hasDirectInventory,
     BigDecimal minPricePerNight
 ) {}
+
