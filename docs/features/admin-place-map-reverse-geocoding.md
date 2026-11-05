@@ -6,7 +6,7 @@
 - **Affected Components**: `apps/web/tripsense`, `services/api-gateway` (existing route), `services/place-service`
 - **Created Date**: 2026-11-04
 - **Approved Date**: 2026-11-04 (user approval in chat)
-- **Implementation Note**: Code and automated checks complete; live provider acceptance and service deployment pending.
+- **Implementation Note**: CI ambiguity remediation and local backend regression suites pass; CI rerun, live provider acceptance and service deployment remain pending.
 - **Related Plan**: [Admin Shared Place Catalog CRUD](./admin-shared-place-catalog-crud.md) — address geocoding was explicitly out of scope there
 - **Provider reference**: [MapVina Reverse Geocoding v2](https://docs.mapvina.com/api-integration/reverse-geocoding/v2/)
 
@@ -105,4 +105,5 @@ Approved by the user on 2026-11-04; implementation may proceed within this scope
 - Added web map-click lookup with abort/sequence guards, manual-edit preservation, localized statuses, and unchanged Create/Update payload.
 - Focused Maven tests passed in a temporary offline Java 21 container: 7 reverse-adapter, 3 catalog-security, and 8 Gateway tests; no provider request was made by tests.
 - Web full test suite (409 tests), TypeScript, i18n, lint (0 errors; existing unrelated warnings), and production build passed.
+- 2026-11-05 CI remediation: isolated `RecommendationIndexerClient` from provider-specific `RestClient` beans so adding `mapVinaRestClient` no longer makes Spring injection ambiguous. The existing `PlaceServiceApplicationTests.contextLoads` regression check passes. Full local suites pass with JDK 25 test-only compatibility overrides: Place Service 169 tests (1 skipped) and User Service 51 tests, with zero failures/errors. CI rerun remains pending on the standard Java 21 environment.
 - Live acceptance with a configured backend MapVina key and deployment of rebuilt Place Service/Gateway remains to be performed; do not mark DONE yet.

@@ -21,15 +21,15 @@ public class RecommendationIndexerClient {
   private final RestClient restClient;
   private final TripSensePlaceProperties properties;
 
+  @Autowired
   public RecommendationIndexerClient(TripSensePlaceProperties properties) {
     this(properties, createDefaultRestClient());
   }
 
-  @Autowired
-  public RecommendationIndexerClient(
-      TripSensePlaceProperties properties, @Autowired(required = false) RestClient restClient) {
+  RecommendationIndexerClient(
+      TripSensePlaceProperties properties, RestClient restClient) {
     this.properties = properties;
-    this.restClient = restClient != null ? restClient : createDefaultRestClient();
+    this.restClient = restClient;
   }
 
   private static RestClient createDefaultRestClient() {
