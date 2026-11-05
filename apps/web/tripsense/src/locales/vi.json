@@ -1239,6 +1239,7 @@
       "askOwner": "Nhắn tin tư vấn",
       "available": "Đang phục vụ",
       "availableLabel": "Đang sẵn sàng phục vụ",
+      "bookAgain": "Đặt lại bàn",
       "bookDirect": "Đặt bàn trực tiếp tại quán",
       "bookingDetailsTitle": "Chi tiết đặt chỗ",
       "bottomReserveDesc": "Đặt bàn trước nhanh chóng để nhà hàng chuẩn bị chu đáo và giữ chỗ tốt nhất.",
@@ -1284,6 +1285,7 @@
       "editDish": "Chỉnh sửa món",
       "expiredNotice": "Yêu cầu đã quá thời gian hẹn",
       "filterCancelled": "Đã hủy",
+      "filterCompleted": "Đã hoàn thành",
       "filterConfirmed": "Đã xác nhận",
       "filterExpired": "Hết hạn",
       "filterRejected": "Đã từ chối",
@@ -1341,6 +1343,7 @@
       "specialNotes": "Ghi chú hoặc yêu cầu đặc biệt",
       "specialNotesPlaceholder": "Ví dụ: Cần bàn cạnh cửa sổ, có ghế trẻ em, ăn chay, trang trí kỷ niệm...",
       "statusCancelled": "Đã hủy",
+      "statusCompleted": "Đã hoàn thành",
       "statusConfirmed": "Đã xác nhận",
       "statusExpired": "Hết hạn",
       "statusRejected": "Đã từ chối",
@@ -1515,10 +1518,14 @@
     "website": "Trang web"
   },
   "reservations": {
+    "bookAgain": "Đặt lại bàn",
     "hubSubtitle": "Quản lý tập trung các đặt phòng khách sạn và yêu cầu đặt bàn ăn uống của bạn.",
     "inChatTag": "Đặt qua Chat",
     "inChatTickets": "Đơn đặt xác nhận qua Chat",
     "openChat": "Mở đoạn chat",
+    "ratedStar": "Đã đánh giá",
+    "rateExperience": "⭐ Đánh giá trải nghiệm",
+    "statusCompleted": "Đã hoàn thành",
     "statusConfirmed": "Đã xác nhận",
     "tabHotels": "Khách sạn & Lưu trú",
     "tabRestaurants": "Nhà hàng & Quán ăn"

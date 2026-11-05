@@ -15,6 +15,10 @@ import {
   ArrowLeft,
   X,
   ExternalLink,
+  Star,
+  User,
+  Phone,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +35,11 @@ import {
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import {
+  ReservationReviewModal,
+  getStoredReview,
+  type ReservationReview,
+} from "@/features/reservations";
+import {
   getMyRestaurantReservations,
   cancelRestaurantReservation,
 } from "../services/partner-api";
@@ -38,6 +47,29 @@ import type { RestaurantReservationDto } from "../types";
 
 interface CustomerReservationsViewProps {
   hideHeader?: boolean;
+}
+
+interface ParsedNotes {
+  guestName: string | null;
+  phone: string | null;
+  specialRequest: string | null;
+}
+
+function parseReservationNotes(rawNotes?: string | null): ParsedNotes {
+  if (!rawNotes) return { guestName: null, phone: null, specialRequest: null };
+  const match = rawNotes.match(/^\[Khách đặt:\s*([^|]+)\s*\|\s*SĐT:\s*([^\]]+)\]\s*(.*)$/i);
+  if (match) {
+    return {
+      guestName: match[1]?.trim() || null,
+      phone: match[2]?.trim() || null,
+      specialRequest: match[3]?.trim() || null,
+    };
+  }
+  return {
+    guestName: null,
+    phone: null,
+    specialRequest: rawNotes.trim(),
+  };
 }
 
 export function CustomerReservationsView({ hideHeader = false }: CustomerReservationsViewProps) {
@@ -143,12 +175,53 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
     }
   };
 
+  const isItemCompleted = (r: RestaurantReservationDto) => {
+    if (r.state !== "CONFIRMED") return false;
+    try {
+      return new Date(r.startAt).getTime() < Date.now();
+    } catch {
+      return false;
+    }
+  };
+
+  const [reviewModalTarget, setReviewModalTarget] = React.useState<RestaurantReservationDto | null>(null);
+  const [storedReviews, setStoredReviews] = React.useState<Record<string, ReservationReview>>({});
+
+  React.useEffect(() => {
+    const map: Record<string, ReservationReview> = {};
+    reservations.forEach((r) => {
+      const rev = getStoredReview(r.id);
+      if (rev) map[r.id] = rev;
+    });
+    setStoredReviews(map);
+
+    const handleReviewUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ reservationId: string; review: ReservationReview }>;
+      if (customEvent.detail?.reservationId && customEvent.detail?.review) {
+        setStoredReviews((prev) => ({
+          ...prev,
+          [customEvent.detail.reservationId]: customEvent.detail.review,
+        }));
+      }
+    };
+    window.addEventListener("tripsense:review-updated", handleReviewUpdate);
+    return () => window.removeEventListener("tripsense:review-updated", handleReviewUpdate);
+  }, [reservations]);
+
   const renderBadge = (item: RestaurantReservationDto) => {
     if (isItemExpired(item)) {
       return (
         <Badge variant="outline" className="border-muted-foreground/30 bg-muted/60 text-muted-foreground font-medium">
           <Clock className="mr-1 h-3 w-3" />
           {t("partner.restaurant.statusExpired", { defaultValue: "Hết hạn" })}
+        </Badge>
+      );
+    }
+    if (isItemCompleted(item)) {
+      return (
+        <Badge className="bg-purple-600 hover:bg-purple-600 text-white font-medium border-purple-700/20 shadow-xs">
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          {t("partner.restaurant.statusCompleted", { defaultValue: "Đã hoàn thành" })}
         </Badge>
       );
     }
@@ -188,9 +261,12 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
 
   const filtered = reservations.filter((r) => {
     const expired = isItemExpired(r);
+    const completed = isItemCompleted(r);
     if (filterState === "ALL") return true;
     if (filterState === "EXPIRED") return expired;
     if (filterState === "REQUESTED") return r.state === "REQUESTED" && !expired;
+    if (filterState === "CONFIRMED") return r.state === "CONFIRMED" && !completed;
+    if (filterState === "COMPLETED") return completed;
     return r.state === filterState;
   });
 
@@ -198,6 +274,7 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
     { key: "ALL", label: t("common.all", { defaultValue: "Tất cả" }) },
     { key: "REQUESTED", label: t("partner.restaurant.filterRequested", { defaultValue: "Chờ xác nhận" }) },
     { key: "CONFIRMED", label: t("partner.restaurant.filterConfirmed", { defaultValue: "Đã xác nhận" }) },
+    { key: "COMPLETED", label: t("partner.restaurant.filterCompleted", { defaultValue: "Đã hoàn thành" }) },
     { key: "EXPIRED", label: t("partner.restaurant.filterExpired", { defaultValue: "Hết hạn" }) },
     { key: "REJECTED", label: t("partner.restaurant.filterRejected", { defaultValue: "Bị từ chối" }) },
     { key: "CANCELLED", label: t("partner.restaurant.filterCancelled", { defaultValue: "Đã hủy" }) },
@@ -303,81 +380,150 @@ export function CustomerReservationsView({ hideHeader = false }: CustomerReserva
         </Card>
       ) : (
         <div className="grid gap-4">
-          {filtered.map((item) => (
-            <Card key={item.id} className="border-border/70 shadow-xs hover:border-border transition-colors">
-              <CardContent className="p-5">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center justify-between sm:justify-start gap-2.5">
-                      <h3 className="text-base font-bold text-foreground">
-                        {item.businessName || item.businessNameSnapshot}
-                      </h3>
-                      {renderBadge(item)}
+          {filtered.map((item) => {
+            const parsedNotes = parseReservationNotes(item.notes);
+            const isCompleted = isItemCompleted(item);
+            const review = storedReviews[item.id];
+
+            return (
+              <Card key={item.id} className="border-border/70 shadow-xs hover:border-border transition-colors">
+                <CardContent className="p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center justify-between sm:justify-start gap-2.5">
+                        <h3 className="text-base font-bold text-foreground">
+                          {item.businessName || item.businessNameSnapshot}
+                        </h3>
+                        {renderBadge(item)}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="font-medium text-foreground">{formatDateTime(item.startAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span>
+                            {item.adults} {t("partner.restaurant.adults", { defaultValue: "người lớn" })}
+                            {item.children > 0 && `, ${item.children} trẻ em`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Clean contact & customer snapshot if available */}
+                      {(parsedNotes.guestName || parsedNotes.phone) && (
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-0.5">
+                          {parsedNotes.guestName && (
+                            <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                              <User className="h-3.5 w-3.5 text-primary/80" />
+                              <span>{parsedNotes.guestName}</span>
+                            </span>
+                          )}
+                          {parsedNotes.phone && (
+                            <span className="inline-flex items-center gap-1.5 font-mono text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/50">
+                              <Phone className="h-3 w-3 text-primary/80" />
+                              <span>{parsedNotes.phone}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Special request notes */}
+                      {parsedNotes.specialRequest && (
+                        <div className="rounded-lg bg-muted/30 p-2.5 text-xs text-muted-foreground border border-border/40 mt-1">
+                          <span className="font-semibold text-foreground mr-1.5">
+                            {t("partner.restaurant.specialNotes", { defaultValue: "Ghi chú:" })}
+                          </span>
+                          {parsedNotes.specialRequest}
+                        </div>
+                      )}
+
+                      {item.decisionReason && (
+                        <div className="text-xs text-muted-foreground rounded-lg bg-amber-500/10 dark:bg-amber-500/5 p-2.5 border border-amber-500/20 text-amber-900 dark:text-amber-200">
+                          <span className="font-semibold">{t("partner.restaurant.decisionReason", { defaultValue: "Phản hồi từ quán:" })}</span>{" "}
+                          {item.decisionReason}
+                        </div>
+                      )}
+
+                      {item.cancellationReason && (
+                        <div className="text-xs text-muted-foreground rounded-lg bg-muted/40 p-2 border border-border/40">
+                          <span className="font-semibold">{t("partner.restaurant.cancelReason", { defaultValue: "Lý do hủy:" })}</span>{" "}
+                          {item.cancellationReason}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="font-medium text-foreground">{formatDateTime(item.startAt)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span>
-                          {item.adults} {t("partner.restaurant.adults", { defaultValue: "người lớn" })}
-                          {item.children > 0 && `, ${item.children} trẻ em`}
-                        </span>
-                      </div>
+                    {/* Actions */}
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0 pt-2 sm:pt-0">
+                      {isCompleted ? (
+                        <>
+                          {review ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setReviewModalTarget(item)}
+                              className="h-8 text-xs font-semibold gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                            >
+                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                              <span>{review.rating}/5 sao</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => setReviewModalTarget(item)}
+                              className="h-8 text-xs font-semibold gap-1.5 bg-amber-500 hover:bg-amber-600 text-white shadow-xs"
+                            >
+                              <Star className="h-3.5 w-3.5 fill-current" />
+                              <span>{t("reservations.rateExperience", { defaultValue: "⭐ Đánh giá trải nghiệm" })}</span>
+                            </Button>
+                          )}
+
+                          <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1.5 hover:bg-primary/10 hover:text-primary border-border/80">
+                            <Link href={`/restaurants/${item.businessId}`}>
+                              <RotateCcw className="h-3.5 w-3.5 text-primary" />
+                              <span>{t("partner.restaurant.bookAgain", { defaultValue: "Đặt lại bàn" })}</span>
+                            </Link>
+                          </Button>
+                        </>
+                      ) : (
+                        <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1.5">
+                          <Link href={`/restaurants/${item.businessId}`} target="_blank">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            {t("partner.restaurant.viewPublic", { defaultValue: "Xem quán" })}
+                          </Link>
+                        </Button>
+                      )}
+
+                      {item.state === "REQUESTED" && !isItemExpired(item) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenCancel(item)}
+                          className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                        >
+                          {t("partner.restaurant.cancelRequestButton", { defaultValue: "Hủy yêu cầu" })}
+                        </Button>
+                      )}
                     </div>
-
-                    {item.notes && (
-                      <div className="rounded-lg bg-muted/30 p-2.5 text-xs text-muted-foreground border border-border/40 mt-1">
-                        <span className="font-medium text-foreground mr-1.5">
-                          {t("partner.restaurant.specialNotes", { defaultValue: "Ghi chú của bạn:" })}
-                        </span>
-                        {item.notes}
-                      </div>
-                    )}
-
-                    {item.decisionReason && (
-                      <div className="text-xs text-muted-foreground rounded-lg bg-amber-500/10 dark:bg-amber-500/5 p-2.5 border border-amber-500/20 text-amber-900 dark:text-amber-200">
-                        <span className="font-semibold">{t("partner.restaurant.decisionReason", { defaultValue: "Phản hồi từ quán:" })}</span>{" "}
-                        {item.decisionReason}
-                      </div>
-                    )}
-
-                    {item.cancellationReason && (
-                      <div className="text-xs text-muted-foreground rounded-lg bg-muted/40 p-2 border border-border/40">
-                        <span className="font-semibold">{t("partner.restaurant.cancelReason", { defaultValue: "Lý do hủy:" })}</span>{" "}
-                        {item.cancellationReason}
-                      </div>
-                    )}
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0 pt-2 sm:pt-0">
-                    <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1.5">
-                      <Link href={`/restaurants/${item.businessId}`} target="_blank">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        {t("partner.restaurant.viewPublic", { defaultValue: "Xem quán" })}
-                      </Link>
-                    </Button>
-
-                    {item.state === "REQUESTED" && !isItemExpired(item) && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleOpenCancel(item)}
-                        className="h-8 text-xs text-destructive hover:bg-destructive/10"
-                      >
-                        {t("partner.restaurant.cancelRequestButton", { defaultValue: "Hủy yêu cầu" })}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
+      )}
+
+      {/* Review Experience Modal */}
+      {reviewModalTarget && (
+        <ReservationReviewModal
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setReviewModalTarget(null);
+          }}
+          reservationId={reviewModalTarget.id}
+          businessName={reviewModalTarget.businessName || reviewModalTarget.businessNameSnapshot || "Nhà hàng"}
+        />
       )}
 
       {/* Cancel Confirmation Dialog */}

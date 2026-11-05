@@ -1239,6 +1239,7 @@
       "askOwner": "Message restaurant",
       "available": "Available",
       "availableLabel": "Ready to serve",
+      "bookAgain": "Book again",
       "bookDirect": "Book Table Directly",
       "bookingDetailsTitle": "Reservation details",
       "bottomReserveDesc": "Reserve in advance so the restaurant can prepare the best seating for you.",
@@ -1284,6 +1285,7 @@
       "editDish": "Edit dish",
       "expiredNotice": "Request has passed its scheduled time",
       "filterCancelled": "Cancelled",
+      "filterCompleted": "Completed",
       "filterConfirmed": "Confirmed",
       "filterExpired": "Expired",
       "filterRejected": "Rejected",
@@ -1341,6 +1343,7 @@
       "specialNotes": "Special requests or notes",
       "specialNotesPlaceholder": "E.g.: Window seat, baby chair, vegetarian options, anniversary...",
       "statusCancelled": "Cancelled",
+      "statusCompleted": "Completed",
       "statusConfirmed": "Confirmed",
       "statusExpired": "Expired",
       "statusRejected": "Rejected",
@@ -1515,10 +1518,14 @@
     "website": "Website"
   },
   "reservations": {
+    "bookAgain": "Book again",
     "hubSubtitle": "Manage your hotel bookings and dining table reservations in one place.",
     "inChatTag": "In-Chat Booking",
     "inChatTickets": "Bookings Confirmed via Chat",
     "openChat": "Open Chat",
+    "ratedStar": "Rated",
+    "rateExperience": "⭐ Rate experience",
+    "statusCompleted": "Completed",
     "statusConfirmed": "Confirmed",
     "tabHotels": "Hotels & Stays",
     "tabRestaurants": "Restaurants & Dining"

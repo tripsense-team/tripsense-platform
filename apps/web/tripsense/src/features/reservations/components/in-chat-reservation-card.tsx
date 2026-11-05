@@ -12,11 +12,17 @@ import {
   UtensilsCrossed,
   ArrowRight,
   Sparkles,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
+import {
+  ReservationReviewModal,
+  getStoredReview,
+  type ReservationReview,
+} from "./reservation-review-modal";
 
 export interface InChatReservationCardProps {
   offer: ReservationOfferPreview;
@@ -57,14 +63,51 @@ export function InChatReservationCard({
   const { t } = useTranslation();
   const cardRef = React.useRef<HTMLDivElement>(null);
 
+  const isHotel = offer.businessType === "HOTEL";
+  const isRestaurant = offer.businessType === "RESTAURANT";
+  const reservationKey = offer.bookingId || offer.id;
+
+  const [review, setReview] = React.useState<ReservationReview | null>(null);
+  const [reviewModalOpen, setReviewModalOpen] = React.useState(false);
+
   React.useEffect(() => {
     if (isTarget && cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [isTarget]);
 
-  const isHotel = offer.businessType === "HOTEL";
-  const isRestaurant = offer.businessType === "RESTAURANT";
+  React.useEffect(() => {
+    setReview(getStoredReview(reservationKey));
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ reservationId: string; review: ReservationReview }>;
+      if (customEvent.detail?.reservationId === reservationKey) {
+        setReview(customEvent.detail.review);
+      }
+    };
+    window.addEventListener("tripsense:review-updated", handleUpdate);
+    return () => window.removeEventListener("tripsense:review-updated", handleUpdate);
+  }, [reservationKey]);
+
+  const isCompleted = React.useMemo(() => {
+    if (offer.status !== "ACCEPTED") return false;
+    try {
+      if (isRestaurant && offer.checkInDate) {
+        const time = offer.reservationTime || "23:59:59";
+        const [h = "0", m = "0", s = "0"] = time.split(":");
+        const [year, month, day] = offer.checkInDate.split("-").map(Number);
+        const dt = new Date(year, month - 1, day, Number(h), Number(m), Number(s));
+        return dt.getTime() < Date.now();
+      }
+      if (offer.checkInDate) {
+        const [year, month, day] = offer.checkInDate.split("-").map(Number);
+        const dt = new Date(year, month - 1, day, 23, 59, 59);
+        return dt.getTime() < Date.now();
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  }, [offer, isRestaurant]);
 
   return (
     <div
@@ -91,10 +134,17 @@ export function InChatReservationCard({
           )}
         </div>
 
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-0.5 rounded-full shrink-0">
-          <CheckCheck className="h-3.5 w-3.5" />
-          <span>{t("reservations.statusConfirmed", { defaultValue: "Đã xác nhận" })}</span>
-        </span>
+        {isCompleted ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/15 border border-purple-500/20 px-2.5 py-0.5 rounded-full shrink-0 shadow-xs">
+            <CheckCheck className="h-3.5 w-3.5" />
+            <span>{t("reservations.statusCompleted", { defaultValue: "Đã hoàn thành" })}</span>
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-0.5 rounded-full shrink-0">
+            <CheckCheck className="h-3.5 w-3.5" />
+            <span>{t("reservations.statusConfirmed", { defaultValue: "Đã xác nhận" })}</span>
+          </span>
+        )}
       </div>
 
       {/* Property & Item Title */}
@@ -125,7 +175,9 @@ export function InChatReservationCard({
             {isRestaurant ? (
               <>
                 {offer.reservationTime ? (
-                  <span className="font-bold text-primary mr-1">{offer.reservationTime}</span>
+                  <span className="font-bold text-primary mr-1">
+                    {offer.reservationTime.slice(0, 5)}
+                  </span>
                 ) : null}
                 {formatOfferDate(offer.checkInDate)}
               </>
@@ -188,19 +240,51 @@ export function InChatReservationCard({
           )}
         </div>
 
-        <Button
-          asChild
-          size="sm"
-          variant="outline"
-          className="h-8 px-3 rounded-xl font-bold text-xs gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors border-border/80"
-        >
-          <Link href={`/chat?t=${offer.conversationId}`}>
-            <MessageSquare className="h-3.5 w-3.5" />
-            <span>{t("reservations.openChat", { defaultValue: "Mở đoạn chat" })}</span>
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isCompleted && (
+            review ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setReviewModalOpen(true)}
+                className="h-8 px-2.5 rounded-xl font-bold text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+              >
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                <span>{review.rating}/5 sao</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => setReviewModalOpen(true)}
+                className="h-8 px-3 rounded-xl font-bold text-xs gap-1.5 bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors"
+              >
+                <Star className="h-3.5 w-3.5 fill-current" />
+                <span>{t("reservations.rateExperience", { defaultValue: "⭐ Đánh giá trải nghiệm" })}</span>
+              </Button>
+            )
+          )}
+
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="h-8 px-3 rounded-xl font-bold text-xs gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors border-border/80"
+          >
+            <Link href={`/chat?t=${offer.conversationId}`}>
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>{t("reservations.openChat", { defaultValue: "Mở đoạn chat" })}</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
       </div>
+
+      <ReservationReviewModal
+        open={reviewModalOpen}
+        onOpenChange={setReviewModalOpen}
+        reservationId={reservationKey}
+        businessName={offer.businessName || offer.itemTitle}
+      />
     </div>
   );
 }
