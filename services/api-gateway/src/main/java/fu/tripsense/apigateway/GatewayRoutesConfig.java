@@ -267,7 +267,10 @@ class GatewayRoutesConfig {
                         "/api/subscription-plans/**",
                         "/api/guide-inquiries/**",
                         "/api/me/guide-inquiries",
-                        "/api/me/guide-blocks/**")
+                        "/api/me/guide-blocks/**",
+                        "/api/rental-items",
+                        "/api/rental-items/**",
+                        "/api/rental-bookings/**")
                     .uri(TRIP_SERVICE_URI))
         .route(
             RECOMMENDATION_SERVICE_ROUTE_ID,

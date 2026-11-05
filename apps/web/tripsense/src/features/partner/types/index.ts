@@ -1,4 +1,4 @@
-export type BusinessKind = "HOTEL" | "RESTAURANT" | "TOUR_GUIDE";
+export type BusinessKind = "HOTEL" | "RESTAURANT" | "TOUR_GUIDE" | "RENTAL_SERVICE";
 export type ApplicationState = "DRAFT" | "SUBMITTED" | "CHANGES_REQUIRED" | "APPROVED" | "REJECTED" | "WITHDRAWN";
 export type MembershipRole = "OWNER" | "MANAGER" | "STAFF";
 export type PartnerCapability =
@@ -9,7 +9,10 @@ export type PartnerCapability =
   | "RESTAURANT_MENU"
   | "GUIDE_LISTING"
   | "GUIDE_PROMOTION"
-  | "GUIDE_INQUIRY";
+  | "GUIDE_INQUIRY"
+  | "RENTAL_LISTING"
+  | "RENTAL_INVENTORY"
+  | "RENTAL_BOOKING";
 
 export interface BusinessDetailDto {
   id: string;
@@ -614,3 +617,125 @@ export interface SubscriptionCheckoutResponse {
   paymentStatus: string;
 }
 
+
+
+export type RentalCategory =
+  | "CAR_4_SEATS"
+  | "CAR_7_SEATS"
+  | "MOTORBIKE_SCOOTER"
+  | "MOTORBIKE_MANUAL"
+  | "BICYCLE"
+  | "CAMPING_GEAR"
+  | "WATER_SPORTS"
+  | "OTHER";
+
+export type RentalBookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "IN_USE"
+  | "RETURNED"
+  | "CANCELLED"
+  | "REJECTED";
+
+export type PickupOption =
+  | "STORE_PICKUP"
+  | "DOOR_DELIVERY"
+  | "BOTH"
+  | "PICKUP_AT_STORE"
+  | "DELIVERY_TO_LOCATION";
+
+export interface RentalItemDto {
+  id: string;
+  businessId: string;
+  name: string;
+  category: RentalCategory;
+  description?: string | null;
+  thumbnailUrl?: string | null;
+  images: string[];
+  pricePerHour?: number | null;
+  pricePerDay: number;
+  depositAmount: number;
+  totalInventory: number;
+  availableInventory: number;
+  pickupOption: PickupOption;
+  deliveryFee?: number | null;
+  specifications: Record<string, unknown>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRentalItemRequest {
+  name: string;
+  category: RentalCategory;
+  description?: string;
+  thumbnailUrl?: string;
+  images?: string[];
+  pricePerHour?: number;
+  pricePerDay: number;
+  depositAmount?: number;
+  totalInventory: number;
+  pickupOption?: PickupOption;
+  deliveryFee?: number;
+  specifications?: Record<string, unknown>;
+  isActive?: boolean;
+}
+
+export interface UpdateRentalItemRequest {
+  name?: string;
+  category?: RentalCategory;
+  description?: string;
+  thumbnailUrl?: string;
+  images?: string[];
+  pricePerHour?: number;
+  pricePerDay?: number;
+  depositAmount?: number;
+  totalInventory?: number;
+  pickupOption?: PickupOption;
+  deliveryFee?: number;
+  specifications?: Record<string, unknown>;
+  isActive?: boolean;
+}
+
+export interface RentalBookingOrderDto {
+  id: string;
+  bookingCode: string;
+  businessId: string;
+  businessName?: string | null;
+  rentalItemId: string;
+  rentalItemName: string;
+  rentalCategory: RentalCategory;
+  rentalThumbnailUrl?: string | null;
+  customerUserId: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string | null;
+  pickupOption: PickupOption;
+  deliveryAddress?: string | null;
+  pickupAt: string;
+  returnAt: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  depositAmount: number;
+  status: RentalBookingStatus;
+  specialRequests?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRentalBookingRequest {
+  businessId?: string;
+  rentalItemId: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  pickupOption: PickupOption;
+  deliveryAddress?: string;
+  pickupAt: string;
+  returnAt: string;
+  quantity: number;
+  customerNote?: string;
+  specialRequests?: string;
+}

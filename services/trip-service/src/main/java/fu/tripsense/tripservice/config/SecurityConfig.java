@@ -69,7 +69,9 @@ public class SecurityConfig implements WebMvcConfigurer {
                         "/api/partner-listings/**",
                         "/api/hotels/search",
                         "/api/subscription-plans",
-                        "/api/subscription-plans/**")
+                        "/api/subscription-plans/**",
+                        "/api/rental-items",
+                        "/api/rental-items/**")
                     .permitAll()
                     .requestMatchers(
                         HttpMethod.POST,

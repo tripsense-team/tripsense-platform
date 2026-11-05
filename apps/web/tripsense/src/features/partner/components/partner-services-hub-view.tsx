@@ -19,6 +19,7 @@ import {
   MapPin,
   Eye,
   BadgeCheck,
+  Car,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -189,11 +190,12 @@ export function PartnerServicesHubView() {
                       {kind === "HOTEL" && <Building2 className="h-5 w-5 text-blue-500" />}
                       {kind === "RESTAURANT" && <Utensils className="h-5 w-5 text-amber-500" />}
                       {kind === "TOUR_GUIDE" && <Compass className="h-5 w-5 text-emerald-500" />}
+                      {kind === "RENTAL_SERVICE" && <Car className="h-5 w-5 text-teal-500" />}
                       <CardTitle className="text-lg font-bold text-foreground">
                         {business.displayName}
                       </CardTitle>
                       <Badge variant="outline" className="text-xs font-medium">
-                        {kind === "HOTEL" ? "Khách sạn / Lưu trú" : kind === "RESTAURANT" ? "Quán ăn / Nhà hàng" : "Hướng dẫn viên du lịch"}
+                        {kind === "HOTEL" ? "Khách sạn / Lưu trú" : kind === "RESTAURANT" ? "Quán ăn / Nhà hàng" : kind === "RENTAL_SERVICE" ? "Dịch vụ cho thuê" : "Hướng dẫn viên du lịch"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -297,6 +299,29 @@ export function PartnerServicesHubView() {
                         </Link>
                       </Button>
                     </div>
+                  </div>
+                )}
+
+                {kind === "RENTAL_SERVICE" && (
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-border/60 bg-card p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                        <Car className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-semibold text-foreground">
+                          Phương tiện & Dịch vụ cho thuê
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          Quản lý xe máy, ô tô tự lái, lều trại dã ngoại, ván chèo SUP, thiết lập số lượng tồn kho và đơn giá theo ngày.
+                        </p>
+                      </div>
+                    </div>
+                    <Button asChild className="shrink-0 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+                      <Link href={`/partner/businesses/${business.id}/rentals`}>
+                        <Car className="h-4 w-4" /> Quản lý Danh mục cho thuê
+                      </Link>
+                    </Button>
                   </div>
                 )}
               </CardContent>

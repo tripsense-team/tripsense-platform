@@ -17,7 +17,7 @@ export interface ReservationOfferPreview {
   messageId?: string;
   senderId: string;
   recipientId: string;
-  businessType: "HOTEL" | "RESTAURANT" | "GUIDE";
+  businessType: "HOTEL" | "RESTAURANT" | "GUIDE" | "RENTAL";
   businessId: string;
   businessName: string;
   businessThumbnail?: string;
@@ -42,7 +42,7 @@ export interface ReservationOfferPreview {
 
 export interface CreateReservationOfferPayload {
   clientMessageId: string;
-  businessType: "HOTEL" | "RESTAURANT" | "GUIDE";
+  businessType: "HOTEL" | "RESTAURANT" | "GUIDE" | "RENTAL";
   businessId: string;
   businessName: string;
   businessThumbnail?: string;

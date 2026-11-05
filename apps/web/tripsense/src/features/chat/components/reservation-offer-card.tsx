@@ -17,6 +17,7 @@ import {
   Loader2,
   Sparkles,
   Ticket,
+  Car,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -152,15 +153,16 @@ export function ReservationOfferCard({
 
   const isHotel = offer.businessType === "HOTEL";
   const isRestaurant = offer.businessType === "RESTAURANT";
+  const isRental = offer.businessType === "RENTAL";
   const isPending = offer.status === "PENDING" && !isExpiredLocal;
   const isAccepted = offer.status === "ACCEPTED";
   const isDeclined = offer.status === "DECLINED";
   const isCancelled = offer.status === "CANCELLED";
   const isExpired = offer.status === "EXPIRED" || (offer.status === "PENDING" && isExpiredLocal);
 
-  const reservationHubUrl = `/reservations?tab=${isRestaurant ? "restaurants" : "hotels"}${
-    offer.bookingId ? `&bookingId=${offer.bookingId}` : ""
-  }`;
+  const reservationHubUrl = `/reservations?tab=${
+    isRestaurant ? "restaurants" : isRental ? "rentals" : "hotels"
+  }${offer.bookingId ? `&bookingId=${offer.bookingId}` : ""}`;
 
   return (
     <>
@@ -179,6 +181,8 @@ export function ReservationOfferCard({
               <Building2 className="h-4 w-4" />
             ) : isRestaurant ? (
               <UtensilsCrossed className="h-4 w-4" />
+            ) : isRental ? (
+              <Car className="h-4 w-4 text-teal-600" />
             ) : (
               <Compass className="h-4 w-4" />
             )}
@@ -229,12 +233,16 @@ export function ReservationOfferCard({
             <div className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
               {isRestaurant ? (
                 <UtensilsCrossed className="h-3.5 w-3.5 text-primary" />
+              ) : isRental ? (
+                <Car className="h-3.5 w-3.5 text-teal-600" />
               ) : (
                 <Ticket className="h-3.5 w-3.5 text-primary" />
               )}
               <span>
                 {isRestaurant
                   ? t("chat.offer.restaurantTag", { defaultValue: "Phiếu đặt bàn nhà hàng" })
+                  : isRental
+                  ? "Thuê phương tiện & dịch vụ"
                   : t("chat.offer.tag")}
               </span>
             </div>

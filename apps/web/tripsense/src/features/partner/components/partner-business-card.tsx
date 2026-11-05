@@ -26,6 +26,7 @@ import {
   Clock,
   CheckCircle,
   Calendar,
+  Car,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,8 @@ export function PartnerBusinessCard({
         return <Utensils className="h-5 w-5 text-amber-500" />;
       case "TOUR_GUIDE":
         return <Compass className="h-5 w-5 text-emerald-500" />;
+      case "RENTAL_SERVICE":
+        return <Car className="h-5 w-5 text-teal-500" />;
       default:
         return <Building2 className="h-5 w-5 text-muted-foreground" />;
     }
@@ -75,6 +78,8 @@ export function PartnerBusinessCard({
         return "Quán ăn / Nhà hàng";
       case "TOUR_GUIDE":
         return "Hướng dẫn viên du lịch";
+      case "RENTAL_SERVICE":
+        return "Dịch vụ cho thuê";
     }
   };
 
@@ -371,6 +376,40 @@ export function PartnerBusinessCard({
           </Button>
         )}
         <div className="flex w-full items-center gap-2">
+          {business.kind === "RENTAL_SERVICE" && (
+            <>
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs flex-1"
+              >
+                <Link href={`/partner/businesses/${business.id}/rentals`}>
+                  <Car className="mr-1.5 h-3.5 w-3.5 text-teal-600" /> Quản lý danh mục
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex-1 border-teal-500/30 text-teal-700 dark:text-teal-400 hover:bg-teal-500/5 font-medium"
+                onClick={() => onSelectBookings?.(business.id)}
+              >
+                <Calendar className="mr-1.5 h-3.5 w-3.5" /> Đơn đặt thuê
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex-1 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-medium"
+              >
+                <Link href={`/partner/businesses/${business.id}/subscription`}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Gói Hội Viên
+                </Link>
+              </Button>
+            </>
+          )}
+
           {business.kind === "TOUR_GUIDE" && (
             <>
               <Button

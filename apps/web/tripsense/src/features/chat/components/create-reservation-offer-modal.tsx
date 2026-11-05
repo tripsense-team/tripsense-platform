@@ -12,6 +12,7 @@ import {
   Ticket,
   Loader2,
   Check,
+  Car,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +33,27 @@ export interface CreateReservationOfferModalProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: Omit<CreateReservationOfferPayload, "clientMessageId">) => Promise<void>;
   defaultBusinessName?: string;
-  defaultBusinessType?: "HOTEL" | "RESTAURANT" | "GUIDE";
+  defaultBusinessType?: "HOTEL" | "RESTAURANT" | "GUIDE" | "RENTAL";
   recentMessages?: ChatMessageItem[];
   partnerBusinesses?: Array<{ id: string; displayName: string; kind: string }>;
 }
+
+const RENTAL_ITEM_PRESETS = [
+  "Xe máy Honda Vision 110cc",
+  "Xe máy Honda Air Blade 125cc",
+  "Ô tô tự lái 4 chỗ (Vios / Accent)",
+  "Ô tô 7 chỗ (Innova / Xpander)",
+  "Xe đạp địa hình touring",
+  "Bộ lều trại 4 người & phụ kiện",
+  "Thuyền chèo SUP & áo phao",
+];
+
+const RENTAL_NOTE_PRESETS = [
+  "Giao nhận xe tận nơi miễn phí tại khách sạn",
+  "Kèm 2 mũ bảo hiểm tiêu chuẩn & 1 lít xăng",
+  "Đã kiểm tra kỹ thuật & khử trùng trước khi giao",
+  "Hỗ trợ kỹ thuật & cứu hộ 24/7",
+];
 
 const HOTEL_ROOM_PRESETS = [
   "Phòng Standard Giường Đôi",
@@ -134,8 +152,13 @@ export function CreateReservationOfferModal({
     return recentMessages && recentMessages.length > 0 ? parseChatInquiry(recentMessages) : null;
   }, [recentMessages]);
 
-  const [businessType, setBusinessType] = React.useState<"HOTEL" | "RESTAURANT">(
-    initialParsed?.businessType || (defaultBusinessType === "RESTAURANT" ? "RESTAURANT" : "HOTEL")
+  const [businessType, setBusinessType] = React.useState<"HOTEL" | "RESTAURANT" | "RENTAL">(
+    (initialParsed?.businessType as "HOTEL" | "RESTAURANT" | "RENTAL") ||
+      (defaultBusinessType === "RESTAURANT"
+        ? "RESTAURANT"
+        : defaultBusinessType === "RENTAL"
+        ? "RENTAL"
+        : "HOTEL")
   );
   const [businessName, setBusinessName] = React.useState(initialParsed?.businessName || defaultBusinessName);
   const [itemTitle, setItemTitle] = React.useState("");
@@ -165,6 +188,7 @@ export function CreateReservationOfferModal({
   );
 
   const isRestaurant = businessType === "RESTAURANT";
+  const isRental = businessType === "RENTAL";
 
   // Set today / tomorrow default dates on modal open with smart prefill
   React.useEffect(() => {
@@ -346,12 +370,12 @@ export function CreateReservationOfferModal({
             <label className="text-xs font-semibold text-foreground">
               {t("chat.offer.businessType")}
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button
                 type="button"
                 variant={businessType === "HOTEL" ? "default" : "outline"}
                 className={cn(
-                  "h-10 justify-center gap-2 rounded-xl font-bold transition-all",
+                  "h-10 justify-center gap-1.5 rounded-xl font-bold transition-all text-xs",
                   businessType === "HOTEL" && "shadow-xs"
                 )}
                 onClick={() => setBusinessType("HOTEL")}
@@ -364,13 +388,26 @@ export function CreateReservationOfferModal({
                 type="button"
                 variant={businessType === "RESTAURANT" ? "default" : "outline"}
                 className={cn(
-                  "h-10 justify-center gap-2 rounded-xl font-bold transition-all",
+                  "h-10 justify-center gap-1.5 rounded-xl font-bold transition-all text-xs",
                   businessType === "RESTAURANT" && "shadow-xs"
                 )}
                 onClick={() => setBusinessType("RESTAURANT")}
               >
                 <UtensilsCrossed className="h-4 w-4" />
                 <span>{t("chat.offer.restaurant")}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant={businessType === "RENTAL" ? "default" : "outline"}
+                className={cn(
+                  "h-10 justify-center gap-1.5 rounded-xl font-bold transition-all text-xs",
+                  businessType === "RENTAL" && "shadow-xs"
+                )}
+                onClick={() => setBusinessType("RENTAL")}
+              >
+                <Car className="h-4 w-4" />
+                <span>Cho thuê xe / đồ</span>
               </Button>
             </div>
           </div>
@@ -391,6 +428,7 @@ export function CreateReservationOfferModal({
                       onClick={() => {
                         setBusinessName(b.displayName);
                         if (b.kind === "RESTAURANT") setBusinessType("RESTAURANT");
+                        else if (b.kind === "RENTAL_SERVICE") setBusinessType("RENTAL");
                         else if (b.kind === "HOTEL") setBusinessType("HOTEL");
                       }}
                       className={cn(
@@ -400,7 +438,13 @@ export function CreateReservationOfferModal({
                           : "bg-muted/50 text-muted-foreground border-border/70 hover:border-primary/50 hover:text-foreground"
                       )}
                     >
-                      {b.displayName} ({b.kind === "RESTAURANT" ? "Nhà hàng" : "Khách sạn"})
+                      {b.displayName} (
+                      {b.kind === "RESTAURANT"
+                        ? "Nhà hàng"
+                        : b.kind === "RENTAL_SERVICE"
+                        ? "Cho thuê"
+                        : "Khách sạn"}
+                      )
                     </button>
                   );
                 })}
@@ -462,8 +506,29 @@ export function CreateReservationOfferModal({
               </div>
             )}
 
+            {/* Quick Chips for Rental */}
+            {isRental && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {RENTAL_ITEM_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setItemTitle(preset)}
+                    className={cn(
+                      "text-[11px] px-2.5 py-1 rounded-full border transition-all cursor-pointer",
+                      itemTitle === preset
+                        ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                        : "bg-muted/50 text-muted-foreground border-border/70 hover:border-primary/50 hover:text-foreground"
+                    )}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Quick Chips for Hotel Rooms */}
-            {!isRestaurant && (
+            {!isRestaurant && !isRental && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {HOTEL_ROOM_PRESETS.map((preset) => (
                   <button
@@ -492,6 +557,8 @@ export function CreateReservationOfferModal({
                 <span>
                   {isRestaurant
                     ? `${t("chat.offer.restaurantMealDate", { defaultValue: "Ngày dùng bữa" })} *`
+                    : isRental
+                    ? "Ngày nhận xe / đồ *"
                     : `${t("chat.offer.checkIn")} *`}
                 </span>
               </label>
@@ -508,10 +575,10 @@ export function CreateReservationOfferModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5 text-primary" />
-                  <span>{t("chat.offer.checkOut")} *</span>
+                  <span>{isRental ? "Ngày trả xe / đồ *" : `${t("chat.offer.checkOut")} *`}</span>
                   {nightsCount > 0 && (
                     <span className="ml-1 text-micro font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
-                      {nightsCount} đêm
+                      {isRental ? `${nightsCount} ngày` : `${nightsCount} đêm`}
                     </span>
                   )}
                 </label>
@@ -697,8 +764,31 @@ export function CreateReservationOfferModal({
               </div>
             )}
 
+            {/* Quick Note Presets for Rental */}
+            {isRental && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {RENTAL_NOTE_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setInclusions((prev) => {
+                        const trimmed = prev.trim();
+                        if (!trimmed) return preset;
+                        if (trimmed.includes(preset)) return trimmed;
+                        return `${trimmed}, ${preset}`;
+                      });
+                    }}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground border border-border/60 hover:border-primary/40 hover:text-foreground transition-all cursor-pointer"
+                  >
+                    + {preset}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Quick Note Presets for Hotel */}
-            {!isRestaurant && (
+            {!isRestaurant && !isRental && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {HOTEL_NOTE_PRESETS.map((preset) => (
                   <button

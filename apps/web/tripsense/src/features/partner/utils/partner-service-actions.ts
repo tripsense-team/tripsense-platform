@@ -1,9 +1,9 @@
 import type { BusinessDetailDto, PartnerCapability } from "../types";
 
 export interface PartnerServiceAction {
-  key: "restaurantMenu" | "hotelServices" | "guidePromotions" | "guideInquiries" | "subscription";
+  key: "restaurantMenu" | "hotelServices" | "guidePromotions" | "guideInquiries" | "subscription" | "rentalServices";
   href: string;
-  icon: "restaurant" | "hotel" | "guide" | "inquiries" | "subscription";
+  icon: "restaurant" | "hotel" | "guide" | "inquiries" | "subscription" | "rental";
 }
 
 const hasCapability = (
@@ -50,5 +50,16 @@ export function getPartnerServiceActions(
           : []),
         subscriptionAction,
       ];
+    case "RENTAL_SERVICE":
+      return [
+        ...(["RENTAL_LISTING", "RENTAL_INVENTORY", "RENTAL_BOOKING"].some((capability) =>
+          hasCapability(capabilities, capability as PartnerCapability),
+        )
+          ? [{ key: "rentalServices" as const, href: `${base}/rentals`, icon: "rental" as const }]
+          : []),
+        subscriptionAction,
+      ];
+    default:
+      return [subscriptionAction];
   }
 }

@@ -22,3 +22,6 @@ export * from "./components/customer-reservations-view";
 export * from "./components/partner-subscription-view";
 export * from "./components/partner-bookings-hub";
 export * from "./components/create-direct-booking-modal";
+export * from "./services/rental-api";
+export * from "./components/partner-rentals-management-view";
+export * from "./components/rental-reservation-dialog";

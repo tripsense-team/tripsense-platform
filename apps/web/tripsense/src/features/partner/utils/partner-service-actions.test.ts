@@ -55,4 +55,14 @@ describe("getPartnerServiceActions", () => {
       capabilities: ["GUIDE_PROMOTION", "GUIDE_INQUIRY"],
     }))).toHaveLength(3);
   });
+
+  it("maps rental capabilities to rental catalog workspace", () => {
+    expect(getPartnerServiceActions(business({
+      kind: "RENTAL_SERVICE",
+      capabilities: ["RENTAL_INVENTORY", "RENTAL_LISTING"],
+    }))).toEqual([
+      { key: "rentalServices", href: "/partner/businesses/business%2F1/rentals", icon: "rental" },
+      { key: "subscription", href: "/partner/businesses/business%2F1/subscription", icon: "subscription" },
+    ]);
+  });
 });

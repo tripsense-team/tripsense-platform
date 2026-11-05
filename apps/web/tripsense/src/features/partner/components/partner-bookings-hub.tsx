@@ -26,6 +26,7 @@ import {
   Sparkles,
   ArrowUpDown,
   Compass,
+  Car,
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,14 +48,21 @@ import {
   getBusinessRestaurantReservations,
   decideRestaurantReservation,
 } from "../services/partner-api";
+import {
+  getPartnerRentalBookings,
+  confirmRentalBooking,
+  handoverRentalBooking,
+  returnRentalBooking,
+  rejectRentalBooking,
+} from "../services/rental-api";
 import { hotelApi } from "@/features/hotels/services/hotels-api";
 import { chatApi } from "@/features/chat/services/chat-api";
-import type { BusinessDetailDto, RestaurantReservationDto } from "../types";
+import type { BusinessDetailDto, RestaurantReservationDto, RentalBookingOrderDto } from "../types";
 import type { HotelBooking, HotelProperty } from "@/features/hotels/types";
 import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
 import { CreateDirectBookingModal } from "./create-direct-booking-modal";
 
-export type BookingSourceType = "RESTAURANT" | "HOTEL" | "CHAT_OFFER";
+export type BookingSourceType = "RESTAURANT" | "HOTEL" | "CHAT_OFFER" | "RENTAL";
 export type NormalizedBookingStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -98,6 +106,7 @@ export interface UnifiedPartnerBooking {
   restaurantReservation?: RestaurantReservationDto;
   hotelBooking?: HotelBooking;
   chatOffer?: ReservationOfferPreview;
+  rentalBooking?: RentalBookingOrderDto;
 }
 
 interface PartnerBookingsHubProps {
@@ -343,7 +352,79 @@ export function PartnerBookingsHub({
         }
       })();
 
-      await Promise.all([Promise.all(restaurantPromises), hotelPromises, offersPromise]);
+      // 4. Fetch Rental Bookings
+      const rentalBizs = businesses.filter((b) => b.kind === "RENTAL_SERVICE");
+      const rentalPromises = rentalBizs.map(async (biz) => {
+        try {
+          const rentalBookings = await getPartnerRentalBookings(biz.id);
+          const rentalList = Array.isArray(rentalBookings)
+            ? rentalBookings
+            : ((rentalBookings as unknown as { content?: RentalBookingOrderDto[] })?.content || []);
+          rentalList.forEach((r) => {
+            const isPendingExpired =
+              r.status === "PENDING" &&
+              (r.pickupAt ? new Date(r.pickupAt).getTime() < Date.now() : false);
+
+            let normStatus: NormalizedBookingStatus = isPendingExpired ? "EXPIRED" : "PENDING";
+            let statusLabel = isPendingExpired ? "Hết hạn" : "Chờ xác nhận";
+
+            if (r.status === "CONFIRMED") {
+              normStatus = "CONFIRMED";
+              statusLabel = "Đã xác nhận (Chờ bàn giao)";
+            } else if (r.status === "IN_USE") {
+              normStatus = "CONFIRMED";
+              statusLabel = "Đang sử dụng xe/thiết bị";
+            } else if (r.status === "RETURNED") {
+              normStatus = "COMPLETED";
+              statusLabel = "Đã trả xe/thiết bị";
+            } else if (r.status === "CANCELLED") {
+              normStatus = "CANCELLED";
+              statusLabel = "Đã hủy";
+            } else if (r.status === "REJECTED") {
+              normStatus = "REJECTED";
+              statusLabel = "Đã từ chối";
+            }
+
+            unifiedList.push({
+              id: r.id,
+              sourceType: "RENTAL",
+              businessId: biz.id,
+              businessName: biz.displayName,
+              bookingCode: r.bookingCode,
+              customerName: r.customerName || "Khách thuê dịch vụ",
+              customerPhone: r.customerPhone,
+              customerEmail: r.customerEmail,
+              customerId: r.customerUserId,
+              startDateTime: r.pickupAt,
+              endDateTime: r.returnAt,
+              createdAt: r.createdAt || r.pickupAt,
+              serviceTitle: `${r.rentalItemName} (x${r.quantity})`,
+              adultsCount: r.quantity,
+              childrenCount: 0,
+              specialNotes: r.deliveryAddress
+                ? `Giao tận nơi: ${r.deliveryAddress}${r.specialRequests ? ` · ${r.specialRequests}` : ""}`
+                : r.specialRequests,
+              totalPrice: r.totalAmount,
+              isFreeOrPayAtVenue: false,
+              currency: "VND",
+              rawStatus: r.status,
+              normalizedStatus: normStatus,
+              statusLabel,
+              version: 1,
+              rentalBooking: r,
+            });
+          });
+        } catch {
+          // continue
+        }
+      });
+
+      await Promise.all([
+        Promise.all(restaurantPromises),
+        hotelPromises,
+        offersPromise,
+        Promise.all(rentalPromises),
+      ]);
 
       // Sort by newest first: prioritize creation time, then start date
       unifiedList.sort((a, b) => {
@@ -478,6 +559,26 @@ export function PartnerBookingsHub({
           ),
         );
         setActionSuccess(`Đã hủy/từ chối đơn đặt phòng ${targetBooking.bookingCode}.`);
+      } else if (targetBooking.sourceType === "RENTAL") {
+        await rejectRentalBooking(
+          targetBooking.businessId,
+          targetBooking.id,
+          rejectReason.trim() || undefined
+        );
+
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === targetBooking.id
+              ? {
+                  ...b,
+                  rawStatus: "REJECTED",
+                  normalizedStatus: "REJECTED",
+                  statusLabel: "Đã từ chối",
+                }
+              : b,
+          ),
+        );
+        setActionSuccess(`Đã từ chối đơn thuê ${targetBooking.bookingCode}.`);
       }
 
       setRejectModalOpen(false);
@@ -573,6 +674,99 @@ export function PartnerBookingsHub({
     }
   };
 
+  // Action: Rental Confirm
+  const handleConfirmRental = async (item: UnifiedPartnerBooking) => {
+    try {
+      setBusyId(item.id);
+      setError(null);
+      setActionSuccess(null);
+
+      await confirmRentalBooking(item.businessId, item.id);
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === item.id
+            ? {
+                ...b,
+                rawStatus: "CONFIRMED",
+                normalizedStatus: "CONFIRMED",
+                statusLabel: "Đã xác nhận (Chờ bàn giao)",
+              }
+            : b,
+        ),
+      );
+      setActionSuccess(`Đã xác nhận đơn thuê ${item.bookingCode} thành công!`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+      }
+    } catch (err) {
+      setError(getSafeErrorMessage(err, "Không thể xác nhận đơn thuê."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Action: Rental Handover
+  const handleHandoverRental = async (item: UnifiedPartnerBooking) => {
+    try {
+      setBusyId(item.id);
+      setError(null);
+      setActionSuccess(null);
+
+      await handoverRentalBooking(item.businessId, item.id);
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === item.id
+            ? {
+                ...b,
+                rawStatus: "IN_USE",
+                normalizedStatus: "CONFIRMED",
+                statusLabel: "Đang sử dụng xe/thiết bị",
+              }
+            : b,
+        ),
+      );
+      setActionSuccess(`Đã cập nhật bàn giao xe/thiết bị cho ${item.bookingCode}.`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+      }
+    } catch (err) {
+      setError(getSafeErrorMessage(err, "Không thể cập nhật bàn giao."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Action: Rental Return
+  const handleReturnRental = async (item: UnifiedPartnerBooking) => {
+    try {
+      setBusyId(item.id);
+      setError(null);
+      setActionSuccess(null);
+
+      await returnRentalBooking(item.businessId, item.id);
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === item.id
+            ? {
+                ...b,
+                rawStatus: "RETURNED",
+                normalizedStatus: "COMPLETED",
+                statusLabel: "Đã hoàn tất trả đồ",
+              }
+            : b,
+        ),
+      );
+      setActionSuccess(`Đã hoàn tất nhận lại xe/thiết bị ${item.bookingCode}.`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+      }
+    } catch (err) {
+      setError(getSafeErrorMessage(err, "Không thể cập nhật trả đồ."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleCopyCode = (code: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(code);
@@ -651,6 +845,10 @@ export function PartnerBookingsHub({
         return `${timeStr} · ${dateStr}`;
       } else if (item.sourceType === "HOTEL") {
         return `Nhận: ${item.startDateTime} → Trả: ${item.endDateTime || "—"}`;
+      } else if (item.sourceType === "RENTAL") {
+        const pDate = new Date(item.startDateTime).toLocaleDateString("vi-VN");
+        const rDate = item.endDateTime ? new Date(item.endDateTime).toLocaleDateString("vi-VN") : "";
+        return `Nhận xe: ${pDate} → Trả: ${rDate || "—"}`;
       } else {
         const timePrefix = item.timeSlot ? `${item.timeSlot} · ` : "";
         return `${timePrefix}${item.startDateTime}${item.endDateTime ? ` → ${item.endDateTime}` : ""}`;
@@ -746,6 +944,8 @@ export function PartnerBookingsHub({
                       <Utensils className="h-3 w-3" />
                     ) : biz.kind === "HOTEL" ? (
                       <Hotel className="h-3 w-3" />
+                    ) : biz.kind === "RENTAL_SERVICE" ? (
+                      <Car className="h-3 w-3 text-teal-500" />
                     ) : (
                       <Compass className="h-3 w-3" />
                     )}
@@ -912,6 +1112,8 @@ export function PartnerBookingsHub({
                             ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
                             : item.sourceType === "HOTEL"
                             ? "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                            : item.sourceType === "RENTAL"
+                            ? "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-400"
                             : "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
                         }`}
                       >
@@ -922,6 +1124,10 @@ export function PartnerBookingsHub({
                         ) : item.sourceType === "HOTEL" ? (
                           <>
                             <Hotel className="h-3 w-3" /> Khách sạn / Lưu trú
+                          </>
+                        ) : item.sourceType === "RENTAL" ? (
+                          <>
+                            <Car className="h-3 w-3" /> Dịch vụ cho thuê
                           </>
                         ) : (
                           <>
@@ -1196,6 +1402,71 @@ export function PartnerBookingsHub({
                                 <Clock className="h-3.5 w-3.5" />
                               )}
                               Trả phòng (Check-out)
+                            </Button>
+                          )}
+                        </>
+                      )}
+
+                      {/* Rental Booking Actions */}
+                      {item.sourceType === "RENTAL" && (
+                        <>
+                          {isPending && (
+                            <>
+                              <Button
+                                size="sm"
+                                disabled={busyId === item.id}
+                                onClick={() => handleConfirmRental(item)}
+                                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-2xs"
+                              >
+                                {busyId === item.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
+                                Xác nhận đơn thuê
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={busyId === item.id}
+                                onClick={() => handleOpenReject(item)}
+                                className="h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 gap-1"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                Từ chối
+                              </Button>
+                            </>
+                          )}
+
+                          {item.rawStatus === "CONFIRMED" && (
+                            <Button
+                              size="sm"
+                              disabled={busyId === item.id}
+                              onClick={() => handleHandoverRental(item)}
+                              className="h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white font-semibold gap-1.5 shadow-2xs"
+                            >
+                              {busyId === item.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Car className="h-3.5 w-3.5" />
+                              )}
+                              Bàn giao xe / thiết bị
+                            </Button>
+                          )}
+
+                          {item.rawStatus === "IN_USE" && (
+                            <Button
+                              size="sm"
+                              disabled={busyId === item.id}
+                              onClick={() => handleReturnRental(item)}
+                              className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 shadow-2xs"
+                            >
+                              {busyId === item.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              )}
+                              Khách đã hoàn tất trả xe/đồ
                             </Button>
                           )}
                         </>

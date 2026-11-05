@@ -43,7 +43,7 @@ public class PartnerChecklistService {
       if(Boolean.TRUE.equals(item.get("required")) && !"PASS".equals(results.get(item.get("code"))))
         throw new TripServiceException("CHECKLIST_INCOMPLETE","Every required checklist item must pass before approval",HttpStatus.CONFLICT);
     }
-    String prefix=switch(business.getKind()) { case HOTEL -> "HOTEL_"; case RESTAURANT -> "RESTAURANT_"; case TOUR_GUIDE -> "GUIDE_"; };
+    String prefix=switch(business.getKind()) { case HOTEL -> "HOTEL_"; case RESTAURANT -> "RESTAURANT_"; case TOUR_GUIDE -> "GUIDE_"; case RENTAL_SERVICE -> "RENTAL_"; };
     for(var cap:request.capabilityDecisions()==null?List.<AdminReviewDecisionRequest.CapabilityDecisionDto>of():request.capabilityDecisions()) {
       if(cap.capability()==null || !cap.capability().name().startsWith(prefix) || application.getRequestedCapabilities()==null || !application.getRequestedCapabilities().contains(cap.capability().name()))
         throw new TripServiceException("CAPABILITY_NOT_REQUESTED","Capability must match the application and business kind",HttpStatus.BAD_REQUEST);

@@ -722,6 +722,7 @@ public class PartnerBusinessService {
       case HOTEL -> PartnerCapability.HOTEL_LISTING;
       case RESTAURANT -> PartnerCapability.RESTAURANT_LISTING;
       case TOUR_GUIDE -> PartnerCapability.GUIDE_LISTING;
+      case RENTAL_SERVICE -> PartnerCapability.RENTAL_LISTING;
     };
   }
 
@@ -730,6 +731,7 @@ public class PartnerBusinessService {
       case HOTEL -> PartnerCapability.HOTEL_BOOKING;
       case RESTAURANT -> PartnerCapability.RESTAURANT_MENU;
       case TOUR_GUIDE -> PartnerCapability.GUIDE_INQUIRY;
+      case RENTAL_SERVICE -> PartnerCapability.RENTAL_BOOKING;
     };
   }
 
@@ -750,6 +752,9 @@ public class PartnerBusinessService {
             case TOUR_GUIDE -> cap == PartnerCapability.GUIDE_LISTING
                 || cap == PartnerCapability.GUIDE_PROMOTION
                 || cap == PartnerCapability.GUIDE_INQUIRY;
+            case RENTAL_SERVICE -> cap == PartnerCapability.RENTAL_LISTING
+                || cap == PartnerCapability.RENTAL_INVENTORY
+                || cap == PartnerCapability.RENTAL_BOOKING;
           };
       if (!valid) {
         throw new TripServiceException(
