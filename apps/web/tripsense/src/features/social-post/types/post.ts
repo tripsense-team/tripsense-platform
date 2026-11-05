@@ -64,6 +64,7 @@ export interface SocialPost {
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
+  isSaved?: boolean;
 }
 
 export interface CreateSocialPostRequest {
@@ -232,6 +233,16 @@ export interface SocialPostPageResponse {
   page: number;
   size: number;
   hasMore: boolean;
+}
+
+export interface SavedPostItem {
+  post: SocialPost;
+  savedAt: string;
+}
+
+export interface SavedPostPageResponse {
+  items: SavedPostItem[];
+  nextCursor?: string | null;
 }
 
 export interface ListPostsParams {

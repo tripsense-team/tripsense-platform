@@ -19,6 +19,8 @@ class RecommendationIndexerClientTest {
 
     assertDoesNotThrow(() -> client.triggerIndexingAsync(null));
     assertDoesNotThrow(() -> client.triggerIndexingAsync(List.of()));
+    assertDoesNotThrow(() -> client.triggerDeindexingAsync(null));
+    assertDoesNotThrow(() -> client.triggerDeindexingAsync(""));
   }
 
   @Test

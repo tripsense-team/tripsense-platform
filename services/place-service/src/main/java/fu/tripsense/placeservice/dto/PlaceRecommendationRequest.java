@@ -17,7 +17,8 @@ public record PlaceRecommendationRequest(
     @Min(1) @Max(50) Integer targetCount,
     @Size(max = 16) List<String> requiredFields,
     @Min(60) @Max(2_592_000) Long maximumAgeSeconds,
-    Boolean allowExternalRefresh) {
+    Boolean allowExternalRefresh,
+    Boolean mediaReadyOnly) {
   public PlaceRecommendationRequest {
     requiredFields = requiredFields == null ? new ArrayList<>() : List.copyOf(requiredFields);
   }
@@ -32,5 +33,22 @@ public record PlaceRecommendationRequest(
 
   public boolean externalRefreshAllowed() {
     return !Boolean.FALSE.equals(allowExternalRefresh);
+  }
+
+  public boolean mediaReadyOnlyEnabled() {
+    return Boolean.TRUE.equals(mediaReadyOnly);
+  }
+
+  public PlaceRecommendationRequest(
+      String query,
+      Double lat,
+      Double lng,
+      Integer radiusMeters,
+      Integer targetCount,
+      List<String> requiredFields,
+      Long maximumAgeSeconds,
+      Boolean allowExternalRefresh) {
+    this(query, lat, lng, radiusMeters, targetCount, requiredFields, maximumAgeSeconds,
+        allowExternalRefresh, false);
   }
 }

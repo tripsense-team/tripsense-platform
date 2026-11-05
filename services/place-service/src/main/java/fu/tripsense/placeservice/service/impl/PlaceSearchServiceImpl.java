@@ -82,7 +82,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       PlaceBrowseCategory category) {
     if (!StringUtils.hasText(query)) return Collections.emptyList();
 
-    String retrievalQuery = category == null ? query.trim() : category.providerQuery();
+    boolean categoryBrowse = isCategoryBrowseQuery(query, category);
+    String retrievalQuery = categoryBrowse ? category.providerQuery() : query.trim();
     String normalizedQuery = retrievalQuery.toLowerCase(Locale.ROOT);
     String cacheQuery =
         category == null ? normalizedQuery : category.name() + "|" + normalizedQuery;
@@ -121,7 +122,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             effectiveLimit);
 
     boolean isSpecificQuery =
-        category == null
+        !categoryBrowse
             && !isBroadCategory(normalizedQuery)
             && !normalizedQuery.equals("đà nẵng")
             && !normalizedQuery.equals("da nang")
@@ -174,6 +175,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     List<PlaceDto> persisted =
         providerResults.stream()
             .map(result -> persistence.upsertProviderPlace(result, provider.getProviderName()))
+            .filter(java.util.Objects::nonNull)
             .toList();
     List<PlaceDto> rankedResults =
         rankBrowseResults(
@@ -213,8 +215,15 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
                               <= radius)
               .toList();
     }
-    String rankingQuery = category == null ? query : "";
+    String rankingQuery = isCategoryBrowseQuery(query, category) ? "" : query;
     return ranking.rank(eligible, rankingQuery, lat, lng).stream().limit(limit).toList();
+  }
+
+  private boolean isCategoryBrowseQuery(String query, PlaceBrowseCategory category) {
+    if (category == null) return false;
+    String normalized = query.trim().toLowerCase(Locale.ROOT);
+    String seed = category.providerQuery().toLowerCase(Locale.ROOT);
+    return normalized.equals(seed) || (normalized.startsWith(seed + " ") && normalized.contains(" ở "));
   }
 
   @Override
@@ -233,8 +242,9 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       local.forEach(
           place ->
               decorate(place, "LOCAL", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
+      List<PlaceDto> eligibleLocal = mediaEligible(local, request);
       RetrievalEvidenceDto assessed =
-          assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, Instant.now());
+          assess(eligibleLocal, request, Set.of("LOCAL"), "NOT_CALLED", false, Instant.now());
       List<String> reasons = new ArrayList<>(assessed.reasonCodes());
       reasons.add("LOCATION_ANCHOR_UNRESOLVED");
       RetrievalEvidenceDto evidence =
@@ -254,7 +264,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               assessed.rankingVersion());
       traceEvidence("local", evidence);
       RequestDiagnostics.mark("place_refresh_decision", "NO_ANCHOR");
-      return new PlaceRecommendationResult(enrichPhotosForPlaces(local), evidence);
+      return new PlaceRecommendationResult(enrichPhotosForPlaces(eligibleLocal), evidence);
     }
     double lat = request.lat() != null ? request.lat() : properties.getDefaultLat();
     double lng = request.lng() != null ? request.lng() : properties.getDefaultLng();
@@ -273,16 +283,24 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       values.forEach(
           place ->
               decorate(place, "CACHE", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
+      List<PlaceDto> eligibleValues = mediaEligible(values, request);
       RetrievalEvidenceDto evidence =
           RequestDiagnostics.measure(
               "cache_assessment",
-              () -> assess(values, request, Set.of("CACHE"), "NOT_CALLED", false, retrievedAt));
+              () ->
+                  assess(
+                      eligibleValues,
+                      request,
+                      Set.of("CACHE"),
+                      "NOT_CALLED",
+                      false,
+                      retrievedAt));
       traceEvidence("cache", evidence);
       if ("SUFFICIENT".equals(evidence.status())) {
         RequestDiagnostics.mark("place_refresh_decision", "USE_CACHE");
         RequestDiagnostics.mark("served_from", "redis");
         return new PlaceRecommendationResult(
-            enrichPhotosForPlaces(values.stream().limit(target).toList()), evidence);
+            enrichPhotosForPlaces(eligibleValues.stream().limit(target).toList()), evidence);
       }
     }
 
@@ -308,10 +326,18 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     local.forEach(
         place ->
             decorate(place, "LOCAL", place.getFetchedAt(), request.effectiveMaximumAgeSeconds()));
+    List<PlaceDto> eligibleLocal = mediaEligible(local, request);
     RetrievalEvidenceDto localEvidence =
         RequestDiagnostics.measure(
             "local_assessment",
-            () -> assess(local, request, Set.of("LOCAL"), "NOT_CALLED", false, retrievedAt));
+            () ->
+                assess(
+                    eligibleLocal,
+                    request,
+                    Set.of("LOCAL"),
+                    "NOT_CALLED",
+                    false,
+                    retrievedAt));
     traceEvidence("local", localEvidence);
     if ("SUFFICIENT".equals(localEvidence.status())) {
       RequestDiagnostics.mark("place_refresh_decision", "USE_LOCAL");
@@ -320,12 +346,12 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
           "cache_put",
           () -> cache.putSearchResults(normalizedQuery, lat, lng, radius, target, local));
       return new PlaceRecommendationResult(
-          enrichPhotosForPlaces(local.stream().limit(target).toList()), localEvidence);
+          enrichPhotosForPlaces(eligibleLocal.stream().limit(target).toList()), localEvidence);
     }
     if (!request.externalRefreshAllowed()) {
       RequestDiagnostics.mark("place_refresh_decision", "REFRESH_DISABLED");
       return new PlaceRecommendationResult(
-          enrichPhotosForPlaces(local.stream().limit(target).toList()), localEvidence);
+          enrichPhotosForPlaces(eligibleLocal.stream().limit(target).toList()), localEvidence);
     }
 
     try {
@@ -366,9 +392,10 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
                       lat,
                       lng,
                       radius));
+      List<PlaceDto> eligibleMerged = mediaEligible(merged, request);
       RetrievalEvidenceDto evidence =
           assess(
-              merged,
+              eligibleMerged,
               request,
               new LinkedHashSet<>(List.of("LOCAL", "PROVIDER:" + provider.getProviderName())),
               "AVAILABLE",
@@ -380,11 +407,11 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
           "cache_put",
           () -> cache.putSearchResults(normalizedQuery, lat, lng, radius, target, merged));
       return new PlaceRecommendationResult(
-          enrichPhotosForPlaces(merged.stream().limit(target).toList()), evidence);
+          enrichPhotosForPlaces(eligibleMerged.stream().limit(target).toList()), evidence);
     } catch (PlaceProviderException exception) {
       RequestDiagnostics.mark("served_from", "local_provider_failed");
       RetrievalEvidenceDto evidence =
-          assess(local, request, Set.of("LOCAL"), "UNAVAILABLE", true, retrievedAt);
+          assess(eligibleLocal, request, Set.of("LOCAL"), "UNAVAILABLE", true, retrievedAt);
       List<String> reasons = new ArrayList<>(evidence.reasonCodes());
       reasons.add("PROVIDER_UNAVAILABLE");
       evidence =
@@ -404,7 +431,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               evidence.rankingVersion());
       traceEvidence("provider_failure", evidence);
       return new PlaceRecommendationResult(
-          enrichPhotosForPlaces(local.stream().limit(target).toList()), evidence);
+          enrichPhotosForPlaces(eligibleLocal.stream().limit(target).toList()), evidence);
     }
   }
 
@@ -598,6 +625,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
           repository
               .findByNameRegex(Pattern.quote(query), PageRequest.of(0, effectiveLimit))
               .stream()
+              .filter(this::isPubliclyActive)
               .map(this::toSuggestion)
               .toList();
     }
@@ -622,6 +650,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
         repository
             .findByLocationNear(new Point(lng, lat), distance, PageRequest.of(0, effectiveLimit))
             .stream()
+            .filter(this::isPubliclyActive)
             .map(persistence::toDto)
             .filter(place -> matchesCategory(place, category))
             .toList();
@@ -686,7 +715,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       try {
         return RequestDiagnostics.measure(
             "mongo_regex_query",
-            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)));
+            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
+                .filter(this::isPubliclyActive).toList());
       } catch (Exception ex) {
         return Collections.emptyList();
       }
@@ -695,7 +725,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     try {
       return RequestDiagnostics.measure(
           "mongo_text_query",
-          () -> repository.searchByText(normalizedQuery, PageRequest.of(0, limit)));
+          () -> repository.searchByText(normalizedQuery, PageRequest.of(0, limit)).stream()
+              .filter(this::isPubliclyActive).toList());
     } catch (Exception exception) {
       lastLocalSearchFailureTime = System.currentTimeMillis();
       RequestDiagnostics.mark("place_search_method", "REGEX_AFTER_TEXT_FAILURE");
@@ -706,7 +737,8 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       try {
         return RequestDiagnostics.measure(
             "mongo_regex_query",
-            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)));
+            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
+                .filter(this::isPubliclyActive).toList());
       } catch (Exception ex) {
         return Collections.emptyList();
       }
@@ -724,6 +756,11 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
         .subtitle(place.getAddress())
         .category(category)
         .build();
+  }
+
+  private boolean isPubliclyActive(Place place) {
+    return place != null && place.getLifecycleStatus()
+        != fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED;
   }
 
   private List<PlaceDto> mergeResults(List<PlaceDto> primary, List<PlaceDto> secondary) {
@@ -881,5 +918,13 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       // the detail endpoint instead of issuing one provider request per returned candidate here.
     }
     return places;
+  }
+
+  private List<PlaceDto> mediaEligible(
+      List<PlaceDto> places, PlaceRecommendationRequest request) {
+    if (!request.mediaReadyOnlyEnabled()) return places;
+    return places.stream()
+        .filter(place -> place.getMedia() != null && "READY".equals(place.getMedia().state()))
+        .toList();
   }
 }

@@ -21,15 +21,15 @@ public class RecommendationIndexerClient {
   private final RestClient restClient;
   private final TripSensePlaceProperties properties;
 
+  @Autowired
   public RecommendationIndexerClient(TripSensePlaceProperties properties) {
     this(properties, createDefaultRestClient());
   }
 
-  @Autowired
-  public RecommendationIndexerClient(
-      TripSensePlaceProperties properties, @Autowired(required = false) RestClient restClient) {
+  RecommendationIndexerClient(
+      TripSensePlaceProperties properties, RestClient restClient) {
     this.properties = properties;
-    this.restClient = restClient != null ? restClient : createDefaultRestClient();
+    this.restClient = restClient;
   }
 
   private static RestClient createDefaultRestClient() {
@@ -68,6 +68,28 @@ public class RecommendationIndexerClient {
                 "Async recommendation indexing notification failed: errorType={}, message={}",
                 exception.getClass().getSimpleName(),
                 exception.getMessage());
+          }
+        });
+  }
+
+  public void triggerDeindexingAsync(String placeId) {
+    if (placeId == null || placeId.isBlank()) return;
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            String baseUrl = properties.getRecommendationServiceUrl();
+            if (baseUrl == null || baseUrl.isBlank()) baseUrl = "http://localhost:8088";
+            restClient
+                .delete()
+                .uri(baseUrl + "/api/recommendations/internal/places/{placeId}", placeId)
+                .header("X-Internal-Api-Key", properties.getRecommendationInternalApiKey())
+                .retrieve()
+                .toBodilessEntity();
+            log.info("Triggered async recommendation de-indexing for placeId={}", placeId);
+          } catch (Exception exception) {
+            log.warn(
+                "Async recommendation de-indexing notification failed: errorType={}",
+                exception.getClass().getSimpleName());
           }
         });
   }

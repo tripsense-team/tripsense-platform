@@ -47,3 +47,33 @@ export interface ApiKeyPoolItem {
   exhaustedAt?: string | null;
   createdAt: string;
 }
+
+export type PlaceMediaState =
+  | "PENDING"
+  | "READY"
+  | "DEGRADED"
+  | "UNAVAILABLE"
+  | "RIGHTS_BLOCKED"
+  | "REVIEW_REQUIRED";
+
+export interface PlaceMediaCoverage {
+  counts: Record<PlaceMediaState, number>;
+  items: Array<{
+    placeId: string;
+    name: string;
+    state: PlaceMediaState;
+    reasonCode?: string | null;
+  }>;
+  nextCursor?: string | null;
+}
+
+export interface PlaceMediaBackfillJob {
+  id: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  dryRun: boolean;
+  total: number;
+  processed: number;
+  succeeded: number;
+  failed: number;
+  lastReasonCode?: string | null;
+}

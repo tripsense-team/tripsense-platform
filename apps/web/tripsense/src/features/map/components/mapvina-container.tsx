@@ -548,7 +548,7 @@ export function MapVinaContainer({
       "top-right",
     );
 
-    mapInstance.on("error", (event) => {
+    const handleMapError = (event: unknown) => {
       // Map removal aborts in-flight sprite/tile requests. This is expected
       // during route transitions and must not surface through Next's dev
       // overlay (the raw error may also contain the provider API key URL).
@@ -562,7 +562,8 @@ export function MapVinaContainer({
           errorType: candidate?.name || "MapResourceError",
         });
       }
-    });
+    };
+    mapInstance.on("error", handleMapError);
 
     mapInstance.on("load", () => {
       mapRef.current = mapInstance;
@@ -790,12 +791,21 @@ export function MapVinaContainer({
     });
 
     return () => {
+      // MapVina detaches its Style from the Map before aborted sprite requests
+      // settle. Listen on the Style itself during teardown so its Evented
+      // fallback does not forward the expected AbortError to console.error,
+      // which Next.js treats as a development-overlay error.
+      const style = mapInstance.style;
+      style?.on("error", handleMapError);
       try {
         mapInstance.remove();
-      } catch (err: any) {
-        // Suppress expected tile fetch abort errors when component unmounts
-        if (err?.name !== "AbortError" && !err?.message?.includes("aborted")) {
-          console.warn("Map instance cleanup:", err);
+      } catch (error: unknown) {
+        if (!isBenignMapAbort(error) && process.env.NODE_ENV === "development") {
+          const errorType =
+            error && typeof error === "object" && "name" in error
+              ? String(error.name || "MapCleanupError")
+              : "MapCleanupError";
+          console.warn("[TripSense Map] Cleanup failed", { errorType });
         }
       }
       mapRef.current = null;
@@ -805,6 +815,7 @@ export function MapVinaContainer({
       // scoped handler through the current task so expected aborts do not reach
       // the browser error overlay.
       window.setTimeout(() => {
+        style?.off("error", handleMapError);
         window.removeEventListener("unhandledrejection", handleUnhandledMapAbort);
       }, 0);
     };

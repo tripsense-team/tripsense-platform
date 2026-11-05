@@ -46,6 +46,9 @@ place-service:
   url: ${PLACE_SERVICE_URL:http://localhost:${PLACE_SERVICE_PORT:8083}}
 community-reviews:
   write-enabled: ${COMMUNITY_REVIEWS_WRITE_ENABLED:false}
+community:
+  import-internal-key: ${COMMUNITY_IMPORT_INTERNAL_KEY:}
+  saved-cursor-secret: ${COMMUNITY_SAVED_CURSOR_SECRET:${JWT_ACCESS_SECRET}}
 management:
   endpoints:
     web:

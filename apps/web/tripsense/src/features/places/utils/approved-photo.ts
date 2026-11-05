@@ -16,7 +16,7 @@ export function isApprovedMediaHost(hostname: string): boolean {
   if (host.endsWith(".googleusercontent.com")) return true;
   return false;
 }
-const PHOTO_CACHE_MS = 5 * 60_000;
+export const PHOTO_CACHE_MS = 5 * 60_000;
 const EMPTY_PHOTO_CACHE_MS = 60_000;
 
 export function approvedPhoto(value: PlacePhotoEvidence | undefined): PlacePhotoEvidence | null {
@@ -58,16 +58,33 @@ export function approvedPhotoGallery(
   }).slice(0, 5);
 }
 
+/** Returns only provider evidence recent enough for short-lived media URLs. */
+export function freshApprovedPhotoGallery(
+  place: Pick<Place, "photoGallery" | "primaryPhoto" | "photos">,
+  now = Date.now(),
+): PlacePhotoEvidence[] {
+  return approvedPhotoGallery(
+    place.photoGallery,
+    place.primaryPhoto,
+  ).filter((photo) => {
+    if (photo.source === "cloudinary" || photo.source === "database") return true;
+    const fetchedAt = Date.parse(photo.fetchedAt);
+    return (
+      Number.isFinite(fetchedAt) &&
+      fetchedAt <= now &&
+      now - fetchedAt < PHOTO_CACHE_MS
+    );
+  });
+}
+
 /** A short-lived, per-page lookup marker; never persists provider media URLs. */
 export function hasFreshPhotoLookup(place: Place, checkedAt: number | undefined, now = Date.now()): boolean {
   if (checkedAt === undefined || !Number.isFinite(checkedAt) || checkedAt > now) return false;
-  const photos = approvedPhotoGallery(place.photoGallery, place.primaryPhoto);
-  const ttl = photos.length ? PHOTO_CACHE_MS : EMPTY_PHOTO_CACHE_MS;
+  const approved = approvedPhotoGallery(place.photoGallery, place.primaryPhoto);
+  const fresh = freshApprovedPhotoGallery(place, now);
+  const ttl = approved.length ? PHOTO_CACHE_MS : EMPTY_PHOTO_CACHE_MS;
   if (now - checkedAt >= ttl) return false;
-  return photos.every((photo) => {
-    const fetchedAt = Date.parse(photo.fetchedAt);
-    return Number.isFinite(fetchedAt) && fetchedAt <= now && now - fetchedAt < PHOTO_CACHE_MS;
-  });
+  return approved.length === fresh.length;
 }
 
 export function approvedAttributionUrl(value: string | null | undefined): string | null {

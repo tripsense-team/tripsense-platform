@@ -177,10 +177,20 @@ class ApiKeyPoolServiceTest {
             .status(ApiKeyStatus.EXHAUSTED)
             .failureReason("Quota exceeded")
             .build();
+    ApiKeyPoolItem creditExceededKey =
+        ApiKeyPoolItem.builder()
+            .id("id-2")
+            .provider(ApiKeyProvider.ZIOMAP)
+            .rawKey("key-2")
+            .status(ApiKeyStatus.INVALID)
+            .failureReason("403 Forbidden: API usage credit exceeded")
+            .build();
 
     List<ApiKeyPoolItem> exhaustedList = new ArrayList<>(List.of(exhaustedKey));
     when(repository.findByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.EXHAUSTED))
         .thenReturn(exhaustedList);
+    when(repository.findByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.INVALID))
+        .thenReturn(List.of(creditExceededKey));
     when(repository.countByProviderAndStatus(ApiKeyProvider.ZIOMAP, ApiKeyStatus.ACTIVE))
         .thenReturn(0L);
     when(repository.findFirstByProviderAndStatusOrderByCreatedAtAsc(
@@ -196,9 +206,11 @@ class ApiKeyPoolServiceTest {
 
     int count = service.resetQuotaAll(ApiKeyProvider.ZIOMAP);
 
-    assertThat(count).isEqualTo(1);
+    assertThat(count).isEqualTo(2);
     assertThat(exhaustedKey.getStatus()).isEqualTo(ApiKeyStatus.INACTIVE);
     assertThat(exhaustedKey.getFailureReason()).isNull();
+    assertThat(creditExceededKey.getStatus()).isEqualTo(ApiKeyStatus.INACTIVE);
+    assertThat(creditExceededKey.getFailureReason()).isNull();
   }
 
   @Test

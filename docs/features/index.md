@@ -4,6 +4,8 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `admin-place-map-reverse-geocoding` | IMPLEMENTING; local CI regression suites pass, CI rerun and live provider acceptance pending | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./admin-place-map-reverse-geocoding.md) |
+| `admin-shared-place-catalog-crud` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./admin-shared-place-catalog-crud.md) |
 | `onboarding-daily-budget-recommendations` | DONE | `apps/web/tripsense`, `services/context-service`, `services/place-service`, `services/recommendation-service` | [Docs](./onboarding-daily-budget-recommendations.md) |
 | `ai-curated-place-recommendations` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-curated-place-recommendations.md) |
 | `observed-history-unattributed-latency` | IMPLEMENTING; diagnosis code + 231 tests complete, runtime cause identification pending | `services/recommendation-service`; local analyzer | [Docs](./observed-history-unattributed-latency.md) |
@@ -25,6 +27,7 @@ Track every feature that enters the multi-agent workflow.
 | `restaurant-booking-availability-engine` | APPROVED | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-availability-engine.md) |
 | `partner-analytics` | IMPLEMENTING | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./partner-analytics.md) |
 | `hotel-live-place-photos` | DONE | `apps/web/tripsense`, existing `services/place-service` and `services/api-gateway` | [Docs](./hotel-live-place-photos.md) |
+| `durable-verified-place-media-coverage` | IMPLEMENTING; code and automated checks complete, live Cloudinary/provider-rights acceptance pending | `services/place-service`, `services/api-gateway`, `services/recommendation-service`, `apps/web/tripsense`; Cloudinary-compatible storage | [Docs](./durable-verified-place-media-coverage.md) |
 | `partner-hotel-checkin-ampm` | IMPLEMENTING | `apps/web/tripsense`; existing hotel property API contracts | [Docs](./partner-hotel-checkin-ampm.md) |
 | `restaurant-booking-realtime-notifications` | DONE | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-realtime-notifications.md) |
 | `admin-system-logs` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/api-gateway`, deployment observability configuration | [Docs](./admin-system-logs.md) |
@@ -80,6 +83,7 @@ Track every feature that enters the multi-agent workflow.
 | `trip-collaboration` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./trip-collaboration.md) |
 | `collaborative-itinerary-editing` | APPROVED | `apps/web/tripsense`, `services/api-gateway`, `services/trip-service` | [Docs](./collaborative-itinerary-editing.md) |
 | `community-experience-redesign` | IMPLEMENTING | `apps/web/tripsense`, `services/social-service`, `services/trip-service`, `services/api-gateway` | [Docs](./community-experience-redesign/index.md) |
+| `community-trip-sharing-depth-v2` | IMPLEMENTING; frontend checks pass, backend Maven and manual acceptance pending | `apps/web/tripsense`, `services/social-service`, `services/trip-service`, `services/api-gateway` | [Docs](./community-trip-sharing-depth-v2.md) |
 | `community-discovery-rail` | APPROVED | `apps/web/tripsense`, `services/social-service`, `services/user-service`, `services/trip-service`, `services/api-gateway`; future `context-service` | [Docs](./community-discovery-rail/index.md) |
 | `google-oauth-login` | DONE | `apps/web/tripsense`, `services/api-gateway`, `services/user-service` | [Docs](./google-oauth-login/index.md) |
 | `ai-personalization-onboarding` | APPROVED | `apps/web/tripsense`, `services/user-service`, `services/place-service`, `services/context-service`, `services/ai-service`, `services/api-gateway` | [Docs](./ai-personalization-onboarding/index.md) |

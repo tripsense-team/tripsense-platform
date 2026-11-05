@@ -8,6 +8,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import fu.tripsense.recommendation.config.RecommendationProperties;
+import fu.tripsense.recommendation.domain.DiscoveryCategory;
 import fu.tripsense.recommendation.domain.GeoPoint;
 import fu.tripsense.recommendation.domain.RecommendationContext;
 import java.util.Set;
@@ -33,6 +34,7 @@ class PlaceServiceCandidateGeneratorTest {
         .andExpect(method(POST))
         .andExpect(jsonPath("$.query").value("quiet cafe"))
         .andExpect(jsonPath("$.allowExternalRefresh").value(true))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(false))
         .andRespond(
             withSuccess(
                 """
@@ -130,6 +132,116 @@ class PlaceServiceCandidateGeneratorTest {
             null,
             source.limit());
     assertThat(legacy.allowExternalRefresh()).isTrue();
+  }
+
+  @Test
+  void defersMediaGateWhenReadyInventoryIsBelowThreshold() {
+    RestClient.Builder builder = RestClient.builder();
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RecommendationProperties properties = new RecommendationProperties();
+    properties.getDownstream().setPlaceUrl("http://place-service:8082");
+    properties.getRetrieval().setMediaReadyOnly(true);
+    properties.getRetrieval().setMediaMinimumReadyCandidates(2);
+    server.expect(requestTo("http://place-service:8082/api/places/recommendations"))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(false))
+        .andRespond(withSuccess("""
+            {"success":true,"data":{"candidates":[
+              {"id":"place-1","name":"Place One","media":{"state":"READY"}},
+              {"id":"place-2","name":"Place Two","media":{"state":"PENDING"}}
+            ]}}
+            """, MediaType.APPLICATION_JSON));
+
+    var result = new PlaceServiceCandidateGenerator(builder.build(), properties).generate(context());
+
+    assertThat(result.candidates()).hasSize(2);
+    assertThat(result.degradations()).contains("MEDIA_GATE_BELOW_SAFE_THRESHOLD");
+    server.verify();
+  }
+
+  @Test
+  void enforcesMediaGateOnlyAfterCoverageAndCandidateCountPass() {
+    RestClient.Builder builder = RestClient.builder();
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RecommendationProperties properties = new RecommendationProperties();
+    properties.getDownstream().setPlaceUrl("http://place-service:8082");
+    properties.getRetrieval().setMediaReadyOnly(true);
+    properties.getRetrieval().setMediaMinimumReadyCandidates(2);
+    String response = """
+        {"success":true,"data":{"candidates":[
+          {"id":"place-1","name":"Place One","media":{"state":"READY"}},
+          {"id":"place-2","name":"Place Two","media":{"state":"READY"}}
+        ]}}
+        """;
+    server.expect(requestTo("http://place-service:8082/api/places/recommendations"))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(false))
+        .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+    server.expect(requestTo("http://place-service:8082/api/places/recommendations"))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(true))
+        .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+    var result = new PlaceServiceCandidateGenerator(builder.build(), properties).generate(context());
+
+    assertThat(result.candidates()).hasSize(2);
+    assertThat(result.degradations()).doesNotContain("MEDIA_GATE_BELOW_SAFE_THRESHOLD");
+    server.verify();
+  }
+
+  @Test
+  void keepsCategoryBaselineWhenMediaCoverageIsInsufficient() {
+    RestClient.Builder builder = RestClient.builder();
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RecommendationProperties properties = new RecommendationProperties();
+    properties.getDownstream().setPlaceUrl("http://place-service:8082");
+    properties.getRetrieval().setMediaReadyOnly(true);
+    properties.getRetrieval().setMediaMinimumReadyCandidates(2);
+    server.expect(requestTo("http://place-service:8082/api/places/recommendations/categories"))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(false))
+        .andRespond(withSuccess("""
+            {"success":true,"data":{"groups":[{"category":"CAFE","status":"READY",
+              "places":[{"id":"place-1","name":"Cafe One","media":{"state":"PENDING"}}],
+              "degradations":[]}]}}
+            """, MediaType.APPLICATION_JSON));
+
+    var result = new PlaceServiceCandidateGenerator(builder.build(), properties)
+        .generateCategories(context(), java.util.List.of(DiscoveryCategory.CAFE), 5);
+
+    assertThat(result.groups()).hasSize(1);
+    assertThat(result.groups().getFirst().candidates()).hasSize(1);
+    assertThat(result.groups().getFirst().degradations())
+        .contains("MEDIA_GATE_BELOW_SAFE_THRESHOLD");
+    server.verify();
+  }
+
+  @Test
+  void enforcesReadyCategoryOnlyWhenBothResponsesMeetThreshold() {
+    RestClient.Builder builder = RestClient.builder();
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    RecommendationProperties properties = new RecommendationProperties();
+    properties.getDownstream().setPlaceUrl("http://place-service:8082");
+    properties.getRetrieval().setMediaReadyOnly(true);
+    properties.getRetrieval().setMediaMinimumReadyCandidates(2);
+    String response = """
+        {"success":true,"data":{"groups":[{"category":"CAFE","status":"READY",
+          "places":[
+            {"id":"place-1","name":"Cafe One","media":{"state":"READY"}},
+            {"id":"place-2","name":"Cafe Two","media":{"state":"READY"}}
+          ],"degradations":[]}]}}
+        """;
+    server.expect(requestTo("http://place-service:8082/api/places/recommendations/categories"))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(false))
+        .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+    server.expect(requestTo("http://place-service:8082/api/places/recommendations/categories"))
+        .andExpect(jsonPath("$.mediaReadyOnly").value(true))
+        .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+
+    var result = new PlaceServiceCandidateGenerator(builder.build(), properties)
+        .generateCategories(context(), java.util.List.of(DiscoveryCategory.CAFE), 5);
+
+    assertThat(result.groups()).hasSize(1);
+    assertThat(result.groups().getFirst().candidates()).hasSize(2);
+    assertThat(result.groups().getFirst().degradations())
+        .doesNotContain("MEDIA_GATE_BELOW_SAFE_THRESHOLD");
+    server.verify();
   }
 
   private RecommendationContext context() {

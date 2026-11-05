@@ -64,4 +64,16 @@ class UserSavedPlaceServiceTest {
     verify(collections, never()).delete(any(UserPlaceCollection.class));
     verify(savedPlaces).deleteByOwnerUserIdAndCollectionId(ownerId, collectionId);
   }
+
+  @Test
+  void archivedPlaceSnapshotIsNotReturnedInSavedProjection() {
+    UUID ownerId = UUID.randomUUID();
+    when(savedPlaces.findByOwnerUserIdOrderBySavedAtDesc(ownerId)).thenReturn(List.of(
+        UserSavedPlace.builder().ownerUserId(ownerId).placeRef("archived-place").build()));
+    when(placeDetailsService.getSnapshots(List.of("archived-place"))).thenReturn(List.of());
+
+    var page = service.listSaved(ownerId, null, 0, 20);
+
+    assertThat(page.content()).isEmpty();
+  }
 }

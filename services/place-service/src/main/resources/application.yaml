@@ -4,6 +4,10 @@ spring:
   mvc:
     servlet:
       load-on-startup: 1
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
   mongodb:
     uri: ${MONGODB_URI:mongodb://localhost:27017}
     database: ${MONGODB_DATABASE:tripsense_place}
@@ -32,12 +36,32 @@ ziomap:
   photo-display-approved: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:false}
   photo-max-width-px: ${ZIOMAP_PHOTO_MAX_WIDTH_PX:640}
   photo-allowed-hosts: ${ZIOMAP_PHOTO_ALLOWED_HOSTS:lh3.googleusercontent.com,ziomap-api.socibi.com}
+  # Keep false until provider terms explicitly permit persistent storage and redistribution.
+  photo-persistence-approved: ${ZIOMAP_PHOTO_PERSISTENCE_APPROVED:false}
+  photo-persistence-license-evidence-url: ${ZIOMAP_PHOTO_PERSISTENCE_LICENSE_EVIDENCE_URL:}
+
+mapvina:
+  base-url: ${MAPVINA_BASE_URL:https://maps.mapvina.com}
+  api-key: ${MAPVINA_API_KEY:}
+  timeout-ms: ${MAPVINA_TIMEOUT_MS:3000}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  place-folder-prefix: ${CLOUDINARY_PLACE_FOLDER_PREFIX:tripsense/places}
 
 tripsense:
   explore-diagnostics:
     enabled: ${EXPLORE_DIAGNOSTICS_ENABLED:true}
   places:
+    admin:
+      catalog-writes-enabled: ${PLACE_ADMIN_CATALOG_WRITES_ENABLED:false}
     category-cache-read-budget: ${TRIPSENSE_PLACES_CATEGORY_CACHE_READ_BUDGET:250ms}
+    media:
+      health-check-enabled: ${PLACE_MEDIA_HEALTH_CHECK_ENABLED:true}
+      health-check-initial-delay-ms: ${PLACE_MEDIA_HEALTH_CHECK_INITIAL_DELAY_MS:120000}
+      health-check-delay-ms: ${PLACE_MEDIA_HEALTH_CHECK_DELAY_MS:3600000}
     default-city: ${DEFAULT_CITY:Da Nang}
     default-country: ${DEFAULT_COUNTRY:Vietnam}
     default-lat: ${DEFAULT_LAT:16.0544}

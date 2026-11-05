@@ -4,16 +4,29 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import fu.tripsense.placeservice.config.ZioMapProperties;
+import fu.tripsense.placeservice.domain.model.ApiKeyProvider;
+import fu.tripsense.placeservice.domain.model.ApiKeyStatus;
 import fu.tripsense.placeservice.dto.AutocompleteSuggestionDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.providers.PlaceProviderException;
+import fu.tripsense.placeservice.service.ApiKeyPoolService;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -21,6 +34,45 @@ import org.springframework.web.client.RestClient;
 class ZioMapProviderTest {
 
   private ZioMapProvider provider;
+
+  @Test
+  void classifiesForbiddenCreditExceededAsExhaustedRatherThanInvalid() {
+    ZioMapProperties props = new ZioMapProperties();
+    props.setApiKey("credit-exhausted-key");
+    var keyPool = mock(ApiKeyPoolService.class);
+    when(keyPool.getActiveKey(ApiKeyProvider.ZIOMAP)).thenReturn("credit-exhausted-key");
+    when(keyPool.markExhaustedAndRotate(
+            eq(ApiKeyProvider.ZIOMAP),
+            eq("credit-exhausted-key"),
+            eq(ApiKeyStatus.EXHAUSTED),
+            anyString()))
+        .thenReturn(Optional.empty());
+    var builder = RestClient.builder().baseUrl("https://ziomap-api.socibi.com");
+    var server = MockRestServiceServer.bindTo(builder).build();
+    var p = new ZioMapProvider(props, builder.build(), keyPool);
+    try {
+      server
+          .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/text-search")))
+          .andRespond(
+              withStatus(HttpStatus.FORBIDDEN)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .body("{\"message\":\"API usage credit exceeded.\"}"));
+
+      assertThrows(
+          PlaceProviderException.class,
+          () -> p.textSearch("cafe", 16.05, 108.2, 35000, 1));
+
+      verify(keyPool)
+          .markExhaustedAndRotate(
+              eq(ApiKeyProvider.ZIOMAP),
+              eq("credit-exhausted-key"),
+              eq(ApiKeyStatus.EXHAUSTED),
+              anyString());
+      server.verify();
+    } finally {
+      p.destroy();
+    }
+  }
 
   @Test
   void explicitSearchPrimaryIsRetainedButMissingDetailPrimaryIsNotInvented() {

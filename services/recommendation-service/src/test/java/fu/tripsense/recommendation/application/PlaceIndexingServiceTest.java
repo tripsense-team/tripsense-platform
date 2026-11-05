@@ -92,6 +92,16 @@ class PlaceIndexingServiceTest {
     verify(mockIndexer, never()).indexIfChanged(any());
   }
 
+  @Test
+  void shouldRemoveArchivedPlaceFromDerivedIndex() {
+    PlaceIndexer mockIndexer = mock(PlaceIndexer.class);
+    PlaceIndexingService service = new PlaceIndexingService(Optional.of(mockIndexer));
+
+    service.removePlace("place-1");
+
+    verify(mockIndexer).remove("place-1");
+  }
+
   private PlaceSnapshot samplePlace(String id) {
     return new PlaceSnapshot(
         id,

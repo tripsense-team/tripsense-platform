@@ -46,10 +46,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         authorities.add(new SimpleGrantedAuthority(role.startsWith("ROLE_") ? role : "ROLE_" + role));
       }
       UsernamePasswordAuthenticationToken authentication =
-          new UsernamePasswordAuthenticationToken(user, null, authorities);
+          new UsernamePasswordAuthenticationToken(user, authorization.substring(7), authorities);
       SecurityContextHolder.getContext().setAuthentication(authentication);
     } catch (Exception ex) {
-      log.warn("Trip service JWT authentication failed: {}", ex.getMessage());
+      log.warn("Trip service JWT authentication failed");
       SecurityContextHolder.clearContext();
     }
 

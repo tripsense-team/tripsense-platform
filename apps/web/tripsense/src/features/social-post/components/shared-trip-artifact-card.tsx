@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, MapPin, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/i18n";
 import type { SharedTripSummary } from "../types";
 
 interface SharedTripArtifactCardProps {
@@ -13,9 +14,9 @@ interface SharedTripArtifactCardProps {
   href?: string;
 }
 
-function formatDateRange(startDate?: string, endDate?: string) {
-  if (!startDate && !endDate) return "Ngày đi được ẩn";
-  if (!startDate) return endDate ?? "Ngày đi được ẩn";
+function formatDateRange(startDate: string | undefined, endDate: string | undefined, locale: string, hidden: string) {
+  if (!startDate && !endDate) return hidden;
+  if (!startDate) return endDate ?? hidden;
   if (!endDate || startDate === endDate) return startDate;
 
   const start = new Date(startDate);
@@ -25,17 +26,8 @@ function formatDateRange(startDate?: string, endDate?: string) {
     return `${startDate} - ${endDate}`;
   }
 
-  return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-}
-
-function titleCase(value?: string | null) {
-  if (!value) return "Chưa có điểm đến";
-
-  return value
-    .split(/[\s,]+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
+  const format = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
+  return `${format.format(start)} – ${format.format(end)}`;
 }
 
 function StatPill({
@@ -63,7 +55,9 @@ export function SharedTripArtifactCard({
   compact = false,
   href,
 }: SharedTripArtifactCardProps) {
+  const { locale, t } = useTranslation();
   const highlights = trip.highlights?.slice(0, compact ? 3 : 6) ?? [];
+  const destination = trip.destinationName || t("social.tripShareNoDestination");
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background shadow-xs">
@@ -78,22 +72,22 @@ export function SharedTripArtifactCard({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-muted-foreground">
-            Chưa có ảnh bìa
+            {t("social.tripShareCoverMissing")}
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-primary/30 to-transparent" />
         <div className="absolute left-5 top-5 flex flex-wrap gap-2">
           <Badge className="rounded-full bg-background text-foreground hover:bg-background">
-            Hành trình
+            {t("social.tripShareJourneyBadge")}
           </Badge>
           <Badge className="rounded-full bg-background text-foreground hover:bg-background">
-            Bản sao an toàn
+            {t("social.tripShareSafeCopy")}
           </Badge>
         </div>
         <div className="absolute bottom-6 left-6 max-w-[calc(100%-3rem)] text-primary-foreground">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-normal">
             <MapPin className="h-3.5 w-3.5" />
-            {titleCase(trip.destinationName)}
+            {destination}
           </p>
           <h3 className="mt-2 text-2xl font-bold tracking-normal sm:text-3xl">
             {trip.name}
@@ -104,24 +98,24 @@ export function SharedTripArtifactCard({
       <div className="grid gap-3 p-5 md:grid-cols-3">
         <StatPill
           icon={CalendarDays}
-          label="Thời gian"
-          value={`${formatDateRange(trip.startDate, trip.endDate)} · ${trip.dayCount ?? 0} ngày`}
+          label={t("social.tripShareDurationLabel")}
+          value={`${formatDateRange(trip.startDate, trip.endDate, locale, t("social.tripShareDatesHidden"))} · ${t("social.tripShareDaysCount", { count: trip.dayCount ?? 0 })}`}
         />
         <StatPill
           icon={MapPin}
-          label="Điểm đến"
-          value={titleCase(trip.destinationName)}
+          label={t("social.tripShareDestinationLabel")}
+          value={destination}
         />
         <StatPill
           icon={Route}
-          label="Điểm nổi bật"
-          value={`${trip.itineraryItemCount ?? 0} địa điểm & hoạt động`}
+          label={t("social.tripShareHighlightsTitle")}
+          value={t("social.tripSharePlacesActivities", { count: trip.itineraryItemCount ?? 0 })}
         />
       </div>
 
       <div className="px-5 pb-5">
         <p className="text-xs font-bold uppercase text-muted-foreground">
-          Điểm nhấn hành trình
+          {t("social.tripShareHighlightsTitle")}
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {highlights.length > 0 ? (
@@ -136,19 +130,18 @@ export function SharedTripArtifactCard({
             ))
           ) : (
             <span className="text-sm text-muted-foreground">
-              Chưa có điểm nhấn được chia sẻ.
+              {t("social.tripShareNoHighlights")}
             </span>
           )}
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            Nội dung được hiển thị từ bản sao công khai, không đọc trực tiếp
-            lịch trình riêng tư.
+            {t("social.tripSharePublicSnapshotNotice")}
           </p>
           <Button asChild className="rounded-full">
             <Link href={href ?? "/community"}>
-              Xem hành trình
+              {t("social.tripShareViewItinerary")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

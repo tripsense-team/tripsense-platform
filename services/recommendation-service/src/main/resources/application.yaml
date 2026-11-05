@@ -62,6 +62,10 @@ tripsense:
       rrf-k: ${RECOMMENDATION_RRF_K:60}
       candidate-multiplier: ${RECOMMENDATION_CANDIDATE_MULTIPLIER:3}
       maximum-place-age: ${RECOMMENDATION_MAXIMUM_PLACE_AGE:30d}
+      # Enable only after the Place media coverage threshold is satisfied.
+      media-ready-only: ${RECOMMENDATION_MEDIA_READY_ONLY:false}
+      media-minimum-ready-candidates: ${RECOMMENDATION_MEDIA_MINIMUM_READY_CANDIDATES:20}
+      media-minimum-coverage: ${RECOMMENDATION_MEDIA_MINIMUM_COVERAGE:0.95}
     features:
       distance-tau-km: ${RECOMMENDATION_DISTANCE_TAU_KM:5.0}
       prior-rating: ${RECOMMENDATION_PRIOR_RATING:4.0}

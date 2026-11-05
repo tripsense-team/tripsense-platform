@@ -109,4 +109,37 @@ describe("RealSocialPostApi", () => {
       "MockSocialPostRepository",
     );
   });
+
+  it("uses idempotent save and unsave endpoints", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ success: true, data: null }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new RealSocialPostApi();
+
+    await api.savePost("post-1");
+    await api.unsavePost("post-1");
+
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/social/posts/post-1/save");
+    expect(fetchMock.mock.calls[0][1].method).toBe("PUT");
+    expect(fetchMock.mock.calls[1][1].method).toBe("DELETE");
+  });
+
+  it("does not substitute mock discovery data after an API failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: "Unavailable" }), {
+          status: 503,
+        }),
+      ),
+    );
+
+    await expect(new RealSocialPostApi().getSuggestedCreators()).rejects.toMatchObject({
+      name: "ApiError",
+      status: 503,
+    });
+  });
 });

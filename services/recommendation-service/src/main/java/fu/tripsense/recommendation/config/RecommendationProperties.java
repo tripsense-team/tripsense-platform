@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Duration;
 import java.util.EnumMap;
@@ -98,6 +99,15 @@ public class RecommendationProperties {
 
     private Duration maximumPlaceAge = Duration.ofDays(30);
     private Duration parallelTimeout = Duration.ofSeconds(3);
+    private boolean mediaReadyOnly = false;
+
+    @Min(1)
+    @Max(50)
+    private int mediaMinimumReadyCandidates = 20;
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    private double mediaMinimumCoverage = 0.95;
   }
 
   @Data
