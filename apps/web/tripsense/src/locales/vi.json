@@ -274,6 +274,7 @@
       "kinds": {
         "HOTEL": "Khách sạn & Khu nghỉ dưỡng",
         "RESTAURANT": "Nhà hàng & Ẩm thực",
+        "RENTAL_SERVICE": "Thuê xe & Dịch vụ trải nghiệm",
         "TOUR_GUIDE": "Hướng dẫn viên du lịch",
         "UNKNOWN": "Cơ sở đối tác"
       },

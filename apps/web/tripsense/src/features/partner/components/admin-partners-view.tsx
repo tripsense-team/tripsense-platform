@@ -13,6 +13,7 @@ import {
   Building2,
   Utensils,
   Compass,
+  Car,
   Mail,
   Phone,
   MapPin,
@@ -64,17 +65,18 @@ function getBusinessName(app: ApplicationDetailDto): string {
   );
 }
 
-function getBusinessKind(app: ApplicationDetailDto): "HOTEL" | "RESTAURANT" | "TOUR_GUIDE" | "UNKNOWN" {
-  if (app.businessKind === "HOTEL" || app.businessKind === "RESTAURANT" || app.businessKind === "TOUR_GUIDE") {
+function getBusinessKind(app: ApplicationDetailDto): "HOTEL" | "RESTAURANT" | "TOUR_GUIDE" | "RENTAL_SERVICE" | "UNKNOWN" {
+  if (app.businessKind === "HOTEL" || app.businessKind === "RESTAURANT" || app.businessKind === "TOUR_GUIDE" || app.businessKind === "RENTAL_SERVICE") {
     return app.businessKind;
   }
   const snapshot = app.profileSnapshot as Record<string, unknown> | undefined;
   const snapKind = snapshot?.kind as string | undefined;
-  if (snapKind === "HOTEL" || snapKind === "RESTAURANT" || snapKind === "TOUR_GUIDE") {
+  if (snapKind === "HOTEL" || snapKind === "RESTAURANT" || snapKind === "TOUR_GUIDE" || snapKind === "RENTAL_SERVICE") {
     return snapKind;
   }
   if (app.requestedCapabilities?.some((c) => c.startsWith("HOTEL"))) return "HOTEL";
   if (app.requestedCapabilities?.some((c) => c.startsWith("RESTAURANT"))) return "RESTAURANT";
+  if (app.requestedCapabilities?.some((c) => c.startsWith("RENTAL"))) return "RENTAL_SERVICE";
   if (app.requestedCapabilities?.some((c) => c.startsWith("GUIDE"))) return "TOUR_GUIDE";
   return "UNKNOWN";
 }
@@ -99,6 +101,18 @@ const CAPABILITY_INFO: Record<string, { label: string; desc: string }> = {
   RESTAURANT_MENU: {
     label: "Thực đơn & Bảng giá",
     desc: "Đăng tải menu, bảng giá tham khảo hoặc ảnh chụp thực đơn",
+  },
+  RENTAL_LISTING: {
+    label: "Hồ sơ Dịch vụ Cho thuê",
+    desc: "Hiển thị cơ sở cho thuê trên bản đồ và danh mục dịch vụ",
+  },
+  RENTAL_INVENTORY: {
+    label: "Quản lý Phương tiện / Đồ thuê",
+    desc: "Cập nhật danh mục xe máy, ô tô, thiết bị và số lượng khả dụng",
+  },
+  RENTAL_BOOKING: {
+    label: "Đặt thuê & Cọc trực tuyến",
+    desc: "Xử lý nhận yêu cầu đặt thuê, xác nhận đơn và thanh toán cọc PayOS",
   },
   GUIDE_LISTING: {
     label: "Hồ sơ Hướng dẫn viên",
@@ -130,6 +144,8 @@ function getKindIcon(kind: string) {
       return Utensils;
     case "TOUR_GUIDE":
       return Compass;
+    case "RENTAL_SERVICE":
+      return Car;
     default:
       return ShieldCheck;
   }
@@ -286,6 +302,8 @@ export function AdminPartnersView() {
           ? "HOTEL_"
           : selectedBizKind === "RESTAURANT"
           ? "RESTAURANT_"
+          : selectedBizKind === "RENTAL_SERVICE"
+          ? "RENTAL_"
           : selectedBizKind === "TOUR_GUIDE"
           ? "GUIDE_"
           : "";
@@ -300,6 +318,8 @@ export function AdminPartnersView() {
           ? ["HOTEL_LISTING", "HOTEL_INVENTORY", "HOTEL_BOOKING"]
           : selectedBizKind === "RESTAURANT"
           ? ["RESTAURANT_LISTING", "RESTAURANT_MENU"]
+          : selectedBizKind === "RENTAL_SERVICE"
+          ? ["RENTAL_LISTING", "RENTAL_INVENTORY", "RENTAL_BOOKING"]
           : ["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"];
 
       // When approving, ensure all operational capabilities for the business kind are granted
@@ -704,7 +724,9 @@ export function AdminPartnersView() {
                         ? "Thực đơn & Bảng giá cơ sở đã tạo"
                         : selectedBizKind === "HOTEL"
                           ? "Hạng phòng & Dịch vụ lưu trú"
-                          : "Nghiệp vụ & Bài quảng bá tour"}
+                          : selectedBizKind === "RENTAL_SERVICE"
+                            ? "Danh mục phương tiện & Thiết bị cho thuê"
+                            : "Nghiệp vụ & Bài quảng bá tour"}
                     </h3>
                     <Button asChild size="sm" variant="outline" className="h-7 text-micro gap-1 self-start sm:self-auto shadow-2xs">
                       <Link
@@ -713,7 +735,9 @@ export function AdminPartnersView() {
                             ? `/restaurants/${selectedApp.businessId}`
                             : selectedBizKind === "HOTEL"
                               ? `/hotels/${selectedApp.businessId}`
-                              : `/guides/${selectedApp.businessId}`
+                              : selectedBizKind === "RENTAL_SERVICE"
+                                ? `/rentals/${selectedApp.businessId}`
+                                : `/guides/${selectedApp.businessId}`
                         }
                         target="_blank"
                       >
@@ -789,6 +813,12 @@ export function AdminPartnersView() {
                   {selectedBizKind === "HOTEL" && (
                     <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
                       <p>Cơ sở lưu trú & khách sạn. Nhấn vào nút <strong>&quot;Xem trang du khách thực tế&quot;</strong> ở trên để đối soát chi tiết danh sách hạng phòng, giá niêm yết và chính sách nhận/trả phòng.</p>
+                    </div>
+                  )}
+
+                  {selectedBizKind === "RENTAL_SERVICE" && (
+                    <div className="space-y-2 text-[11px] text-muted-foreground leading-relaxed">
+                      <p>Thuê xe & Dịch vụ trải nghiệm du lịch. Nhấn vào nút <strong>&quot;Xem trang du khách thực tế&quot;</strong> ở trên để đối soát danh mục phương tiện/thiết bị, giá niêm yết và biểu phí cho thuê.</p>
                     </div>
                   )}
 

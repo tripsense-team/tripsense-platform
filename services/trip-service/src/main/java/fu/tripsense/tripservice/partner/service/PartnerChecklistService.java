@@ -26,7 +26,7 @@ public class PartnerChecklistService {
     String checklistId = application.getChecklistId();
     String checklistVersion = application.getChecklistVersion() != null ? application.getChecklistVersion() : "1.0";
     if (business.getKind() != null) {
-      String expectedPrefix = "CHK-" + (business.getKind() == fu.tripsense.tripservice.partner.enums.BusinessKind.TOUR_GUIDE ? "GUIDE" : business.getKind().name());
+      String expectedPrefix = "CHK-" + (business.getKind() == fu.tripsense.tripservice.partner.enums.BusinessKind.TOUR_GUIDE ? "GUIDE" : business.getKind() == fu.tripsense.tripservice.partner.enums.BusinessKind.RENTAL_SERVICE ? "RENTAL" : business.getKind().name());
       if (checklistId == null || !checklistId.startsWith(expectedPrefix)) {
         checklistId = expectedPrefix + "-V1";
         checklistVersion = "1.0";

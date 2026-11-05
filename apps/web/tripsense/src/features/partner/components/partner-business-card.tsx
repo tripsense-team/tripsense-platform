@@ -155,6 +155,8 @@ export function PartnerBusinessCard({
       ? `/partner/businesses/${business.id}/restaurant-menu`
       : business.kind === "HOTEL"
       ? `/partner/businesses/${business.id}/hotel`
+      : business.kind === "RENTAL_SERVICE"
+      ? `/partner/businesses/${business.id}/rentals`
       : `/partner/businesses/${business.id}/guide-promotions`;
 
   const serviceStepName =
@@ -162,6 +164,8 @@ export function PartnerBusinessCard({
       ? "2. Thực đơn & Bảng giá"
       : business.kind === "HOTEL"
       ? "2. Quản lý phòng & cơ sở"
+      : business.kind === "RENTAL_SERVICE"
+      ? "2. Danh mục xe & đồ cho thuê"
       : "2. Soạn bài quảng bá tour";
 
   const previewLink =
@@ -169,6 +173,8 @@ export function PartnerBusinessCard({
       ? `/restaurants/${business.id}`
       : business.kind === "HOTEL"
       ? `/hotels/${business.id}`
+      : business.kind === "RENTAL_SERVICE"
+      ? `/rentals/${business.id}`
       : `/guides/${business.id}`;
 
   return (
@@ -333,6 +339,13 @@ export function PartnerBusinessCard({
               <span>Khách sạn cần tạo ít nhất 1 loại phòng để kích hoạt mở đón khách và cho phép đặt online.</span>
             </p>
           )}
+
+          {business.kind === "RENTAL_SERVICE" && (
+            <p className="text-micro text-muted-foreground pt-1 flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-teal-500 shrink-0" />
+              <span>Đăng tải thông tin phương tiện hoặc thiết bị cho thuê để du khách có thể đặt trực tuyến.</span>
+            </p>
+          )}
         </div>
 
         {/* Operational Controls if Approved & Owner */}
@@ -420,6 +433,32 @@ export function PartnerBusinessCard({
               >
                 <Calendar className="mr-1.5 h-3.5 w-3.5" /> Đơn đặt thuê
               </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs flex-1 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-medium"
+              >
+                <Link href={`/partner/businesses/${business.id}/subscription`}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Gói Hội Viên
+                </Link>
+              </Button>
+            </>
+          )}
+
+          {business.kind === "RENTAL_SERVICE" && (
+            <>
+              <Button
+                asChild
+                variant="secondary"
+                size="sm"
+                className="h-8 text-xs flex-1"
+              >
+                <Link href={`/partner/businesses/${business.id}/rentals`}>
+                  <Car className="mr-1.5 h-3.5 w-3.5" /> Quản lý cho thuê
+                </Link>
+              </Button>
+
               <Button
                 asChild
                 variant="outline"

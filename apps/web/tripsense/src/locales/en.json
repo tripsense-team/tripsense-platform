@@ -274,6 +274,7 @@
       "kinds": {
         "HOTEL": "Hotel & Resort",
         "RESTAURANT": "Restaurant & Dining",
+        "RENTAL_SERVICE": "Rental & Experience Services",
         "TOUR_GUIDE": "Tour Guide",
         "UNKNOWN": "Partner Business"
       },
