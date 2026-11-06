@@ -23,6 +23,7 @@ import fu.tripsense.socialservice.repository.*;
 import fu.tripsense.socialservice.security.AuthenticatedUser;
 import fu.tripsense.socialservice.security.CurrentUserProvider;
 import fu.tripsense.socialservice.service.SocialPostService;
+import fu.tripsense.socialservice.service.SavedPostCursorCodec;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -57,6 +58,8 @@ public class SocialPostServiceImpl implements SocialPostService {
   private final ObjectMapper objectMapper;
   private final TripShareWriter tripShareWriter;
   private final SocialUserFollowRepository userFollows;
+  private final SocialPostSaveRepository postSaves;
+  private final SavedPostCursorCodec savedPostCursorCodec;
   private final UserPublicProfileClient userPublicProfileClient;
 
   @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -417,6 +420,104 @@ public class SocialPostServiceImpl implements SocialPostService {
         share.getDetailAvailability(),
         viewer != null && viewer.id().equals(post.getAuthorId()),
         viewer != null && viewer.id().equals(post.getAuthorId()) ? share.getSourceTripId() : null);
+  }
+
+  @Override
+  @Transactional
+  public void savePost(UUID postId, AuthenticatedUser user) {
+    requireViewablePost(postId, user);
+    postSaves.insertIfAbsent(user.id(), postId, Instant.now());
+  }
+
+  @Override
+  @Transactional
+  public void unsavePost(UUID postId, AuthenticatedUser user) {
+    postSaves.deleteById(new SocialPostSaveId(user.id(), postId));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public SavedPostPageResponse listSavedTripShares(
+      AuthenticatedUser user, String rawCursor, int size) {
+    if (size < 1 || size > 50) {
+      throw validation("Saved-post page size must be between 1 and 50");
+    }
+    SavedPostCursorCodec.Cursor cursor = savedPostCursorCodec.decode(rawCursor);
+    List<SocialPostSave> saves =
+        postSaves.findAccessibleTripShares(
+            user.id(),
+            cursor.createdAt(),
+            cursor.postId(),
+            PageRequest.of(0, size + 1));
+    boolean hasMore = saves.size() > size;
+    List<SocialPostSave> page = hasMore ? saves.subList(0, size) : saves;
+    Map<UUID, SocialPost> postsById =
+        posts.findAllById(page.stream().map(s -> s.getId().getPostId()).toList()).stream()
+            .collect(Collectors.toMap(SocialPost::getId, Function.identity()));
+    Map<UUID, SocialPostResponse> responses =
+        toPosts(
+                page.stream()
+                    .map(s -> postsById.get(s.getId().getPostId()))
+                    .filter(Objects::nonNull)
+                    .toList(),
+                user)
+            .stream()
+            .collect(Collectors.toMap(SocialPostResponse::id, Function.identity()));
+    List<SavedPostItemResponse> items =
+        page.stream()
+            .map(s -> new SavedPostItemResponse(responses.get(s.getId().getPostId()), s.getCreatedAt()))
+            .filter(item -> item.post() != null)
+            .toList();
+    String nextCursor =
+        hasMore && !page.isEmpty()
+            ? savedPostCursorCodec.encode(
+                page.getLast().getCreatedAt(), page.getLast().getId().getPostId())
+            : null;
+    return new SavedPostPageResponse(items, nextCursor);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public TripShareImportProjectionResponse getImportProjection(
+      UUID postId, AuthenticatedUser viewer) {
+    requireViewablePost(postId, viewer);
+    SocialTripShare share =
+        tripShares
+            .findById(postId)
+            .filter(value -> value.getRemovedAt() == null)
+            .orElseThrow(
+                () -> new SocialException(HttpStatus.NOT_FOUND, "SHARE_NOT_FOUND", "Share not found"));
+    if (!"PUBLIC_SNAPSHOT".equals(share.getDetailAvailability())
+        || share.getCurrentSnapshotVersion() == null) {
+      throw new SocialException(
+          HttpStatus.CONFLICT,
+          "SHARE_REPUBLISH_REQUIRED",
+          "The shared trip must be republished before it can be imported");
+    }
+    SocialTripShareSnapshot stored =
+        tripShareSnapshots
+            .findByPostIdAndSnapshotVersion(postId, share.getCurrentSnapshotVersion())
+            .orElseThrow(
+                () ->
+                    new SocialException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "SHARE_NOT_IMPORTABLE",
+                        "Published trip snapshot is unavailable"));
+    try {
+      PublicTripSnapshotResponse snapshot =
+          objectMapper.readValue(stored.getPayloadJson(), PublicTripSnapshotResponse.class);
+      return new TripShareImportProjectionResponse(
+          snapshot.schemaVersion(),
+          stored.getPayloadSha256(),
+          postId,
+          snapshot.publishedAt(),
+          snapshot);
+    } catch (Exception exception) {
+      throw new SocialException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          "SHARE_NOT_IMPORTABLE",
+          "Published trip snapshot is invalid");
+    }
   }
 
   private void validateConsent(String fingerprint, String consentVersion) {
@@ -896,6 +997,13 @@ public class SocialPostServiceImpl implements SocialPostService {
                     .map(x -> x.getId().getPostId())
                     .collect(Collectors.toSet());
 
+    Set<UUID> saved =
+        (viewer == null)
+            ? Set.of()
+            : postSaves.findByIdUserIdAndIdPostIdIn(viewer.id(), ids).stream()
+                .map(value -> value.getId().getPostId())
+                .collect(Collectors.toSet());
+
     Map<UUID, SocialTripShare> sharesByPostId =
         tripShares.findByPostIdIn(ids).stream()
             .collect(Collectors.toMap(SocialTripShare::getPostId, Function.identity()));
@@ -972,7 +1080,8 @@ public class SocialPostServiceImpl implements SocialPostService {
                   p.getUpdatedAt(),
                   p.getLikeCount(),
                   p.getCommentCount(),
-                  liked.contains(p.getId()));
+                  liked.contains(p.getId()),
+                  saved.contains(p.getId()));
             })
         .toList();
   }

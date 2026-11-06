@@ -27,6 +27,14 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(ex.status()).body(ApiResponse.error(ex.code(), ex.getMessage()));
   }
 
+  @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+  public ResponseEntity<ApiResponse<Void>> handlePlaceStoreUnavailable(
+      org.springframework.dao.DataAccessException ex) {
+    log.warn("Place store unavailable: errorType={}", ex.getClass().getSimpleName());
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .body(ApiResponse.error("PLACE_STORE_UNAVAILABLE", "Place storage is temporarily unavailable"));
+  }
+
   @ExceptionHandler(MissingServletRequestParameterException.class)
   public ResponseEntity<ApiResponse<Void>> handleMissingParams(
       MissingServletRequestParameterException ex) {

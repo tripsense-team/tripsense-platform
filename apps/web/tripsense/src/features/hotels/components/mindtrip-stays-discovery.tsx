@@ -19,7 +19,7 @@ import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import type { MindtripHotel } from "../types";
-import { searchRealHotels } from "../services/hotel-service-adapter";
+import { normalizeHotelString, searchRealHotels } from "../services/hotel-service-adapter";
 import { MindtripHotelCard } from "./mindtrip-hotel-card";
 import { MindtripHotelDetailOverlay } from "./mindtrip-hotel-detail-overlay";
 
@@ -80,6 +80,7 @@ export function MindtripStaysDiscovery({
     };
   });
   const [searchError, setSearchError] = React.useState("");
+  const [loadedQuery, setLoadedQuery] = React.useState("");
   const generation = React.useRef(0);
 
   // Sync initial theme
@@ -103,41 +104,42 @@ export function MindtripStaysDiscovery({
   };
 
   // Load real hotels for the selected destination
-  const loadHotels = React.useCallback(async (dest: string) => {
+  const loadHotels = React.useCallback(async (dest: string, query: string) => {
     const current = ++generation.current;
     setIsLoading(true); setSearchError(""); setSelectedHotel(null);
-    if(!criteria.checkIn || !criteria.checkOut) { setHotels([]); setIsLoading(false); return; }
+    if(!criteria.checkIn || !criteria.checkOut) { setHotels([]); setLoadedQuery(query); setIsLoading(false); return; }
     try {
       const searchDest = dest === "Tất cả" ? "all" : dest;
-      const result = await searchRealHotels(searchDest,criteria.checkIn,criteria.checkOut,criteria.guests,criteria.quantity);
+      const result = await searchRealHotels(searchDest,criteria.checkIn,criteria.checkOut,criteria.guests,criteria.quantity,query);
       if(current !== generation.current) return;
       setHotels(result);
+      setLoadedQuery(query);
       if (result.length > 0) {
         setSelectedHotel(result[0]);
       } else {
         setSelectedHotel(null);
       }
     } catch (error) {
-      if(current === generation.current) setSearchError(getSafeErrorMessage(error));
+      if(current === generation.current) { setLoadedQuery(query); setSearchError(getSafeErrorMessage(error)); }
     } finally {
       if(current === generation.current) setIsLoading(false);
     }
   }, [criteria]);
 
   React.useEffect(() => {
-    void loadHotels(selectedDestination);
-  }, [selectedDestination, loadHotels]);
+    const query = searchQuery.trim();
+    const timer = window.setTimeout(() => void loadHotels(selectedDestination, query), query ? 300 : 0);
+    return () => { window.clearTimeout(timer); generation.current += 1; };
+  }, [selectedDestination, loadHotels, searchQuery]);
 
   // Filtered hotels based on search query
   const filteredHotels = React.useMemo(() => {
     if (!searchQuery.trim()) return hotels;
-    const q = searchQuery.toLowerCase().trim();
+    const q = normalizeHotelString(searchQuery);
     return hotels.filter(
       (h) =>
-        h.name.toLowerCase().includes(q) ||
-        (h.district && h.district.toLowerCase().includes(q)) ||
-        (h.city && h.city.toLowerCase().includes(q)) ||
-        (h.address && h.address.toLowerCase().includes(q))
+        [h.name, h.district, h.city, h.address]
+          .some((value) => normalizeHotelString(value || "").includes(q))
     );
   }, [hotels, searchQuery]);
 
@@ -167,7 +169,6 @@ export function MindtripStaysDiscovery({
                     type="button"
                     onClick={() => {
                       setSelectedDestination(dest);
-                      void loadHotels(dest);
                     }}
                     className={cn(
                       "px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer shrink-0",
@@ -243,7 +244,7 @@ export function MindtripStaysDiscovery({
               {/* Search Button */}
               <div className="col-span-2 lg:col-span-2">
                 <Button
-                  onClick={() => void loadHotels(selectedDestination)}
+                  onClick={() => void loadHotels(selectedDestination, searchQuery.trim())}
                   disabled={isLoading || !criteria.checkIn || !criteria.checkOut}
                   className="h-10 w-full text-xs font-bold rounded-xl gap-2 shadow-xs cursor-pointer"
                 >
@@ -318,14 +319,14 @@ export function MindtripStaysDiscovery({
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setSelectedHotel(null); }}
                 placeholder={locale === "vi" ? "Tìm khách sạn, khu vực..." : "Search hotels, districts..."}
                 className="w-full h-11 pl-10 pr-9 rounded-2xl bg-muted/40 border border-border text-sm text-foreground placeholder:text-muted-foreground outline-hidden focus:border-foreground/30 transition-colors"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => { setSearchQuery(""); setSelectedHotel(null); }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
@@ -377,7 +378,7 @@ export function MindtripStaysDiscovery({
                 ? `${filteredHotels.length} chỗ nghỉ tại ${selectedDestination}`
                 : `Showing ${filteredHotels.length} stays in ${selectedDestination}`}
             </span>
-            {isLoading && (
+            {(isLoading || searchQuery.trim() !== loadedQuery) && (
               <span className="flex items-center gap-1.5 text-primary">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 <span>{locale === "vi" ? "Đang tải dữ liệu thực..." : "Loading real stays..."}</span>
@@ -386,7 +387,7 @@ export function MindtripStaysDiscovery({
           </div>
 
           {/* Loading Skeleton */}
-          {isLoading && hotels.length === 0 ? (
+          {isLoading || searchQuery.trim() !== loadedQuery ? (
             <div
               className={cn(
                 "grid gap-x-4 gap-y-7 pb-12 pt-2",
@@ -421,7 +422,7 @@ export function MindtripStaysDiscovery({
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => { setSearchQuery(""); setSelectedHotel(null); }}
                   className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-xs font-semibold"
                 >
                   {locale === "vi" ? "Xóa bộ lọc" : "Clear search"}

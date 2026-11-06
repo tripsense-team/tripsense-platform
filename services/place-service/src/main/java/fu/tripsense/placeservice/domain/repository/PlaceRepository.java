@@ -1,6 +1,7 @@
 package fu.tripsense.placeservice.domain.repository;
 
 import fu.tripsense.placeservice.domain.model.Place;
+import fu.tripsense.placeservice.domain.model.PlaceMediaState;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -42,4 +43,6 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
 
   @Query(value = "{ 'photos': { $regex: 'googleusercontent' } }", count = true)
   long countPlacesWithStaleGooglePhotos();
+
+  long countByMediaState(PlaceMediaState mediaState);
 }

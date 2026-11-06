@@ -12,6 +12,7 @@ import fu.tripsense.placeservice.dto.PlaceReviewDto;
 import fu.tripsense.placeservice.dto.QuietnessEvidenceDto;
 import fu.tripsense.placeservice.observability.RequestDiagnostics;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
+import fu.tripsense.placeservice.service.PlaceMediaProjectionService;
 import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
   private final PlaceRepository repository;
   private org.springframework.data.mongodb.core.MongoTemplate mongo;
   private final TripSensePlaceProperties properties;
+  private PlaceMediaProjectionService mediaProjection;
   private volatile long lastFailureTime = 0;
 
   public PlacePersistenceServiceImpl(
@@ -46,19 +48,33 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
     this.mongo = mongo;
   }
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setMediaProjection(PlaceMediaProjectionService mediaProjection) {
+    this.mediaProjection = mediaProjection;
+  }
+
   private Place saveProviderFields(Place entity) {
     if (mongo == null || entity.getId() == null) return repository.save(entity);
     var document = new org.bson.Document();
     mongo.getConverter().write(entity, document);
     var update = new org.springframework.data.mongodb.core.query.Update();
     document.forEach((key, value) -> {
-      if (!java.util.Set.of("_id", "priceEvidence", "priceEvidenceEditedAt", "priceEvidenceEditedBy").contains(key))
-        update.set(key, value);
+      if (!java.util.Set.of("_id", "priceEvidence", "priceEvidenceEditedAt", "priceEvidenceEditedBy",
+          "managementSource", "lifecycleStatus", "manualOverrideFields", "manualCreatedBy",
+          "lastEditedBy", "lastAdminAction", "lastAdminRequestId", "archivedAt", "archivedBy",
+          "version").contains(key)) update.set(key, value);
     });
-    update.set("updatedAt", Instant.now());
+    update.set("updatedAt", Instant.now()).inc("version", 1L);
+    var versionCriteria = entity.getVersion() == null
+        ? new org.springframework.data.mongodb.core.query.Criteria().orOperator(
+            org.springframework.data.mongodb.core.query.Criteria.where("version").exists(false),
+            org.springframework.data.mongodb.core.query.Criteria.where("version").is(0L))
+        : org.springframework.data.mongodb.core.query.Criteria.where("version").is(entity.getVersion());
     return mongo.findAndModify(
         org.springframework.data.mongodb.core.query.Query.query(
-            org.springframework.data.mongodb.core.query.Criteria.where("_id").is(entity.getId())),
+            new org.springframework.data.mongodb.core.query.Criteria().andOperator(
+                org.springframework.data.mongodb.core.query.Criteria.where("_id").is(entity.getId()),
+                versionCriteria)),
         update, org.springframework.data.mongodb.core.FindAndModifyOptions.options().returnNew(true), Place.class);
   }
 
@@ -104,6 +120,10 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         }
         entity =
             RequestDiagnostics.measure("place_upsert_new_entity", () -> newPlace(dto, provider));
+      } else if (entity.getLifecycleStatus()
+          == fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED) {
+        RequestDiagnostics.mark("place_upsert_result", "ARCHIVED_IGNORED");
+        return null;
       }
       Place selected = entity;
       RequestDiagnostics.run("place_upsert_apply", () -> applyProviderData(selected, dto));
@@ -249,7 +269,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
                 .toList()
             : List.of();
 
-    return PlaceDto.builder()
+    PlaceDto dto = PlaceDto.builder()
         .id(place.getId())
         .provider(place.getProvider())
         .providerPlaceId(place.getProviderPlaceId())
@@ -279,6 +299,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .freshness(freshness(place.getLastFetchedAt()))
         .reviews(reviews)
         .build();
+    return mediaProjection == null ? dto : mediaProjection.decorate(dto, place);
   }
 
   private Place newPlace(PlaceDto dto, String provider) {
@@ -298,19 +319,19 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
   private void applyProviderData(Place entity, PlaceDto dto) {
     String primaryType =
         fu.tripsense.placeservice.dto.DiscoveryCategory.normalizePrimaryType(dto.getPrimaryType());
-    if (primaryType != null) entity.setPrimaryType(primaryType);
-    if (StringUtils.hasText(dto.getName())) {
+    if (primaryType != null && providerMayWrite(entity, "primaryType")) entity.setPrimaryType(primaryType);
+    if (StringUtils.hasText(dto.getName()) && providerMayWrite(entity, "name")) {
       entity.setName(dto.getName());
       entity.setNormalizedName(normalize(dto.getName()));
     }
-    if (dto.getLocation() != null) {
+    if (dto.getLocation() != null && providerMayWrite(entity, "location")) {
       entity.setLocation(new GeoJsonPoint(dto.getLocation().getLng(), dto.getLocation().getLat()));
     }
-    if (StringUtils.hasText(dto.getAddress())) entity.setAddress(dto.getAddress());
-    if (StringUtils.hasText(dto.getOldAddress())) entity.setOldAddress(dto.getOldAddress());
-    if (StringUtils.hasText(dto.getCity())) entity.setCity(dto.getCity());
-    if (StringUtils.hasText(dto.getDistrict())) entity.setDistrict(dto.getDistrict());
-    if (dto.getCategories() != null && !dto.getCategories().isEmpty())
+    if (StringUtils.hasText(dto.getAddress()) && providerMayWrite(entity, "address")) entity.setAddress(dto.getAddress());
+    if (StringUtils.hasText(dto.getOldAddress()) && providerMayWrite(entity, "oldAddress")) entity.setOldAddress(dto.getOldAddress());
+    if (StringUtils.hasText(dto.getCity()) && providerMayWrite(entity, "city")) entity.setCity(dto.getCity());
+    if (StringUtils.hasText(dto.getDistrict()) && providerMayWrite(entity, "district")) entity.setDistrict(dto.getDistrict());
+    if (dto.getCategories() != null && !dto.getCategories().isEmpty() && providerMayWrite(entity, "categories"))
       entity.setCategories(new ArrayList<>(dto.getCategories()));
     if (dto.getRating() != null) entity.setRating(dto.getRating());
     if (dto.getUserRatingCount() != null) entity.setUserRatingCount(dto.getUserRatingCount());
@@ -326,18 +347,23 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
     }
     if (dto.getPhotos() != null && !dto.getPhotos().isEmpty())
       entity.setPhotos(new ArrayList<>(dto.getPhotos()));
-    if (StringUtils.hasText(dto.getPhone())) entity.setPhone(dto.getPhone());
-    if (StringUtils.hasText(dto.getWebsite())) entity.setWebsite(dto.getWebsite());
-    if (dto.getSocials() != null && !dto.getSocials().isEmpty())
+    if (StringUtils.hasText(dto.getPhone()) && providerMayWrite(entity, "phone")) entity.setPhone(dto.getPhone());
+    if (StringUtils.hasText(dto.getWebsite()) && providerMayWrite(entity, "website")) entity.setWebsite(dto.getWebsite());
+    if (dto.getSocials() != null && !dto.getSocials().isEmpty() && providerMayWrite(entity, "socials"))
       entity.setSocials(new ArrayList<>(dto.getSocials()));
-    if (StringUtils.hasText(dto.getOpeningHours())) entity.setOpeningHours(dto.getOpeningHours());
-    if (StringUtils.hasText(dto.getBusinessStatus()))
+    if (StringUtils.hasText(dto.getOpeningHours()) && providerMayWrite(entity, "openingHours")) entity.setOpeningHours(dto.getOpeningHours());
+    if (StringUtils.hasText(dto.getBusinessStatus()) && providerMayWrite(entity, "businessStatus"))
       entity.setBusinessStatus(dto.getBusinessStatus());
-    if (StringUtils.hasText(dto.getDescription())) entity.setDescription(dto.getDescription());
+    if (StringUtils.hasText(dto.getDescription()) && providerMayWrite(entity, "description")) entity.setDescription(dto.getDescription());
     if (dto.getReviews() != null && !dto.getReviews().isEmpty()) {
       entity.setReviews(dto.getReviews().stream().map(this::toReviewEntity).toList());
     }
     entity.setLastFetchedAt(Instant.now());
+  }
+
+  private boolean providerMayWrite(Place entity, String field) {
+    return entity.getManualOverrideFields() == null
+        || !entity.getManualOverrideFields().contains(field);
   }
 
   private String normalize(String value) {

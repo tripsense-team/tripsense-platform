@@ -191,15 +191,25 @@ public class PlaceCategoryBatchService {
     Criteria geo =
         Criteria.where("location")
             .withinSphere(new Circle(new Point(r.lng(), r.lat()), r.radiusMeters() / 6371000.0));
+    List<Criteria> predicates =
+        new ArrayList<>(
+            List.of(
+                geo,
+                membership,
+                new Criteria().orOperator(
+                    Criteria.where("lifecycleStatus").is("ACTIVE"),
+                    Criteria.where("lifecycleStatus").exists(false)),
+                Criteria.where("businessStatus")
+                    .nin("CLOSED_PERMANENTLY", "PERMANENTLY_CLOSED")));
+    if (r.mediaReadyOnlyEnabled()) {
+      predicates.add(
+          Criteria.where("mediaState")
+              .is(fu.tripsense.placeservice.domain.model.PlaceMediaState.READY));
+    }
     // Both predicates execute before limit. Existing location_2dsphere index is reused.
     Query query =
         Query.query(
-                new Criteria()
-                    .andOperator(
-                        geo,
-                        membership,
-                        Criteria.where("businessStatus")
-                            .nin("CLOSED_PERMANENTLY", "PERMANENTLY_CLOSED")))
+                new Criteria().andOperator(predicates.toArray(Criteria[]::new)))
             .limit(Math.min(200, r.targetPerCategory() * 4))
             .maxTime(Duration.ofMillis(400));
     query.fields().exclude("reviews").exclude("sourceData");
@@ -211,6 +221,8 @@ public class PlaceCategoryBatchService {
         || p.getId() == null
         || p.getLocation() == null
         || !c.matches(p.getCategories(), p.getName(), p.getPrimaryType())) return false;
+    if (r.mediaReadyOnlyEnabled()
+        && (p.getMedia() == null || !"READY".equals(p.getMedia().state()))) return false;
     if (Set.of("CLOSED_PERMANENTLY", "PERMANENTLY_CLOSED")
         .contains(Objects.toString(p.getBusinessStatus(), ""))) return false;
     double a = Math.toRadians(p.getLocation().getLat() - r.lat()),

@@ -97,7 +97,9 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       if (apiKeyPoolService != null) {
         String keyToRotate = StringUtils.hasText(failedKey) ? failedKey : getEffectiveApiKey();
         ApiKeyStatus failureStatus =
-            isAuthError(ex) ? ApiKeyStatus.INVALID : ApiKeyStatus.EXHAUSTED;
+            isQuotaError(ex)
+                ? ApiKeyStatus.EXHAUSTED
+                : isAuthError(ex) ? ApiKeyStatus.INVALID : ApiKeyStatus.EXHAUSTED;
         java.util.Optional<ApiKeyPoolItem> nextKey =
             apiKeyPoolService.markExhaustedAndRotate(
                 ApiKeyProvider.ZIOMAP, keyToRotate, failureStatus, ex.getMessage());
@@ -959,6 +961,33 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       current = current.getCause();
     }
     return false;
+  }
+
+  private boolean isQuotaError(Throwable throwable) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (current instanceof org.springframework.web.client.RestClientResponseException restEx) {
+        int status = restEx.getStatusCode().value();
+        if (status == 402 || status == 429 || containsQuotaSignal(restEx.getResponseBodyAsString())) {
+          return true;
+        }
+      }
+      if (containsQuotaSignal(current.getMessage())) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  private boolean containsQuotaSignal(String value) {
+    if (value == null) return false;
+    String lower = value.toLowerCase(Locale.ROOT);
+    return lower.contains("quota")
+        || lower.contains("credit")
+        || lower.contains("rate limit")
+        || lower.contains("too many requests")
+        || lower.contains("usage limit");
   }
 
   public String getMaskedApiKey() {

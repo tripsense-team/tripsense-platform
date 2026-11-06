@@ -16,6 +16,7 @@ import type {
   ModerationReport,
   ModerationReportPage,
   UploadSignatureResponse,
+  SavedPostPageResponse,
 } from "../types";
 
 export interface ISocialPostRepository {
@@ -52,6 +53,9 @@ export interface ISocialPostRepository {
     visibility: "PUBLIC" | "UNLISTED" | "PRIVATE",
   ): Promise<SocialPost>;
   getTripShareDetail(postId: string): Promise<TripShareDetailResponse>;
+  savePost(postId: string): Promise<void>;
+  unsavePost(postId: string): Promise<void>;
+  listSavedTripShares(cursor?: string, size?: number): Promise<SavedPostPageResponse>;
   submitPostReport(
     postId: string,
     payload: SubmitCommunityReportRequest,

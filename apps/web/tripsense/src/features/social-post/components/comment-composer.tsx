@@ -34,9 +34,8 @@ export function CommentComposer({
   const { user } = useAuth();
   const { data: userProfile } = useUserProfile(user?.id || "");
   const authorAvatar = userProfile?.avatarUrl || user?.avatar;
-  const displayName = userProfile?.email
-    ? userProfile.email.split("@")[0] || user?.name
-    : user?.name;
+  const displayName =
+    userProfile?.displayName || user?.name || t("common.guestUser");
 
   const [content, setContent] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -50,7 +49,7 @@ export function CommentComposer({
   }, [autoFocus, parentId]);
 
   const userInitials = (() => {
-    if (!displayName) return user?.email?.slice(0, 2).toUpperCase() || "U";
+    if (!displayName) return "U";
     const parts = displayName.trim().split(" ");
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();

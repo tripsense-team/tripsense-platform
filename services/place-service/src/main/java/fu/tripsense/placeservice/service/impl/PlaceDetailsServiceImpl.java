@@ -28,6 +28,7 @@ import org.springframework.util.StringUtils;
 @Slf4j
 @Service
 public class PlaceDetailsServiceImpl implements PlaceDetailsService {
+  private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(5);
 
   private static final Duration REFRESH_AFTER = Duration.ofDays(14);
 
@@ -102,20 +103,14 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
 
                 // Photos are fresh if:
                 // 1) They are permanent Cloudinary URLs (never expire), OR
-                // 2) They were fetched recently within REFRESH_AFTER (14 days)
+                // 2) They are approved provider URLs within valid PHOTO_URL_TTL
                 boolean hasPermanentPhotos =
                     base.getPhotos() != null
                         && !base.getPhotos().isEmpty()
                         && base.getPhotos().stream()
                             .anyMatch(url -> url != null && url.contains("res.cloudinary.com"));
 
-                boolean isPhotosFresh =
-                    hasPermanentPhotos
-                        || (cloudinaryStorageService == null
-                            && base.getFetchedAt() != null
-                            && base.getFetchedAt().isAfter(Instant.now().minus(REFRESH_AFTER)));
-
-                if (isPhotosFresh && base.getPhotos() != null && !base.getPhotos().isEmpty()) {
+                if (hasPermanentPhotos && base.getPhotos() != null && !base.getPhotos().isEmpty()) {
                   List<PlacePhotoDto> existingGallery =
                       base.getPhotos().stream()
                           .filter(StringUtils::hasText)
@@ -141,7 +136,19 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
                   }
                 }
 
-                // Photos are missing or non-permanent -> refresh from provider and ingest into Cloudinary
+                // Provider media URLs are short-lived. Reuse only evidence that is still inside
+                // the bounded photo TTL; never mint a new fetchedAt timestamp for a stored URL.
+                List<PlacePhotoDto> existingGallery = freshPhotoGallery(base, Instant.now());
+                if (!existingGallery.isEmpty()) {
+                  place.setPhotoGallery(existingGallery);
+                  place.setPrimaryPhoto(existingGallery.get(0));
+                  return place;
+                }
+
+                // Do not return expired persisted URLs while a refresh is attempted. If the
+                // provider is unavailable, the truthful result is an empty gallery rather than a
+                // browser-visible broken image.
+                place.setPhotos(new ArrayList<>());
                 place.setPrimaryPhoto(null);
                 place.setPhotoGallery(null);
                 if (StringUtils.hasText(place.getProvider())
@@ -189,6 +196,22 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
 
     finalResult.ifPresent(this::triggerRecommendationIndexing);
     return finalResult;
+  }
+
+  private List<PlacePhotoDto> freshPhotoGallery(PlaceDto place, Instant now) {
+    List<PlacePhotoDto> gallery =
+        place.getPhotoGallery() != null && !place.getPhotoGallery().isEmpty()
+            ? place.getPhotoGallery()
+            : place.getPrimaryPhoto() != null ? List.of(place.getPrimaryPhoto()) : List.of();
+    return gallery.stream()
+        .filter(photo -> photo != null && StringUtils.hasText(photo.url()))
+        .filter(photo -> photo.displayApproved() && photo.fetchedAt() != null)
+        .filter(
+            photo ->
+                !photo.fetchedAt().isAfter(now)
+                    && photo.fetchedAt().isAfter(now.minus(PHOTO_URL_TTL)))
+        .limit(5)
+        .toList();
   }
 
   private void triggerRecommendationIndexing(PlaceDto place) {
@@ -244,6 +267,10 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
                   () ->
                       repository.findByProviderAndProviderPlaceId(provider.getProviderName(), id));
       if (stored.isPresent()) {
+        if (stored.get().getLifecycleStatus()
+            == fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED) {
+          return Optional.empty();
+        }
         return Optional.of(refreshIfNeeded(stored.get(), fallbackLat, fallbackLng));
       }
     } catch (Exception ex) {
@@ -317,7 +344,10 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
     if (!missing.isEmpty()) {
       stored.addAll(repository.findByProviderPlaceIdIn(missing));
     }
-    return stored.stream().map(persistence::toDto).toList();
+    return stored.stream()
+        .filter(place -> place.getLifecycleStatus()
+            != fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED)
+        .map(persistence::toDto).toList();
   }
 
   private PlaceDto refreshIfNeeded(Place place, Double fallbackLat, Double fallbackLng) {

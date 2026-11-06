@@ -7,6 +7,7 @@ import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { TokenPoolCard } from "./token-pool-card";
 import { PlaceStatsCard } from "./place-stats-card";
 import { BatchEnrichmentCard } from "./batch-enrichment-card";
+import { PlaceMediaCoverageCard } from "./place-media-coverage-card";
 import { fetchPlaceStats } from "../services/settings-api";
 import type { PlaceStats } from "../types";
 
@@ -89,6 +90,8 @@ export function SettingsView() {
             loading={loadingStats}
             onRefresh={loadStats}
           />
+
+          <PlaceMediaCoverageCard />
 
           {/* Section 3: Batch Enrichment Runner & Progress Monitor */}
           <BatchEnrichmentCard onJobFinished={loadStats} />

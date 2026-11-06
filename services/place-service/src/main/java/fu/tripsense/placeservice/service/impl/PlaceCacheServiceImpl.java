@@ -32,16 +32,21 @@ public class PlaceCacheServiceImpl implements PlaceCacheService {
 
   @Override
   public void invalidatePriceEvidence(String placeId) {
+    invalidatePlaceCatalog(placeId);
+  }
+
+  @Override
+  public void invalidatePlaceCatalog(String placeId) {
     // Search entries can contain any place. Invalidate only Place-owned namespaces, never FLUSHDB.
     try {
-      for (String prefix : List.of(SEARCH_KEY_PREFIX, DETAILS_KEY_PREFIX, PROVIDER_KEY_PREFIX)) {
+      for (String prefix : List.of(SEARCH_KEY_PREFIX, AUTOCOMPLETE_KEY_PREFIX, DETAILS_KEY_PREFIX, PROVIDER_KEY_PREFIX)) {
         try (var keys = redisTemplate.scan(
             org.springframework.data.redis.core.ScanOptions.scanOptions().match(prefix + "*").count(100).build())) {
           while (keys.hasNext()) redisTemplate.delete(keys.next());
         }
       }
     } catch (RuntimeException unavailable) {
-      log.warn("place_price_cache_invalidation_failed errorType={}", unavailable.getClass().getSimpleName());
+      log.warn("place_catalog_cache_invalidation_failed errorType={}", unavailable.getClass().getSimpleName());
     }
   }
 

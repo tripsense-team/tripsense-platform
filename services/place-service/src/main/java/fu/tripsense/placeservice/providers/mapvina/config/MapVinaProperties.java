@@ -10,6 +10,6 @@ import org.springframework.context.annotation.Configuration;
 public class MapVinaProperties {
 
   private String baseUrl = "https://maps.mapvina.com";
-  private String apiKey = "d3d41d12e3f48ea412e21787195793ff33";
+  private String apiKey = "";
   private int timeoutMs = 8000;
 }

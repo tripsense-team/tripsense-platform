@@ -9,4 +9,6 @@ public interface VectorSearchClient {
   Optional<String> storedContentHash(String placeId);
 
   void upsert(String placeId, List<Double> vector, String modelVersion, String contentHash);
+
+  void delete(String placeId);
 }

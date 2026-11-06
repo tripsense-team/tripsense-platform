@@ -18,7 +18,8 @@ public record SocialPostResponse(
     Instant updatedAt,
     int likeCount,
     int commentCount,
-    boolean isLiked) {
+    boolean isLiked,
+    boolean isSaved) {
 
   public SocialPostResponse(
       UUID id,
@@ -47,7 +48,8 @@ public record SocialPostResponse(
         updatedAt,
         likeCount,
         commentCount,
-        isLiked);
+        isLiked,
+        false);
   }
 
   public SocialPostResponse(
@@ -74,6 +76,7 @@ public record SocialPostResponse(
         updatedAt,
         likeCount,
         commentCount,
-        isLiked);
+        isLiked,
+        false);
   }
 }

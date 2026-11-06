@@ -5,6 +5,9 @@ import fu.tripsense.socialservice.dto.request.CommunityGuidePromotionSyncRequest
 import fu.tripsense.socialservice.dto.response.CommunityGuidePromotionAck;
 import fu.tripsense.socialservice.dto.response.CommunityGuidePromotionStatusItem;
 import fu.tripsense.socialservice.service.CommunityGuideDistributionService;
+import fu.tripsense.socialservice.security.CurrentUserProvider;
+import fu.tripsense.socialservice.security.InternalServiceAuthorizer;
+import fu.tripsense.socialservice.service.SocialPostService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +21,19 @@ import org.springframework.web.bind.annotation.*;
 public class InternalCommunityController {
 
   private final CommunityGuideDistributionService distributionService;
+  private final SocialPostService socialPostService;
+  private final CurrentUserProvider currentUser;
+  private final InternalServiceAuthorizer internalServiceAuthorizer;
+
+  @GetMapping("/trip-shares/{postId}/import-projection")
+  public ResponseEntity<fu.tripsense.socialservice.dto.response.TripShareImportProjectionResponse>
+      getImportProjection(
+          @PathVariable UUID postId,
+          @RequestHeader("X-TripSense-Service-Auth") String serviceKey) {
+    internalServiceAuthorizer.requireAuthorized(serviceKey);
+    return ResponseEntity.ok(
+        socialPostService.getImportProjection(postId, currentUser.requiredUser()));
+  }
 
   @PutMapping("/guide-promotions/{promotionId}")
   public ResponseEntity<CommunityGuidePromotionAck> syncGuidePromotion(

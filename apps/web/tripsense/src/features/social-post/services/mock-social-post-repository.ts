@@ -16,6 +16,7 @@ import type {
   ModerationReport,
   ModerationReportPage,
   UploadSignatureResponse,
+  SavedPostPageResponse,
 } from "../types";
 import type { ISocialPostRepository } from "./social-post-repository";
 
@@ -292,7 +293,7 @@ export class MockSocialPostRepository implements ISocialPostRepository {
       id: `post-${Date.now()}`,
       author: {
         id: currentUser?.id || "guest-user",
-        name: currentUser?.name || currentUser?.email?.split("@")[0] || "Khách",
+        name: currentUser?.name || "Khách",
         avatar: currentUser?.avatar,
         email: currentUser?.email,
       },
@@ -358,6 +359,30 @@ export class MockSocialPostRepository implements ISocialPostRepository {
     };
   }
 
+  async savePost(postId: string): Promise<void> {
+    const post = this.posts.find((item) => item.id === postId);
+    if (!post) throw new Error("Không tìm thấy bài viết.");
+    post.isSaved = true;
+  }
+
+  async unsavePost(postId: string): Promise<void> {
+    const post = this.posts.find((item) => item.id === postId);
+    if (post) post.isSaved = false;
+  }
+
+  async listSavedTripShares(
+    _cursor?: string,
+    _size = 20,
+  ): Promise<SavedPostPageResponse> {
+    return {
+      items: this.posts
+        .filter((post) => post.type === "TRIP_SHARE" && post.isSaved)
+        .slice(0, _size)
+        .map((post) => ({ post, savedAt: post.createdAt })),
+      nextCursor: null,
+    };
+  }
+
   async listComments(postId: string): Promise<PostComment[]> {
     await new Promise((resolve) => setTimeout(resolve, 150));
     return this.comments.filter((c) => c.postId === postId);
@@ -407,7 +432,7 @@ export class MockSocialPostRepository implements ISocialPostRepository {
       parentId: effectiveParentId,
       author: {
         id: currentUser?.id || "guest-user",
-        name: currentUser?.name || currentUser?.email?.split("@")[0] || "Bạn",
+        name: currentUser?.name || "Bạn",
         avatar: currentUser?.avatar,
         email: currentUser?.email,
       },

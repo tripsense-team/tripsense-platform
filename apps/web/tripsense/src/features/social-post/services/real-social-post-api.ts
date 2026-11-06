@@ -18,6 +18,7 @@ import type {
   ModerationReport,
   ModerationReportPage,
   UploadSignatureResponse,
+  SavedPostPageResponse,
 } from "../types";
 import type { ISocialPostRepository } from "./social-post-repository";
 
@@ -136,6 +137,31 @@ export class RealSocialPostApi implements ISocialPostRepository {
     return unwrap(
       apiClient<ApiResponse<TripShareDetailResponse>>(
         `/api/social/trip-shares/${postId}`,
+      ),
+    );
+  }
+
+  async savePost(postId: string): Promise<void> {
+    await apiClient<ApiResponse<void>>(`/api/social/posts/${postId}/save`, {
+      method: "PUT",
+    });
+  }
+
+  async unsavePost(postId: string): Promise<void> {
+    await apiClient<ApiResponse<void>>(`/api/social/posts/${postId}/save`, {
+      method: "DELETE",
+    });
+  }
+
+  async listSavedTripShares(
+    cursor?: string,
+    size = 20,
+  ): Promise<SavedPostPageResponse> {
+    const params = new URLSearchParams({ type: "TRIP_SHARE", size: String(size) });
+    if (cursor) params.set("cursor", cursor);
+    return unwrap(
+      apiClient<ApiResponse<SavedPostPageResponse>>(
+        `/api/social/me/saved-posts?${params.toString()}`,
       ),
     );
   }
@@ -278,19 +304,11 @@ export class RealSocialPostApi implements ISocialPostRepository {
   }
 
   async getSuggestedCreators(): Promise<import("../types").SuggestedCreator[]> {
-    try {
-      return await unwrap(
-        apiClient<ApiResponse<import("../types").SuggestedCreator[]>>(
-          "/api/social/creators/suggested",
-        ),
-      );
-    } catch {
-      // Graceful fallback to default featured creators when backend endpoint is not yet connected
-      const mockRepo = await import("./mock-social-post-repository").then(
-        (m) => new m.MockSocialPostRepository(),
-      );
-      return mockRepo.getSuggestedCreators();
-    }
+    return unwrap(
+      apiClient<ApiResponse<import("../types").SuggestedCreator[]>>(
+        "/api/social/creators/suggested",
+      ),
+    );
   }
 
   async toggleFollowCreator(
@@ -298,54 +316,31 @@ export class RealSocialPostApi implements ISocialPostRepository {
     currentFollowing?: boolean,
   ): Promise<{ following: boolean; followerCount: number }> {
     const nextState = !currentFollowing;
-    try {
-      return await unwrap(
-        apiClient<ApiResponse<{ following: boolean; followerCount: number }>>(
-          `/api/social/users/${creatorId}/follow`,
-          {
-            method: nextState ? "POST" : "DELETE",
-          },
-        ),
-      );
-    } catch {
-      const mockRepo = await import("./mock-social-post-repository").then(
-        (m) => new m.MockSocialPostRepository(),
-      );
-      return mockRepo.toggleFollowCreator(creatorId, currentFollowing);
-    }
+    return unwrap(
+      apiClient<ApiResponse<{ following: boolean; followerCount: number }>>(
+        `/api/social/users/${creatorId}/follow`,
+        { method: nextState ? "POST" : "DELETE" },
+      ),
+    );
   }
 
   async getDestinationWeather(
     cityId = "dalat",
   ): Promise<import("../types").DestinationWeather> {
-    try {
-      return await unwrap(
-        apiClient<ApiResponse<import("../types").DestinationWeather>>(
-          `/api/social/weather?cityId=${cityId}`,
-        ),
-      );
-    } catch {
-      const mockRepo = await import("./mock-social-post-repository").then(
-        (m) => new m.MockSocialPostRepository(),
-      );
-      return mockRepo.getDestinationWeather(cityId);
-    }
+    return unwrap(
+      apiClient<ApiResponse<import("../types").DestinationWeather>>(
+        `/api/social/weather?cityId=${cityId}`,
+      ),
+    );
   }
 
   async getTrendingDestinations(): Promise<
     import("../types").TrendingDestination[]
   > {
-    try {
-      return await unwrap(
-        apiClient<ApiResponse<import("../types").TrendingDestination[]>>(
-          "/api/social/destinations/trending",
-        ),
-      );
-    } catch {
-      const mockRepo = await import("./mock-social-post-repository").then(
-        (m) => new m.MockSocialPostRepository(),
-      );
-      return mockRepo.getTrendingDestinations();
-    }
+    return unwrap(
+      apiClient<ApiResponse<import("../types").TrendingDestination[]>>(
+        "/api/social/destinations/trending",
+      ),
+    );
   }
 }

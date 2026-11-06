@@ -1,16 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Heart, MessageCircle, Share2, Check } from "lucide-react";
+import { Heart, MessageCircle, Share2, Check, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePostLike } from "../hooks/use-post-like";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
+import { socialPostRepository } from "../services";
 
 interface PostActionsBarProps {
   postId: string;
   initialLiked?: boolean;
   initialLikeCount?: number;
+  initialSaved?: boolean;
   commentCount?: number;
   postContent?: string;
   onCommentClick?: () => void;
@@ -22,6 +24,7 @@ export function PostActionsBar({
   postId,
   initialLiked = false,
   initialLikeCount = 0,
+  initialSaved = false,
   commentCount = 0,
   postContent,
   onCommentClick,
@@ -37,6 +40,26 @@ export function PostActionsBar({
   });
 
   const [copied, setCopied] = React.useState(false);
+  const [saved, setSaved] = React.useState(initialSaved);
+  const [savingPost, setSavingPost] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
+  async function toggleSaved() {
+    if (savingPost) return;
+    const next = !saved;
+    setSaved(next);
+    setSavingPost(true);
+    setSaveError(null);
+    try {
+      if (next) await socialPostRepository.savePost(postId);
+      else await socialPostRepository.unsavePost(postId);
+    } catch {
+      setSaved(!next);
+      setSaveError(t("social.tripShareSaveFailed"));
+    } finally {
+      setSavingPost(false);
+    }
+  }
 
   const handleShare = async () => {
     const postUrl =
@@ -113,13 +136,15 @@ export function PostActionsBar({
       )}
 
       {/* Error alert if like toggle failed */}
-      {error && <p className="px-1 pb-2 text-xs text-destructive">{error}</p>}
+      {(error || saveError) && (
+        <p className="px-1 pb-2 text-xs text-destructive">{error || saveError}</p>
+      )}
 
       {/* Divider */}
       <div className="border-t border-border" />
 
       {/* Action buttons: Like, Comment, Share */}
-      <div className="grid grid-cols-3 gap-1 pt-1.5">
+      <div className="grid grid-cols-2 gap-1 pt-1.5 sm:grid-cols-4">
         {/* Like Button */}
         <Button
           type="button"
@@ -142,6 +167,22 @@ export function PostActionsBar({
             )}
           />
           <span>{isLiked ? t("social.liked") : t("social.like")}</span>
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={toggleSaved}
+          disabled={savingPost}
+          aria-pressed={saved}
+          className={cn(
+            "flex h-9 items-center justify-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 sm:text-sm",
+            saved ? "text-primary" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Bookmark className={cn("h-4 w-4", saved && "fill-current")} />
+          <span>{saved ? t("social.saved") : t("social.savePost")}</span>
         </Button>
 
         {/* Comment Button */}

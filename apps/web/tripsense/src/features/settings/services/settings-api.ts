@@ -5,6 +5,9 @@ import type {
   BatchEnrichmentProgress,
   BatchEnrichmentRequest,
   PlaceStats,
+  PlaceMediaBackfillJob,
+  PlaceMediaCoverage,
+  PlaceMediaState,
   ZioMapKeyUpdateResponse,
 } from "../types";
 
@@ -215,4 +218,42 @@ export async function testApiKey(
     method: "POST",
     signal,
   });
+}
+
+export async function fetchPlaceMediaCoverage(
+  state?: PlaceMediaState,
+  signal?: AbortSignal,
+): Promise<PlaceMediaCoverage> {
+  const query = state ? `?state=${encodeURIComponent(state)}` : "";
+  return request<PlaceMediaCoverage>(`/api/places/admin/media/coverage${query}`, {
+    cache: "no-store",
+    signal,
+  });
+}
+
+export async function startPlaceMediaBackfill(
+  dryRun: boolean,
+  signal?: AbortSignal,
+): Promise<PlaceMediaBackfillJob> {
+  return request<PlaceMediaBackfillJob>("/api/places/admin/media/backfill-jobs", {
+    method: "POST",
+    body: JSON.stringify({
+      states: ["PENDING", "DEGRADED", "UNAVAILABLE"],
+      limit: 500,
+      dryRun,
+      maxConcurrency: 3,
+      idempotencyKey: `place-media-${dryRun ? "audit" : "backfill"}-${crypto.randomUUID()}`,
+    }),
+    signal,
+  });
+}
+
+export async function fetchPlaceMediaBackfill(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<PlaceMediaBackfillJob> {
+  return request<PlaceMediaBackfillJob>(
+    `/api/places/admin/media/backfill-jobs/${encodeURIComponent(jobId)}`,
+    { cache: "no-store", signal },
+  );
 }

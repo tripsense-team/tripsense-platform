@@ -32,4 +32,12 @@ public class CurrentUserProvider {
   public String userEmail() {
     return get().email();
   }
+
+  public String bearerToken() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null || !(authentication.getCredentials() instanceof String token)) {
+      throw new UnauthenticatedException();
+    }
+    return token;
+  }
 }

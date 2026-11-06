@@ -27,22 +27,17 @@ export function useCommunityDiscovery() {
     async function loadDiscoveryData() {
       setLoading(true);
       try {
-        const [creatorsData, weatherData, trendingData] = await Promise.all([
+        const [creatorsResult, weatherResult, trendingResult] = await Promise.allSettled([
           socialPostRepository.getSuggestedCreators(),
           socialPostRepository.getDestinationWeather(selectedCity),
           socialPostRepository.getTrendingDestinations(),
         ]);
 
         if (!ignore) {
-          setCreators(creatorsData);
-          setWeather(weatherData);
-          setTrendingDestinations(trendingData);
-        }
-      } catch (err) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn(
-            "[useCommunityDiscovery] Failed to load discovery widgets:",
-            err,
+          setCreators(creatorsResult.status === "fulfilled" ? creatorsResult.value : []);
+          setWeather(weatherResult.status === "fulfilled" ? weatherResult.value : null);
+          setTrendingDestinations(
+            trendingResult.status === "fulfilled" ? trendingResult.value : [],
           );
         }
       } finally {
@@ -68,9 +63,9 @@ export function useCommunityDiscovery() {
       if (reqId === weatherReqIdRef.current) {
         setWeather(data);
       }
-    } catch (err) {
+    } catch {
       if (process.env.NODE_ENV === "development") {
-        console.warn("[useCommunityDiscovery] Failed to update weather:", err);
+        console.warn("[useCommunityDiscovery] Failed to update weather");
       }
     } finally {
       if (reqId === weatherReqIdRef.current) {
@@ -120,7 +115,7 @@ export function useCommunityDiscovery() {
               : c,
           ),
         );
-      } catch (err) {
+      } catch {
         // Rollback on error
         setCreators((prev) =>
           prev.map((c) =>
@@ -134,10 +129,7 @@ export function useCommunityDiscovery() {
           ),
         );
         if (process.env.NODE_ENV === "development") {
-          console.warn(
-            "[useCommunityDiscovery] Follow toggle failed, rolled back:",
-            err,
-          );
+          console.warn("[useCommunityDiscovery] Follow toggle failed and rolled back");
         }
       } finally {
         pendingFollowRef.current.delete(creatorId);

@@ -54,9 +54,36 @@ class PlaceCategoryBatchServiceTest {
             request(List.of(DiscoveryCategory.CAFE), 12), DiscoveryCategory.CAFE);
     assertThat(q.getLimit()).isEqualTo(48);
     assertThat(q.getQueryObject().toString())
-        .contains("location", "categories")
+        .contains("location", "categories", "lifecycleStatus", "ACTIVE")
         .doesNotContain("description", "$text");
     assertThat(q.getMeta().getMaxTimeMsec()).isEqualTo(400L);
+  }
+
+  @Test
+  void mediaReadyGateIsAppliedInsideMongoQueryWhenEnabled() {
+    var gated =
+        new PlaceCategoryBatchRequest(
+            16.0544,
+            108.2022,
+            35000,
+            List.of(DiscoveryCategory.CAFE),
+            12,
+            2592000L,
+            List.of(),
+            false,
+            true);
+
+    assertThat(
+            PlaceCategoryBatchService.query(gated, DiscoveryCategory.CAFE)
+                .getQueryObject()
+                .toString())
+        .contains("mediaState", "READY");
+    assertThat(
+            PlaceCategoryBatchService.query(
+                    request(List.of(DiscoveryCategory.CAFE), 12), DiscoveryCategory.CAFE)
+                .getQueryObject()
+                .toString())
+        .doesNotContain("mediaState");
   }
 
   @Test

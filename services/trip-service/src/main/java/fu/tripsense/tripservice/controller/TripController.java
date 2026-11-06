@@ -7,6 +7,7 @@ import fu.tripsense.tripservice.security.CurrentUserProvider;
 import fu.tripsense.tripservice.service.ItineraryBatchService;
 import fu.tripsense.tripservice.service.TripCollaborationService;
 import fu.tripsense.tripservice.service.TripService;
+import fu.tripsense.tripservice.service.CommunityTripImportService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -25,6 +26,23 @@ public class TripController {
   private final CurrentUserProvider currentUserProvider;
   private final ItineraryBatchService itineraryBatchService;
   private final TripCollaborationService tripCollaborationService;
+  private final CommunityTripImportService communityTripImportService;
+
+  @PostMapping("/imports/community-shares/{postId}")
+  public ResponseEntity<ApiResponse<ImportedTripResponse>> importCommunityShare(
+      @PathVariable UUID postId,
+      @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+      @Valid @RequestBody ImportCommunityTripRequest request) {
+    ImportedTripResponse response =
+        communityTripImportService.importTrip(
+            currentUserProvider.userId(),
+            currentUserProvider.bearerToken(),
+            postId,
+            idempotencyKey,
+            request);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(ApiResponse.success("Community trip imported", response));
+  }
 
   @PostMapping
   public ResponseEntity<ApiResponse<TripResponse>> createTrip(

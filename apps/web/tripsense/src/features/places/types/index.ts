@@ -20,6 +20,22 @@ export interface PlacePhotoEvidence {
   displayApproved: boolean;
 }
 
+export interface PlaceMediaAsset {
+  assetId: string;
+  url: string;
+  width?: number;
+  height?: number;
+  alt: string;
+  attribution: Array<{ label: string; url?: string | null }>;
+}
+
+export interface PlaceMedia {
+  state: "PENDING" | "READY" | "DEGRADED" | "UNAVAILABLE" | "RIGHTS_BLOCKED" | "REVIEW_REQUIRED";
+  primary?: PlaceMediaAsset | null;
+  gallery: PlaceMediaAsset[];
+  fallbackKind?: "LOCATION" | null;
+}
+
 export interface Place {
   priceEvidence?: { amountVnd: number; basis: "PER_PERSON_VISIT" | "PER_PERSON_NIGHT"; sourceUrl: string; observedAt: string };
   dailyBudgetExceeded?: boolean;
@@ -38,6 +54,7 @@ export interface Place {
   photos: string[];
   primaryPhoto?: PlacePhotoEvidence;
   photoGallery?: PlacePhotoEvidence[];
+  media?: PlaceMedia;
   phone?: string;
   website?: string;
   socials?: string[];

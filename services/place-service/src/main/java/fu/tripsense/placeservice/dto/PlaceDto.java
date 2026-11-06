@@ -43,6 +43,9 @@ public class PlaceDto implements Serializable {
   /** Optional, bounded display-only gallery; not stored in Mongo or Redis. */
   private List<PlacePhotoDto> photoGallery;
 
+  /** Durable, rights-approved media projection. */
+  private PlaceMediaDto media;
+
   private String phone;
   private String website;
 

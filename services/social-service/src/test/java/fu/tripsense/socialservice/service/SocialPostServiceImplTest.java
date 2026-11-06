@@ -46,6 +46,8 @@ class SocialPostServiceImplTest {
   private ObjectMapper objectMapper;
   private TripShareWriter tripShareWriter;
   private SocialUserFollowRepository userFollows;
+  private SocialPostSaveRepository postSaves;
+  private SavedPostCursorCodec savedPostCursorCodec;
   private UserPublicProfileClient userPublicProfileClient;
   private SocialPostService service;
   private final AuthenticatedUser user =
@@ -64,6 +66,9 @@ class SocialPostServiceImplTest {
     tripServiceClient = mock(TripServiceClient.class);
     currentUserProvider = mock(CurrentUserProvider.class);
     userFollows = mock(SocialUserFollowRepository.class);
+    postSaves = mock(SocialPostSaveRepository.class);
+    savedPostCursorCodec =
+        new SavedPostCursorCodec("test-secret-that-is-at-least-thirty-two-bytes");
     userPublicProfileClient = mock(UserPublicProfileClient.class);
     objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     tripShareWriter = new TripShareWriter(posts, tripShares, tripShareSnapshots, objectMapper);
@@ -83,6 +88,8 @@ class SocialPostServiceImplTest {
             objectMapper,
             tripShareWriter,
             userFollows,
+            postSaves,
+            savedPostCursorCodec,
             userPublicProfileClient);
     ReflectionTestUtils.setField(service, "cloudName", "tripsense");
     ReflectionTestUtils.setField(service, "folderPrefix", "tripsense/social");
@@ -1101,6 +1108,6 @@ class SocialPostServiceImplTest {
   @Test
   void ensuresSingleConstructorExistsForSpringAutowiring() {
     assertThat(SocialPostServiceImpl.class.getConstructors()).hasSize(1);
-    assertThat(SocialPostServiceImpl.class.getConstructors()[0].getParameterCount()).isEqualTo(14);
+    assertThat(SocialPostServiceImpl.class.getConstructors()[0].getParameterCount()).isEqualTo(16);
   }
 }

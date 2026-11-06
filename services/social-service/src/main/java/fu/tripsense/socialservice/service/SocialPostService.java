@@ -48,4 +48,14 @@ public interface SocialPostService {
   SocialPostResponse updateVisibility(UUID postId, AuthenticatedUser user, String visibility);
 
   TripShareDetailResponse getTripShareDetail(UUID postId, AuthenticatedUser viewer);
+
+  void savePost(UUID postId, AuthenticatedUser user);
+
+  void unsavePost(UUID postId, AuthenticatedUser user);
+
+  SavedPostPageResponse listSavedTripShares(
+      AuthenticatedUser user, String cursor, int size);
+
+  TripShareImportProjectionResponse getImportProjection(
+      UUID postId, AuthenticatedUser viewer);
 }

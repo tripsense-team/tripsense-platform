@@ -369,6 +369,7 @@ export function PostCard({
           postId={post.id}
           initialLiked={post.isLiked}
           initialLikeCount={post.likeCount}
+          initialSaved={post.isSaved}
           commentCount={post.commentCount}
           postContent={cleanContent}
           onCommentClick={handleCommentClick}

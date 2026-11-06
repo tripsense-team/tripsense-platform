@@ -98,13 +98,22 @@ class PlaceDetailsServiceTest {
   }
 
   @Test
-  void usesExistingStoredPhotosWithoutSpendingProviderCredits() {
+  void usesFreshStoredPhotosWithoutSpendingProviderCredits() {
     Place entity = completeEntity(Instant.now());
     entity.setPhotos(List.of("https://lh3.googleusercontent.com/existing-photo"));
     PlaceDto dto = completeDto();
     dto.setProvider("ziomap");
     dto.setProviderPlaceId("provider-1");
     dto.setPhotos(List.of("https://lh3.googleusercontent.com/existing-photo"));
+    PlacePhotoDto freshPhoto =
+        new PlacePhotoDto(
+            "https://lh3.googleusercontent.com/existing-photo",
+            "ziomap",
+            List.of(),
+            Instant.now(),
+            true);
+    dto.setPrimaryPhoto(freshPhoto);
+    dto.setPhotoGallery(List.of(freshPhoto));
     when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
     when(repository.findById("place-1")).thenReturn(Optional.of(entity));
     when(persistence.toDto(entity)).thenReturn(dto);
@@ -116,6 +125,72 @@ class PlaceDetailsServiceTest {
     assertEquals(1, result.getPhotoGallery().size());
     verify(provider, never()).getPhotoGallery(any(), anyInt());
     verify(repository, never()).save(any());
+  }
+
+  @Test
+  void refreshesExpiredStoredPhotoUrlsInsteadOfReturningBrokenMedia() {
+    Place entity = completeEntity(Instant.now().minus(30, ChronoUnit.DAYS));
+    entity.setPhotos(List.of("https://lh3.googleusercontent.com/expired-photo"));
+    PlaceDto dto = completeDto();
+    dto.setProvider("ziomap");
+    dto.setProviderPlaceId("provider-1");
+    dto.setPhotos(List.of("https://lh3.googleusercontent.com/expired-photo"));
+    PlacePhotoDto expiredPhoto =
+        new PlacePhotoDto(
+            "https://lh3.googleusercontent.com/expired-photo",
+            "ziomap",
+            List.of(),
+            Instant.now().minus(30, ChronoUnit.DAYS),
+            true);
+    dto.setPrimaryPhoto(expiredPhoto);
+    dto.setPhotoGallery(List.of(expiredPhoto));
+    PlacePhotoDto refreshedPhoto =
+        new PlacePhotoDto(
+            "https://lh3.googleusercontent.com/refreshed-photo",
+            "ziomap",
+            List.of(),
+            Instant.now(),
+            true);
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+    when(provider.getProviderName()).thenReturn("ziomap");
+    when(provider.getPhotoGallery("provider-1", 5)).thenReturn(List.of(refreshedPhoto));
+
+    PlaceDto result = service.getDetails("place-1", null, null, null, true).orElseThrow();
+
+    assertEquals("https://lh3.googleusercontent.com/refreshed-photo", result.getPrimaryPhoto().url());
+    assertEquals(List.of("https://lh3.googleusercontent.com/refreshed-photo"), result.getPhotos());
+    verify(provider).getPhotoGallery("provider-1", 5);
+  }
+
+  @Test
+  void removesExpiredStoredPhotoUrlsWhenProviderCannotRefreshThem() {
+    Place entity = completeEntity(Instant.now().minus(30, ChronoUnit.DAYS));
+    PlaceDto dto = completeDto();
+    dto.setProvider("ziomap");
+    dto.setProviderPlaceId("provider-1");
+    dto.setPhotos(List.of("https://lh3.googleusercontent.com/expired-photo"));
+    PlacePhotoDto expiredPhoto =
+        new PlacePhotoDto(
+            "https://lh3.googleusercontent.com/expired-photo",
+            "ziomap",
+            List.of(),
+            Instant.now().minus(30, ChronoUnit.DAYS),
+            true);
+    dto.setPrimaryPhoto(expiredPhoto);
+    dto.setPhotoGallery(List.of(expiredPhoto));
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+    when(provider.getProviderName()).thenReturn("ziomap");
+    when(provider.getPhotoGallery("provider-1", 5)).thenReturn(List.of());
+
+    PlaceDto result = service.getDetails("place-1", null, null, null, true).orElseThrow();
+
+    assertEquals(List.of(), result.getPhotos());
+    assertEquals(null, result.getPrimaryPhoto());
+    assertEquals(null, result.getPhotoGallery());
   }
 
   @Test
