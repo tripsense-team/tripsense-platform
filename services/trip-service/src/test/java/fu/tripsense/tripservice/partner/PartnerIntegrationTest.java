@@ -239,12 +239,11 @@ class PartnerIntegrationTest extends RealInfrastructureTest {
           "ACTIVE");
     }
     jdbcTemplate.update(
-        "INSERT INTO hotel_room_type (id, property_id, name, capacity, status) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO hotel_room_type (id, property_id, name, capacity) VALUES (?, ?, ?, ?)",
         UUID.randomUUID(),
         propId,
         "Deluxe Ocean View",
-        2,
-        "ACTIVE");
+        2);
 
     currentVer++;
     String intakePayload = "{\"expectedVersion\": %d, \"acceptingNew\": true}".formatted(currentVer);
