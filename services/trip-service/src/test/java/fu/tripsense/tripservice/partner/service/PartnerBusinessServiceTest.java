@@ -192,9 +192,7 @@ class PartnerBusinessServiceTest {
 
     when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
 
-    when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.HOTEL_INVENTORY))
-        .thenReturn(Optional.of(PartnerBusinessCapability.builder().build()));
-    when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.HOTEL_BOOKING))
+    lenient().when(capabilityRepository.findByIdBusinessIdAndIdCapability(eq(businessId), any(PartnerCapability.class)))
         .thenReturn(Optional.of(PartnerBusinessCapability.builder().build()));
 
     when(db.queryForObject(anyString(), eq(Integer.class), eq(businessId))).thenReturn(0);
@@ -235,9 +233,7 @@ class PartnerBusinessServiceTest {
 
     when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
 
-    when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.HOTEL_INVENTORY))
-        .thenReturn(Optional.of(PartnerBusinessCapability.builder().build()));
-    when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.HOTEL_BOOKING))
+    lenient().when(capabilityRepository.findByIdBusinessIdAndIdCapability(eq(businessId), any(PartnerCapability.class)))
         .thenReturn(Optional.of(PartnerBusinessCapability.builder().build()));
 
     when(db.queryForObject(anyString(), eq(Integer.class), eq(businessId))).thenReturn(2);

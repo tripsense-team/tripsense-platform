@@ -52,10 +52,13 @@ public class RentalService {
     }
     PartnerBusiness biz = requireBusiness(businessId);
     boolean isOwner = biz.getOwnerUserId().equals(user.id());
+    if (isOwner) {
+      return;
+    }
     boolean isMember =
         memberRepo.existsByIdBusinessIdAndIdUserIdAndState(
             businessId, user.id(), MembershipState.ACTIVE);
-    if (!isOwner && !isMember) {
+    if (!isMember) {
       throw new TripServiceException(
           "FORBIDDEN", "You do not have permission to manage this business", HttpStatus.FORBIDDEN);
     }
