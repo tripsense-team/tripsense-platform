@@ -33,7 +33,7 @@ WHERE b.kind = 'HOTEL'
       SELECT 1 FROM hotel_property p WHERE p.business_id = b.id
   );
 
--- Ensure Ibiza Riverfront Hotel has an active partner subscription
+-- Ensure Ibiza Riverfront Hotel has an active partner subscription if business exists
 INSERT INTO partner_subscription (
     id,
     business_id,
@@ -44,9 +44,10 @@ INSERT INTO partner_subscription (
     last_payment_at,
     created_at,
     updated_at
-) VALUES (
+)
+SELECT
     gen_random_uuid(),
-    'aafe96e8-73a7-4f71-b5d2-669b29c08f5b',
+    b.id,
     'HOTEL_PLAN_1_YEAR',
     'ACTIVE',
     NOW(),
@@ -54,7 +55,9 @@ INSERT INTO partner_subscription (
     NOW(),
     NOW(),
     NOW()
-) ON CONFLICT (business_id) DO UPDATE SET
+FROM partner_business b
+WHERE b.id = 'aafe96e8-73a7-4f71-b5d2-669b29c08f5b'
+ON CONFLICT (business_id) DO UPDATE SET
     status = 'ACTIVE',
     valid_to = NOW() + INTERVAL '365 days';
 

@@ -7,6 +7,7 @@ import { MindtripHotelCard } from "../mindtrip-hotel-card";
 import { MindtripBookStayModal } from "../mindtrip-book-stay-modal";
 import { MindtripAvailableRoomsView } from "../mindtrip-available-rooms-view";
 import { MindtripHotelDetailOverlay } from "../mindtrip-hotel-detail-overlay";
+import type { MindtripHotel } from "../../types";
 
 vi.mock("@/features/community-reviews", () => ({
   CommunityReviewsSection: () => <div>Community reviews</div>,
