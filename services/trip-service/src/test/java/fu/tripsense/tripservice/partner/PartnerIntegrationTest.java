@@ -225,10 +225,11 @@ class PartnerIntegrationTest extends RealInfrastructureTest {
       propId = (UUID) existingProps.get(0).get("id");
     } else {
       jdbcTemplate.update(
-          "INSERT INTO hotel_property (id, business_id, owner_id, name, destination, address, time_zone, check_in_time, check_out_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO hotel_property (id, business_id, owner_id, owner_email, name, destination, address, time_zone, check_in_time, check_out_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           propId,
           UUID.fromString(businessId),
           PARTNER_OWNER,
+          "owner@anbangresort.com",
           "An Bang Boutique Resort",
           "Hoi An",
           "123 An Bang Beach",
