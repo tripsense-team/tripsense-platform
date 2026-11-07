@@ -17,6 +17,7 @@ interface ListTripsParams {
   status?: string;
   from?: string;
   to?: string;
+  sort?: string;
   page?: number;
   size?: number;
 }
@@ -35,6 +36,7 @@ export function listTrips(
   if (params.status) searchParams.set("status", params.status);
   if (params.from) searchParams.set("from", params.from);
   if (params.to) searchParams.set("to", params.to);
+  if (params.sort) searchParams.set("sort", params.sort);
 
   return unwrap(
     apiClient<ApiResponse<PageResponse<TripResponse>>>(

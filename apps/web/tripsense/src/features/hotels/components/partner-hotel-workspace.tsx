@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
-import { getBusinessApplications, getPartnerContext } from "@/features/partner/services/partner-api";
+import { getBusinessApplications, getPartnerContext, updateIntakeState } from "@/features/partner/services/partner-api";
 import type { BusinessDetailDto } from "@/features/partner/types";
 import { hotelApi } from "../services/hotels-api";
 import { HotelCommerce } from "./hotel-commerce";
@@ -45,6 +45,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
   const [busy, setBusy] = useState(false);
   const [formVersion, setFormVersion] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
+  const [togglingIntake, setTogglingIntake] = useState(false);
 
   const newPropertyFormId = useId();
 
@@ -150,6 +151,29 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
     }
   };
 
+  const handleToggleIntake = async (targetAcceptingNew: boolean) => {
+    if (!approvedBusiness || togglingIntake) return;
+    setTogglingIntake(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      await updateIntakeState(approvedBusiness.id, {
+        acceptingNew: targetAcceptingNew,
+        expectedVersion: approvedBusiness.version,
+      });
+      setSuccessMessage(
+        targetAcceptingNew
+          ? "Đã mở nhận khách đặt phòng online thành công! Khách sạn hiện đã sẵn sàng đón tiếp du khách."
+          : "Đã tạm dừng nhận khách đặt phòng online."
+      );
+      await loadContext();
+    } catch (err) {
+      setError(getSafeErrorMessage(err, "Không thể thay đổi trạng thái nhận khách"));
+    } finally {
+      setTogglingIntake(false);
+    }
+  };
+
   const handleAddRoom = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedProperty || busy) return;
@@ -166,9 +190,13 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
         allocation: Number(data.get("allocation") || 5),
       });
       form.reset();
-      setSuccessMessage(t("trip.hotels.roomCreatedSuccess", { defaultValue: "Đã tạo loại phòng và mở bán 90 ngày thành công!" }));
       const updatedRooms = await hotelApi<HotelRoom[]>(`/properties/${selectedProperty.id}/rooms`);
       setRooms(updatedRooms);
+      if (!approvedBusiness?.acceptingNew) {
+        setSuccessMessage("Đã tạo hạng phòng và mở bán 90 ngày thành công! Bạn có thể bấm 'Bật mở đón khách ngay' ở thanh trạng thái phía trên để khách hàng bắt đầu đặt phòng.");
+      } else {
+        setSuccessMessage(t("trip.hotels.roomCreatedSuccess", { defaultValue: "Đã tạo loại phòng và mở bán 90 ngày thành công!" }));
+      }
     } catch (err) {
       setError(getSafeErrorMessage(err, t("trip.hotels.failed")));
     } finally {
@@ -267,6 +295,88 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
       {error && (
         <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
           {error}
+        </div>
+      )}
+
+      {/* Top Success Banner */}
+      {successMessage && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span>{successMessage}</span>
+        </div>
+      )}
+
+      {/* Hotel Intake & Online Booking Status Banner */}
+      {approvedBusiness && (
+        <div
+          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl p-4 border transition-all ${
+            rooms.length === 0
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
+              : approvedBusiness.acceptingNew
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200"
+              : "bg-blue-500/10 border-blue-500/30 text-blue-900 dark:text-blue-200"
+          }`}
+        >
+          <div className="flex items-start sm:items-center gap-3">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                rooms.length === 0
+                  ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                  : approvedBusiness.acceptingNew
+                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                  : "bg-blue-500/20 text-blue-700 dark:text-blue-400"
+              }`}
+            >
+              {rooms.length === 0 ? (
+                <Ban className="h-5 w-5" />
+              ) : approvedBusiness.acceptingNew ? (
+                <CheckCircle2 className="h-5 w-5" />
+              ) : (
+                <Clock className="h-5 w-5" />
+              )}
+            </div>
+            <div>
+              <div className="font-semibold text-sm">
+                {rooms.length === 0
+                  ? "Chưa đủ điều kiện mở đón khách: Bắt buộc tạo ít nhất 1 loại phòng"
+                  : approvedBusiness.acceptingNew
+                  ? "Khách sạn đang MỞ ĐÓN KHÁCH và cho phép đặt phòng trực tuyến"
+                  : "Đã có phòng sẵn sàng: Hiện đang tạm dừng nhận khách"}
+              </div>
+              <p className="text-xs opacity-85 mt-0.5">
+                {rooms.length === 0
+                  ? "Quy định nghiệp vụ: Khách sạn bắt buộc phải tạo loại phòng và giá niêm yết trước khi được bật đón khách online."
+                  : approvedBusiness.acceptingNew
+                  ? `Đang có ${rooms.length} hạng phòng mở bán. Khách du lịch có thể xem thông tin và đặt phòng trực tiếp.`
+                  : `Đang có ${rooms.length} hạng phòng. Bật mở đón khách ngay để khách du lịch tìm thấy và đặt phòng trên TripSense.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {rooms.length > 0 && (
+              <Button
+                size="sm"
+                variant={approvedBusiness.acceptingNew ? "outline" : "default"}
+                disabled={togglingIntake || busy}
+                onClick={() => handleToggleIntake(!approvedBusiness.acceptingNew)}
+                className={`text-xs font-semibold ${
+                  approvedBusiness.acceptingNew
+                    ? "border-emerald-600/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs"
+                }`}
+              >
+                {togglingIntake ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : approvedBusiness.acceptingNew ? (
+                  <Ban className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                )}
+                <span>{approvedBusiness.acceptingNew ? "Tạm dừng đón khách" : "🟢 Bật mở đón khách ngay"}</span>
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -728,6 +838,31 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
 
                     {/* Action buttons */}
                     <div className="flex flex-wrap items-center gap-2">
+                      {b.status === "HELD" && (
+                        <Button
+                          size="sm"
+                          disabled={busy}
+                          onClick={() =>
+                            void (async () => {
+                              setBusy(true);
+                              try {
+                                await hotelApi(`/bookings/${b.id}/confirm`, "POST");
+                                const updated = await hotelApi<HotelBooking[]>(`/properties/${selectedProperty!.id}/bookings`);
+                                setBookings(updated);
+                              } catch (e) {
+                                setError(getSafeErrorMessage(e));
+                              } finally {
+                                setBusy(false);
+                              }
+                            })()
+                          }
+                          className="h-8 text-xs font-semibold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>{t("trip.hotels.confirmAction", { defaultValue: "Xác nhận đặt phòng" })}</span>
+                        </Button>
+                      )}
+
                       {isConfirmed && (
                         <Button
                           size="sm"

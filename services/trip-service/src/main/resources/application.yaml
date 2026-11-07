@@ -1,6 +1,12 @@
 server:
   port: ${TRIP_SERVICE_PORT:${SERVER_PORT:8084}}
   shutdown: graceful
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+      force-response: true
+      enabled: true
 
 spring:
   application:
@@ -68,7 +74,7 @@ hotel:
     url: ${HOTEL_MAIL_URL:http://localhost:8082}
     secret: ${HOTEL_MAIL_SECRET:}
   jobs:
-    enabled: ${HOTEL_JOBS_ENABLED:true}
+    enabled: ${HOTEL_JOBS_ENABLED:false}
   demo-payments-enabled: ${HOTEL_DEMO_PAYMENTS_ENABLED:false}
 
 payos:

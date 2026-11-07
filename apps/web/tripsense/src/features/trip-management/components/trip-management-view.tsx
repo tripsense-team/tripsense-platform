@@ -213,7 +213,7 @@ export function TripManagementView({
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      void loadTrips(false);
+      void loadTrips(true);
     }
   }, [isAuthenticated, loadTrips]);
 
@@ -301,9 +301,10 @@ export function TripManagementView({
           ? Number(tripDraft.budgetAmount)
           : null,
       });
+      useTripStore.getState().addTrip(created);
       setCreateOpen(false);
       setTripDraft(newTripDraft());
-      await loadTrips();
+      await loadTrips(true);
       router.push(`/trips/${created.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create trip");

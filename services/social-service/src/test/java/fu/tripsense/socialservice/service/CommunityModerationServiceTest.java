@@ -254,4 +254,25 @@ class CommunityModerationServiceTest {
     verify(audits).save(argThat(audit ->
         "REMOVE_CONTENT".equals(audit.getAction()) && "PLACE_REVIEW".equals(audit.getTargetType())));
   }
+
+  @Test
+  void reportChatMessageCreatesPolymorphicReportWithConversationId() {
+    UUID conversationId = UUID.randomUUID();
+    UUID messageId = UUID.randomUUID();
+    when(reports.saveAndFlush(any(SocialReport.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    var receipt =
+        service.reportChatMessage(
+            conversationId, messageId, reporter, new SubmitReportRequest("SPAM", "Offensive chat"));
+
+    assertThat(receipt.status()).isEqualTo("PENDING");
+    verify(reports)
+        .saveAndFlush(
+            argThat(
+                report ->
+                    "CHAT_MESSAGE".equals(report.getTargetType())
+                        && messageId.equals(report.getTargetId())
+                        && conversationId.equals(report.getConversationId())
+                        && reporter.id().equals(report.getReporterId())));
+  }
 }

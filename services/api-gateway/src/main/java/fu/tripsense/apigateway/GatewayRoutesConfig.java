@@ -331,13 +331,19 @@ class GatewayRoutesConfig {
                         "/api/guide-taxonomy",
                         "/api/partner-listings/**",
                         "/api/public/restaurants/**",
+                        "/api/public/hotels/**",
                         "/api/restaurants/**",
                         "/api/restaurant-reservation-requests/**",
                         "/api/me/restaurant-reservation-requests",
                         "/api/partner-support-cases/**",
+                        "/api/subscription-plans",
+                        "/api/subscription-plans/**",
                         "/api/guide-inquiries/**",
                         "/api/me/guide-inquiries",
-                        "/api/me/guide-blocks/**")
+                        "/api/me/guide-blocks/**",
+                        "/api/rental-items",
+                        "/api/rental-items/**",
+                        "/api/rental-bookings/**")
                     .uri(TRIP_SERVICE_URI))
         .route(
             RECOMMENDATION_SERVICE_ROUTE_ID,

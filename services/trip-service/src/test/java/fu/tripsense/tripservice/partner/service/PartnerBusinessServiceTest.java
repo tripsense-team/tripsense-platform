@@ -33,6 +33,7 @@ class PartnerBusinessServiceTest {
   @Mock private PartnerReviewAuditRepository auditRepository;
   @Mock private PartnerInvitationRepository invitationRepository;
   @Mock private PartnerOutboxService outboxService;
+  @Mock private org.springframework.jdbc.core.JdbcTemplate db;
 
   @InjectMocks private PartnerBusinessService businessService;
 
@@ -164,6 +165,84 @@ class PartnerBusinessServiceTest {
           assertThat(tse.code()).isEqualTo("REVERIFICATION_REQUIRED");
           assertThat(tse.status()).isEqualTo(HttpStatus.CONFLICT);
         });
+  }
+
+  @Test
+  @DisplayName("updateIntake: throws 409 HOTEL_ROOMS_REQUIRED when hotel has zero room types")
+  void updateIntake_hotelWithoutRooms_throwsHotelRoomsRequired409() {
+    PartnerBusiness business =
+        PartnerBusiness.builder()
+            .id(businessId)
+            .ownerUserId(ownerId)
+            .kind(BusinessKind.HOTEL)
+            .approvalValidity(ApprovalValidity.VALID)
+            .operationState(OperationState.ACTIVE)
+            .publicationState(PublicationState.PUBLISHED)
+            .requiresReverification(false)
+            .acceptingNew(false)
+            .version(1L)
+            .build();
+
+    when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, ownerId))
+        .thenReturn(Optional.of(PartnerBusinessMember.builder()
+            .id(new PartnerBusinessMemberId(businessId, ownerId))
+            .role(MembershipRole.OWNER)
+            .state(MembershipState.ACTIVE)
+            .build()));
+
+    when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
+
+    lenient().when(capabilityRepository.findByIdBusinessIdAndIdCapability(eq(businessId), any(PartnerCapability.class)))
+        .thenReturn(Optional.of(PartnerBusinessCapability.builder().build()));
+
+    when(db.queryForObject(anyString(), eq(Integer.class), eq(businessId))).thenReturn(0);
+
+    IntakeRequest req = new IntakeRequest(1L, true);
+
+    assertThatThrownBy(() -> businessService.updateIntake(ownerUser, businessId, req))
+        .isInstanceOf(TripServiceException.class)
+        .satisfies(e -> {
+          TripServiceException tse = (TripServiceException) e;
+          assertThat(tse.code()).isEqualTo("HOTEL_ROOMS_REQUIRED");
+          assertThat(tse.status()).isEqualTo(HttpStatus.CONFLICT);
+        });
+  }
+
+  @Test
+  @DisplayName("updateIntake: succeeds when hotel has at least one room type")
+  void updateIntake_hotelWithRooms_success() {
+    PartnerBusiness business =
+        PartnerBusiness.builder()
+            .id(businessId)
+            .ownerUserId(ownerId)
+            .kind(BusinessKind.HOTEL)
+            .approvalValidity(ApprovalValidity.VALID)
+            .operationState(OperationState.ACTIVE)
+            .publicationState(PublicationState.PUBLISHED)
+            .requiresReverification(false)
+            .acceptingNew(false)
+            .version(1L)
+            .build();
+
+    when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, ownerId))
+        .thenReturn(Optional.of(PartnerBusinessMember.builder()
+            .id(new PartnerBusinessMemberId(businessId, ownerId))
+            .role(MembershipRole.OWNER)
+            .state(MembershipState.ACTIVE)
+            .build()));
+
+    when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
+
+    lenient().when(capabilityRepository.findByIdBusinessIdAndIdCapability(eq(businessId), any(PartnerCapability.class)))
+        .thenReturn(Optional.of(PartnerBusinessCapability.builder().build()));
+
+    when(db.queryForObject(anyString(), eq(Integer.class), eq(businessId))).thenReturn(2);
+    when(businessRepository.save(any(PartnerBusiness.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    IntakeRequest req = new IntakeRequest(1L, true);
+
+    BusinessDetailDto result = businessService.updateIntake(ownerUser, businessId, req);
+    assertThat(result.acceptingNew()).isTrue();
   }
 
   @Test

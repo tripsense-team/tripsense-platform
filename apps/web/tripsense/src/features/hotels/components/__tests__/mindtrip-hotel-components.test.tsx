@@ -7,6 +7,7 @@ import { MindtripHotelCard } from "../mindtrip-hotel-card";
 import { MindtripBookStayModal } from "../mindtrip-book-stay-modal";
 import { MindtripAvailableRoomsView } from "../mindtrip-available-rooms-view";
 import { MindtripHotelDetailOverlay } from "../mindtrip-hotel-detail-overlay";
+import type { MindtripHotel } from "../../types";
 
 vi.mock("@/features/community-reviews", () => ({
   CommunityReviewsSection: () => <div>Community reviews</div>,
@@ -148,5 +149,39 @@ describe("Mindtrip Hotel Components", () => {
 
     // Conversational AI bar removed per UX design
     expect(html).not.toContain("Ask TripSense...");
+  });
+
+  it("renders verified partner badge and in-chat booking when hotel is an official partner", () => {
+    const partnerHotel: MindtripHotel = {
+      ...testHotel,
+      name: "Ibiza Riverfront Hotel",
+      ownerUserId: "owner-user-123",
+      businessId: "biz-hotel-123",
+      pricePerNight: undefined,
+      hasDirectBooking: false,
+    };
+
+    const html = renderToStaticMarkup(
+      <I18nProvider initialLocale="vi">
+        <MindtripHotelDetailOverlay
+          hotel={partnerHotel}
+          hotelPartner={{
+            id: "biz-hotel-123",
+            ownerUserId: "owner-user-123",
+            displayName: "Ibiza Riverfront Hotel",
+            verifiedPartner: true,
+            acceptingNew: true,
+            hasDirectInventory: false,
+          }}
+          onClose={() => {}}
+        />
+      </I18nProvider>
+    );
+
+    expect(html).toContain("Đối tác chính thức");
+    expect(html).toContain("Đang mở đón khách");
+    expect(html).toContain("Đặt phòng qua Chat &amp; Lễ tân");
+    expect(html).toContain("Nhắn tin &amp; Đặt phòng qua Chat");
+    expect(html).toContain("userId=owner-user-123");
   });
 });

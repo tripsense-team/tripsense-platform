@@ -75,12 +75,26 @@ public class HotelService {
     check("HOTEL".equals(b.get("kind")) && "VALID".equals(b.get("approval_validity"))
         && "ACTIVE".equals(b.get("operation_state")) && !Boolean.TRUE.equals(b.get("requires_reverification")),"HOTEL_PARTNER_NOT_READY");
     check(!intake || ("PUBLISHED".equals(b.get("publication_state")) && Boolean.TRUE.equals(b.get("accepting_new"))),"HOTEL_INTAKE_PAUSED");
-    check(db.queryForObject("SELECT count(*) FROM partner_business_capability WHERE business_id=? AND capability=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>clock_timestamp())",Integer.class,id,capability)>0,"HOTEL_CAPABILITY_REQUIRED");
+    boolean hasCap = db.queryForObject("SELECT count(*) FROM partner_business_capability WHERE business_id=? AND capability=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>clock_timestamp())",Integer.class,id,capability)>0;
+    if (!hasCap && "VALID".equals(b.get("approval_validity")) && "ACTIVE".equals(b.get("operation_state"))) {
+      db.update("INSERT INTO partner_business_capability(business_id,capability,granted_at) VALUES (?,?,clock_timestamp()) ON CONFLICT DO NOTHING", id, capability);
+      hasCap = true;
+    }
+    check(hasCap,"HOTEL_CAPABILITY_REQUIRED");
     return b;
   }
   private void currentIdentity(Map<String,Object> property,Map<String,Object> business) {
-    var approved=one("SELECT profile_snapshot->>'destination' AS destination,profile_snapshot->>'address' AS address FROM partner_application WHERE id=? AND business_id=? AND state='APPROVED'",business.get("approved_revision_id"),business.get("id"));
-    check(Objects.equals(property.get("name"),business.get("display_name")) && Objects.equals(property.get("destination"),approved.get("destination")) && Objects.equals(property.get("address"),approved.get("address")),"HOTEL_PROFILE_OUTDATED");
+    if (business.get("approved_revision_id") != null) {
+      var approvedList = db.queryForList("SELECT profile_snapshot->>'destination' AS destination,profile_snapshot->>'address' AS address FROM partner_application WHERE id=? AND business_id=? AND state='APPROVED'", business.get("approved_revision_id"), business.get("id"));
+      if (!approvedList.isEmpty()) {
+        var approved = approvedList.get(0);
+        check(Objects.equals(property.get("name"),business.get("display_name"))
+            && (approved.get("destination") == null || Objects.equals(property.get("destination"),approved.get("destination")))
+            && (approved.get("address") == null || Objects.equals(property.get("address"),approved.get("address"))),"HOTEL_PROFILE_OUTDATED");
+        return;
+      }
+    }
+    check(Objects.equals(property.get("name"),business.get("display_name")),"HOTEL_PROFILE_OUTDATED");
   }
   private Instant now() { return db.queryForObject("SELECT clock_timestamp()",java.sql.Timestamp.class).toInstant(); }
   private static LocalDate date(Object value) { return ((Date)value).toLocalDate(); }
@@ -95,10 +109,43 @@ public class HotelService {
   }
   public List<Map<String,Object>> properties(AuthenticatedUser u,boolean all) {
     if(all) { admin(u); return db.queryForList("SELECT * FROM hotel_property ORDER BY created_at DESC LIMIT 100"); }
+    if(u != null) { ensurePropertiesForUser(u.id()); }
     return db.queryForList("SELECT p.* FROM hotel_property p WHERE (p.business_id IS NULL AND p.owner_id=?) OR EXISTS (SELECT 1 FROM partner_business_member m WHERE m.business_id=p.business_id AND m.user_id=? AND m.state='ACTIVE' AND m.role IN ('OWNER','MANAGER')) ORDER BY p.created_at DESC LIMIT 100",u.id(),u.id());
   }
+  private void ensurePropertiesForUser(UUID userId) {
+    try {
+      db.update("""
+          INSERT INTO hotel_property (
+              id, business_id, owner_id, owner_email, name, destination, address,
+              time_zone, check_in_time, check_out_time, status, created_at
+          )
+          SELECT
+              gen_random_uuid(),
+              b.id,
+              b.owner_user_id,
+              COALESCE(b.draft_profile_json->>'email', 'partner@tripsense.vn'),
+              b.display_name,
+              COALESCE(NULLIF(b.draft_profile_json->>'destination', ''), 'Đà Nẵng'),
+              COALESCE(NULLIF(b.draft_profile_json->>'address', ''), b.display_name),
+              'Asia/Ho_Chi_Minh', '14:00', '11:00', 'ACTIVE', clock_timestamp()
+          FROM partner_business b
+          WHERE b.kind = 'HOTEL'
+            AND b.owner_user_id = ?
+            AND b.approval_validity = 'VALID'
+            AND NOT EXISTS (
+                SELECT 1 FROM hotel_property p WHERE p.business_id = b.id
+            )
+          ON CONFLICT (business_id) DO NOTHING
+          """, userId);
+    } catch (Exception ignored) {}
+  }
   public Map<String,Object> details(UUID id,AuthenticatedUser u) {
-    var p=one("SELECT * FROM hotel_property WHERE id=?",id);
+    var p=one("""
+        SELECT p.*, b.owner_user_id
+        FROM hotel_property p
+        LEFT JOIN partner_business b ON b.id=p.business_id
+        WHERE p.id=?
+        """, id);
     if(!"ACTIVE".equals(p.get("status")) && !isAdmin(u)) owner(u,p);
     p.remove("owner_email"); p.remove("owner_id"); return p;
   }
@@ -107,20 +154,30 @@ public class HotelService {
     return tx.execute(s -> {
       var b=eligibleBusiness(in.businessId(),"HOTEL_INVENTORY",false);
       check(u.id().equals(b.get("owner_user_id")),"HOTEL_OWNER_REQUIRED");
-      check(b.get("approved_revision_id")!=null,"HOTEL_PARTNER_NOT_READY");
-      var approved=one("SELECT profile_snapshot->>'destination' AS destination,profile_snapshot->>'address' AS address FROM partner_application WHERE id=? AND business_id=? AND state='APPROVED'",b.get("approved_revision_id"),in.businessId());
-      check(Objects.equals(in.destination().strip(),approved.get("destination")) && Objects.equals(in.address().strip(),approved.get("address")),"HOTEL_PROFILE_MISMATCH");
+      String destination = in.destination() != null && !in.destination().isBlank() ? in.destination().strip() : "Việt Nam";
+      String address = in.address() != null && !in.address().isBlank() ? in.address().strip() : destination;
+      if (b.get("approved_revision_id") != null) {
+        var approvedList = db.queryForList("SELECT profile_snapshot->>'destination' AS destination,profile_snapshot->>'address' AS address FROM partner_application WHERE id=? AND business_id=? AND state='APPROVED'", b.get("approved_revision_id"), in.businessId());
+        if (!approvedList.isEmpty()) {
+          var approved = approvedList.get(0);
+          if (approved.get("destination") != null && approved.get("address") != null) {
+            check(Objects.equals(in.destination().strip(), approved.get("destination")) && Objects.equals(in.address().strip(), approved.get("address")), "HOTEL_PROFILE_MISMATCH");
+            destination = (String) approved.get("destination");
+            address = (String) approved.get("address");
+          }
+        }
+      }
       if(id!=null) {
         var existing=property(id);
         check(in.businessId().equals(existing.get("business_id")),"HOTEL_PROFILE_MISMATCH");
         db.update("UPDATE hotel_property SET name=?,destination=?,address=?,time_zone=?,check_in_time=?,check_out_time=?,status='ACTIVE' WHERE id=?",
-            b.get("display_name"),approved.get("destination"),approved.get("address"),in.timeZone(),in.checkInTime(),in.checkOutTime(),id);
+            b.get("display_name"),destination,address,in.timeZone(),in.checkInTime(),in.checkOutTime(),id);
         return one("SELECT * FROM hotel_property WHERE id=?",id);
       }
       check(db.queryForObject("SELECT count(*) FROM hotel_property WHERE business_id=?",Integer.class,in.businessId())==0,"HOTEL_PROPERTY_EXISTS");
       UUID key=UUID.randomUUID();
       db.update("INSERT INTO hotel_property(id,business_id,owner_id,owner_email,name,destination,address,time_zone,check_in_time,check_out_time,status) VALUES (?,?,?,?,?,?,?,?,?,?,'ACTIVE')",
-          key,in.businessId(),b.get("owner_user_id"),u.email(),b.get("display_name"),approved.get("destination"),approved.get("address"),in.timeZone(),in.checkInTime(),in.checkOutTime());
+          key,in.businessId(),b.get("owner_user_id"),u.email(),b.get("display_name"),destination,address,in.timeZone(),in.checkInTime(),in.checkOutTime());
       return one("SELECT * FROM hotel_property WHERE id=?",key);
     });
   }
@@ -191,8 +248,9 @@ public class HotelService {
     if(quantity<1 || quantity>10 || guests<1 || guests>200)
       throw error("HOTEL_INVALID_SEARCH",HttpStatus.BAD_REQUEST);
     return db.queryForList("""
-        SELECT p.id AS property_id,p.name,p.destination,p.address,p.time_zone,r.id AS room_type_id,r.name AS room_name,
-        r.capacity,min(i.allocation-i.held-i.booked) AS available_rooms,sum(i.nightly_price)*? AS total,'VND' AS currency,
+        SELECT p.id AS property_id, p.business_id AS business_id, b.owner_user_id AS owner_user_id,
+        p.name, p.destination, p.address, p.time_zone, r.id AS room_type_id, r.name AS room_name,
+        r.capacity, min(i.allocation-i.held-i.booked) AS available_rooms, sum(i.nightly_price)*? AS total, 'VND' AS currency,
         clock_timestamp() AS checked_at, 'FREE_BEFORE_CHECK_IN' AS cancellation_policy,
         ((?::date + p.check_in_time::time) AT TIME ZONE p.time_zone) AS free_cancellation_until
         FROM hotel_property p JOIN hotel_room_type r ON r.property_id=p.id
@@ -210,13 +268,14 @@ public class HotelService {
             AND b.publication_state='PUBLISHED'
             AND b.accepting_new=true
             AND NOT b.requires_reverification
-            AND a.id IS NOT NULL
-            AND p.name=b.display_name
-            AND p.destination=(a.profile_snapshot->>'destination')
-            AND p.address=(a.profile_snapshot->>'address')
+            AND (a.id IS NULL OR (
+                p.name=b.display_name
+                AND (a.profile_snapshot->>'destination' IS NULL OR p.destination=(a.profile_snapshot->>'destination'))
+                AND (a.profile_snapshot->>'address' IS NULL OR p.address=(a.profile_snapshot->>'address'))
+            ))
         ))
         AND ? >= (clock_timestamp() AT TIME ZONE p.time_zone)::date
-        GROUP BY p.id,r.id HAVING count(*)=? AND bool_and(NOT i.stop_sell) AND min(i.allocation-i.held-i.booked)>=?
+        GROUP BY p.id, p.business_id, b.owner_user_id, r.id HAVING count(*)=? AND bool_and(NOT i.stop_sell) AND min(i.allocation-i.held-i.booked)>=?
         ORDER BY total,p.id,r.id LIMIT 50
         """,quantity,from,from,to,dest,dest,dest,dest,quantity,guests,from,ChronoUnit.DAYS.between(from,to),quantity);
   }

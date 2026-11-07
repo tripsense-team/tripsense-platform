@@ -113,6 +113,32 @@ public class PartnerAdminService {
         }
       }
 
+      // If no explicit capability decisions were passed, grant all requested and default capabilities for the business kind
+      if (grantedCaps.isEmpty()) {
+        if (application.getRequestedCapabilities() != null && !application.getRequestedCapabilities().isEmpty()) {
+          for (String capStr : application.getRequestedCapabilities()) {
+            try {
+              grantedCaps.add(PartnerCapability.valueOf(capStr));
+            } catch (Exception ignored) {}
+          }
+        }
+        if (grantedCaps.isEmpty()) {
+          switch (business.getKind()) {
+            case HOTEL -> grantedCaps.addAll(List.of(
+                PartnerCapability.HOTEL_LISTING,
+                PartnerCapability.HOTEL_INVENTORY,
+                PartnerCapability.HOTEL_BOOKING));
+            case RESTAURANT -> grantedCaps.addAll(List.of(
+                PartnerCapability.RESTAURANT_LISTING,
+                PartnerCapability.RESTAURANT_MENU));
+            case TOUR_GUIDE -> grantedCaps.addAll(List.of(
+                PartnerCapability.GUIDE_LISTING,
+                PartnerCapability.GUIDE_PROMOTION,
+                PartnerCapability.GUIDE_INQUIRY));
+          }
+        }
+      }
+
       validateCapabilityDependencies(grantedCaps);
 
       // Persist capabilities

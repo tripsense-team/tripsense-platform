@@ -103,9 +103,7 @@ public class RestaurantReservationService {
       }
     }
 
-    RestaurantAvailability availability = availabilityRepository.lockByBusinessId(businessId)
-        .orElseThrow(() -> new TripServiceException(
-            "RESTAURANT_AVAILABILITY_NOT_CONFIGURED", "Restaurant availability is not configured", HttpStatus.CONFLICT));
+    RestaurantAvailability availability = getOrCreateAvailability(businessId, now);
     Instant endsAt = req.startAt().plus(availability.getReservationDurationMinutes(), ChronoUnit.MINUTES);
     List<RestaurantReservation> activeReservations = reservationRepository.findActiveOverlappingReservations(
         businessId, req.startAt(), endsAt, now);
@@ -312,11 +310,10 @@ public class RestaurantReservationService {
       throw new TripServiceException("RESERVATION_NOT_FOUND", "Reservation not found", HttpStatus.NOT_FOUND);
     }
 
+    Instant now = Instant.now();
     RestaurantAvailability availability = null;
     if ("CONFIRM".equalsIgnoreCase(req.decision())) {
-      availability = availabilityRepository.lockByBusinessId(businessId)
-          .orElseThrow(() -> new TripServiceException(
-              "RESTAURANT_AVAILABILITY_NOT_CONFIGURED", "Restaurant availability is not configured", HttpStatus.CONFLICT));
+      availability = getOrCreateAvailability(businessId, now);
     }
     RestaurantReservation reservation = reservationRepository.lockById(reservationId).orElseThrow(
         () -> new TripServiceException("RESERVATION_NOT_FOUND", "Reservation not found", HttpStatus.NOT_FOUND));
@@ -327,7 +324,6 @@ public class RestaurantReservationService {
 
     String decision = req.decision().toUpperCase(Locale.ROOT);
     String fromState = reservation.getState();
-    Instant now = Instant.now();
 
     if ("CONFIRM".equals(decision)) {
       if (!"REQUESTED".equals(fromState)) {
@@ -462,4 +458,23 @@ public class RestaurantReservationService {
         .updatedAt(r.getUpdatedAt())
         .build();
   }
+  private RestaurantAvailability getOrCreateAvailability(UUID businessId, Instant now) {
+    return availabilityRepository.lockByBusinessId(businessId)
+        .orElseGet(() -> {
+          RestaurantAvailability def = RestaurantAvailability.builder()
+              .businessId(businessId)
+              .timeZone("Asia/Ho_Chi_Minh")
+              .capacityGuests(50)
+              .reservationDurationMinutes(90)
+              .slotIntervalMinutes(30)
+              .minimumLeadMinutes(30)
+              .maximumAdvanceDays(30)
+              .pendingHoldMinutes(120)
+              .version(0L)
+              .updatedAt(now)
+              .build();
+          return availabilityRepository.saveAndFlush(def);
+        });
+  }
+
 }

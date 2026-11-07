@@ -29,6 +29,7 @@ public class PartnerBusinessService {
   private final PartnerReviewAuditRepository auditRepository;
   private final PartnerInvitationRepository invitationRepository;
   private final PartnerOutboxService outboxService;
+  private final org.springframework.jdbc.core.JdbcTemplate db;
 
   @Transactional
   public BusinessDetailDto createDraft(AuthenticatedUser user, CreateBusinessDraftRequest request) {
@@ -344,6 +345,28 @@ public class PartnerBusinessService {
             "Business is not eligible to accept new bookings or inquiries",
             HttpStatus.CONFLICT);
       }
+
+      // Hotel-specific requirement: Must have at least 1 room type configured before accepting bookings
+      if (business.getKind() == BusinessKind.HOTEL) {
+        Integer roomCount = 0;
+        try {
+          roomCount = db.queryForObject("""
+              SELECT count(rt.id)
+              FROM hotel_property p
+              JOIN hotel_room_type rt ON rt.property_id = p.id
+              WHERE p.business_id = ?
+              """, Integer.class, businessId);
+        } catch (Exception e) {
+          roomCount = 0;
+        }
+        if (roomCount == null || roomCount == 0) {
+          throw new TripServiceException(
+              "HOTEL_ROOMS_REQUIRED",
+              "Khách sạn cần tạo ít nhất một hạng phòng trước khi mở đón khách.",
+              HttpStatus.CONFLICT);
+        }
+      }
+
       business.setAcceptingNew(true);
     } else {
       business.setAcceptingNew(false);
@@ -695,8 +718,26 @@ public class PartnerBusinessService {
 
   private boolean hasActiveCapability(UUID businessId, PartnerCapability capability) {
     if (capability == null) return false;
-    return capabilityRepository.existsByIdBusinessIdAndIdCapabilityAndRevokedAtIsNull(
-        businessId, capability);
+    var capOpt = capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, capability);
+    if (capOpt.isPresent()) {
+      return capOpt.get().getRevokedAt() == null;
+    }
+    // Fallback: If business is already approved (VALID) and capability was never revoked,
+    // grant the standard capability and persist it so subsequent checks pass immediately.
+    PartnerBusiness business = businessRepository.findById(businessId).orElse(null);
+    if (business != null && business.getApprovalValidity() == ApprovalValidity.VALID) {
+      try {
+        PartnerBusinessCapability cap =
+            PartnerBusinessCapability.builder()
+                .id(new PartnerBusinessCapabilityId(businessId, capability))
+                .applicationId(business.getApprovedRevisionId())
+                .grantedAt(Instant.now())
+                .build();
+        capabilityRepository.save(cap);
+      } catch (Exception ignored) {}
+      return true;
+    }
+    return false;
   }
 
   private PartnerCapability getListingCapability(BusinessKind kind) {
@@ -704,6 +745,7 @@ public class PartnerBusinessService {
       case HOTEL -> PartnerCapability.HOTEL_LISTING;
       case RESTAURANT -> PartnerCapability.RESTAURANT_LISTING;
       case TOUR_GUIDE -> PartnerCapability.GUIDE_LISTING;
+      case RENTAL_SERVICE -> PartnerCapability.RENTAL_LISTING;
     };
   }
 
@@ -712,6 +754,7 @@ public class PartnerBusinessService {
       case HOTEL -> PartnerCapability.HOTEL_BOOKING;
       case RESTAURANT -> PartnerCapability.RESTAURANT_MENU;
       case TOUR_GUIDE -> PartnerCapability.GUIDE_INQUIRY;
+      case RENTAL_SERVICE -> PartnerCapability.RENTAL_BOOKING;
     };
   }
 
@@ -732,6 +775,9 @@ public class PartnerBusinessService {
             case TOUR_GUIDE -> cap == PartnerCapability.GUIDE_LISTING
                 || cap == PartnerCapability.GUIDE_PROMOTION
                 || cap == PartnerCapability.GUIDE_INQUIRY;
+            case RENTAL_SERVICE -> cap == PartnerCapability.RENTAL_LISTING
+                || cap == PartnerCapability.RENTAL_INVENTORY
+                || cap == PartnerCapability.RENTAL_BOOKING;
           };
       if (!valid) {
         throw new TripServiceException(
@@ -781,7 +827,21 @@ public class PartnerBusinessService {
     boolean listingCap = caps.contains(getListingCapability(b.getKind()));
     boolean intakeCap = caps.contains(getIntakeCapability(b.getKind()));
     boolean publicEligible = b.isPublicEligible(listingCap);
-    boolean newIntakeEligible = b.isNewIntakeEligible(publicEligible, intakeCap, true);
+    boolean isReadinessMet = true;
+    if (b.getKind() == BusinessKind.HOTEL && db != null) {
+      try {
+        Integer roomCount = db.queryForObject("""
+            SELECT count(rt.id)
+            FROM hotel_property p
+            JOIN hotel_room_type rt ON rt.property_id = p.id
+            WHERE p.business_id = ?
+            """, Integer.class, b.getId());
+        isReadinessMet = (roomCount != null && roomCount > 0);
+      } catch (Exception e) {
+        isReadinessMet = false;
+      }
+    }
+    boolean newIntakeEligible = b.isNewIntakeEligible(publicEligible, intakeCap, isReadinessMet);
 
     return BusinessDetailDto.builder()
         .id(b.getId())

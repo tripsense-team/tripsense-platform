@@ -5,6 +5,7 @@ import {
   Building2,
   Utensils,
   Compass,
+  Car,
   Check,
   ArrowRight,
   ArrowLeft,
@@ -66,13 +67,13 @@ export function PartnerWizardModal({
   editBusiness,
 }: PartnerWizardModalProps) {
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
-  const [kind, setKind] = React.useState<BusinessKind>("TOUR_GUIDE");
+  const [kind, setKind] = React.useState<BusinessKind>("HOTEL");
   const [displayName, setDisplayName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [selectedCapabilities, setSelectedCapabilities] = React.useState<PartnerCapability[]>([
-    "GUIDE_LISTING",
-    "GUIDE_PROMOTION",
-    "GUIDE_INQUIRY",
+    "HOTEL_LISTING",
+    "HOTEL_INVENTORY",
+    "HOTEL_BOOKING",
   ]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -120,6 +121,8 @@ export function PartnerWizardModal({
       setSelectedCapabilities(["HOTEL_LISTING", "HOTEL_INVENTORY", "HOTEL_BOOKING"]);
     } else if (kind === "RESTAURANT") {
       setSelectedCapabilities(["RESTAURANT_LISTING", "RESTAURANT_MENU"]);
+    } else if (kind === "RENTAL_SERVICE") {
+      setSelectedCapabilities(["RENTAL_LISTING", "RENTAL_INVENTORY", "RENTAL_BOOKING"]);
     } else {
       setSelectedCapabilities(["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"]);
     }
@@ -439,12 +442,14 @@ export function PartnerWizardModal({
             ? ["HOTEL_LISTING", "HOTEL_INVENTORY", "HOTEL_BOOKING"] as PartnerCapability[]
             : kind === "RESTAURANT"
               ? ["RESTAURANT_LISTING", "RESTAURANT_MENU"] as PartnerCapability[]
-              : ["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"] as PartnerCapability[];
+              : kind === "RENTAL_SERVICE"
+                ? ["RENTAL_LISTING", "RENTAL_INVENTORY", "RENTAL_BOOKING"] as PartnerCapability[]
+                : ["GUIDE_LISTING", "GUIDE_PROMOTION", "GUIDE_INQUIRY"] as PartnerCapability[];
 
         await submitBusinessApplication(editBusiness.id, {
           expectedVersion: currentBusiness.version,
           requestedCapabilities,
-          checklistId: `CHK-${kind === "TOUR_GUIDE" ? "GUIDE" : kind}-V1`,
+          checklistId: `CHK-${kind === "TOUR_GUIDE" ? "GUIDE" : kind === "RENTAL_SERVICE" ? "RENTAL" : kind}-V1`,
           checklistVersion: "1.0",
           profileSnapshot: { ...draftProfile, displayName: displayName.trim() },
           ...(approvedApplication?.documentIds?.length ? { documentIds: approvedApplication.documentIds } : {}),
@@ -466,7 +471,7 @@ export function PartnerWizardModal({
       await submitBusinessApplication(draft.id, {
         expectedVersion: draft.version,
         requestedCapabilities: selectedCapabilities,
-        checklistId: `CHK-${kind === "TOUR_GUIDE" ? "GUIDE" : kind}-V1`,
+        checklistId: `CHK-${kind === "TOUR_GUIDE" ? "GUIDE" : kind === "RENTAL_SERVICE" ? "RENTAL" : kind}-V1`,
         checklistVersion: "1.0",
         profileSnapshot: {
           ...draftProfile,
@@ -778,27 +783,6 @@ export function PartnerWizardModal({
               <div className="grid grid-cols-1 gap-3 py-3">
                 <button
                   type="button"
-                  onClick={() => setKind("TOUR_GUIDE")}
-                  className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-all ${
-                    kind === "TOUR_GUIDE"
-                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/40 bg-card"
-                  }`}
-                >
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <Compass className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground text-sm">Hướng dẫn viên du lịch</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Quảng bá bài viết chuyên môn trên Community và nhận yêu cầu tư vấn độc lập từ du khách.
-                    </p>
-                  </div>
-                  {kind === "TOUR_GUIDE" && <Check className="h-5 w-5 text-primary" />}
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setKind("HOTEL")}
                   className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-all ${
                     kind === "HOTEL"
@@ -839,14 +823,34 @@ export function PartnerWizardModal({
                   {kind === "RESTAURANT" && <Check className="h-5 w-5 text-primary" />}
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setKind("RENTAL_SERVICE")}
+                  className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-all ${
+                    kind === "RENTAL_SERVICE"
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                      : "border-border hover:border-primary/40 bg-card"
+                  }`}
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                    <Car className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground text-sm">Thuê xe & Dịch vụ trải nghiệm</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Cho thuê xe máy, ô tô tự lái, lều dã ngoại, thuyền SUP & thiết bị thể thao ngoài trời.
+                    </p>
+                  </div>
+                  {kind === "RENTAL_SERVICE" && <Check className="h-5 w-5 text-primary" />}
+                </button>
               </div>
             )}
 
             {/* Step 2: Information & Location Verification */}
             {step === 2 && (
               <div className="space-y-4 py-3">
-                {/* Location Search for HOTEL / RESTAURANT */}
-                {(kind === "HOTEL" || kind === "RESTAURANT") && (
+                {/* Location Search for HOTEL / RESTAURANT / RENTAL_SERVICE */}
+                {(kind === "HOTEL" || kind === "RESTAURANT" || kind === "RENTAL_SERVICE") && (
                   <div className="space-y-2.5 p-3.5 rounded-xl border border-border/80 bg-muted/20">
                     <div className="flex items-center justify-between">
                       <label htmlFor={placeInputId} className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -866,7 +870,13 @@ export function PartnerWizardModal({
                           id={placeInputId}
                           maxLength={200}
                           autoComplete="off"
-                          placeholder={t(kind === "HOTEL" ? "partner.location.hotelPlaceholder" : "partner.location.restaurantPlaceholder")}
+                          placeholder={
+                            kind === "HOTEL"
+                              ? t("partner.location.hotelPlaceholder")
+                              : kind === "RESTAURANT"
+                              ? t("partner.location.restaurantPlaceholder")
+                              : "Tìm kiếm cửa hàng / điểm giao nhận xe / đồ cho thuê..."
+                          }
                           value={placeQuery}
                           onChange={(e) => changePlaceQuery(e.target.value)}
                           onKeyDown={handleKeyDown}
@@ -1020,9 +1030,13 @@ export function PartnerWizardModal({
                   </label>
                   <Input
                     placeholder={
-                      kind === "TOUR_GUIDE"
-                        ? "VD: Lê Tuấn Anh - Hướng dẫn viên Di sản Hội An"
-                        : "VD: Khách sạn Riverside Heritage"
+                      kind === "RENTAL_SERVICE"
+                        ? "VD: Cửa hàng Cho thuê xe máy & Thiết bị dã ngoại Tripper"
+                        : kind === "HOTEL"
+                        ? "VD: Khách sạn Riverside Heritage"
+                        : kind === "RESTAURANT"
+                        ? "VD: Nhà hàng Bánh Xèo Làng"
+                        : "VD: Lê Tuấn Anh - Hướng dẫn viên"
                     }
                     value={displayName}
                     disabled={isResolvingPlace}
@@ -1031,8 +1045,8 @@ export function PartnerWizardModal({
                   />
                 </div>
 
-                {/* Custom Address (if hotel/restaurant) */}
-                {(kind === "HOTEL" || kind === "RESTAURANT") && (
+                {/* Custom Address (if hotel/restaurant/rental) */}
+                {(kind === "HOTEL" || kind === "RESTAURANT" || kind === "RENTAL_SERVICE") && (
                   <>
                   <div>
                     <label className="text-xs font-medium text-foreground mb-1 block">
@@ -1080,76 +1094,89 @@ export function PartnerWizardModal({
                   </>
                 )}
 
-                {/* Legal & Ownership Proof (HOTEL / RESTAURANT) */}
-                {(kind === "HOTEL" || kind === "RESTAURANT") && (
-                  <div className="space-y-3 pt-2 border-t border-border/60">
-                    <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-primary" /> Minh chứng pháp lý & quyền sở hữu
-                    </span>
+                {/* Legal & Ownership Proof / Professional Verification */}
+                <div className="space-y-3 pt-2 border-t border-border/60">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-primary" />
+                    {kind === "TOUR_GUIDE"
+                      ? "Minh chứng nghiệp vụ & Thẻ hành nghề Hướng dẫn viên"
+                      : kind === "RENTAL_SERVICE"
+                      ? "Minh chứng pháp lý & Đăng ký phương tiện kinh doanh"
+                      : "Minh chứng pháp lý & quyền sở hữu cơ sở"}
+                  </span>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Mã số thuế doanh nghiệp / Hộ kinh doanh
-                        </label>
-                        <Input
-                          placeholder="VD: 0401234567"
-                          value={taxCode}
-                          onChange={(e) => setTaxCode(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Số Giấy phép kinh doanh / ĐKKD
-                        </label>
-                        <Input
-                          placeholder="VD: GP-2023-HA-012"
-                          value={licenseNumber}
-                          onChange={(e) => setLicenseNumber(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Người đại diện pháp luật
-                        </label>
-                        <Input
-                          placeholder="Họ và tên chủ sở hữu"
-                          value={legalRepresentative}
-                          onChange={(e) => setLegalRepresentative(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                          Số điện thoại liên hệ xác minh
-                        </label>
-                        <Input
-                          placeholder="VD: 0912345678"
-                          value={contactPhone}
-                          onChange={(e) => setContactPhone(e.target.value)}
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-medium text-muted-foreground block mb-1">
-                        Liên kết tài liệu minh chứng (Giấy phép kinh doanh, Giấy chứng nhận quyền sở hữu)
+                        {kind === "TOUR_GUIDE"
+                          ? "Mã số thuế cá nhân (nếu có)"
+                          : "Mã số thuế doanh nghiệp / Hộ kinh doanh"}
                       </label>
                       <Input
-                        placeholder="https://drive.google.com/file/d/..."
-                        value={proofDocumentUrl}
-                        onChange={(e) => setProofDocumentUrl(e.target.value)}
+                        placeholder="VD: 0401234567"
+                        value={taxCode}
+                        onChange={(e) => setTaxCode(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                        {kind === "TOUR_GUIDE"
+                          ? "Số thẻ Hướng dẫn viên du lịch (Quốc tế / Nội địa)"
+                          : "Số Giấy phép kinh doanh / ĐKKD"}
+                      </label>
+                      <Input
+                        placeholder={kind === "TOUR_GUIDE" ? "VD: 148192384" : "VD: GP-2023-HA-012"}
+                        value={licenseNumber}
+                        onChange={(e) => setLicenseNumber(e.target.value)}
                         className="text-xs"
                       />
                     </div>
                   </div>
-                )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                        {kind === "TOUR_GUIDE"
+                          ? "Họ và tên Hướng dẫn viên (theo CCCD / Thẻ HDV)"
+                          : "Người đại diện pháp luật"}
+                      </label>
+                      <Input
+                        placeholder={kind === "TOUR_GUIDE" ? "Họ và tên đầy đủ" : "Họ và tên chủ sở hữu"}
+                        value={legalRepresentative}
+                        onChange={(e) => setLegalRepresentative(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                        Số điện thoại liên hệ xác minh
+                      </label>
+                      <Input
+                        placeholder="VD: 0912345678"
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground block mb-1">
+                      {kind === "TOUR_GUIDE"
+                        ? "Liên kết ảnh chụp Thẻ Hướng dẫn viên du lịch / Chứng chỉ hành nghề"
+                        : kind === "RENTAL_SERVICE"
+                        ? "Liên kết tài liệu minh chứng (Giấy phép kinh doanh, Cavet xe/Đăng ký phương tiện cho thuê)"
+                        : "Liên kết tài liệu minh chứng (Giấy phép kinh doanh, Giấy chứng nhận quyền sở hữu)"}
+                    </label>
+                    <Input
+                      placeholder="https://drive.google.com/file/d/..."
+                      value={proofDocumentUrl}
+                      onChange={(e) => setProofDocumentUrl(e.target.value)}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
 
                 {/* Description / Bio */}
                 <div>
@@ -1300,6 +1327,55 @@ export function PartnerWizardModal({
                         <span className="font-semibold block">Thực đơn & bảng giá (RESTAURANT_MENU)</span>
                         <span className="text-muted-foreground text-[11px]">
                           Đăng tải các món ăn và mức giá tham khảo
+                        </span>
+                      </div>
+                    </label>
+                  </>
+                )}
+
+                {kind === "RENTAL_SERVICE" && (
+                  <>
+                    <label className="flex items-center gap-3 rounded-lg border border-border p-3 text-xs cursor-pointer hover:bg-muted/40">
+                      <input
+                        type="checkbox"
+                        checked={selectedCapabilities.includes("RENTAL_LISTING")}
+                        onChange={() => handleCapabilityToggle("RENTAL_LISTING")}
+                        className="rounded border-border"
+                      />
+                      <div>
+                        <span className="font-semibold block">Hiển thị dịch vụ cho thuê (RENTAL_LISTING)</span>
+                        <span className="text-muted-foreground text-[11px]">
+                          Trang thông tin cơ sở và danh mục phương tiện / đồ cho thuê gắn với địa điểm đã xác minh
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 rounded-lg border border-border p-3 text-xs cursor-pointer hover:bg-muted/40">
+                      <input
+                        type="checkbox"
+                        checked={selectedCapabilities.includes("RENTAL_INVENTORY")}
+                        onChange={() => handleCapabilityToggle("RENTAL_INVENTORY")}
+                        className="rounded border-border"
+                      />
+                      <div>
+                        <span className="font-semibold block">Quản lý tồn kho & số lượng (RENTAL_INVENTORY)</span>
+                        <span className="text-muted-foreground text-[11px]">
+                          Theo dõi số lượng xe / thiết bị khả dụng theo thời gian thực
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 rounded-lg border border-border p-3 text-xs cursor-pointer hover:bg-muted/40">
+                      <input
+                        type="checkbox"
+                        checked={selectedCapabilities.includes("RENTAL_BOOKING")}
+                        onChange={() => handleCapabilityToggle("RENTAL_BOOKING")}
+                        className="rounded border-border"
+                      />
+                      <div>
+                        <span className="font-semibold block">Nhận đặt thuê & cọc trực tiếp (RENTAL_BOOKING)</span>
+                        <span className="text-muted-foreground text-[11px]">
+                          Cho phép khách đặt thuê, chốt đơn qua chat và thanh toán cọc PayOS
                         </span>
                       </div>
                     </label>

@@ -23,7 +23,16 @@ public class PartnerChecklistService {
   }
 
   public void validateApproval(PartnerApplication application,PartnerBusiness business,AdminReviewDecisionRequest request) {
-    var checklist=load(application.getChecklistId(),application.getChecklistVersion(),business.getKind().name());
+    String checklistId = application.getChecklistId();
+    String checklistVersion = application.getChecklistVersion() != null ? application.getChecklistVersion() : "1.0";
+    if (business.getKind() != null) {
+      String expectedPrefix = "CHK-" + (business.getKind() == fu.tripsense.tripservice.partner.enums.BusinessKind.TOUR_GUIDE ? "GUIDE" : business.getKind() == fu.tripsense.tripservice.partner.enums.BusinessKind.RENTAL_SERVICE ? "RENTAL" : business.getKind().name());
+      if (checklistId == null || !checklistId.startsWith(expectedPrefix)) {
+        checklistId = expectedPrefix + "-V1";
+        checklistVersion = "1.0";
+      }
+    }
+    var checklist=load(checklistId, checklistVersion, business.getKind().name());
     var results=new HashMap<String,String>();
     Set<String> codes=new HashSet<>();
     for(var item:checklist.getItemsJson()) codes.add((String)item.get("code"));
@@ -34,7 +43,7 @@ public class PartnerChecklistService {
       if(Boolean.TRUE.equals(item.get("required")) && !"PASS".equals(results.get(item.get("code"))))
         throw new TripServiceException("CHECKLIST_INCOMPLETE","Every required checklist item must pass before approval",HttpStatus.CONFLICT);
     }
-    String prefix=switch(business.getKind()) { case HOTEL -> "HOTEL_"; case RESTAURANT -> "RESTAURANT_"; case TOUR_GUIDE -> "GUIDE_"; };
+    String prefix=switch(business.getKind()) { case HOTEL -> "HOTEL_"; case RESTAURANT -> "RESTAURANT_"; case TOUR_GUIDE -> "GUIDE_"; case RENTAL_SERVICE -> "RENTAL_"; };
     for(var cap:request.capabilityDecisions()==null?List.<AdminReviewDecisionRequest.CapabilityDecisionDto>of():request.capabilityDecisions()) {
       if(cap.capability()==null || !cap.capability().name().startsWith(prefix) || application.getRequestedCapabilities()==null || !application.getRequestedCapabilities().contains(cap.capability().name()))
         throw new TripServiceException("CAPABILITY_NOT_REQUESTED","Capability must match the application and business kind",HttpStatus.BAD_REQUEST);

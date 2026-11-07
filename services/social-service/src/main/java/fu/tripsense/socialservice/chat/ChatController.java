@@ -89,6 +89,42 @@ public class ChatController {
         .body(ApiResponse.success(result.message()));
   }
 
+  @PostMapping("/conversations/{id}/offers")
+  public ResponseEntity<ApiResponse<Message>> createOffer(
+      @PathVariable UUID id, @RequestBody CreateReservationOffer request) {
+    Message message = chat.createOffer(id, request);
+    return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(message));
+  }
+
+  @GetMapping("/offers/my")
+  public ApiResponse<List<ReservationOffer>> myOffers(
+      @RequestParam(required = false, defaultValue = "ACCEPTED") String status,
+      @RequestParam(required = false) String businessType) {
+    return ApiResponse.success(chat.myOffers(status, businessType));
+  }
+
+  @GetMapping("/offers/{offerId}")
+  public ApiResponse<ReservationOffer> getOffer(@PathVariable UUID offerId) {
+    return ApiResponse.success(chat.getOffer(offerId));
+  }
+
+  @PostMapping("/offers/{offerId}/accept")
+  public ApiResponse<AcceptOfferResponse> acceptOffer(@PathVariable UUID offerId) {
+    return ApiResponse.success(chat.acceptOffer(offerId));
+  }
+
+  @PostMapping("/offers/{offerId}/decline")
+  public ApiResponse<ReservationOffer> declineOffer(
+      @PathVariable UUID offerId, @RequestBody(required = false) DeclineOfferRequest request) {
+    String reason = request != null ? request.reason() : null;
+    return ApiResponse.success(chat.declineOffer(offerId, reason));
+  }
+
+  @PostMapping("/offers/{offerId}/cancel")
+  public ApiResponse<ReservationOffer> cancelOffer(@PathVariable UUID offerId) {
+    return ApiResponse.success(chat.cancelOffer(offerId));
+  }
+
   @PutMapping("/conversations/{id}/delivered")
   public ApiResponse<Conversation> delivered(@PathVariable UUID id, @RequestBody Receipt request) {
     return ApiResponse.success(chat.receipt(id, request, false));

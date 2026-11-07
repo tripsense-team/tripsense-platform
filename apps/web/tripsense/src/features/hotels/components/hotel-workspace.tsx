@@ -26,7 +26,7 @@ function HotelWorkspaceSession() {
   const searchParams = useSearchParams();
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Legacy tab parameter redirection
+  // Tab parameter redirection
   useEffect(() => {
     const qTab = searchParams?.get("tab");
     if (!qTab) return;
@@ -35,9 +35,9 @@ function HotelWorkspaceSession() {
     } else if (qTab === "admin") {
       router.replace("/admin/hotels");
     } else if (qTab === "bookings") {
-      router.replace("/hotels/bookings");
+      router.replace("/reservations?tab=hotels");
     } else if (qTab === "notifications") {
-      router.replace("/hotels/notifications");
+      router.replace("/notifications");
     }
   }, [searchParams, router]);
 
@@ -88,7 +88,7 @@ function HotelWorkspaceSession() {
             </span>
 
             <Link
-              href="/hotels/bookings"
+              href="/reservations?tab=hotels"
               className="flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-all cursor-pointer"
             >
               <Briefcase className="h-3.5 w-3.5" />
@@ -99,7 +99,7 @@ function HotelWorkspaceSession() {
           {/* Right: Notifications Bell */}
           <div className="flex items-center gap-2">
             <Link
-              href="/hotels/notifications"
+              href="/notifications"
               aria-label="Notifications"
               className="relative h-8 w-8 rounded-full border border-border bg-card hover:bg-muted flex items-center justify-center text-foreground/80 hover:text-foreground transition-colors"
             >

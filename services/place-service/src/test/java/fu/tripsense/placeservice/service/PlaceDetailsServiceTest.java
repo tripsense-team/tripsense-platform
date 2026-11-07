@@ -1,6 +1,7 @@
 package fu.tripsense.placeservice.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -267,6 +268,69 @@ class PlaceDetailsServiceTest {
     verify(enrichmentProvider, never()).enrichPlace(any(), any(), any());
   }
 
+  @Test
+  void servesPermanentCloudinaryPhotosWithoutProviderCall() {
+    String cdnUrl = "https://res.cloudinary.com/dejiclsce/image/upload/v1/tripsense/places/p1/photo_0.jpg";
+    Place entity = completeEntity(Instant.now().minus(30, ChronoUnit.DAYS));
+    entity.setPhotos(List.of(cdnUrl));
+    PlaceDto dto = completeDto();
+    dto.setPhotos(List.of(cdnUrl));
+
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+
+    Optional<PlaceDto> result = service.getDetails("place-1", "Cafe", null, null, true);
+
+    assertTrue(result.isPresent());
+    assertEquals(1, result.get().getPhotoGallery().size());
+    assertEquals(cdnUrl, result.get().getPrimaryPhoto().url());
+    verify(provider, never()).getPhotoGallery(any(), anyInt());
+  }
+
+  @Test
+  void reEnrichesEphemeralPhotosAndUploadsToCloudinary() {
+    String googleUrl = "https://lh3.googleusercontent.com/grass-cs/expired=s4800";
+    String freshGoogleUrl = "https://lh3.googleusercontent.com/grass-cs/fresh=s4800";
+    String cdnUrl = "https://res.cloudinary.com/dejiclsce/image/upload/v1/tripsense/places/provider-1/photo_0.jpg";
+
+    Place entity = completeEntity(Instant.now().minus(30, ChronoUnit.DAYS));
+    entity.setPhotos(List.of(googleUrl));
+    PlaceDto dto = completeDto();
+    dto.setProvider("ziomap");
+    dto.setProviderPlaceId("provider-1");
+    dto.setPhotos(List.of(googleUrl));
+    dto.setFetchedAt(Instant.now().minus(30, ChronoUnit.DAYS));
+
+    PlaceCloudinaryStorageService mockCloudinary = org.mockito.Mockito.mock(PlaceCloudinaryStorageService.class);
+    when(mockCloudinary.uploadRemotePhoto(eq(freshGoogleUrl), eq("provider-1"), eq(0)))
+        .thenReturn(Optional.of(cdnUrl));
+
+    PlaceDetailsService testService =
+        new PlaceDetailsServiceImpl(
+            repository,
+            provider,
+            enrichmentProvider,
+            cache,
+            persistence,
+            recommendationIndexerClient,
+            mockCloudinary);
+
+    when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
+    when(repository.findById("place-1")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+    when(provider.getProviderName()).thenReturn("ziomap");
+    when(provider.getPhotoGallery("provider-1", 5))
+        .thenReturn(List.of(new PlacePhotoDto(freshGoogleUrl, "ziomap", List.of(), Instant.now(), true)));
+
+    Optional<PlaceDto> result = testService.getDetails("place-1", "Cafe", null, null, true);
+
+    assertTrue(result.isPresent());
+    assertEquals(1, result.get().getPhotoGallery().size());
+    assertEquals(cdnUrl, result.get().getPrimaryPhoto().url());
+    assertEquals("cloudinary", result.get().getPrimaryPhoto().source());
+  }
+
   private Place completeEntity(Instant fetchedAt) {
     return Place.builder()
         .id("place-1")
@@ -286,6 +350,7 @@ class PlaceDetailsServiceTest {
         .name("Cafe")
         .phone("0905")
         .openingHours("08:00-22:00")
+        .fetchedAt(Instant.now())
         .reviews(List.of(PlaceReviewDto.builder().authorName("Guest").build()))
         .build();
   }

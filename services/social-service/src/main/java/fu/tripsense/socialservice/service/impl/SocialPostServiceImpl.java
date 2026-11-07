@@ -62,6 +62,9 @@ public class SocialPostServiceImpl implements SocialPostService {
   private final SavedPostCursorCodec savedPostCursorCodec;
   private final UserPublicProfileClient userPublicProfileClient;
 
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private SocialReactionRepository socialReactions;
+
   @Value("${cloudinary.cloud-name:}")
   private String cloudName;
 
@@ -715,10 +718,24 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     if (liked && !exists) {
       postLikes.save(new PostLike(id, Instant.now()));
+      if (socialReactions != null) {
+        socialReactions.save(
+            SocialReaction.builder()
+                .id(UUID.randomUUID())
+                .targetType("POST")
+                .targetId(postId)
+                .userId(user.id())
+                .reactionType("LIKE")
+                .createdAt(Instant.now())
+                .build());
+      }
       post.setLikeCount(post.getLikeCount() + 1);
     }
     if (!liked && exists) {
       postLikes.deleteById(id);
+      if (socialReactions != null) {
+        socialReactions.deleteByUserIdAndTargetTypeAndTargetId(user.id(), "POST", postId);
+      }
       post.setLikeCount(Math.max(0, post.getLikeCount() - 1));
     }
 
@@ -734,12 +751,21 @@ public class SocialPostServiceImpl implements SocialPostService {
     Set<UUID> liked =
         (viewer == null)
             ? Set.of()
-            : commentLikes
-                .findByIdCommentIdInAndIdUserId(
-                    list.stream().map(SocialComment::getId).toList(), viewer.id())
-                .stream()
-                .map(x -> x.getId().getCommentId())
-                .collect(Collectors.toSet());
+            : (socialReactions != null)
+                ? socialReactions
+                    .findByUserIdAndTargetTypeAndTargetIdIn(
+                        viewer.id(),
+                        "COMMENT",
+                        list.stream().map(SocialComment::getId).toList())
+                    .stream()
+                    .map(SocialReaction::getTargetId)
+                    .collect(Collectors.toSet())
+                : commentLikes
+                    .findByIdCommentIdInAndIdUserId(
+                        list.stream().map(SocialComment::getId).toList(), viewer.id())
+                    .stream()
+                    .map(x -> x.getId().getCommentId())
+                    .collect(Collectors.toSet());
 
     List<UUID> commentAuthorIds = list.stream().map(SocialComment::getAuthorId).distinct().toList();
     Map<UUID, PublicProfileClientResponse> profilesByUserId =
@@ -894,10 +920,24 @@ public class SocialPostServiceImpl implements SocialPostService {
 
     if (liked && !exists) {
       commentLikes.save(new CommentLike(id, Instant.now()));
+      if (socialReactions != null) {
+        socialReactions.save(
+            SocialReaction.builder()
+                .id(UUID.randomUUID())
+                .targetType("COMMENT")
+                .targetId(commentId)
+                .userId(user.id())
+                .reactionType("LIKE")
+                .createdAt(Instant.now())
+                .build());
+      }
       comment.setLikeCount(comment.getLikeCount() + 1);
     }
     if (!liked && exists) {
       commentLikes.deleteById(id);
+      if (socialReactions != null) {
+        socialReactions.deleteByUserIdAndTargetTypeAndTargetId(user.id(), "COMMENT", commentId);
+      }
       comment.setLikeCount(Math.max(0, comment.getLikeCount() - 1));
     }
 
@@ -947,9 +987,15 @@ public class SocialPostServiceImpl implements SocialPostService {
     Set<UUID> liked =
         (viewer == null)
             ? Set.of()
-            : postLikes.findByIdPostIdInAndIdUserId(ids, viewer.id()).stream()
-                .map(x -> x.getId().getPostId())
-                .collect(Collectors.toSet());
+            : (socialReactions != null)
+                ? socialReactions
+                    .findByUserIdAndTargetTypeAndTargetIdIn(viewer.id(), "POST", ids)
+                    .stream()
+                    .map(SocialReaction::getTargetId)
+                    .collect(Collectors.toSet())
+                : postLikes.findByIdPostIdInAndIdUserId(ids, viewer.id()).stream()
+                    .map(x -> x.getId().getPostId())
+                    .collect(Collectors.toSet());
 
     Set<UUID> saved =
         (viewer == null)

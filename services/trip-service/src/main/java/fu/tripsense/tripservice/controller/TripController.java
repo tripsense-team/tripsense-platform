@@ -57,10 +57,11 @@ public class TripController {
       @RequestParam(required = false) TripStatus status,
       @RequestParam(required = false) LocalDate from,
       @RequestParam(required = false) LocalDate to,
+      @RequestParam(required = false, defaultValue = "recent") String sort,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
     return ApiResponse.success(
-        tripService.listTrips(currentUserProvider.userId(), status, from, to, page, size));
+        tripService.listTrips(currentUserProvider.userId(), status, from, to, sort, page, size));
   }
 
   @GetMapping("/{tripId}")

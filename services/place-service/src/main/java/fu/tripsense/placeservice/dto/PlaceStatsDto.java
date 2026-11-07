@@ -16,4 +16,5 @@ public class PlaceStatsDto {
   private boolean zioMapKeyConfigured;
   private String zioMapKeyMasked;
   private boolean isJobRunning;
+  private long stalePhotoPlaces;
 }

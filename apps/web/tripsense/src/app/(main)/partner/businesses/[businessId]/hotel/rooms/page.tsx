@@ -10,7 +10,8 @@ import { useTranslation } from "@/i18n";
 import { hotelApi } from "@/features/hotels/services/hotels-api";
 import type { HotelRoom } from "@/features/hotels/types";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
-import { BedDouble, Plus, Users, CheckCircle2, AlertCircle } from "lucide-react";
+import { BedDouble, Plus, Users, CheckCircle2, AlertCircle, MessageSquare, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function PartnerHotelRoomsPage() {
   const { t } = useTranslation();
@@ -104,39 +105,35 @@ export default function PartnerHotelRoomsPage() {
         <Card className="rounded-2xl border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-bold flex items-center gap-2">
-              <Plus className="h-4 w-4 text-primary" />
-              <span>{t("trip.hotels.addNewRoom", { defaultValue: "Thêm loại phòng mới" })}</span>
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span>Thêm loại phòng giới thiệu (Showcase)</span>
             </CardTitle>
             <CardDescription className="text-xs">
-              {t("trip.hotels.addNewRoomDesc", { defaultValue: "Hệ thống sẽ tự động kích hoạt lịch mở bán mặc định 90 ngày tới." })}
+              Khai báo các loại phòng và mức giá tham khảo để hiển thị tới khách du lịch. Khách sẽ nhắn tin trực tiếp để trao đổi và đặt phòng.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAddRoom} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
-              <div className="space-y-1 sm:col-span-2 md:col-span-1">
+            <form onSubmit={handleAddRoom} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              <input type="hidden" name="allocation" value="10" />
+              <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Tên loại phòng</label>
                 <Input name="roomName" placeholder="Ví dụ: Phòng Deluxe Hướng Biển" required />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Sức chứa (khách)</label>
+                <label className="text-xs font-semibold text-muted-foreground">Sức chứa tối đa (khách)</label>
                 <Input name="capacity" type="number" min={1} max={20} defaultValue={2} required />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Giá mở bán (VND / đêm)</label>
+                <label className="text-xs font-semibold text-muted-foreground">Giá tham khảo (VND / đêm)</label>
                 <Input name="nightlyPrice" type="number" step="10000" min={10000} defaultValue={500000} required />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Số lượng phòng bán / ngày</label>
-                <Input name="allocation" type="number" min={1} max={100} defaultValue={5} required />
-              </div>
-
-              <div className="sm:col-span-2 md:col-span-4">
+              <div className="sm:col-span-3">
                 <Button type="submit" disabled={busy} className="gap-1.5 text-xs">
                   <Plus className="h-3.5 w-3.5" />
-                  <span>{busy ? "Đang xử lý..." : "Thêm loại phòng"}</span>
+                  <span>{busy ? "Đang xử lý..." : "Thêm loại phòng vào Showcase"}</span>
                 </Button>
               </div>
             </form>
@@ -178,12 +175,15 @@ export default function PartnerHotelRoomsPage() {
                     </div>
                   </div>
                   <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-mono text-micro">ID: {room.id.slice(0, 8)}...</span>
+                    <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-micro">
+                      Hiển thị Showcase
+                    </Badge>
                     <Link
-                      href={`/partner/businesses/${businessId}/hotel/inventory`}
-                      className="text-primary hover:underline font-semibold"
+                      href="/chat"
+                      className="text-primary hover:underline font-semibold text-xs flex items-center gap-1"
                     >
-                      Quản lý lịch & giá →
+                      <MessageSquare className="h-3 w-3" />
+                      <span>Xem tin nhắn khách</span>
                     </Link>
                   </div>
                 </CardContent>

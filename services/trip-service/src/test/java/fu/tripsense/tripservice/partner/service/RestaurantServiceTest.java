@@ -32,6 +32,7 @@ class RestaurantServiceTest {
   @Mock private PartnerBusinessCapabilityRepository capabilityRepository;
   @Mock private PartnerApplicationRepository applicationRepository;
   @Mock private RestaurantMenuItemRepository menuRepository;
+  @Mock private fu.tripsense.tripservice.partner.repository.PartnerSubscriptionRepository subscriptionRepository;
   @Mock private RestaurantMenuImageStorage imageStorage;
   @Spy private ObjectMapper objectMapper = new ObjectMapper();
 

@@ -17,7 +17,9 @@ import {
   Info,
   Loader2,
   AlertCircle,
+  MessageSquare,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
@@ -462,23 +464,35 @@ export function MindtripAvailableRoomsView({
                       </div>
                     </div>
 
-                    {/* CTA Buttons: Book + Price Alert Bell */}
+                    {/* CTA Buttons: Book / Chat + Price Alert Bell */}
                     <div className="flex items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        disabled={isBooking}
-                        onClick={() => handleBook(room)}
-                        className="flex-1 py-2.5 px-4 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold text-sm tracking-wide transition-all shadow-xs active:scale-[0.98] cursor-pointer text-center flex items-center justify-center gap-2"
-                      >
-                        {isBooking ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>{locale === "vi" ? "Đang xử lý..." : "Booking..."}</span>
-                          </>
-                        ) : (
-                          <span>{locale === "vi" ? "Đặt ngay" : "Book"}</span>
-                        )}
-                      </button>
+                      {hotel.ownerUserId ? (
+                        <Link
+                          href={`/chat?userId=${hotel.ownerUserId}&message=${encodeURIComponent(
+                            `Chào bạn, mình muốn hỏi thông tin đặt phòng "${room.name}" tại ${hotel.name} từ ngày ${checkInDate} đến ngày ${checkOutDate} cho ${guestCount} khách. Khách sạn tư vấn giúp mình nhé!`
+                          )}`}
+                          className="flex-1 py-2.5 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs tracking-wide transition-all shadow-xs active:scale-[0.98] text-center flex items-center justify-center gap-1.5"
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          <span>{locale === "vi" ? "Nhắn tin hỏi phòng này" : "Chat to inquire this room"}</span>
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isBooking}
+                          onClick={() => handleBook(room)}
+                          className="flex-1 py-2.5 px-4 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold text-sm tracking-wide transition-all shadow-xs active:scale-[0.98] cursor-pointer text-center flex items-center justify-center gap-2"
+                        >
+                          {isBooking ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span>{locale === "vi" ? "Đang xử lý..." : "Booking..."}</span>
+                            </>
+                          ) : (
+                            <span>{locale === "vi" ? "Đặt ngay" : "Book"}</span>
+                          )}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => togglePriceAlert(room.id)}

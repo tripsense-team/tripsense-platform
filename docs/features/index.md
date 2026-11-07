@@ -4,6 +4,9 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `generic-travel-rental-and-services` | APPROVED | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
+| `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |
+| `in-chat-reservation-offer` | DONE | `services/social-service`, `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./in-chat-reservation-offer.md) |
 | `admin-place-map-reverse-geocoding` | IMPLEMENTING; local CI regression suites pass, CI rerun and live provider acceptance pending | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./admin-place-map-reverse-geocoding.md) |
 | `admin-shared-place-catalog-crud` | IMPLEMENTING | `apps/web/tripsense`, `services/api-gateway`, `services/place-service`, `services/recommendation-service` | [Docs](./admin-shared-place-catalog-crud.md) |
 | `onboarding-daily-budget-recommendations` | DONE | `apps/web/tripsense`, `services/context-service`, `services/place-service`, `services/recommendation-service` | [Docs](./onboarding-daily-budget-recommendations.md) |
@@ -24,7 +27,9 @@ Track every feature that enters the multi-agent workflow.
 | `explore-parallel-local-hybrid-retrieval` | DONE | `services/recommendation-service` | [Docs](./explore-parallel-local-hybrid-retrieval.md) |
 | `explore-local-candidate-refresh-policy` | DONE | `services/recommendation-service`; `services/place-service` regression tests | [Docs](./explore-local-candidate-refresh-policy.md) |
 | `group-c-product-expansion` | IMPLEMENTED | `services/trip-service`, `apps/web/tripsense`; identity remains in `user-service` | [Docs](./group-c-product-expansion.md) |
-| `restaurant-booking-availability-engine` | APPROVED | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-availability-engine.md) |
+| `partner-cleanup-and-unified-subscription-redesign` | DONE | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway`, `services/ai-service` | [Docs](./partner-cleanup-and-unified-subscription-redesign.md) |
+| `partner-subscription-model` | SUPERSEDED | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway`, `services/ai-service` | [Docs](./partner-subscription-model.md) |
+| `restaurant-booking-availability-engine` | SUPERSEDED (by subscription model) | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./restaurant-booking-availability-engine.md) |
 | `partner-analytics` | IMPLEMENTING | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./partner-analytics.md) |
 | `hotel-live-place-photos` | DONE | `apps/web/tripsense`, existing `services/place-service` and `services/api-gateway` | [Docs](./hotel-live-place-photos.md) |
 | `durable-verified-place-media-coverage` | IMPLEMENTING; code and automated checks complete, live Cloudinary/provider-rights acceptance pending | `services/place-service`, `services/api-gateway`, `services/recommendation-service`, `apps/web/tripsense`; Cloudinary-compatible storage | [Docs](./durable-verified-place-media-coverage.md) |
@@ -96,6 +101,9 @@ Track every feature that enters the multi-agent workflow.
 | `profile-password-management` | WAITING_FOR_APPROVAL | `apps/web/tripsense`, `services/user-service`, `services/mail-service` | [Docs](./profile-password-management.md) |
 | `mindtrip-trip-creation-handoff` | APPROVED | `apps/web/tripsense`, `services/trip-service`, `services/ai-service` | [Docs](./mindtrip-trip-creation-handoff.md) |
 | `restaurant-menu-ai-extraction-and-reservation-integration` | IMPLEMENTED | `apps/web/tripsense`, `services/trip-service`, `services/ai-service`, `services/api-gateway` | [Docs](./restaurant-menu-ai-extraction-and-reservation-integration.md) |
+| `place-permanent-photo-storage` | DONE | `services/place-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./place-permanent-photo-storage.md) |
+| `partner-service-first-onboarding-and-subscription-flow` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/api-gateway` | [Docs](./partner-service-first-onboarding-and-subscription-flow.md) |
+| `unified-hotel-restaurant-reservation-experience` | DONE | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./unified-hotel-restaurant-reservation-experience.md) |
 
 ## Statuses
 

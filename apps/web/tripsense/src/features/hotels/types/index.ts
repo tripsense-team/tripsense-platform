@@ -25,6 +25,8 @@ export type HotelOffer = {
   cancellation_policy: string;
   free_cancellation_until: string;
   property_id: string;
+  business_id?: string;
+  owner_user_id?: string;
   room_type_id: string;
   name: string;
   room_name: string;
@@ -64,6 +66,7 @@ export type HotelBooking = {
   currency: string;
   status: string;
   expires_at: string;
+  created_at?: string;
 };
 
 export type VoucherDto = {
@@ -182,6 +185,8 @@ export interface MindtripHotel {
    */
   hasDirectBooking?: boolean;
   propertyId?: string;
+  businessId?: string;
+  ownerUserId?: string;
   pricePerNight?: number;
   minPrice?: number;
   currency?: string;

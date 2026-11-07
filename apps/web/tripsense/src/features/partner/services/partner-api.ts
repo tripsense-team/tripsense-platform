@@ -27,6 +27,7 @@ import type {
   ProposalDecisionRequest,
   PublicGuideProfileDto,
   PublicRestaurantListingDto,
+  PublicHotelListingDto,
   PublicationRequest,
   RestaurantMenuBatchRequest,
   RestaurantMenuImageUploadDto,
@@ -36,6 +37,11 @@ import type {
   RevokeConsentRequest,
   SubmitApplicationRequest,
   SubmitGuidePromotionRequest,
+  BusinessKind,
+  PartnerSubscriptionPlanDto,
+  PartnerSubscriptionDto,
+  SubscriptionCheckoutRequest,
+  SubscriptionCheckoutResponse,
 } from "../types";
 
 interface ApiResponseWrapper<T> {
@@ -476,6 +482,21 @@ export async function searchPublicRestaurants(
   return request<PublicRestaurantListingDto[]>(`/api/public/restaurants${q}`).catch(() => []);
 }
 
+export async function getPublicHotel(
+  businessId: string,
+): Promise<PublicHotelListingDto> {
+  return request<PublicHotelListingDto>(
+    `/api/public/hotels/${businessId}`,
+  );
+}
+
+export async function searchPublicHotels(
+  query?: string,
+): Promise<PublicHotelListingDto[]> {
+  const q = query ? `?query=${encodeURIComponent(query)}` : "";
+  return request<PublicHotelListingDto[]>(`/api/public/hotels${q}`).catch(() => []);
+}
+
 // -------------------------------------------------------------
 // Restaurant Table Reservation Requests (C06)
 // -------------------------------------------------------------
@@ -552,6 +573,62 @@ export async function decideRestaurantReservation(
     },
   );
 }
+
+// -------------------------------------------------------------
+// Partner Subscription Management & Direct Checkout
+// -------------------------------------------------------------
+
+export async function getSubscriptionPlans(
+  businessKind: BusinessKind = "RESTAURANT",
+): Promise<PartnerSubscriptionPlanDto[]> {
+  return request<PartnerSubscriptionPlanDto[]>(
+    `/api/subscription-plans?businessKind=${encodeURIComponent(businessKind)}`,
+  );
+}
+
+export async function getPartnerSubscription(
+  businessId: string,
+): Promise<PartnerSubscriptionDto> {
+  return request<PartnerSubscriptionDto>(
+    `/api/partners/businesses/${businessId}/subscription`,
+  );
+}
+
+export async function createSubscriptionCheckout(
+  businessId: string,
+  req: SubscriptionCheckoutRequest,
+): Promise<SubscriptionCheckoutResponse> {
+  return request<SubscriptionCheckoutResponse>(
+    `/api/partners/businesses/${businessId}/subscription/checkout`,
+    {
+      method: "POST",
+      body: JSON.stringify(req),
+    },
+  );
+}
+
+export async function getSubscriptionOrderStatus(
+  businessId: string,
+  orderCode: number,
+): Promise<{ orderCode: number; status: string; amount: number; paidAt?: string }> {
+  return request<{ orderCode: number; status: string; amount: number; paidAt?: string }>(
+    `/api/partners/businesses/${businessId}/subscription/orders/${orderCode}/status`,
+  );
+}
+
+export async function verifyManualSubscriptionPayment(
+  businessId: string,
+  orderCode: number,
+): Promise<PartnerSubscriptionDto> {
+  return request<PartnerSubscriptionDto>(
+    `/api/partners/businesses/${businessId}/subscription/orders/${orderCode}/verify-manual`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+
 
 
 

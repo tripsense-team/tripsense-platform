@@ -10,34 +10,47 @@ import {
   Mail,
   MapPin,
   Phone,
+  ShieldCheck,
   Store,
   Utensils,
   ImagePlus,
+  MessageSquare,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useTranslation } from "@/i18n";
+import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { getPublicRestaurant, recordRestaurantView } from "../services/partner-api";
 import { RestaurantReservationDialog } from "./restaurant-reservation-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { PublicRestaurantListingDto } from "../types";
 
 interface PublicRestaurantViewProps {
   businessId: string;
 }
 
-function DishPhoto({ imageUrl, dishName }: { imageUrl?: string; dishName: string }) {
+function DishPhoto({ imageUrl, dishName, onZoom }: { imageUrl?: string; dishName: string; onZoom?: () => void }) {
   const { t } = useTranslation();
   if (!imageUrl) return null;
   return (
-    <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-muted text-muted-foreground">
+    <div
+      onClick={onZoom}
+      className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-muted text-muted-foreground cursor-pointer group"
+    >
       <ImagePlus className="h-7 w-7" aria-hidden="true" />
       <img
         src={imageUrl}
         alt={t("partner.restaurant.dishImageAlt", { name: dishName })}
         loading="lazy"
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         onError={(event) => { event.currentTarget.style.display = "none"; }}
       />
     </div>
@@ -46,10 +59,14 @@ function DishPhoto({ imageUrl, dishName }: { imageUrl?: string; dishName: string
 
 export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) {
   const { t } = useTranslation();
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const [data, setData] = React.useState<PublicRestaurantListingDto | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [activeLightboxImage, setActiveLightboxImage] = React.useState<{ url: string; title: string } | null>(null);
   const [reservationOpen, setReservationOpen] = React.useState(false);
+
+  const isOwner = Boolean(currentUserId && data?.ownerUserId && currentUserId === data.ownerUserId);
 
   React.useEffect(() => {
     async function load() {
@@ -153,6 +170,12 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
               <Badge variant="outline" className="border-primary/20 bg-primary/10 text-primary">
                 <Utensils className="mr-1 h-3 w-3" /> Nhà hàng ẩm thực
               </Badge>
+              {data.verifiedPartner && (
+                <Badge className="border-emerald-600/30 bg-emerald-600/15 text-emerald-700 dark:text-emerald-400 gap-1 font-semibold">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  {data.badgeLabel || "Verified Partner"}
+                </Badge>
+              )}
               {data.destination && (
                 <Badge variant="secondary" className="text-xs">
                   {data.destination}
@@ -179,15 +202,47 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
             )}
           </div>
 
+          {/* Unified Action Buttons: Direct Booking & Chat */}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               onClick={() => setReservationOpen(true)}
-              className="h-9 shadow-xs gap-1.5 font-medium"
+              className="h-9 shadow-xs gap-1.5 font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Utensils className="h-4 w-4" />
-              {t("restaurant.reserveTable", { defaultValue: "Đặt bàn & Giữ chỗ" })}
+              <Calendar className="h-4 w-4" />
+              <span>{t("partner.restaurant.bookDirect", { defaultValue: "Đặt bàn trực tiếp" })}</span>
             </Button>
+
+            {isOwner ? (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="h-9 shadow-xs gap-1.5 font-semibold border-primary/40 text-primary hover:bg-primary/5"
+              >
+                <Link href={`/partner/businesses/${businessId}/restaurant-menu`}>
+                  <Store className="h-4 w-4" />
+                  <span>{t("partner.restaurant.manageMyRestaurant", { defaultValue: "Quản lý quán của bạn" })}</span>
+                </Link>
+              </Button>
+            ) : data.ownerUserId ? (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="h-9 shadow-xs gap-1.5 font-semibold border-border/80 text-foreground hover:bg-muted/60"
+              >
+                <Link
+                  href={`/chat?userId=${data.ownerUserId}&message=${encodeURIComponent(
+                    `Chào quán, mình muốn đặt bàn/tư vấn tại ${data.displayName}. Quán gửi phiếu xác nhận giúp mình nhé!`
+                  )}`}
+                >
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <span>{t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin qua Chat" })}</span>
+                </Link>
+              </Button>
+            ) : null}
+
             <Button asChild size="sm" variant="outline" className="h-9 shadow-xs gap-1.5 font-medium">
               <a href={mapSearchUrl} target="_blank" rel="noopener noreferrer">
                 <Compass className="h-4 w-4" />
@@ -238,7 +293,7 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <Utensils className="h-5 w-5 text-primary" />
-            {t("partner.restaurant.publicMenuTitle", { defaultValue: "Thực đơn món ăn" })}
+            {t("partner.restaurant.publicMenuTitle", { defaultValue: "Thực đơn & Bảng giá" })}
           </h2>
           <span className="text-xs text-muted-foreground">
             {data.menu.length} {t("partner.restaurant.dishesCount", { defaultValue: "món phục vụ" })}
@@ -262,8 +317,12 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {itemsList.map((dish, dIdx) => (
                     <Card key={dIdx} className="shadow-2xs border-border/70 hover:border-primary/40 transition-colors">
-                      <DishPhoto imageUrl={dish.imageUrl} dishName={dish.name} />
-                      <CardHeader className="pb-2">
+                      <DishPhoto
+                        imageUrl={dish.imageUrl}
+                        dishName={dish.name}
+                        onZoom={dish.imageUrl ? () => setActiveLightboxImage({ url: dish.imageUrl || '', title: dish.name }) : undefined}
+                      />
+                      <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-3">
                           <CardTitle className="text-sm font-semibold text-foreground">
                             {dish.name}
@@ -311,8 +370,12 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {uncategorized.map((dish, dIdx) => (
                     <Card key={dIdx} className="shadow-2xs border-border/70 hover:border-primary/40 transition-colors">
-                      <DishPhoto imageUrl={dish.imageUrl} dishName={dish.name} />
-                      <CardHeader className="pb-2">
+                      <DishPhoto
+                        imageUrl={dish.imageUrl}
+                        dishName={dish.name}
+                        onZoom={dish.imageUrl ? () => setActiveLightboxImage({ url: dish.imageUrl || '', title: dish.name }) : undefined}
+                      />
+                      <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-3">
                           <CardTitle className="text-sm font-semibold text-foreground">
                             {dish.name}
@@ -330,21 +393,110 @@ export function PublicRestaurantView({ businessId }: PublicRestaurantViewProps) 
                           </CardDescription>
                         )}
                       </CardHeader>
+                      {dish.tags && dish.tags.length > 0 && (
+                        <CardContent className="pt-0 pb-3">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {dish.tags.map((tag, tIdx) => (
+                              <span
+                                key={tIdx}
+                                className="rounded-md bg-muted px-1.5 py-0.5 text-micro text-muted-foreground"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        </CardContent>
+                      )}
                     </Card>
                   ))}
                 </div>
               </div>
             )}
+
+            {/* Bottom Reservation Call-out Banner */}
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+              <div className="space-y-1 text-center sm:text-left">
+                <h4 className="text-sm sm:text-base font-bold text-foreground">
+                  {t("partner.restaurant.bottomReserveTitle", { defaultValue: "Quý khách dự định ghé dùng bữa?" })}
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {t("partner.restaurant.bottomReserveDesc", { defaultValue: "Nhắn tin trực tiếp với quán trong mục Trò chuyện để nhận phiếu xác nhận giữ chỗ tốt nhất." })}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  onClick={() => setReservationOpen(true)}
+                  className="font-bold shadow-xs gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-9"
+                >
+                  <Calendar className="h-4 w-4" />
+                  <span>{t("partner.restaurant.bookDirect", { defaultValue: "Đặt bàn trực tiếp" })}</span>
+                </Button>
+
+                {isOwner ? (
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="font-semibold shadow-xs gap-1.5 shrink-0 border-primary/40 text-primary hover:bg-primary/5 h-9"
+                  >
+                    <Link href={`/partner/businesses/${businessId}/restaurant-menu`}>
+                      <Store className="h-4 w-4" />
+                      <span>{t("partner.restaurant.manageMyRestaurant", { defaultValue: "Quản lý quán của bạn" })}</span>
+                    </Link>
+                  </Button>
+                ) : data.ownerUserId ? (
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="font-semibold shadow-xs gap-1.5 shrink-0 border-border/80 text-foreground hover:bg-muted/60 h-9"
+                  >
+                    <Link
+                      href={`/chat?userId=${data.ownerUserId}&message=${encodeURIComponent(
+                        `Chào quán, mình muốn đặt bàn/tư vấn tại ${data.displayName}. Quán gửi phiếu xác nhận giúp mình nhé!`
+                      )}`}
+                    >
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      <span>{t("restaurant.reserveViaChat", { defaultValue: "Nhắn tin qua Chat" })}</span>
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
+            </div>
           </div>
         )}
       </div>
+    
+      {/* Lightbox Dialog: Xem ảnh phóng to */}
+      <Dialog open={Boolean(activeLightboxImage)} onOpenChange={(open) => !open && setActiveLightboxImage(null)}>
+        <DialogContent className="sm:max-w-4xl p-3 max-h-[90vh] flex flex-col">
+          <DialogHeader className="p-2 pb-0 flex flex-row items-center justify-between">
+            <DialogTitle className="text-sm font-semibold truncate">
+              {activeLightboxImage?.title || "Xem ảnh thực đơn"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="relative flex-1 overflow-auto rounded-lg bg-black/5 flex items-center justify-center p-2 min-h-[300px]">
+            {activeLightboxImage?.url && (
+              <img
+                src={activeLightboxImage.url}
+                alt={activeLightboxImage.title}
+                className="max-h-[78vh] w-auto max-w-full object-contain rounded"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <RestaurantReservationDialog
-        businessId={businessId}
-        restaurantName={data.displayName}
-        open={reservationOpen}
-        onOpenChange={setReservationOpen}
-      />
+      {data && (
+        <RestaurantReservationDialog
+          businessId={businessId}
+          restaurantName={data.displayName}
+          ownerUserId={data.ownerUserId}
+          open={reservationOpen}
+          onOpenChange={setReservationOpen}
+        />
+      )}
     </div>
   );
 }

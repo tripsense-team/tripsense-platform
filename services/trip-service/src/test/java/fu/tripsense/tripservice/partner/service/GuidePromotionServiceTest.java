@@ -82,7 +82,7 @@ class GuidePromotionServiceTest {
             .role(role)
             .state(state)
             .build();
-    when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, userId))
+    lenient().when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, userId))
         .thenReturn(Optional.of(member));
   }
 

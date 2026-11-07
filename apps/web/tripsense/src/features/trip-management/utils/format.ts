@@ -65,15 +65,57 @@ export function countTripDays(trip: TripResponse): number {
   );
 }
 
+const destinationCovers: Record<string, string[]> = {
+  danang: [
+    "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=1200&auto=format&fit=crop&q=80", // Golden Bridge Da Nang
+    "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=1200&auto=format&fit=crop&q=80", // My Khe Beach
+    "https://images.unsplash.com/photo-1528127269322-539801943592?w=1200&auto=format&fit=crop&q=80", // Da Nang Bay
+  ],
+  hanoi: [
+    "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1200&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1528127269322-539801943592?w=1200&auto=format&fit=crop&q=80",
+  ],
+  hoian: [
+    "https://images.unsplash.com/photo-1555921015-5532091f6026?w=1200&auto=format&fit=crop&q=80",
+  ],
+  dalat: [
+    "https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?w=1200&auto=format&fit=crop&q=80",
+  ],
+  saigon: [
+    "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=1200&auto=format&fit=crop&q=80",
+  ],
+  phuquoc: [
+    "https://images.unsplash.com/photo-1540541338287-41700207dee6?w=1200&auto=format&fit=crop&q=80",
+  ],
+};
+
+function getDestinationKey(dest: string, name: string): string | null {
+  const combined = (dest + " " + name).toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
+  if (combined.includes("da nang")) return "danang";
+  if (combined.includes("ha noi")) return "hanoi";
+  if (combined.includes("hoi an")) return "hoian";
+  if (combined.includes("da lat")) return "dalat";
+  if (combined.includes("sai gon") || combined.includes("ho chi minh")) return "saigon";
+  if (combined.includes("phu quoc")) return "phuquoc";
+  return null;
+}
+
 export function coverImageForTrip(trip: TripResponse): string {
   if (trip.coverImageUrl) {
     return trip.coverImageUrl;
   }
 
+  const destKey = getDestinationKey(trip.destinationName, trip.name);
+  const options = destKey && destinationCovers[destKey] ? destinationCovers[destKey] : tripCoverOptions;
+
+  const idStr = trip.id || "trip";
   const index =
-    [...trip.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) %
-    tripCoverOptions.length;
-  return tripCoverOptions[index];
+    [...idStr].reduce((sum, char) => sum + char.charCodeAt(0), 0) %
+    options.length;
+  return options[index];
 }
 
 export function displayStatusLabel(status: DisplayStatus): string {

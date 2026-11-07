@@ -1,3 +1,4 @@
+import * as React from "react";
 import Image from "next/image";
 import { Rating } from "@/components/shared/rating";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,12 @@ export function PlaceCardCompact({
   onClick,
   className,
 }: PlaceCardCompactProps) {
+  const [imgError, setImgError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [image]);
+
   return (
     <div
       onClick={onClick}
@@ -28,12 +35,13 @@ export function PlaceCardCompact({
       )}
     >
       <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted shrink-0">
-        {image ? (
+        {image && !imgError ? (
           <Image
             src={image}
             alt={name}
             fill
             sizes="48px"
+            onError={() => setImgError(true)}
             className="object-cover"
           />
         ) : (

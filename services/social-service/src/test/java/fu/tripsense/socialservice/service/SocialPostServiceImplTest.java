@@ -676,6 +676,65 @@ class SocialPostServiceImplTest {
   }
 
   @Test
+  void setPostLike_dualWritesToSocialReactionsWhenRepositoryPresent() {
+    UUID postId = UUID.randomUUID();
+    SocialPost post =
+        SocialPost.builder()
+            .id(postId)
+            .authorId(user.id())
+            .authorDisplayName(user.email())
+            .content("post")
+            .likeCount(0)
+            .createdAt(Instant.now())
+            .updatedAt(Instant.now())
+            .build();
+    when(posts.lockActiveById(postId)).thenReturn(Optional.of(post));
+    when(postLikes.existsById(any())).thenReturn(false);
+
+    SocialReactionRepository socialReactionsMock = mock(SocialReactionRepository.class);
+    ReflectionTestUtils.setField(service, "socialReactions", socialReactionsMock);
+
+    ToggleLikeResponse result = service.setPostLike(postId, user, true);
+
+    assertThat(result.liked()).isTrue();
+    assertThat(result.likeCount()).isEqualTo(1);
+    verify(postLikes).save(any());
+    verify(socialReactionsMock).save(argThat(r ->
+        "POST".equals(r.getTargetType()) &&
+        postId.equals(r.getTargetId()) &&
+        user.id().equals(r.getUserId()) &&
+        "LIKE".equals(r.getReactionType())
+    ));
+  }
+
+  @Test
+  void setPostLike_removesFromSocialReactionsWhenUnliked() {
+    UUID postId = UUID.randomUUID();
+    SocialPost post =
+        SocialPost.builder()
+            .id(postId)
+            .authorId(user.id())
+            .authorDisplayName(user.email())
+            .content("post")
+            .likeCount(1)
+            .createdAt(Instant.now())
+            .updatedAt(Instant.now())
+            .build();
+    when(posts.lockActiveById(postId)).thenReturn(Optional.of(post));
+    when(postLikes.existsById(any())).thenReturn(true);
+
+    SocialReactionRepository socialReactionsMock = mock(SocialReactionRepository.class);
+    ReflectionTestUtils.setField(service, "socialReactions", socialReactionsMock);
+
+    ToggleLikeResponse result = service.setPostLike(postId, user, false);
+
+    assertThat(result.liked()).isFalse();
+    assertThat(result.likeCount()).isEqualTo(0);
+    verify(postLikes).deleteById(any());
+    verify(socialReactionsMock).deleteByUserIdAndTargetTypeAndTargetId(user.id(), "POST", postId);
+  }
+
+  @Test
   void listsAnEmptyUserFeedWithoutSamplePosts() {
     when(posts.findByAuthorIdAndDeletedAtIsNull(eq(user.id()), any()))
         .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));

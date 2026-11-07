@@ -25,15 +25,21 @@ describe("getPartnerServiceActions", () => {
   it("shows the existing restaurant menu route only with its capability", () => {
     expect(getPartnerServiceActions(business({ capabilities: ["RESTAURANT_MENU"] }))).toEqual([
       { key: "restaurantMenu", href: "/partner/businesses/business%2F1/restaurant-menu", icon: "restaurant" },
+      { key: "subscription", href: "/partner/businesses/business%2F1/subscription", icon: "subscription" },
     ]);
-    expect(getPartnerServiceActions(business({ capabilities: ["RESTAURANT_LISTING"] }))).toEqual([]);
+    expect(getPartnerServiceActions(business({ capabilities: ["RESTAURANT_LISTING"] }))).toEqual([
+      { key: "subscription", href: "/partner/businesses/business%2F1/subscription", icon: "subscription" },
+    ]);
   });
 
   it("maps hotel capabilities to the existing hotel workspace", () => {
     expect(getPartnerServiceActions(business({ kind: "HOTEL", capabilities: ["HOTEL_INVENTORY"] }))).toEqual([
       { key: "hotelServices", href: "/partner/businesses/business%2F1/hotel", icon: "hotel" },
+      { key: "subscription", href: "/partner/businesses/business%2F1/subscription", icon: "subscription" },
     ]);
-    expect(getPartnerServiceActions(business({ kind: "HOTEL", capabilities: [] }))).toEqual([]);
+    expect(getPartnerServiceActions(business({ kind: "HOTEL", capabilities: [] }))).toEqual([
+      { key: "subscription", href: "/partner/businesses/business%2F1/subscription", icon: "subscription" },
+    ]);
   });
 
   it("shows guide destinations independently according to granted capabilities", () => {
@@ -42,10 +48,21 @@ describe("getPartnerServiceActions", () => {
       capabilities: ["GUIDE_INQUIRY"],
     }))).toEqual([
       { key: "guideInquiries", href: "/partner/businesses/business%2F1/guide-inquiries", icon: "inquiries" },
+      { key: "subscription", href: "/partner/businesses/business%2F1/subscription", icon: "subscription" },
     ]);
     expect(getPartnerServiceActions(business({
       kind: "TOUR_GUIDE",
       capabilities: ["GUIDE_PROMOTION", "GUIDE_INQUIRY"],
-    }))).toHaveLength(2);
+    }))).toHaveLength(3);
+  });
+
+  it("maps rental capabilities to rental catalog workspace", () => {
+    expect(getPartnerServiceActions(business({
+      kind: "RENTAL_SERVICE",
+      capabilities: ["RENTAL_INVENTORY", "RENTAL_LISTING"],
+    }))).toEqual([
+      { key: "rentalServices", href: "/partner/businesses/business%2F1/rentals", icon: "rental" },
+      { key: "subscription", href: "/partner/businesses/business%2F1/subscription", icon: "subscription" },
+    ]);
   });
 });

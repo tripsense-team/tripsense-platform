@@ -36,6 +36,7 @@ class PartnerIntegrationTest extends RealInfrastructureTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private ObjectMapper objectMapper;
+  @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
   @Value("${jwt.access-secret}")
   private String accessSecret;
@@ -213,6 +214,36 @@ class PartnerIntegrationTest extends RealInfrastructureTest {
                 .content(pubPayload))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.publicationState").value("PUBLISHED"));
+
+    // Provision room type for hotel property so intake can be enabled
+    UUID propId = UUID.randomUUID();
+    var existingProps =
+        jdbcTemplate.queryForList(
+            "SELECT id FROM hotel_property WHERE business_id = ?",
+            UUID.fromString(businessId));
+    if (!existingProps.isEmpty()) {
+      propId = (UUID) existingProps.get(0).get("id");
+    } else {
+      jdbcTemplate.update(
+          "INSERT INTO hotel_property (id, business_id, owner_id, owner_email, name, destination, address, time_zone, check_in_time, check_out_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          propId,
+          UUID.fromString(businessId),
+          PARTNER_OWNER,
+          "owner@anbangresort.com",
+          "An Bang Boutique Resort",
+          "Hoi An",
+          "123 An Bang Beach",
+          "Asia/Ho_Chi_Minh",
+          "14:00",
+          "12:00",
+          "ACTIVE");
+    }
+    jdbcTemplate.update(
+        "INSERT INTO hotel_room_type (id, property_id, name, capacity) VALUES (?, ?, ?, ?)",
+        UUID.randomUUID(),
+        propId,
+        "Deluxe Ocean View",
+        2);
 
     currentVer++;
     String intakePayload = "{\"expectedVersion\": %d, \"acceptingNew\": true}".formatted(currentVer);
