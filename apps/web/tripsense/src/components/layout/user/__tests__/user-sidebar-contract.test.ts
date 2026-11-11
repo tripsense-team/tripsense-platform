@@ -48,12 +48,14 @@ describe("UserSidebar navigation contract", () => {
     );
   });
 
-  it("renders Partner links with the same full-width navigation shape", () => {
+  it("renders Partner links with the same full-width navigation shape and separated bookings entry", () => {
     expect(sidebarSource).toContain('href="/partner/services"');
+    expect(sidebarSource).toContain('href="/partner/bookings"');
     expect(sidebarSource).toContain('href="/partner/subscription"');
     expect(sidebarSource).toContain('href="/partner/analytics"');
+    expect(sidebarSource).toContain("!isBookingsActive");
     expect(sidebarSource).toContain("const partnerLinkClass = cn(");
-    expect(sidebarSource.match(/partnerLinkClass,/g)).toHaveLength(4);
+    expect(sidebarSource.match(/partnerLinkClass,/g)).toHaveLength(5);
     expect(sidebarSource).not.toContain('"ml-3 pl-4"');
   });
 
@@ -67,5 +69,14 @@ describe("UserSidebar navigation contract", () => {
     expect(reservationsIdx).toBeGreaterThan(servicesIdx);
     expect(sidebarSource).toContain("userBadgeCount");
     expect(sidebarSource).toContain("partnerPendingCount");
+    // Pending booking badge sits on the separated Bookings entry, not Cơ sở kinh doanh (/partner)
+    const partnerIdx = sidebarSource.indexOf("const partnerElement = (");
+    const bookingsIdx = sidebarSource.indexOf("const bookingsElement = (");
+    const subscriptionIdx = sidebarSource.indexOf("const subscriptionElement = (");
+    const badgeIdx = sidebarSource.indexOf("partnerPendingCount > 0");
+    expect(partnerIdx).toBeGreaterThan(-1);
+    expect(bookingsIdx).toBeGreaterThan(partnerIdx);
+    expect(badgeIdx).toBeGreaterThan(bookingsIdx);
+    expect(badgeIdx).toBeLessThan(subscriptionIdx);
   });
 });

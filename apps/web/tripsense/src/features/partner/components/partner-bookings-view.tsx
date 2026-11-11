@@ -96,6 +96,7 @@ export function PartnerBookingsView() {
         </div>
       ) : (
         <PartnerBookingsHub
+          key={initialBusinessId ?? "all"}
           businesses={businesses}
           initialBusinessId={initialBusinessId}
           onRefreshBusinesses={loadData}

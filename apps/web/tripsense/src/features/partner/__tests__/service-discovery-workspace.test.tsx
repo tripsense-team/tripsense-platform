@@ -100,6 +100,7 @@ import { searchPublicRentals } from "../services/rental-api";
 import { ServiceDiscoveryWorkspace } from "../components/service-discovery-workspace";
 import { PartnerBusinessCard } from "../components/partner-business-card";
 import { PartnerDashboardView } from "../components/partner-dashboard-view";
+import { PartnerBookingsView } from "../components/partner-bookings-view";
 import type { BusinessDetailDto } from "../types";
 
 describe("ServiceDiscoveryWorkspace & Partner Pending Activity Badges", () => {
@@ -224,7 +225,7 @@ describe("ServiceDiscoveryWorkspace & Partner Pending Activity Badges", () => {
     expect(text).not.toContain("Sắp ra mắt");
   });
 
-  it("displays pending booking count badge on PartnerBusinessCard and auto-focuses bookings tab on PartnerDashboardView", async () => {
+  it("keeps PartnerDashboardView separated from PartnerBookingsView while linking pending business badges to /partner/bookings", async () => {
     const sampleBusiness: BusinessDetailDto = {
       id: "biz-rental-1",
       displayName: "Vân Khang Car",
@@ -246,6 +247,12 @@ describe("ServiceDiscoveryWorkspace & Partner Pending Activity Badges", () => {
       updatedAt: "2026-11-01T00:00:00Z",
     };
 
+    getPartnerContextMock.mockResolvedValue({
+      role: "ROLE_PARTNER",
+      roles: ["ROLE_USER", "ROLE_PARTNER"],
+      businesses: [sampleBusiness],
+    });
+
     await act(async () => {
       root = createRoot(container);
       root.render(
@@ -256,13 +263,26 @@ describe("ServiceDiscoveryWorkspace & Partner Pending Activity Badges", () => {
           </>
         </I18nProvider>,
       );
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
     expect(container.textContent).toContain("Đơn đặt thuê");
     expect(container.textContent).toContain("3");
+    const bookingsAnchor = container.querySelector('a[href="/partner/bookings?businessId=biz-rental-1"]');
+    expect(bookingsAnchor).not.toBeNull();
+    // Business management (/partner) stays cleanly separated from PartnerBookingsHub
+    expect(container.querySelector('[data-testid="partner-bookings-hub-mock"]')).toBeNull();
+
+    await act(async () => {
+      root?.render(
+        <I18nProvider initialLocale="vi">
+          <PartnerBookingsView />
+        </I18nProvider>,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
     expect(container.textContent).toContain("Quản lý Đơn đặt & Booking");
-    expect(container.textContent).toContain("4");
     expect(container.querySelector('[data-testid="partner-bookings-hub-mock"]')).not.toBeNull();
   });
 });

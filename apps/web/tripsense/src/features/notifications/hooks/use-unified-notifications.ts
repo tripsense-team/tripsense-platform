@@ -94,13 +94,13 @@ export function useUnifiedNotifications() {
         } else if (p.eventType === "RESTAURANT_RESERVATION_REQUESTED") {
           title = t("notifications.restaurantRequested", { defaultValue: "Yêu cầu đặt bàn mới" });
           targetUrl = p.businessId
-            ? `/partner?tab=bookings&businessId=${p.businessId}`
-            : "/partner?tab=bookings";
+            ? `/partner/bookings?businessId=${p.businessId}`
+            : "/partner/bookings";
         } else if (p.eventType === "RENTAL_BOOKING_REQUESTED") {
           title = t("notifications.rentalRequested", { defaultValue: "Đơn thuê dịch vụ mới" });
           targetUrl = p.businessId
-            ? `/partner?tab=bookings&businessId=${p.businessId}`
-            : "/partner?tab=bookings";
+            ? `/partner/bookings?businessId=${p.businessId}`
+            : "/partner/bookings";
         } else if (p.eventType === "RENTAL_BOOKING_PLACED") {
           title = t("notifications.rentalPlaced", { defaultValue: "Đã gửi yêu cầu thuê" });
           targetUrl = "/reservations?tab=rentals";
@@ -119,18 +119,18 @@ export function useUnifiedNotifications() {
         } else if (p.eventType === "RENTAL_BOOKING_CANCELLED") {
           title = t("notifications.rentalCancelled", { defaultValue: "Khách đã hủy đơn thuê" });
           targetUrl = p.businessId
-            ? `/partner?tab=bookings&businessId=${p.businessId}`
-            : "/partner?tab=bookings";
+            ? `/partner/bookings?businessId=${p.businessId}`
+            : "/partner/bookings";
         } else if (p.eventType === "HOTEL_BOOKING_REQUESTED") {
           title = t("notifications.hotelRequested", { defaultValue: "Yêu cầu đặt phòng mới" });
           targetUrl = p.businessId
-            ? `/partner?tab=bookings&businessId=${p.businessId}`
-            : "/partner?tab=bookings";
+            ? `/partner/bookings?businessId=${p.businessId}`
+            : "/partner/bookings";
         } else if (p.eventType === "HOTEL_BOOKING_CANCELLED_BY_CUSTOMER") {
           title = t("notifications.hotelCancelledByGuest", { defaultValue: "Khách đã hủy đặt phòng" });
           targetUrl = p.businessId
-            ? `/partner?tab=bookings&businessId=${p.businessId}`
-            : "/partner?tab=bookings";
+            ? `/partner/bookings?businessId=${p.businessId}`
+            : "/partner/bookings";
         }
 
         normalized.push({

@@ -18,6 +18,7 @@ import {
   LogOut,
   Store,
   CalendarCheck,
+  CalendarDays,
   Utensils,
   BarChart3,
   Compass,
@@ -361,6 +362,9 @@ export function UserSidebar({
                 {(() => {
                   const partnerHref = "/partner";
                   const isPartner = isUserPartner(user);
+                  const isBookingsActive =
+                    pathname === "/partner/bookings" ||
+                    pathname?.startsWith("/partner/bookings/");
                   const isServicesActive =
                     pathname === "/partner/services" ||
                     pathname?.startsWith("/partner/services/");
@@ -371,11 +375,15 @@ export function UserSidebar({
                   const isAnalyticsActive = pathname === "/partner/analytics" || pathname?.startsWith("/partner/analytics/");
                   const isPartnerActive =
                     (pathname === partnerHref || pathname?.startsWith(`${partnerHref}/`)) &&
-                    !isServicesActive && !isSubscriptionActive && !isAnalyticsActive;
+                    !isBookingsActive &&
+                    !isServicesActive &&
+                    !isSubscriptionActive &&
+                    !isAnalyticsActive;
                   const partnerTitle = isUserPartner(user)
                     ? t("nav.partnerBusinesses", { defaultValue: "Cơ sở kinh doanh" })
                     : t("nav.becomePartner", { defaultValue: "Trở thành đối tác" });
                   const servicesTitle = t("nav.partnerServices", { defaultValue: "Dịch vụ & Thực đơn" });
+                  const bookingsTitle = t("nav.partnerBookings", { defaultValue: "Quản lý đơn đặt" });
                   const subscriptionTitle = t("nav.partnerSubscription", { defaultValue: "Gói Hội Viên Pro" });
                   const analyticsTitle = t("nav.partnerAnalytics", { defaultValue: "Thống kê & Tiếp cận" });
                   const partnerLinkClass = cn(
@@ -395,37 +403,16 @@ export function UserSidebar({
                       aria-current={isPartnerActive ? "page" : undefined}
                       className={cn(
                         partnerLinkClass,
-                        "relative",
                         isPartnerActive
                           ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
                           : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
                       )}
                     >
-                      <div className="relative flex items-center justify-center shrink-0">
-                        <Store className={partnerIconClass(isPartnerActive)} />
-                        {collapsed && isPartner && partnerPendingCount > 0 && (
-                          <span
-                            aria-label={`${partnerPendingCount} pending`}
-                            className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
-                          >
-                            {partnerPendingCount > 9 ? "9+" : partnerPendingCount}
-                          </span>
-                        )}
-                      </div>
+                      <Store className={partnerIconClass(isPartnerActive)} />
                       {!collapsed && (
-                        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                          <span className="truncate block font-medium">
-                            {partnerTitle}
-                          </span>
-                          {isPartner && partnerPendingCount > 0 && (
-                            <span
-                              aria-label={`${partnerPendingCount} pending`}
-                              className="inline-flex items-center justify-center min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none shrink-0"
-                            >
-                              {partnerPendingCount > 99 ? "99+" : partnerPendingCount}
-                            </span>
-                          )}
-                        </div>
+                        <span className="block min-w-0 flex-1 truncate font-medium">
+                          {partnerTitle}
+                        </span>
                       )}
                     </Link>
                   );
@@ -446,6 +433,47 @@ export function UserSidebar({
                         <span className="block min-w-0 flex-1 truncate font-medium">
                           {servicesTitle}
                         </span>
+                      )}
+                    </Link>
+                  );
+
+                  const bookingsElement = (
+                    <Link
+                      href="/partner/bookings"
+                      aria-current={isBookingsActive ? "page" : undefined}
+                      className={cn(
+                        partnerLinkClass,
+                        "relative",
+                        isBookingsActive
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
+                          : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
+                      )}
+                    >
+                      <div className="relative flex items-center justify-center shrink-0">
+                        <CalendarDays className={partnerIconClass(isBookingsActive)} />
+                        {collapsed && isPartner && partnerPendingCount > 0 && (
+                          <span
+                            aria-label={`${partnerPendingCount} pending`}
+                            className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
+                          >
+                            {partnerPendingCount > 9 ? "9+" : partnerPendingCount}
+                          </span>
+                        )}
+                      </div>
+                      {!collapsed && (
+                        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                          <span className="truncate block font-medium">
+                            {bookingsTitle}
+                          </span>
+                          {isPartner && partnerPendingCount > 0 && (
+                            <span
+                              aria-label={`${partnerPendingCount} pending`}
+                              className="inline-flex items-center justify-center min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none shrink-0"
+                            >
+                              {partnerPendingCount > 99 ? "99+" : partnerPendingCount}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </Link>
                   );
@@ -492,14 +520,7 @@ export function UserSidebar({
                         <Tooltip>
                           <TooltipTrigger asChild>{partnerElement}</TooltipTrigger>
                           <TooltipContent side="right" sideOffset={12}>
-                            <div className="flex items-center gap-1.5">
-                              <span>{partnerTitle}</span>
-                              {isPartner && partnerPendingCount > 0 && (
-                                <span className="text-micro px-1.5 py-0.5 rounded-full font-bold bg-rose-500 text-white">
-                                  {partnerPendingCount}
-                                </span>
-                              )}
-                            </div>
+                            <span>{partnerTitle}</span>
                           </TooltipContent>
                         </Tooltip>
                         {isPartner && (
@@ -507,6 +528,21 @@ export function UserSidebar({
                             <TooltipTrigger asChild>{servicesElement}</TooltipTrigger>
                             <TooltipContent side="right" sideOffset={12}>
                               <span>{servicesTitle}</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {isPartner && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>{bookingsElement}</TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={12}>
+                              <div className="flex items-center gap-1.5">
+                                <span>{bookingsTitle}</span>
+                                {partnerPendingCount > 0 && (
+                                  <span className="text-micro px-1.5 py-0.5 rounded-full font-bold bg-rose-500 text-white">
+                                    {partnerPendingCount}
+                                  </span>
+                                )}
+                              </div>
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -531,6 +567,7 @@ export function UserSidebar({
                     <>
                       {partnerElement}
                       {isPartner && servicesElement}
+                      {isPartner && bookingsElement}
                       {isPartner && subscriptionElement}
                       {isPartner && analyticsElement}
                     </>
