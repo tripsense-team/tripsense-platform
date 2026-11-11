@@ -67,6 +67,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                         "/api/guide-promotions/**",
                         "/api/public/restaurants/**",
                         "/api/public/hotels/**",
+                        "/api/public/rentals/**",
                         "/api/partner-listings/**",
                         "/api/hotels/search",
                         "/api/subscription-plans",

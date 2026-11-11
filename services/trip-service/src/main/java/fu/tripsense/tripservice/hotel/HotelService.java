@@ -29,6 +29,10 @@ public class HotelService {
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   @org.springframework.context.annotation.Lazy
   private HotelFinanceService hotelFinanceService;
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  @org.springframework.context.annotation.Lazy
+  private fu.tripsense.tripservice.partner.service.PartnerNotificationOutboxService
+      partnerNotificationOutboxService;
 
   public HotelService(JdbcTemplate db, PlatformTransactionManager transactions, MeterRegistry metrics) {
     this.db=db; this.tx=new TransactionTemplate(transactions); this.tx.setTimeout(15); this.metrics=metrics;
@@ -321,7 +325,15 @@ public class HotelService {
           INSERT INTO hotel_booking(id,property_id,business_id,room_type_id,customer_id,customer_email,request_key,check_in,check_out,quantity,guests,total,subtotal,discount_amount,voucher_code,property_name,room_name,time_zone,status,payment_method,expires_at,free_cancellation_until,no_show_after)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,null,?,?,?,'HELD',?,clock_timestamp()+interval '10 minutes',?,?)
           """,bid,pid,bizId,in.roomTypeId(),u.id(),u.email(),key,in.checkIn(),in.checkOut(),in.quantity(),in.guests(),calculatedTotal,calculatedTotal,p.get("name"),r.get("name"),p.get("time_zone"),payosEnabled?"PAYOS":demoPaymentsEnabled?"DEMO_ONLINE":"PAY_AT_PROPERTY",java.sql.Timestamp.from(freeCancelUntil),java.sql.Timestamp.from(noShowAfter));
-      metrics.counter("hotel.holds.created").increment(); return booking(bid);
+      metrics.counter("hotel.holds.created").increment();
+      notifyHotelManagers(
+          bizId,
+          (UUID) p.get("owner_id"),
+          "HOTEL_BOOKING_REQUESTED",
+          String.format(
+              "Yêu cầu đặt phòng mới tại %s (%s, %d phòng).",
+              p.get("name"), r.get("name"), in.quantity()));
+      return booking(bid);
     });
   }
   private Map<String,Object> booking(UUID id) { return one("SELECT * FROM hotel_booking WHERE id=?",id); }
@@ -486,7 +498,16 @@ public class HotelService {
       if(!confirm && "PAYOS".equals(b.get("payment_method")))
         db.update("UPDATE hotel_payos_payment SET resolution='REFUND_REQUIRED' WHERE booking_id=? AND state='PAID' AND resolution='NONE'",id);
       if(!confirm) {
-        db.update("UPDATE hotel_booking SET cancelled_by=? WHERE id=?",u.id().equals(b.get("customer_id"))?"CUSTOMER":"PROPERTY",id);
+        String cancelledBy = u.id().equals(b.get("customer_id"))?"CUSTOMER":"PROPERTY";
+        db.update("UPDATE hotel_booking SET cancelled_by=? WHERE id=?",cancelledBy,id);
+        if ("CUSTOMER".equals(cancelledBy)) {
+          notifyHotelManagers(
+              (UUID) p.get("business_id"),
+              (UUID) p.get("owner_id"),
+              "HOTEL_BOOKING_CANCELLED_BY_CUSTOMER",
+              String.format(
+                  "Khách đã hủy đặt phòng %s tại %s.", b.get("room_name"), p.get("name")));
+        }
       }
       event(id,confirm?"BOOKING_CONFIRMED":"BOOKING_CANCELLED",p,b);
       if(confirm && days((UUID)b.get("room_type_id"),date(b.get("check_in")),date(b.get("check_out"))).stream().anyMatch(d -> number(d.get("allocation"))-number(d.get("held"))-number(d.get("booked"))<=1)) event(id,"INVENTORY_LOW",p,null);
@@ -522,6 +543,38 @@ public class HotelService {
     for(UUID pid:db.queryForList("SELECT DISTINCT property_id FROM hotel_booking WHERE status='HELD' AND expires_at<=clock_timestamp() LIMIT 50",UUID.class))
       tx.executeWithoutResult(s -> expireProperty(property(pid)));
   }
+  private void notifyHotelManagers(
+      UUID businessId, UUID fallbackOwnerId, String eventType, String message) {
+    if (partnerNotificationOutboxService == null) {
+      return;
+    }
+    java.util.Set<UUID> recipientIds = new java.util.LinkedHashSet<>();
+    if (businessId != null) {
+      List<UUID> memberIds =
+          db.query(
+              "SELECT user_id FROM partner_business_member WHERE business_id=? AND state='ACTIVE' AND role IN ('OWNER','MANAGER')",
+              (rs, rowNum) -> (UUID) rs.getObject("user_id"),
+              businessId);
+      recipientIds.addAll(memberIds);
+    }
+    if (recipientIds.isEmpty() && fallbackOwnerId != null) {
+      recipientIds.add(fallbackOwnerId);
+    }
+    Instant now = Instant.now();
+    for (UUID recipientId : recipientIds) {
+      partnerNotificationOutboxService.saveNotificationWithOutbox(
+          fu.tripsense.tripservice.partner.entity.PartnerNotification.builder()
+              .id(UUID.randomUUID())
+              .eventId(UUID.randomUUID())
+              .recipientId(recipientId)
+              .eventType(eventType)
+              .businessId(businessId)
+              .message(message)
+              .createdAt(now)
+              .build());
+    }
+  }
+
   private void event(UUID aggregate,String type,Map<String,Object> p,Map<String,Object> b) {
     // JSON constructed by PostgreSQL avoids serializing arbitrary domain objects or credentials.
     db.update("""

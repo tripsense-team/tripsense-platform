@@ -256,6 +256,9 @@ public class PartnerBusinessService {
     if (!hasIntakeCap) {
       missing.add("INTAKE_CAPABILITY_NOT_GRANTED");
     }
+    if (!hasRequiredInventory(business)) {
+      missing.add(business.getKind() == BusinessKind.HOTEL ? "HOTEL_ROOMS_REQUIRED" : "RENTAL_ITEMS_REQUIRED");
+    }
 
     boolean canAcceptNew = missing.isEmpty();
     return new BusinessReadinessDto(businessId, canPublish, canAcceptNew, missing);
@@ -346,25 +349,18 @@ public class PartnerBusinessService {
             HttpStatus.CONFLICT);
       }
 
-      // Hotel-specific requirement: Must have at least 1 room type configured before accepting bookings
-      if (business.getKind() == BusinessKind.HOTEL) {
-        Integer roomCount = 0;
-        try {
-          roomCount = db.queryForObject("""
-              SELECT count(rt.id)
-              FROM hotel_property p
-              JOIN hotel_room_type rt ON rt.property_id = p.id
-              WHERE p.business_id = ?
-              """, Integer.class, businessId);
-        } catch (Exception e) {
-          roomCount = 0;
-        }
-        if (roomCount == null || roomCount == 0) {
-          throw new TripServiceException(
-              "HOTEL_ROOMS_REQUIRED",
-              "Khách sạn cần tạo ít nhất một hạng phòng trước khi mở đón khách.",
-              HttpStatus.CONFLICT);
-        }
+      if (business.getKind() == BusinessKind.HOTEL && !hasRequiredInventory(business)) {
+        throw new TripServiceException(
+            "HOTEL_ROOMS_REQUIRED",
+            "Khách sạn cần tạo ít nhất một hạng phòng trước khi mở đón khách.",
+            HttpStatus.CONFLICT);
+      }
+
+      if (business.getKind() == BusinessKind.RENTAL_SERVICE && !hasRequiredInventory(business)) {
+        throw new TripServiceException(
+            "RENTAL_ITEMS_REQUIRED",
+            "Cơ sở cho thuê cần tạo ít nhất một phương tiện hoặc dịch vụ đang hoạt động trước khi mở đón khách.",
+            HttpStatus.CONFLICT);
       }
 
       business.setAcceptingNew(true);
@@ -654,37 +650,37 @@ public class PartnerBusinessService {
                 List.of(PartnerCapability.RESTAURANT_LISTING, PartnerCapability.RESTAURANT_MENU))
             .build();
 
-    var guide =
+    var rental =
         BusinessKindConfigDto.KindDescriptorDto.builder()
-            .kind(BusinessKind.TOUR_GUIDE)
-            .title("Hướng dẫn viên du lịch")
-            .description("Hồ sơ cá nhân chuyên môn, đăng bài quảng bá dịch vụ và tiếp nhận yêu cầu tư vấn.")
-            .checklistId("CHK-GUIDE-V1")
+            .kind(BusinessKind.RENTAL_SERVICE)
+            .title("Thuê xe & Dịch vụ trải nghiệm")
+            .description("Cho thuê xe máy, ô tô tự lái, lều dã ngoại, thuyền SUP & thiết bị thể thao ngoài trời.")
+            .checklistId("CHK-RENTAL-V1")
             .checklistVersion("1.0")
             .goalBundles(
                 List.of(
                     new BusinessKindConfigDto.GoalBundleDto(
-                        "PROMOTION",
-                        "Giới thiệu chuyên môn",
-                        "Xây dựng hồ sơ năng lực và đăng bài dịch vụ trên Community",
-                        List.of(PartnerCapability.GUIDE_LISTING, PartnerCapability.GUIDE_PROMOTION)),
+                        "LISTING",
+                        "Đăng thông tin dịch vụ",
+                        "Hiển thị cửa hàng cho thuê và danh mục phương tiện/thiết bị",
+                        List.of(PartnerCapability.RENTAL_LISTING, PartnerCapability.RENTAL_INVENTORY)),
                     new BusinessKindConfigDto.GoalBundleDto(
-                        "INQUIRY",
-                        "Tiếp nhận tư vấn",
-                        "Nhận và phản hồi các yêu cầu tư vấn từ khách du lịch",
-                        List.of(PartnerCapability.GUIDE_INQUIRY))))
+                        "BOOKING",
+                        "Nhận đặt thuê trực tuyến",
+                        "Quản lý lịch trống và nhận đơn đặt thuê từ du khách",
+                        List.of(PartnerCapability.RENTAL_BOOKING))))
             .supportedCapabilities(
                 List.of(
-                    PartnerCapability.GUIDE_LISTING,
-                    PartnerCapability.GUIDE_PROMOTION,
-                    PartnerCapability.GUIDE_INQUIRY))
+                    PartnerCapability.RENTAL_LISTING,
+                    PartnerCapability.RENTAL_INVENTORY,
+                    PartnerCapability.RENTAL_BOOKING))
             .build();
 
     return BusinessKindConfigDto.builder()
         .schemaVersion(1)
         .region(reg)
         .submitEnabled(submitEnabled)
-        .kinds(List.of(hotel, restaurant, guide))
+        .kinds(List.of(hotel, restaurant, rental))
         .build();
   }
 
@@ -758,6 +754,31 @@ public class PartnerBusinessService {
     };
   }
 
+  private boolean hasRequiredInventory(PartnerBusiness business) {
+    String sql =
+        switch (business.getKind()) {
+          case HOTEL ->
+              """
+              SELECT count(rt.id)
+              FROM hotel_property p
+              JOIN hotel_room_type rt ON rt.property_id = p.id
+              WHERE p.business_id = ?
+              """;
+          case RENTAL_SERVICE ->
+              "SELECT count(id) FROM partner_rental_item WHERE business_id = ? AND is_active = true";
+          default -> null;
+        };
+    if (sql == null || db == null) {
+      return true;
+    }
+    try {
+      Integer count = db.queryForObject(sql, Integer.class, business.getId());
+      return count != null && count > 0;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
   private void validateRequestedCapabilities(
       BusinessKind kind, List<PartnerCapability> capabilities) {
     if (capabilities == null || capabilities.isEmpty()) {
@@ -827,20 +848,7 @@ public class PartnerBusinessService {
     boolean listingCap = caps.contains(getListingCapability(b.getKind()));
     boolean intakeCap = caps.contains(getIntakeCapability(b.getKind()));
     boolean publicEligible = b.isPublicEligible(listingCap);
-    boolean isReadinessMet = true;
-    if (b.getKind() == BusinessKind.HOTEL && db != null) {
-      try {
-        Integer roomCount = db.queryForObject("""
-            SELECT count(rt.id)
-            FROM hotel_property p
-            JOIN hotel_room_type rt ON rt.property_id = p.id
-            WHERE p.business_id = ?
-            """, Integer.class, b.getId());
-        isReadinessMet = (roomCount != null && roomCount > 0);
-      } catch (Exception e) {
-        isReadinessMet = false;
-      }
-    }
+    boolean isReadinessMet = hasRequiredInventory(b);
     boolean newIntakeEligible = b.isNewIntakeEligible(publicEligible, intakeCap, isReadinessMet);
 
     return BusinessDetailDto.builder()

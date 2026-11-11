@@ -25,6 +25,8 @@ public class RestaurantMenuImageStorage {
   private static final Logger log = LoggerFactory.getLogger(RestaurantMenuImageStorage.class);
   public static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
   private static final Set<String> ALLOWED_MIME_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+  private static final Set<String> ALLOWED_SECTIONS = Set.of("restaurant-menu", "rental-items");
+  private static final String DEFAULT_SECTION = "restaurant-menu";
 
   private final String cloudName;
   private final String apiKey;
@@ -45,10 +47,16 @@ public class RestaurantMenuImageStorage {
   }
 
   public RestaurantMenuImageUploadDto upload(UUID businessId, MultipartFile file) {
+    return upload(businessId, DEFAULT_SECTION, file);
+  }
+
+  /** Uploads a verified partner image into Cloudinary under the allowed business section folder. */
+  public RestaurantMenuImageUploadDto upload(UUID businessId, String section, MultipartFile file) {
+    String validSection = requireValidSection(section);
     validate(file);
     requireConfigured();
 
-    String folder = businessFolder(businessId);
+    String folder = businessFolder(businessId, validSection);
     String assetId = UUID.randomUUID().toString();
 
     MultipartBodyBuilder body = new MultipartBodyBuilder();
@@ -78,25 +86,31 @@ public class RestaurantMenuImageStorage {
 
       String publicId = result == null ? null : result.path("public_id").asText(null);
       String secureUrl = result == null ? null : result.path("secure_url").asText(null);
-      if (!expectedPublicId(businessId, publicId) || !isTrustedDeliveryUrl(secureUrl)) {
-        log.warn("Cloudinary menu image upload returned an invalid response (publicIdValid={}, secureUrlValid={})",
-            expectedPublicId(businessId, publicId), isTrustedDeliveryUrl(secureUrl));
+      if (!expectedPublicId(businessId, validSection, publicId) || !isTrustedDeliveryUrl(secureUrl)) {
+        log.warn("Cloudinary partner image upload returned an invalid response (publicIdValid={}, secureUrlValid={})",
+            expectedPublicId(businessId, validSection, publicId), isTrustedDeliveryUrl(secureUrl));
         throw new IllegalStateException("Image provider returned an invalid asset response");
       }
       return new RestaurantMenuImageUploadDto(publicId, secureUrl);
     } catch (RestClientResponseException exception) {
-      log.warn("Cloudinary menu image upload rejected (httpStatus={})", exception.getStatusCode().value());
-      throw new IllegalStateException("Restaurant menu image upload failed", exception);
+      log.warn("Cloudinary partner image upload rejected (httpStatus={})", exception.getStatusCode().value());
+      throw new IllegalStateException("Partner image upload failed", exception);
     } catch (Exception exception) {
-      log.warn("Cloudinary menu image upload failed (exceptionType={})", exception.getClass().getSimpleName());
-      throw new IllegalStateException("Restaurant menu image upload failed", exception);
+      log.warn("Cloudinary partner image upload failed (exceptionType={})", exception.getClass().getSimpleName());
+      throw new IllegalStateException("Partner image upload failed", exception);
     }
   }
 
   public void delete(UUID businessId, String publicId) {
+    delete(businessId, DEFAULT_SECTION, publicId);
+  }
+
+  /** Deletes an uploaded partner image from Cloudinary after checking section-scoped prefix ownership. */
+  public void delete(UUID businessId, String section, String publicId) {
+    String validSection = requireValidSection(section);
     requireConfigured();
-    if (!expectedPublicId(businessId, publicId)) {
-      throw new IllegalArgumentException("Invalid restaurant menu image reference");
+    if (!expectedPublicId(businessId, validSection, publicId)) {
+      throw new IllegalArgumentException("Invalid partner image reference");
     }
     MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
     body.add("public_id", publicId);
@@ -115,7 +129,12 @@ public class RestaurantMenuImageStorage {
   }
 
   public boolean isValidReference(UUID businessId, String publicId) {
-    return publicId == null || publicId.isBlank() || expectedPublicId(businessId, publicId);
+    return isValidReference(businessId, DEFAULT_SECTION, publicId);
+  }
+
+  public boolean isValidReference(UUID businessId, String section, String publicId) {
+    String validSection = requireValidSection(section);
+    return publicId == null || publicId.isBlank() || expectedPublicId(businessId, validSection, publicId);
   }
 
   private void validate(MultipartFile file) {
@@ -150,12 +169,19 @@ public class RestaurantMenuImageStorage {
     }
   }
 
-  private String businessFolder(UUID businessId) {
-    return folderPrefix + "/" + businessId + "/restaurant-menu";
+  private String requireValidSection(String section) {
+    if (section == null || !ALLOWED_SECTIONS.contains(section)) {
+      throw new IllegalArgumentException("Unsupported partner image section");
+    }
+    return section;
   }
 
-  private boolean expectedPublicId(UUID businessId, String publicId) {
-    String prefix = businessFolder(businessId) + "/";
+  private String businessFolder(UUID businessId, String section) {
+    return folderPrefix + "/" + businessId + "/" + section;
+  }
+
+  private boolean expectedPublicId(UUID businessId, String section, String publicId) {
+    String prefix = businessFolder(businessId, section) + "/";
     if (publicId == null || !publicId.startsWith(prefix)) return false;
     try {
       UUID.fromString(publicId.substring(prefix.length()));

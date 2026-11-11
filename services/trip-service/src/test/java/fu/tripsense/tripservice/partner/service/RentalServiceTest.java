@@ -33,6 +33,7 @@ class RentalServiceTest {
   @Mock private RentalBookingOrderRepository rentalBookingRepo;
   @Mock private PartnerBusinessRepository businessRepo;
   @Mock private PartnerBusinessMemberRepository memberRepo;
+  @Mock private RestaurantMenuImageStorage imageStorage;
 
   @InjectMocks private RentalService rentalService;
 
@@ -189,6 +190,78 @@ class RentalServiceTest {
         ownerUser, businessId, order.getId(), BigDecimal.valueOf(50000), "Khách trả trễ 1 tiếng");
     assertThat(returned.status()).isEqualTo(RentalBookingStatus.RETURNED);
     assertThat(returned.overdueFee()).isEqualByComparingTo(BigDecimal.valueOf(50000));
+  }
+
+  @Test
+  @DisplayName("createRentalItem with PickupOption.BOTH sets deliveryAvailable=true and active=true")
+  void createRentalItem_bothPickup_enablesDelivery() {
+    when(businessRepo.findById(businessId)).thenReturn(Optional.of(business));
+    when(rentalItemRepo.save(any(PartnerRentalItem.class))).thenAnswer(i -> {
+      PartnerRentalItem saved = i.getArgument(0);
+      saved.setId(UUID.randomUUID());
+      return saved;
+    });
+
+    CreateRentalItemRequest req = CreateRentalItemRequest.builder()
+        .name("VinFast VF3 Tự Lái")
+        .category(RentalCategory.CAR_4_SEATS)
+        .pricePerDay(BigDecimal.valueOf(600000))
+        .pickupOption(PickupOption.BOTH)
+        .build();
+
+    RentalItemDto dto = rentalService.createRentalItem(ownerUser, businessId, req);
+
+    assertThat(dto.active()).isTrue();
+    assertThat(dto.deliveryAvailable()).isTrue();
+    assertThat(dto.pickupOption()).isEqualTo(PickupOption.DELIVERY_TO_LOCATION);
+  }
+
+  @Test
+  @DisplayName("uploadRentalItemImage verifies business management permission and uploads to rental-items section")
+  void uploadRentalItemImage_delegatesToCloudinarySection() {
+    business.setOperationState(OperationState.ACTIVE);
+    when(businessRepo.findById(businessId)).thenReturn(Optional.of(business));
+    org.springframework.mock.web.MockMultipartFile file =
+        new org.springframework.mock.web.MockMultipartFile("file", "vf3.png", "image/png", new byte[] {1, 2, 3});
+    RestaurantMenuImageUploadDto expected =
+        new RestaurantMenuImageUploadDto("tripsense/partners/" + businessId + "/rental-items/img-1", "https://res.cloudinary.com/demo/image/upload/v1/vf3.png");
+    when(imageStorage.upload(businessId, "rental-items", file)).thenReturn(expected);
+
+    RestaurantMenuImageUploadDto result = rentalService.uploadRentalItemImage(ownerUser, businessId, file);
+
+    assertThat(result).isEqualTo(expected);
+    verify(imageStorage).upload(businessId, "rental-items", file);
+  }
+
+  @Test
+  @DisplayName("createBooking emits partner and customer notifications when outboxService is attached")
+  void createBooking_emitsOutboxNotifications() {
+    PartnerNotificationOutboxService mockOutbox = mock(PartnerNotificationOutboxService.class);
+    org.springframework.test.util.ReflectionTestUtils.setField(rentalService, "outboxService", mockOutbox);
+
+    when(rentalItemRepo.findById(itemId)).thenReturn(Optional.of(rentalItem));
+    when(businessRepo.findById(businessId)).thenReturn(Optional.of(business));
+    when(memberRepo.findByIdBusinessIdAndState(businessId, MembershipState.ACTIVE)).thenReturn(List.of());
+    when(rentalBookingRepo.calculateOverlappingAllocatedQuantity(eq(itemId), any(), any())).thenReturn(0);
+    when(rentalBookingRepo.save(any(RentalBookingOrder.class))).thenAnswer(i -> {
+      RentalBookingOrder o = i.getArgument(0);
+      o.setId(UUID.randomUUID());
+      return o;
+    });
+
+    CreateRentalBookingRequest req = CreateRentalBookingRequest.builder()
+        .rentalItemId(itemId)
+        .businessId(businessId)
+        .customerName("Minh")
+        .customerPhone("0909123456")
+        .pickupAt(Instant.now().plus(2, ChronoUnit.HOURS))
+        .returnAt(Instant.now().plus(1, ChronoUnit.DAYS))
+        .quantity(1)
+        .build();
+
+    rentalService.createBooking(strangerId, req);
+
+    verify(mockOutbox, times(2)).saveNotificationWithOutbox(any(PartnerNotification.class));
   }
 }
 
