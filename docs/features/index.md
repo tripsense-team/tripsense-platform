@@ -4,7 +4,9 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
-| `generic-travel-rental-and-services` | APPROVED | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
+| `service-rental-discovery-and-quick-booking` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/api-gateway` | [Docs](./service-rental-discovery-and-quick-booking.md) |
+| `booking-activity-badges-and-smart-focus` | DONE | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./booking-activity-badges-and-smart-focus.md) |
+| `generic-travel-rental-and-services` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
 | `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |
 | `in-chat-reservation-offer` | DONE | `services/social-service`, `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./in-chat-reservation-offer.md) |
 | `admin-place-map-reverse-geocoding` | IMPLEMENTING; local CI regression suites pass, CI rerun and live provider acceptance pending | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./admin-place-map-reverse-geocoding.md) |
