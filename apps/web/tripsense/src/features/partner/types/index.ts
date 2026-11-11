@@ -503,6 +503,7 @@ export interface PublicRestaurantListingDto {
   publicEmail?: string;
   publicPhone?: string;
   verifiedPartner?: boolean;
+  acceptingNew?: boolean;
   badgeLabel?: string;
 }
 
@@ -667,20 +668,42 @@ export interface RentalItemDto {
   businessId: string;
   name: string;
   category: RentalCategory;
+  subcategory?: string | null;
   description?: string | null;
   thumbnailUrl?: string | null;
   images: string[];
   pricePerHour?: number | null;
   pricePerDay: number;
   depositAmount: number;
+  depositPolicy?: string | null;
   totalInventory: number;
-  availableInventory: number;
+  availableInventory?: number;
+  deliveryAvailable?: boolean;
   pickupOption: PickupOption;
   deliveryFee?: number | null;
   specifications: Record<string, unknown>;
-  isActive: boolean;
+  isActive?: boolean;
+  active?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PublicRentalListingDto {
+  id: string;
+  ownerUserId: string;
+  displayName: string;
+  address?: string;
+  destination?: string;
+  openingHours?: string;
+  placeId?: string | null;
+  publicEmail?: string | null;
+  publicPhone?: string | null;
+  verifiedPartner: boolean;
+  acceptingNew: boolean;
+  badgeLabel?: string | null;
+  hasDirectInventory: boolean;
+  minPricePerDay?: number | null;
+  items: RentalItemDto[];
 }
 
 export interface CreateRentalItemRequest {
@@ -693,6 +716,7 @@ export interface CreateRentalItemRequest {
   pricePerDay: number;
   depositAmount?: number;
   totalInventory: number;
+  deliveryAvailable?: boolean;
   pickupOption?: PickupOption;
   deliveryFee?: number;
   specifications?: Record<string, unknown>;
@@ -709,9 +733,11 @@ export interface UpdateRentalItemRequest {
   pricePerDay?: number;
   depositAmount?: number;
   totalInventory?: number;
+  deliveryAvailable?: boolean;
   pickupOption?: PickupOption;
   deliveryFee?: number;
   specifications?: Record<string, unknown>;
+  active?: boolean;
   isActive?: boolean;
 }
 

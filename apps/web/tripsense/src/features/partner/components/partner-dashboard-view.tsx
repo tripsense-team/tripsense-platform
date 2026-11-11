@@ -20,6 +20,7 @@ import { PartnerWizardModal } from "./partner-wizard-modal";
 import { PartnerBookingsHub } from "./partner-bookings-hub";
 import { getPartnerContext } from "../services/partner-api";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { useBookingActivitySummary } from "@/features/reservations/hooks/use-booking-activity-summary";
 import type { BusinessDetailDto } from "../types";
 
 export interface PartnerDashboardViewProps {
@@ -36,24 +37,63 @@ export function PartnerDashboardView({ defaultTab = "businesses" }: PartnerDashb
   const [error, setError] = React.useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = React.useState(false);
 
+  const tabParam = searchParams.get("tab");
+  const hasExplicitTabParam =
+    tabParam === "bookings" || tabParam === "businesses" || defaultTab === "bookings";
+  const hasUserSwitchedTabRef = React.useRef(false);
+  const hasAutoFocusedTabRef = React.useRef(false);
+
   // Top Tabs: "businesses" | "bookings"
   const [activeTab, setActiveTab] = React.useState<"businesses" | "bookings">(
-    searchParams.get("tab") === "bookings" ? "bookings" : defaultTab,
+    tabParam === "bookings" ? "bookings" : defaultTab,
   );
   const [selectedBusinessIdForBookings, setSelectedBusinessIdForBookings] = React.useState<string | undefined>(
     searchParams.get("businessId") || undefined,
   );
 
+  const { partnerSummary, partnerPendingCount } = useBookingActivitySummary({
+    includePartner: isPartner,
+    includePendingOffers: false,
+  });
+
+  const pendingCountsByBusiness = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of partnerSummary?.businesses ?? []) {
+      const count = item.pendingCount > 0 ? item.pendingCount : item.unreadNotificationCount;
+      if (count > 0) {
+        map.set(item.businessId, count);
+      }
+    }
+    return map;
+  }, [partnerSummary]);
+
   React.useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "bookings" || tabParam === "businesses") {
-      setActiveTab(tabParam);
+    const qTab = searchParams.get("tab");
+    if (qTab === "bookings" || qTab === "businesses") {
+      setActiveTab(qTab);
     }
     const bizParam = searchParams.get("businessId");
     if (bizParam) {
       setSelectedBusinessIdForBookings(bizParam);
     }
   }, [searchParams]);
+
+  // Smart auto-focus: automatically switch to Bookings tab when new/pending orders exist
+  React.useEffect(() => {
+    if (
+      !isPartner ||
+      hasExplicitTabParam ||
+      hasUserSwitchedTabRef.current ||
+      hasAutoFocusedTabRef.current ||
+      !partnerSummary
+    ) {
+      return;
+    }
+    hasAutoFocusedTabRef.current = true;
+    if (partnerSummary.recommendedDashboardTab === "bookings" && activeTab !== "bookings") {
+      setActiveTab("bookings");
+    }
+  }, [activeTab, hasExplicitTabParam, isPartner, partnerSummary]);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -144,12 +184,14 @@ export function PartnerDashboardView({ defaultTab = "businesses" }: PartnerDashb
         <div className="flex items-center gap-2 border-b border-border/80 pb-0">
           <button
             type="button"
-            onClick={() => setActiveTab("businesses")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all -mb-px ${
-              activeTab === "businesses"
+            onClick={() => {
+              hasUserSwitchedTabRef.current = true;
+              setActiveTab("businesses");
+            }}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all -mb-px ${activeTab === "businesses"
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+              }`}
           >
             <Store className="h-4 w-4" />
             <span>Cơ sở & Dịch vụ</span>
@@ -161,17 +203,22 @@ export function PartnerDashboardView({ defaultTab = "businesses" }: PartnerDashb
           <button
             type="button"
             onClick={() => {
+              hasUserSwitchedTabRef.current = true;
               setSelectedBusinessIdForBookings(undefined);
               setActiveTab("bookings");
             }}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all -mb-px ${
-              activeTab === "bookings"
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all -mb-px ${activeTab === "bookings"
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+              }`}
           >
             <CalendarDays className="h-4 w-4" />
             <span>Quản lý Đơn đặt & Booking</span>
+            {partnerPendingCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-micro font-bold leading-none shadow-xs">
+                {partnerPendingCount > 99 ? "99+" : partnerPendingCount}
+              </span>
+            )}
           </button>
         </div>
       )}
@@ -275,6 +322,7 @@ export function PartnerDashboardView({ defaultTab = "businesses" }: PartnerDashb
                   <PartnerBusinessCard
                     key={business.id}
                     business={business}
+                    pendingBookingsCount={pendingCountsByBusiness.get(business.id) ?? 0}
                     onUpdated={handleBusinessUpdated}
                     onProfileUpdateSubmitted={loadData}
                     onSelectBookings={handleSelectBookingsForBusiness}

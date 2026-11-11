@@ -1,8 +1,12 @@
 "use client";
 
-import { PartnerDashboardView } from "@/features/partner";
+import * as React from "react";
+import { PartnerBookingsView } from "@/features/partner";
 
 export default function PartnerBookingsPage() {
-  return <PartnerDashboardView defaultTab="bookings" />;
+  return (
+    <React.Suspense fallback={null}>
+      <PartnerBookingsView />
+    </React.Suspense>
+  );
 }
-

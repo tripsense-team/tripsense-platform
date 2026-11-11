@@ -344,6 +344,19 @@ export function PartnerWizardModal({
       setSelectedPlace(place);
       if (!editBusiness) setDisplayName(place.name);
       setCustomAddress(place.address || suggestion.subtitle || "");
+      const matchedCity = (place.city || "").trim();
+      if (matchedCity) {
+        const knownDestination = POPULAR_DESTINATIONS.find(
+          (dest) => dest.name.toLocaleLowerCase() === matchedCity.toLocaleLowerCase(),
+        );
+        if (knownDestination) {
+          setSelectedCity(knownDestination.name);
+          setCustomCity("");
+        } else {
+          setSelectedCity("__custom__");
+          setCustomCity(matchedCity);
+        }
+      }
       setPlaceQuery("");
       setPlaceResults([]);
     } catch (err) {
@@ -362,8 +375,10 @@ export function PartnerWizardModal({
       return;
     }
 
-    const destination = selectedCity === "__custom__" ? customCity.trim() : selectedCity.trim();
-    const isPlaceBusiness = kind === "HOTEL" || kind === "RESTAURANT";
+    const destination = (selectedCity === "__custom__" ? customCity.trim() : selectedCity.trim())
+      || selectedPlace?.city?.trim()
+      || "";
+    const isPlaceBusiness = kind === "HOTEL" || kind === "RESTAURANT" || kind === "RENTAL_SERVICE";
     if (isPlaceBusiness && (!destination || !customAddress.trim())) {
       setError(t("partner.profileUpdate.citySelectionRequired"));
       return;
@@ -1410,8 +1425,16 @@ export function PartnerWizardModal({
                         setError("Vui lòng nhập tên hiển thị");
                         return;
                       }
-                      if ((kind === "HOTEL" || kind === "RESTAURANT") && (!selectedPlace?.city?.trim() || !customAddress.trim())) {
+                      const isPlaceKind = kind === "HOTEL" || kind === "RESTAURANT" || kind === "RENTAL_SERVICE";
+                      const stepDest = (selectedCity === "__custom__" ? customCity.trim() : selectedCity.trim())
+                        || selectedPlace?.city?.trim()
+                        || "";
+                      if (isPlaceKind && (!stepDest || !customAddress.trim())) {
                         setError(t("partner.profileUpdate.citySelectionRequired"));
+                        return;
+                      }
+                      if (isPlaceKind && !selectedPlace) {
+                        setError(t("partner.location.required", { defaultValue: "Vui lòng tìm và chọn địa điểm cơ sở từ danh sách gợi ý" }));
                         return;
                       }
                     }

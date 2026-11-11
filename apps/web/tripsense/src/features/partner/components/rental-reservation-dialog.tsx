@@ -3,19 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import {
-  Calendar,
   Clock,
   Car,
-  Bike,
-  Package,
-  Users,
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Send,
-  Info,
-  User,
-  Phone,
   MapPin,
   ShieldCheck,
   MessageSquare,
@@ -31,8 +23,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useTranslation } from "@/i18n";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
+import { chatApi } from "@/features/chat/services/chat-api";
+import { notifyBookingActivityChanged } from "@/features/reservations/services/reservations-activity-api";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import {
   createRentalBooking,
@@ -47,6 +40,8 @@ import type {
 
 export interface RentalReservationDialogProps {
   rentalItem: RentalItemDto;
+  ownerUserId?: string;
+  businessName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (order: RentalBookingOrderDto) => void;
@@ -54,12 +49,20 @@ export interface RentalReservationDialogProps {
 
 export function RentalReservationDialog({
   rentalItem,
+  ownerUserId,
+  businessName,
   open,
   onOpenChange,
   onSuccess,
 }: RentalReservationDialogProps) {
-  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
+
+  const supportsDelivery = Boolean(
+    rentalItem.deliveryAvailable ||
+      rentalItem.pickupOption === "BOTH" ||
+      rentalItem.pickupOption === "DOOR_DELIVERY" ||
+      rentalItem.pickupOption === "DELIVERY_TO_LOCATION",
+  );
 
   const [customerName, setCustomerName] = React.useState("");
   const [customerPhone, setCustomerPhone] = React.useState("");
@@ -67,9 +70,7 @@ export function RentalReservationDialog({
   const [pickupAt, setPickupAt] = React.useState("");
   const [returnAt, setReturnAt] = React.useState("");
   const [quantity, setQuantity] = React.useState(1);
-  const [pickupOption, setPickupOption] = React.useState<PickupOption>(
-    rentalItem.pickupOption === "DOOR_DELIVERY" ? "DOOR_DELIVERY" : "STORE_PICKUP"
-  );
+  const [pickupOption, setPickupOption] = React.useState<PickupOption>("STORE_PICKUP");
   const [deliveryAddress, setDeliveryAddress] = React.useState("");
   const [specialRequests, setSpecialRequests] = React.useState("");
 
@@ -80,6 +81,15 @@ export function RentalReservationDialog({
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = React.useState<RentalBookingOrderDto | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setCreatedOrder(null);
+      setError(null);
+      setQuantity(1);
+      setPickupOption("STORE_PICKUP");
+    }
+  }, [open, rentalItem.id]);
 
   // Auto pre-fill user credentials
   React.useEffect(() => {
@@ -159,10 +169,11 @@ export function RentalReservationDialog({
     const r = new Date(returnAt).getTime();
     const diffHours = Math.max(1, (r - p) / (1000 * 60 * 60));
     const days = Math.max(1, Math.ceil(diffHours / 24));
-    const total = days * rentalItem.pricePerDay * quantity;
+    const deliveryFee = pickupOption === "DOOR_DELIVERY" ? (rentalItem.deliveryFee || 0) : 0;
+    const total = days * rentalItem.pricePerDay * quantity + deliveryFee;
     const deposit = (rentalItem.depositAmount || 0) * quantity;
     return { totalDays: days, totalAmount: total, depositTotal: deposit };
-  }, [pickupAt, returnAt, quantity, rentalItem]);
+  }, [pickupAt, returnAt, quantity, pickupOption, rentalItem]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,6 +218,38 @@ export function RentalReservationDialog({
     try {
       const order = await createRentalBooking(payload);
       setCreatedOrder(order);
+
+      const targetName = businessName || order.businessName || rentalItem.name;
+      if (ownerUserId && user?.id && ownerUserId !== user.id) {
+        const pickupStr = new Date(order.pickupAt).toLocaleString("vi-VN");
+        const returnStr = new Date(order.returnAt).toLocaleString("vi-VN");
+        const deliveryLine =
+          pickupOption === "DOOR_DELIVERY"
+            ? `\n- Giao tận nơi: ${deliveryAddress.trim()}`
+            : "\n- Hình thức nhận: Lấy tại cửa hàng đối tác";
+        const noteLine = specialRequests.trim() ? `\n- Ghi chú: ${specialRequests.trim()}` : "";
+        const bookingSummaryMsg =
+          `[Yêu cầu đặt thuê mới] Chào ${targetName}, mình đã gửi đơn đặt thuê ${rentalItem.name} (x${quantity}):\n` +
+          `- Mã đơn: ${order.bookingCode}\n` +
+          `- Thời gian: ${pickupStr} → ${returnStr}${deliveryLine}\n` +
+          `- Người đặt: ${customerName.trim()} (SĐT: ${customerPhone.trim()})${noteLine}\n` +
+          `Nhờ shop kiểm tra và xác nhận giúp mình nhé!`;
+        void chatApi.sendDirectMessage(ownerUserId, bookingSummaryMsg).catch(() => undefined);
+      }
+
+      if (typeof window !== "undefined") {
+        notifyBookingActivityChanged();
+        window.dispatchEvent(
+          new CustomEvent("app:notification-toast", {
+            detail: {
+              title: "Gửi yêu cầu thuê thành công!",
+              body: `Đơn ${order.bookingCode} (${rentalItem.name}) tại ${targetName} đã được gửi tới đối tác.`,
+              clickActionUrl: "/reservations?tab=rentals",
+            },
+          }),
+        );
+      }
+
       if (onSuccess) onSuccess(order);
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể hoàn tất đơn đặt thuê."));
@@ -277,7 +320,9 @@ export function RentalReservationDialog({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Hình thức nhận:</span>
                 <span className="font-medium text-foreground">
-                  {createdOrder.pickupOption === "DOOR_DELIVERY" ? `Giao tận nơi: ${createdOrder.deliveryAddress}` : "Nhận tại cửa hàng đối tác"}
+                  {createdOrder.pickupOption === "DOOR_DELIVERY" || createdOrder.pickupOption === "DELIVERY_TO_LOCATION"
+                    ? `Giao tận nơi: ${createdOrder.deliveryAddress || "Theo địa chỉ đã đăng ký"}`
+                    : "Nhận tại cửa hàng đối tác"}
                 </span>
               </div>
             </div>
@@ -286,10 +331,17 @@ export function RentalReservationDialog({
               Cơ sở đối tác sẽ liên hệ xác nhận qua điện thoại hoặc bạn có thể theo dõi trong mục Đơn đặt của tôi.
             </p>
 
-            <DialogFooter className="pt-2 sm:justify-center">
+            <DialogFooter className="pt-2 sm:justify-center flex-wrap gap-2">
               <Button asChild variant="outline" className="text-xs">
                 <Link href="/reservations?tab=rentals">Xem đơn đặt của tôi</Link>
               </Button>
+              {ownerUserId && user?.id !== ownerUserId && (
+                <Button asChild variant="outline" className="text-xs gap-1.5 border-teal-500/40 text-teal-700 dark:text-teal-300">
+                  <Link href={`/chat?userId=${ownerUserId}`}>
+                    <MessageSquare className="h-3.5 w-3.5" /> Mở Chat
+                  </Link>
+                </Button>
+              )}
               <Button onClick={handleResetAndClose} className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold">
                 Đã hiểu
               </Button>
@@ -376,11 +428,14 @@ export function RentalReservationDialog({
                   onChange={(e) => setPickupOption(e.target.value as PickupOption)}
                   className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-medium"
                 >
-                  {(rentalItem.pickupOption === "BOTH" || rentalItem.pickupOption === "STORE_PICKUP") && (
-                    <option value="STORE_PICKUP">Lấy tại cửa hàng đối tác</option>
-                  )}
-                  {(rentalItem.pickupOption === "BOTH" || rentalItem.pickupOption === "DOOR_DELIVERY") && (
-                    <option value="DOOR_DELIVERY">Giao tận nơi (Khách sạn/Sân bay)</option>
+                  <option value="STORE_PICKUP">Lấy tại cửa hàng đối tác</option>
+                  {supportsDelivery && (
+                    <option value="DOOR_DELIVERY">
+                      Giao tận nơi (Khách sạn/Sân bay)
+                      {rentalItem.deliveryFee && rentalItem.deliveryFee > 0
+                        ? ` (+${formatVnd(rentalItem.deliveryFee)})`
+                        : " (Miễn phí)"}
+                    </option>
                   )}
                 </select>
               </div>

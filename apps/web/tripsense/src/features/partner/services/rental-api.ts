@@ -2,9 +2,11 @@ import { apiClient } from "@/services/api-client";
 import type {
   CreateRentalBookingRequest,
   CreateRentalItemRequest,
+  PublicRentalListingDto,
   RentalBookingOrderDto,
   RentalCategory,
   RentalItemDto,
+  RestaurantMenuImageUploadDto,
   UpdateRentalItemRequest,
 } from "../types";
 
@@ -61,6 +63,29 @@ export async function deletePartnerRentalItem(
     {
       method: "DELETE",
     },
+  );
+}
+
+export async function uploadRentalItemImage(
+  businessId: string,
+  file: File,
+): Promise<RestaurantMenuImageUploadDto> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<RestaurantMenuImageUploadDto>(
+    `/api/partners/businesses/${businessId}/rental-items/images`,
+    { method: "POST", body: formData },
+  );
+}
+
+export async function deleteUnreferencedRentalItemImage(
+  businessId: string,
+  imagePublicId: string,
+): Promise<void> {
+  const params = new URLSearchParams({ imagePublicId });
+  await request<void>(
+    `/api/partners/businesses/${businessId}/rental-items/images?${params}`,
+    { method: "DELETE" },
   );
 }
 
@@ -125,6 +150,24 @@ export async function rejectRentalBooking(
 // ==========================================
 // Customer / Public Endpoints
 // ==========================================
+
+export async function getPublicRental(
+  businessId: string,
+): Promise<PublicRentalListingDto> {
+  return request<PublicRentalListingDto>(`/api/public/rentals/${businessId}`);
+}
+
+export async function searchPublicRentals(
+  query?: string,
+  options?: { category?: RentalCategory; onlyAccepting?: boolean },
+): Promise<PublicRentalListingDto[]> {
+  const params = new URLSearchParams();
+  if (query?.trim()) params.set("query", query.trim());
+  if (options?.category) params.set("category", options.category);
+  if (options?.onlyAccepting) params.set("onlyAccepting", "true");
+  const qs = params.toString();
+  return request<PublicRentalListingDto[]>(`/api/public/rentals${qs ? `?${qs}` : ""}`).catch(() => []);
+}
 
 export async function getPublicRentalItems(params?: {
   businessId?: string;

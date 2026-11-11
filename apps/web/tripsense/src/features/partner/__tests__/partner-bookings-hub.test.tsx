@@ -139,6 +139,9 @@ describe("PartnerBookingsHub Component", () => {
     expect(html).toContain("Đã chốt &amp; Giữ chỗ");
     expect(html).toContain("Hoàn tất / Đã đón");
     expect(html).toContain("Tất cả (");
+    expect(html).toContain("Dịch vụ:");
+    expect(html).toContain("Thuê xe &amp; Dịch vụ");
+    expect(html).toContain("Phiếu Chat");
     expect(html).toContain("Hawa&#x27;s Food Đà Nẵng");
     expect(html).toContain("Khách sạn Mường Thanh");
   });

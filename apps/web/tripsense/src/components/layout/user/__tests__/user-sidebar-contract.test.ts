@@ -56,4 +56,16 @@ describe("UserSidebar navigation contract", () => {
     expect(sidebarSource.match(/partnerLinkClass,/g)).toHaveLength(4);
     expect(sidebarSource).not.toContain('"ml-3 pl-4"');
   });
+
+  it("places Services & Booking logically right before My Reservations rather than at the top", () => {
+    const placesIdx = sidebarSource.indexOf('href: "/places"');
+    const servicesIdx = sidebarSource.indexOf('href: "/services"');
+    const reservationsIdx = sidebarSource.indexOf('href: "/reservations"');
+
+    expect(placesIdx).toBeGreaterThan(-1);
+    expect(servicesIdx).toBeGreaterThan(placesIdx);
+    expect(reservationsIdx).toBeGreaterThan(servicesIdx);
+    expect(sidebarSource).toContain("userBadgeCount");
+    expect(sidebarSource).toContain("partnerPendingCount");
+  });
 });

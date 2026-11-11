@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
+import { notifyBookingActivityChanged } from "@/features/reservations/services/reservations-activity-api";
 import { hotelApi } from "../services/hotels-api";
 import { HotelCheckoutReview } from "./hotel-checkout-review";
 import type { HotelBooking, PayOsPaymentResult } from "../types";
@@ -47,6 +48,7 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
+  const hasUserPickedFilterRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<HotelBooking | null>(null);
   const [cancelTarget, setCancelTarget] = useState<HotelBooking | null>(null);
@@ -75,6 +77,14 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
   useEffect(() => {
     void loadBookings();
   }, [loadBookings]);
+
+  useEffect(() => {
+    if (loading || hasUserPickedFilterRef.current) return;
+    const heldCount = bookings.filter((b) => b.status === "HELD").length;
+    if (heldCount > 0) {
+      setFilter("held");
+    }
+  }, [bookings, loading]);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
@@ -131,6 +141,7 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
     try {
       const updated = await hotelApi<HotelBooking>(`/bookings/${booking.id}/confirm`, "POST");
       setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      notifyBookingActivityChanged();
     } catch (e) {
       setError(getSafeErrorMessage(e, t("trip.hotels.failed")));
     } finally {
@@ -147,6 +158,7 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
       setCancelTarget(null);
       if (selectedBooking?.id === cancelTarget.id) setSelectedBooking(null);
       await loadBookings();
+      notifyBookingActivityChanged();
     } catch (e) {
       setError(getSafeErrorMessage(e, t("trip.hotels.failed")));
     } finally {
@@ -179,6 +191,7 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
       setRefundBooking(null);
       if (selectedBooking?.id === refundBooking.id) setSelectedBooking(null);
       await loadBookings();
+      notifyBookingActivityChanged();
     } catch (e) {
       setError(getSafeErrorMessage(e, t("trip.hotels.failed", { defaultValue: "Hủy và yêu cầu hoàn tiền thất bại" })));
     } finally {
@@ -296,7 +309,10 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
             <button
               key={tab.key}
               type="button"
-              onClick={() => setFilter(tab.key)}
+              onClick={() => {
+                hasUserPickedFilterRef.current = true;
+                setFilter(tab.key);
+              }}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                 filter === tab.key
                   ? "bg-foreground text-background shadow-xs"

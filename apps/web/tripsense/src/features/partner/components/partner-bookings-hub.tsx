@@ -61,6 +61,7 @@ import type { BusinessDetailDto, RestaurantReservationDto, RentalBookingOrderDto
 import type { HotelBooking, HotelProperty } from "@/features/hotels/types";
 import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
 import { CreateDirectBookingModal } from "./create-direct-booking-modal";
+import { notifyBookingActivityChanged } from "@/features/reservations/services/reservations-activity-api";
 
 export type BookingSourceType = "RESTAURANT" | "HOTEL" | "CHAT_OFFER" | "RENTAL";
 export type NormalizedBookingStatus =
@@ -140,6 +141,8 @@ export function PartnerBookingsHub({
   );
   const [selectedServiceType, setSelectedServiceType] = React.useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = React.useState<string>("ALL");
+  const hasAutoFocusedFilterRef = React.useRef(false);
+  const hasUserPickedFilterRef = React.useRef(false);
   const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [copiedCode, setCopiedCode] = React.useState<string | null>(null);
   const [directBookingOpen, setDirectBookingOpen] = React.useState(false);
@@ -437,6 +440,18 @@ export function PartnerBookingsHub({
       });
 
       setBookings(unifiedList);
+
+      if (!hasAutoFocusedFilterRef.current && !hasUserPickedFilterRef.current) {
+        hasAutoFocusedFilterRef.current = true;
+        const scoped =
+          selectedBusinessId !== "ALL"
+            ? unifiedList.filter((b) => b.businessId === selectedBusinessId)
+            : unifiedList;
+        const initialPendingCount = scoped.filter((b) => b.normalizedStatus === "PENDING").length;
+        if (initialPendingCount > 0) {
+          setSelectedStatus("PENDING");
+        }
+      }
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể tải danh sách đặt bàn & phòng."));
     } finally {
@@ -462,19 +477,23 @@ export function PartnerBookingsHub({
         decision: "CONFIRM",
       });
 
-      setBookings((prev) =>
-        prev.map((b) =>
+      setBookings((prev) => {
+        const next = prev.map((b) =>
           b.id === item.id
             ? {
                 ...b,
                 rawStatus: updated.state,
-                normalizedStatus: "CONFIRMED",
+                normalizedStatus: "CONFIRMED" as const,
                 statusLabel: "Đã xác nhận giữ bàn",
                 version: updated.version,
               }
             : b,
-        ),
-      );
+        );
+        if (selectedStatus === "PENDING" && !next.some((b) => b.normalizedStatus === "PENDING")) {
+          setSelectedStatus("ALL");
+        }
+        return next;
+      });
 
       setActionSuccess(`Đã xác nhận giữ bàn thành công cho khách #${item.bookingCode}!`);
 
@@ -485,9 +504,7 @@ export function PartnerBookingsHub({
         void chatApi.sendDirectMessage(raw.customerId, confirmMsg).catch(() => undefined);
       }
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
-      }
+      notifyBookingActivityChanged();
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể xác nhận đặt bàn."));
     } finally {
@@ -582,9 +599,15 @@ export function PartnerBookingsHub({
       }
 
       setRejectModalOpen(false);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
+      if (selectedStatus === "PENDING") {
+        setBookings((prev) => {
+          if (!prev.some((b) => b.normalizedStatus === "PENDING")) {
+            setSelectedStatus("ALL");
+          }
+          return prev;
+        });
       }
+      notifyBookingActivityChanged();
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể từ chối yêu cầu."));
     } finally {
@@ -602,22 +625,24 @@ export function PartnerBookingsHub({
       setActionSuccess(null);
 
       await hotelApi(`/bookings/${raw.id}/confirm`, "POST");
-      setBookings((prev) =>
-        prev.map((b) =>
+      setBookings((prev) => {
+        const next = prev.map((b) =>
           b.id === item.id
             ? {
                 ...b,
                 rawStatus: "CONFIRMED",
-                normalizedStatus: "CONFIRMED",
+                normalizedStatus: "CONFIRMED" as const,
                 statusLabel: "Đã xác nhận",
               }
             : b,
-        ),
-      );
+        );
+        if (selectedStatus === "PENDING" && !next.some((b) => b.normalizedStatus === "PENDING")) {
+          setSelectedStatus("ALL");
+        }
+        return next;
+      });
       setActionSuccess(`Đã xác nhận đơn đặt phòng ${item.bookingCode} (${item.serviceTitle}) thành công!`);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
-      }
+      notifyBookingActivityChanged();
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể xác nhận đặt phòng."));
     } finally {
@@ -664,9 +689,7 @@ export function PartnerBookingsHub({
       );
 
       setActionSuccess(`Đã cập nhật trạng thái ${nextLabel} cho ${item.bookingCode}.`);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
-      }
+      notifyBookingActivityChanged();
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể cập nhật trạng thái đơn phòng."));
     } finally {
@@ -682,22 +705,24 @@ export function PartnerBookingsHub({
       setActionSuccess(null);
 
       await confirmRentalBooking(item.businessId, item.id);
-      setBookings((prev) =>
-        prev.map((b) =>
+      setBookings((prev) => {
+        const next = prev.map((b) =>
           b.id === item.id
             ? {
                 ...b,
                 rawStatus: "CONFIRMED",
-                normalizedStatus: "CONFIRMED",
+                normalizedStatus: "CONFIRMED" as const,
                 statusLabel: "Đã xác nhận (Chờ bàn giao)",
               }
             : b,
-        ),
-      );
+        );
+        if (selectedStatus === "PENDING" && !next.some((b) => b.normalizedStatus === "PENDING")) {
+          setSelectedStatus("ALL");
+        }
+        return next;
+      });
       setActionSuccess(`Đã xác nhận đơn thuê ${item.bookingCode} thành công!`);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
-      }
+      notifyBookingActivityChanged();
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể xác nhận đơn thuê."));
     } finally {
@@ -726,9 +751,7 @@ export function PartnerBookingsHub({
         ),
       );
       setActionSuccess(`Đã cập nhật bàn giao xe/thiết bị cho ${item.bookingCode}.`);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
-      }
+      notifyBookingActivityChanged();
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể cập nhật bàn giao."));
     } finally {
@@ -757,9 +780,7 @@ export function PartnerBookingsHub({
         ),
       );
       setActionSuccess(`Đã hoàn tất nhận lại xe/thiết bị ${item.bookingCode}.`);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
-      }
+      notifyBookingActivityChanged();
     } catch (err) {
       setError(getSafeErrorMessage(err, "Không thể cập nhật trả đồ."));
     } finally {
@@ -814,13 +835,56 @@ export function PartnerBookingsHub({
     });
   }, [bookings, selectedBusinessId, selectedServiceType, selectedStatus, searchQuery]);
 
-  // Metric counts
-  const totalCount = bookings.length;
-  const pendingCount = bookings.filter((b) => b.normalizedStatus === "PENDING").length;
-  const confirmedCount = bookings.filter((b) => b.normalizedStatus === "CONFIRMED").length;
-  const expiredCount = bookings.filter((b) => b.normalizedStatus === "EXPIRED").length;
-  const completedCount = bookings.filter((b) => b.normalizedStatus === "COMPLETED").length;
-  const cancelledCount = bookings.filter(
+  // Metric counts (scoped to selected business & service type for accurate chip numbers)
+  const scopedBookingsForStatus = React.useMemo(
+    () =>
+      bookings.filter(
+        (b) =>
+          (selectedBusinessId === "ALL" || b.businessId === selectedBusinessId) &&
+          (selectedServiceType === "ALL" || b.sourceType === selectedServiceType),
+      ),
+    [bookings, selectedBusinessId, selectedServiceType],
+  );
+
+  const pendingByBusiness = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const b of bookings) {
+      if (b.normalizedStatus === "PENDING") {
+        map.set(b.businessId, (map.get(b.businessId) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [bookings]);
+
+  const serviceTypeCounts = React.useMemo(() => {
+    const bizScoped =
+      selectedBusinessId === "ALL"
+        ? bookings
+        : bookings.filter((b) => b.businessId === selectedBusinessId);
+    const counts: Record<string, { total: number; pending: number }> = {
+      ALL: { total: bizScoped.length, pending: 0 },
+      RENTAL: { total: 0, pending: 0 },
+      HOTEL: { total: 0, pending: 0 },
+      RESTAURANT: { total: 0, pending: 0 },
+      CHAT_OFFER: { total: 0, pending: 0 },
+    };
+    for (const b of bizScoped) {
+      const entry = counts[b.sourceType];
+      if (entry) {
+        entry.total += 1;
+        if (b.normalizedStatus === "PENDING") entry.pending += 1;
+      }
+      if (b.normalizedStatus === "PENDING") counts.ALL.pending += 1;
+    }
+    return counts;
+  }, [bookings, selectedBusinessId]);
+
+  const totalCount = scopedBookingsForStatus.length;
+  const pendingCount = scopedBookingsForStatus.filter((b) => b.normalizedStatus === "PENDING").length;
+  const confirmedCount = scopedBookingsForStatus.filter((b) => b.normalizedStatus === "CONFIRMED").length;
+  const expiredCount = scopedBookingsForStatus.filter((b) => b.normalizedStatus === "EXPIRED").length;
+  const completedCount = scopedBookingsForStatus.filter((b) => b.normalizedStatus === "COMPLETED").length;
+  const cancelledCount = scopedBookingsForStatus.filter(
     (b) => b.normalizedStatus === "CANCELLED" || b.normalizedStatus === "REJECTED",
   ).length;
 
@@ -910,58 +974,40 @@ export function PartnerBookingsHub({
       </div>
 
       {/* Control / Filter Bar */}
-      <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-3.5 shadow-2xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Business Selector */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground shrink-0">Cơ sở:</span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Button
-                variant={selectedBusinessId === "ALL" ? "default" : "outline"}
-                size="sm"
+      <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5 space-y-4 shadow-2xs">
+        {/* Top Row: Search + Primary Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Tìm theo tên khách, SĐT, mã đơn..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-9 pl-8 pr-8 text-xs bg-muted/30"
+            />
+            {searchQuery && (
+              <button
+                type="button"
                 onClick={() => {
-                  setSelectedBusinessId("ALL");
+                  setSearchQuery("");
                   setCurrentPage(1);
                 }}
-                className="h-8 text-xs font-medium"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                Tất cả ({businesses.length})
-              </Button>
-              {businesses.map((biz) => {
-                const isSelected = selectedBusinessId === biz.id;
-                return (
-                  <Button
-                    key={biz.id}
-                    variant={isSelected ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setSelectedBusinessId(biz.id);
-                      setCurrentPage(1);
-                    }}
-                    className="h-8 text-xs font-medium gap-1.5"
-                  >
-                    {biz.kind === "RESTAURANT" ? (
-                      <Utensils className="h-3 w-3" />
-                    ) : biz.kind === "HOTEL" ? (
-                      <Hotel className="h-3 w-3" />
-                    ) : biz.kind === "RENTAL_SERVICE" ? (
-                      <Car className="h-3 w-3 text-teal-500" />
-                    ) : (
-                      <Compass className="h-3 w-3" />
-                    )}
-                    <span className="truncate max-w-[140px]">{biz.displayName}</span>
-                  </Button>
-                );
-              })}
-            </div>
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2 self-end md:self-auto">
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
             <Button
               size="sm"
               onClick={() => setDirectBookingOpen(true)}
-              className="h-8 text-xs gap-1.5 shadow-xs"
+              className="h-9 text-xs gap-1.5 shadow-xs"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Tạo đơn đặt trực tiếp</span>
@@ -972,7 +1018,7 @@ export function PartnerBookingsHub({
               size="sm"
               onClick={loadAllBookings}
               disabled={loading}
-              className="h-8 text-xs gap-1.5"
+              className="h-9 text-xs gap-1.5"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               Làm mới
@@ -980,62 +1026,131 @@ export function PartnerBookingsHub({
           </div>
         </div>
 
-        {/* Secondary Filter Row: Service Types & Status */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2 border-t border-border/50">
-          {/* Status Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {[
-              { id: "ALL", label: `Tất cả (${totalCount})` },
-              { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
-              { id: "CONFIRMED", label: `Đã xác nhận (${confirmedCount})` },
-              { id: "EXPIRED", label: `Hết hạn (${expiredCount})` },
-              { id: "COMPLETED", label: `Hoàn tất (${completedCount})` },
-              { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
-            ].map((tab) => (
-              <Button
-                key={tab.id}
-                variant={selectedStatus === tab.id ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setSelectedStatus(tab.id);
-                  setCurrentPage(1);
-                }}
-                className={`h-7 text-xs font-medium shrink-0 ${
-                  tab.highlight && selectedStatus !== tab.id
-                    ? "text-amber-700 bg-amber-500/10 hover:bg-amber-500/20"
-                    : ""
-                }`}
-              >
-                {tab.label}
-              </Button>
-            ))}
-          </div>
-
-          {/* Search Box */}
-          <div className="relative min-w-[240px] max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Tìm theo tên khách, SĐT, mã đơn..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
+        {/* Business Filter Row */}
+        <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border/50">
+          <span className="text-xs font-semibold text-muted-foreground shrink-0">Cơ sở:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button
+              variant={selectedBusinessId === "ALL" ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                hasUserPickedFilterRef.current = true;
+                setSelectedBusinessId("ALL");
                 setCurrentPage(1);
               }}
-              className="h-8 pl-8 text-xs bg-muted/30"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setCurrentPage(1);
-                }}
-                className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+              className="h-8 text-xs font-medium gap-1.5 rounded-full px-3"
+            >
+              <span>Tất cả ({businesses.length})</span>
+              {bookings.filter((b) => b.normalizedStatus === "PENDING").length > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
+                  {bookings.filter((b) => b.normalizedStatus === "PENDING").length}
+                </span>
+              )}
+            </Button>
+            {businesses.map((biz) => {
+              const isSelected = selectedBusinessId === biz.id;
+              const bizPending = pendingByBusiness.get(biz.id) ?? 0;
+              return (
+                <Button
+                  key={biz.id}
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    hasUserPickedFilterRef.current = true;
+                    setSelectedBusinessId(biz.id);
+                    setCurrentPage(1);
+                  }}
+                  className="h-8 text-xs font-medium gap-1.5 rounded-full px-3"
+                >
+                  {biz.kind === "RESTAURANT" ? (
+                    <Utensils className="h-3 w-3 shrink-0" />
+                  ) : biz.kind === "HOTEL" ? (
+                    <Hotel className="h-3 w-3 shrink-0" />
+                  ) : biz.kind === "RENTAL_SERVICE" ? (
+                    <Car className="h-3 w-3 text-teal-500 shrink-0" />
+                  ) : (
+                    <Compass className="h-3 w-3 shrink-0" />
+                  )}
+                  <span className="truncate max-w-[160px]">{biz.displayName}</span>
+                  {bizPending > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
+                      {bizPending}
+                    </span>
+                  )}
+                </Button>
+              );
+            })}
           </div>
+        </div>
+
+        {/* Service Type & Status Rows */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-border/50">
+          {/* Service Type Filter */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-muted-foreground mr-1 shrink-0">Dịch vụ:</span>
+            {[
+              { id: "ALL", label: "Tất cả" },
+              { id: "RENTAL", label: "Thuê xe & Dịch vụ" },
+              { id: "HOTEL", label: "Khách sạn" },
+              { id: "RESTAURANT", label: "Nhà hàng" },
+              { id: "CHAT_OFFER", label: "Phiếu Chat" },
+            ].map((svc) => {
+              const stCount = serviceTypeCounts[svc.id] ?? { total: 0, pending: 0 };
+              const active = selectedServiceType === svc.id;
+              return (
+                <Button
+                  key={svc.id}
+                  variant={active ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    hasUserPickedFilterRef.current = true;
+                    setSelectedServiceType(svc.id);
+                    setCurrentPage(1);
+                  }}
+                  className="h-7 text-xs font-medium gap-1.5"
+                >
+                  <span>{svc.label}</span>
+                  {stCount.pending > 0 ? (
+                    <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
+                      {stCount.pending}
+                    </span>
+                  ) : stCount.total > 0 ? (
+                    <span className="text-micro text-muted-foreground">({stCount.total})</span>
+                  ) : null}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Status Tabs Row */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none pt-3 border-t border-border/50">
+          {[
+            { id: "ALL", label: `Tất cả (${totalCount})` },
+            { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
+            { id: "CONFIRMED", label: `Đã xác nhận (${confirmedCount})` },
+            { id: "EXPIRED", label: `Hết hạn (${expiredCount})` },
+            { id: "COMPLETED", label: `Hoàn tất (${completedCount})` },
+            { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
+          ].map((tab) => (
+            <Button
+              key={tab.id}
+              variant={selectedStatus === tab.id ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                hasUserPickedFilterRef.current = true;
+                setSelectedStatus(tab.id);
+                setCurrentPage(1);
+              }}
+              className={`h-7 text-xs font-medium shrink-0 ${
+                tab.highlight && selectedStatus !== tab.id
+                  ? "text-amber-700 bg-amber-500/10 hover:bg-amber-500/20"
+                  : ""
+              }`}
+            >
+              {tab.label}
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -1070,11 +1185,12 @@ export function PartnerBookingsHub({
               ? "Hãy thử điều chỉnh lại bộ lọc tìm kiếm hoặc chọn hiển thị tất cả cơ sở."
               : "Khi du khách đặt bàn hoặc đặt phòng trực tuyến, toàn bộ đơn đặt sẽ hiển thị tại đây để bạn xử lý ngay lập tức."}
           </p>
-          {(searchQuery || selectedBusinessId !== "ALL" || selectedStatus !== "ALL") && (
+          {(searchQuery || selectedBusinessId !== "ALL" || selectedServiceType !== "ALL" || selectedStatus !== "ALL") && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
+                hasUserPickedFilterRef.current = true;
                 setSelectedBusinessId("ALL");
                 setSelectedServiceType("ALL");
                 setSelectedStatus("ALL");
@@ -1217,11 +1333,26 @@ export function PartnerBookingsHub({
                         <span>{formatSchedule(item)}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span>
-                          {item.adultsCount} người lớn
-                          {item.childrenCount > 0 ? `, ${item.childrenCount} trẻ em` : ""}
-                        </span>
+                        {item.sourceType === "RENTAL" ? (
+                          <>
+                            <Car className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                            <span>
+                              Số lượng: {item.adultsCount} xe / bộ ·{" "}
+                              {item.rentalBooking?.pickupOption === "DOOR_DELIVERY" ||
+                              item.rentalBooking?.pickupOption === "DELIVERY_TO_LOCATION"
+                                ? "Giao tận nơi"
+                                : "Nhận tại cửa hàng"}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span>
+                              {item.adultsCount} người lớn
+                              {item.childrenCount > 0 ? `, ${item.childrenCount} trẻ em` : ""}
+                            </span>
+                          </>
+                        )}
                       </div>
                       <div className="text-xs text-foreground font-medium">
                         {item.serviceTitle}

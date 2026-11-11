@@ -4,10 +4,13 @@ import * as React from "react";
 import { MindtripHotelDetailOverlay, placeToMindtripHotel, fetchDirectOffersForPlace, type MindtripHotel } from "@/features/hotels";
 import {
   RestaurantOverviewCard,
+  RentalOverviewCard,
   searchPublicRestaurants,
   searchPublicHotels,
+  searchPublicRentals,
   type PublicRestaurantListingDto,
   type PublicHotelListingDto,
+  type PublicRentalListingDto,
 } from "@/features/partner";
 import type { Place } from "../types";
 import { approvedPhotoGallery } from "../utils/approved-photo";
@@ -31,9 +34,37 @@ function getCoreBusinessName(name: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\b(nha hang|quan an|quan|tiem|com|pho|bun|banh|restaurant|cafe|ca phe|bar|pub|bistro|kitchen|eatery)\b/gi, "")
+    .replace(/\b(nha hang|quan an|quan|tiem|com|pho|bun|banh|restaurant|cafe|ca phe|bar|pub|bistro|kitchen|eatery|cho thue|thue xe|tu lai|rental|car|motorbike|bike)\b/gi, "")
     .replace(/[^a-z0-9]/g, "")
     .trim();
+}
+
+function findMatchingPartnerListing<T extends { displayName: string; placeId?: string | null }>(
+  results: T[],
+  place: Pick<Place, "id" | "providerPlaceId" | "name">,
+): T | null {
+  const byPlaceId = results.find(
+    (r) => r.placeId && (r.placeId === place.id || r.placeId === place.providerPlaceId),
+  );
+  if (byPlaceId) return byPlaceId;
+
+  const corePlaceName = getCoreBusinessName(place.name);
+  const normPlaceName = place.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+
+  return (
+    results.find((r) => {
+      const coreRName = getCoreBusinessName(r.displayName);
+      const normRName = r.displayName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+
+      if (normPlaceName.length >= 4 && (normRName.includes(normPlaceName) || normPlaceName.includes(normRName))) {
+        return true;
+      }
+      if (corePlaceName.length >= 3 && coreRName.length >= 3) {
+        return corePlaceName === coreRName || corePlaceName.includes(coreRName) || coreRName.includes(corePlaceName);
+      }
+      return false;
+    }) ?? null
+  );
 }
 
 export function PlaceDetailOverlay({
@@ -58,7 +89,6 @@ export function PlaceDetailOverlay({
   } | null>(null);
 
   const [hotelPartner, setHotelPartner] = React.useState<PublicHotelListingDto | null>(null);
-  const [loadingHotel, setLoadingHotel] = React.useState(false);
 
   const displayPhotos = React.useMemo(() => {
     return approvedPhotoGallery(
@@ -111,42 +141,72 @@ export function PlaceDetailOverlay({
   React.useEffect(() => {
     if (!isHotel) return;
     let cancelled = false;
-    setLoadingHotel(true);
     setHotelPartner(null);
 
     searchPublicHotels(place.name)
       .then((results) => {
         if (cancelled) return;
-        const corePlaceName = getCoreBusinessName(place.name);
-        const normPlaceName = place.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        setHotelPartner(findMatchingPartnerListing(results, place));
+      })
+      .catch(() => {});
 
-        const match = results.find((r) => {
-          const coreRName = getCoreBusinessName(r.displayName);
-          const normRName = r.displayName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return () => {
+      cancelled = true;
+    };
+  }, [isHotel, place]);
 
-          if (normPlaceName.length >= 4 && (normRName.includes(normPlaceName) || normPlaceName.includes(normRName))) {
-            return true;
-          }
-          if (corePlaceName.length >= 3 && coreRName.length >= 3) {
-            return corePlaceName === coreRName || corePlaceName.includes(coreRName) || coreRName.includes(corePlaceName);
-          }
-          return false;
-        });
+  const isRental = React.useMemo(() => {
+    if (isHotel) return false;
+    const cat = (place.categories || []).join(" ").toLowerCase();
+    const name = (place.name || "").toLowerCase();
+    return (
+      cat.includes("rental") ||
+      cat.includes("motorbike") ||
+      cat.includes("scooter") ||
+      cat.includes("bicycle") ||
+      cat.includes("bike") ||
+      cat.includes("camping") ||
+      cat.includes("kayak") ||
+      cat.includes("sup") ||
+      cat.includes("transportation_service") ||
+      cat.includes("thuê xe") ||
+      cat.includes("cho thuê") ||
+      name.includes("thuê xe") ||
+      name.includes("cho thuê") ||
+      name.includes("tự lái") ||
+      name.includes("car rental") ||
+      name.includes("motorbike rental") ||
+      name.includes("bike rental") ||
+      name.includes("scooter rental")
+    );
+  }, [isHotel, place.categories, place.name]);
 
-        setHotelPartner(match || null);
+  const [rentalPartner, setRentalPartner] = React.useState<PublicRentalListingDto | null>(null);
+  const [loadingRental, setLoadingRental] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isRental) return;
+    let cancelled = false;
+    setLoadingRental(true);
+    setRentalPartner(null);
+
+    searchPublicRentals(place.name)
+      .then((results) => {
+        if (cancelled) return;
+        setRentalPartner(findMatchingPartnerListing(results, place));
       })
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) setLoadingHotel(false);
+        if (!cancelled) setLoadingRental(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [isHotel, place.name]);
+  }, [isRental, place]);
 
   const isRestaurant = React.useMemo(() => {
-    if (isHotel) return false;
+    if (isHotel || isRental) return false;
     const cat = (place.categories || []).join(" ").toLowerCase();
     const name = (place.name || "").toLowerCase();
     return (
@@ -197,13 +257,13 @@ export function PlaceDetailOverlay({
       name.includes("seafood") ||
       name.includes("hải sản")
     );
-  }, [isHotel, place.categories, place.name]);
+  }, [isHotel, isRental, place.categories, place.name]);
 
   const [restaurantPartner, setRestaurantPartner] = React.useState<PublicRestaurantListingDto | null>(null);
   const [loadingRestaurant, setLoadingRestaurant] = React.useState(false);
 
   React.useEffect(() => {
-    if (isHotel) return;
+    if (isHotel || isRental) return;
     let cancelled = false;
     setLoadingRestaurant(true);
     setRestaurantPartner(null);
@@ -211,25 +271,7 @@ export function PlaceDetailOverlay({
     searchPublicRestaurants(place.name)
       .then((results) => {
         if (cancelled) return;
-        const corePlaceName = getCoreBusinessName(place.name);
-        const normPlaceName = place.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-        const match = results.find((r) => {
-          const coreRName = getCoreBusinessName(r.displayName);
-          const normRName = r.displayName.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-          // 1. Exact or strong substring match on full normalized name
-          if (normPlaceName.length >= 4 && (normRName.includes(normPlaceName) || normPlaceName.includes(normRName))) {
-            return true;
-          }
-          // 2. Core distinguishing business name match (excluding generic prefixes like 'nhà hàng', 'quán')
-          if (corePlaceName.length >= 3 && coreRName.length >= 3) {
-            return corePlaceName === coreRName || corePlaceName.includes(coreRName) || coreRName.includes(corePlaceName);
-          }
-          return false;
-        });
-
-        setRestaurantPartner(match || null);
+        setRestaurantPartner(findMatchingPartnerListing(results, place));
       })
       .catch(() => {})
       .finally(() => {
@@ -239,7 +281,7 @@ export function PlaceDetailOverlay({
     return () => {
       cancelled = true;
     };
-  }, [isHotel, place.name]);
+  }, [isHotel, isRental, place]);
 
   if (isHotel) {
     const baseHotel = placeToMindtripHotel(place);
@@ -301,7 +343,15 @@ export function PlaceDetailOverlay({
         onTogglePanel={onTogglePanel}
         className={className}
         overviewAside={
-          isRestaurant ? (
+          isRental ? (
+            <RentalOverviewCard
+              rental={rentalPartner}
+              loading={loadingRental}
+              placeName={place.name}
+              placeAddress={place.address}
+              placePhone={place.phone}
+            />
+          ) : isRestaurant ? (
             <RestaurantOverviewCard
               restaurant={restaurantPartner}
               loading={loadingRestaurant}

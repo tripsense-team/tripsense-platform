@@ -94,8 +94,43 @@ export function useUnifiedNotifications() {
         } else if (p.eventType === "RESTAURANT_RESERVATION_REQUESTED") {
           title = t("notifications.restaurantRequested", { defaultValue: "Yêu cầu đặt bàn mới" });
           targetUrl = p.businessId
-            ? `/partner/businesses/${p.businessId}/restaurant-menu`
-            : "/partner";
+            ? `/partner?tab=bookings&businessId=${p.businessId}`
+            : "/partner?tab=bookings";
+        } else if (p.eventType === "RENTAL_BOOKING_REQUESTED") {
+          title = t("notifications.rentalRequested", { defaultValue: "Đơn thuê dịch vụ mới" });
+          targetUrl = p.businessId
+            ? `/partner?tab=bookings&businessId=${p.businessId}`
+            : "/partner?tab=bookings";
+        } else if (p.eventType === "RENTAL_BOOKING_PLACED") {
+          title = t("notifications.rentalPlaced", { defaultValue: "Đã gửi yêu cầu thuê" });
+          targetUrl = "/reservations?tab=rentals";
+        } else if (p.eventType === "RENTAL_BOOKING_CONFIRMED") {
+          title = t("notifications.rentalConfirmed", { defaultValue: "Đơn thuê đã được xác nhận" });
+          targetUrl = "/reservations?tab=rentals";
+        } else if (p.eventType === "RENTAL_BOOKING_REJECTED") {
+          title = t("notifications.rentalRejected", { defaultValue: "Yêu cầu thuê bị từ chối" });
+          targetUrl = "/reservations?tab=rentals";
+        } else if (p.eventType === "RENTAL_BOOKING_HANDED_OVER") {
+          title = t("notifications.rentalHandedOver", { defaultValue: "Đã nhận bàn giao xe/thiết bị" });
+          targetUrl = "/reservations?tab=rentals";
+        } else if (p.eventType === "RENTAL_BOOKING_RETURNED") {
+          title = t("notifications.rentalReturned", { defaultValue: "Đơn thuê đã hoàn tất" });
+          targetUrl = "/reservations?tab=rentals";
+        } else if (p.eventType === "RENTAL_BOOKING_CANCELLED") {
+          title = t("notifications.rentalCancelled", { defaultValue: "Khách đã hủy đơn thuê" });
+          targetUrl = p.businessId
+            ? `/partner?tab=bookings&businessId=${p.businessId}`
+            : "/partner?tab=bookings";
+        } else if (p.eventType === "HOTEL_BOOKING_REQUESTED") {
+          title = t("notifications.hotelRequested", { defaultValue: "Yêu cầu đặt phòng mới" });
+          targetUrl = p.businessId
+            ? `/partner?tab=bookings&businessId=${p.businessId}`
+            : "/partner?tab=bookings";
+        } else if (p.eventType === "HOTEL_BOOKING_CANCELLED_BY_CUSTOMER") {
+          title = t("notifications.hotelCancelledByGuest", { defaultValue: "Khách đã hủy đặt phòng" });
+          targetUrl = p.businessId
+            ? `/partner?tab=bookings&businessId=${p.businessId}`
+            : "/partner?tab=bookings";
         }
 
         normalized.push({

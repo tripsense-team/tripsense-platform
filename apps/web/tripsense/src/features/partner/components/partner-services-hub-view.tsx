@@ -12,18 +12,17 @@ import {
   Sparkles,
   Store,
   Utensils,
-  ArrowRight,
-  CheckCircle2,
   Building2,
   Layers,
   MapPin,
   Eye,
   BadgeCheck,
   Car,
+  CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
@@ -128,74 +127,71 @@ export function PartnerServicesHubView() {
   return (
     <main className="container mx-auto max-w-6xl space-y-8 px-4 py-6 sm:py-8">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Layers className="h-6 w-6 text-primary" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Layers className="h-5 w-5" />
+            </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Quản lý Dịch vụ & Thực đơn
+              Dịch vụ & Thực đơn
             </h1>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Cấu hình danh mục món ăn, hạng phòng hoặc bài quảng bá tour để du khách có thể xem và liên hệ trực tiếp.
+          <p className="text-sm text-muted-foreground">
+            Cấu hình danh mục món ăn, hạng phòng khách sạn, phương tiện cho thuê và gói trải nghiệm theo từng cơ sở.
           </p>
         </div>
-        <Button asChild variant="outline" size="sm" className="w-fit gap-1.5">
-          <Link href="/partner">
-            <Store className="h-4 w-4" /> Danh sách cơ sở
-          </Link>
-        </Button>
-      </div>
-
-      {/* Funnel Step Helper Banner */}
-      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">
-                2
-              </span>
-              <span className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                Bước 2 trong chu trình Đối tác: Hoàn tất danh mục dịch vụ
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground pl-7">
-              Thêm thực đơn món ăn hoặc hạng phòng nghỉ cho cơ sở của bạn trước khi kích hoạt Gói Hội Viên Pro để thu hút du khách tối đa ngay khi mở bán.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 self-end sm:self-center">
-            <Button asChild size="sm" variant="ghost" className="h-8 text-xs text-amber-700 dark:text-amber-300">
-              <Link href="/partner/subscription">
-                Xem quyền lợi Gói Pro <ArrowRight className="ml-1 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button asChild variant="outline" size="sm" className="h-9 text-xs gap-1.5">
+            <Link href="/partner">
+              <Store className="h-3.5 w-3.5" /> Cơ sở kinh doanh
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="h-9 text-xs gap-1.5">
+            <Link href="/partner/bookings">
+              <CalendarDays className="h-3.5 w-3.5" /> Quản lý Đơn đặt
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* List of Businesses with Dedicated Catalog Actions */}
-      <div className="grid gap-6">
+      <div className="grid gap-5">
         {businesses.map((business) => {
           const kind = business.kind;
           const address = (business.draftProfile?.addressLine as string) || "Chưa cập nhật địa chỉ";
           const city = (business.draftProfile?.city as string) || "";
           const fullLocation = city ? `${address}, ${city}` : address;
+          const previewHref =
+            kind === "RESTAURANT"
+              ? `/restaurants/${business.id}`
+              : kind === "HOTEL"
+              ? `/hotels/${business.id}`
+              : kind === "RENTAL_SERVICE"
+              ? `/rentals/${business.id}`
+              : `/guides/${business.id}`;
 
           return (
-            <Card key={business.id} className="overflow-hidden border-border/80 shadow-2xs hover:shadow-xs transition-shadow">
-              <CardHeader className="bg-muted/30 pb-4 border-b border-border/40">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2.5">
-                      {kind === "HOTEL" && <Building2 className="h-5 w-5 text-blue-500" />}
-                      {kind === "RESTAURANT" && <Utensils className="h-5 w-5 text-amber-500" />}
-                      {kind === "TOUR_GUIDE" && <Compass className="h-5 w-5 text-emerald-500" />}
-                      {kind === "RENTAL_SERVICE" && <Car className="h-5 w-5 text-teal-500" />}
-                      <CardTitle className="text-lg font-bold text-foreground">
+            <Card key={business.id} className="overflow-hidden rounded-2xl border-border/80 shadow-2xs hover:border-border transition-colors">
+              <CardHeader className="bg-muted/25 pb-4 border-b border-border/40">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {kind === "HOTEL" && <Building2 className="h-5 w-5 text-blue-500 shrink-0" />}
+                      {kind === "RESTAURANT" && <Utensils className="h-5 w-5 text-amber-500 shrink-0" />}
+                      {kind === "TOUR_GUIDE" && <Compass className="h-5 w-5 text-emerald-500 shrink-0" />}
+                      {kind === "RENTAL_SERVICE" && <Car className="h-5 w-5 text-teal-500 shrink-0" />}
+                      <CardTitle className="text-base sm:text-lg font-bold text-foreground truncate">
                         {business.displayName}
                       </CardTitle>
-                      <Badge variant="outline" className="text-xs font-medium">
-                        {kind === "HOTEL" ? "Khách sạn / Lưu trú" : kind === "RESTAURANT" ? "Quán ăn / Nhà hàng" : kind === "RENTAL_SERVICE" ? "Dịch vụ cho thuê" : "Hướng dẫn viên du lịch"}
+                      <Badge variant="outline" className="text-xs font-medium whitespace-nowrap shrink-0">
+                        {kind === "HOTEL"
+                          ? "Khách sạn / Lưu trú"
+                          : kind === "RESTAURANT"
+                          ? "Quán ăn / Nhà hàng"
+                          : kind === "RENTAL_SERVICE"
+                          ? "Dịch vụ cho thuê"
+                          : "Hướng dẫn viên du lịch"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -204,22 +200,18 @@ export function PartnerServicesHubView() {
                     </div>
                   </div>
 
-                  {/* Public Preview Button */}
-                  <div className="flex items-center gap-2">
-                    {kind === "RESTAURANT" && (
-                      <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                        <Link href={`/restaurants/${business.id}`} target="_blank">
-                          <Eye className="h-3.5 w-3.5" /> Xem trước trang du khách <ExternalLink className="h-3 w-3 opacity-60" />
-                        </Link>
-                      </Button>
-                    )}
-                    {kind === "HOTEL" && (
-                      <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                        <Link href={`/hotels/${business.id}`} target="_blank">
-                          <Eye className="h-3.5 w-3.5" /> Xem trước trang du khách <ExternalLink className="h-3 w-3 opacity-60" />
-                        </Link>
-                      </Button>
-                    )}
+                  {/* Public Preview & Direct Bookings Links */}
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                      <Link href={`/partner/bookings?businessId=${business.id}`}>
+                        <CalendarDays className="h-3.5 w-3.5" /> Đơn đặt của cơ sở
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                      <Link href={previewHref} target="_blank">
+                        <Eye className="h-3.5 w-3.5" /> Xem trang khách <ExternalLink className="h-3 w-3 opacity-60" />
+                      </Link>
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -325,18 +317,6 @@ export function PartnerServicesHubView() {
                   </div>
                 )}
               </CardContent>
-
-              <CardFooter className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border/40 bg-muted/15 px-6 py-3">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  <span>Bước tiếp theo sau khi có dịch vụ: Nâng cấp gói Pro để nhận Tích xanh & Ưu tiên đề xuất AI</span>
-                </div>
-                <Button asChild variant="ghost" size="sm" className="h-7 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-500/10">
-                  <Link href={`/partner/businesses/${business.id}/subscription`}>
-                    ✨ Nâng cấp Gói Hội Viên Pro <ArrowRight className="ml-1 h-3 w-3" />
-                  </Link>
-                </Button>
-              </CardFooter>
             </Card>
           );
         })}
