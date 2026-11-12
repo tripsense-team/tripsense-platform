@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `admin-platform-analytics` | DONE | `services/trip-service`, `services/user-service`, `services/social-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-platform-analytics.md) |
 | `generic-travel-rental-and-services` | APPROVED | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
 | `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |
 | `in-chat-reservation-offer` | DONE | `services/social-service`, `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./in-chat-reservation-offer.md) |
