@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+/// Bundled Inter (assets/fonts, SIL OFL), same family as the web.
+const appFontFamily = 'Inter';
 
 /// Product type roles from `globals.css` (display, page-title, ... overline).
 /// Web uses fractional weights (450/550/650); mapped to the nearest static weight.
@@ -9,7 +11,8 @@ TextTheme buildAppTextTheme(Color color) {
     double lineHeightPx,
     FontWeight weight, {
     double letterSpacingEm = 0,
-  }) => GoogleFonts.inter(
+  }) => TextStyle(
+    fontFamily: appFontFamily,
     fontSize: size,
     height: lineHeightPx / size,
     fontWeight: weight,

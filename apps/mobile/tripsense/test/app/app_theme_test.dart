@@ -1,14 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:trip/app/app_theme.dart';
 import 'package:trip/app/design/app_tokens.dart';
+import 'package:trip/app/design/app_typography.dart';
 
 /// Guards parity with the web design tokens in
 /// `apps/web/tripsense/src/app/globals.css`.
 void main() {
-  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
-
   test('light palette matches the web CSS variables', () {
     const c = AppColors.light;
     expect(c.background, const Color(0xFFFFFFFF));
@@ -49,7 +49,30 @@ void main() {
       expect(theme.colorScheme.primary, expected.primary);
       expect(theme.colorScheme.outlineVariant, expected.border);
     }
-    // Inter is fetched lazily by google_fonts; silence the offline test lookup.
-    tester.takeException();
+  });
+
+  test('Inter is bundled (works offline) and used by every text role', () {
+    for (final file in [
+      'Inter-Regular.ttf',
+      'Inter-Medium.ttf',
+      'Inter-SemiBold.ttf',
+      'Inter-Bold.ttf',
+    ]) {
+      expect(File('assets/fonts/$file').existsSync(), isTrue, reason: file);
+    }
+    expect(File('assets/fonts/OFL.txt').existsSync(), isTrue);
+
+    final text = buildTripSenseTheme().textTheme;
+    for (final style in [
+      text.displayLarge,
+      text.headlineSmall,
+      text.titleLarge,
+      text.bodyMedium,
+      text.labelLarge,
+      text.labelSmall,
+    ]) {
+      expect(style?.fontFamily, appFontFamily);
+    }
+    expect(text.headlineSmall?.fontWeight, FontWeight.w700);
   });
 }

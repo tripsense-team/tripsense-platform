@@ -3,7 +3,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:trip/app/app_router.dart';
 import 'package:trip/app/app_theme.dart';
 import 'package:trip/app/routes.dart';
@@ -47,7 +46,6 @@ Future<(FakeAuthRepository, GoRouter)> _pumpApp(
 
 void main() {
   useTallScreen();
-  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets('guests land on the login screen', (tester) async {
     final (_, router) = await _pumpApp(tester, repo: FakeAuthRepository());

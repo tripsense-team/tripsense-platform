@@ -3,7 +3,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:trip/app/app_theme.dart';
 import 'package:trip/app/routes.dart';
 import 'package:trip/features/auth/data/auth_repository_impl.dart';
@@ -56,7 +55,6 @@ void useTallScreen() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   final view = binding.platformDispatcher.implicitView!;
   setUpAll(() {
-    GoogleFonts.config.allowRuntimeFetching = false; // hermetic tests
     view.physicalSize = const Size(800, 2600);
     view.devicePixelRatio = 1;
   });
