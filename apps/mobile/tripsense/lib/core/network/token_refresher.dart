@@ -35,7 +35,8 @@ class TokenRefresher {
       }
       _store.set(token);
       return token;
-    } on DioException {
+    } catch (_) {
+      // Network, storage or malformed-response failures all mean "no session".
       _store.clear();
       return null;
     }

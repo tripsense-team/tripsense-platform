@@ -120,6 +120,18 @@ void main() {
     expect(expired, 0);
   });
 
+  test('a malformed refresh response means "no session", not a crash', () async {
+    final badRefresher = TokenRefresher(
+      newClient(
+        _FakeAdapter((_) => _json(200, {'data': 'not-an-object'})),
+      ),
+      store,
+    );
+
+    expect(await badRefresher.refresh(), isNull);
+    expect(store.token, isNull);
+  });
+
   test('a refresh finishing after logout is discarded', () async {
     final refresher = TokenRefresher(newClient(refreshAdapter), store);
 

@@ -30,6 +30,25 @@ void main() {
     );
   });
 
+  test('unexpected restore errors never leave the app on the splash', () async {
+    for (final error in <Object>[
+      StateError('secure storage unavailable'),
+      const FormatException('bad payload'),
+      const AppFailure(type: AppFailureType.network),
+    ]) {
+      final container = _container(FakeAuthRepository()..restoreError = error);
+
+      container.read(sessionControllerProvider);
+      await _settle();
+
+      expect(
+        container.read(sessionControllerProvider),
+        isA<SessionUnauthenticated>(),
+        reason: '$error',
+      );
+    }
+  });
+
   test('restores a traveler session', () async {
     final container = _container(FakeAuthRepository(restored: travelerUser));
 

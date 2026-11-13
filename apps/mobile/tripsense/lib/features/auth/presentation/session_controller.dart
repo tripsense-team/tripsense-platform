@@ -7,6 +7,9 @@ import '../../../core/network/gateway_client.dart';
 import '../data/auth_repository_impl.dart';
 import '../domain/app_user.dart';
 
+/// Upper bound for restoring a session before showing the login screen.
+const restoreTimeout = Duration(seconds: 30);
+
 sealed class SessionState {
   const SessionState();
 }
@@ -39,13 +42,18 @@ class SessionController extends Notifier<SessionState> {
     return const SessionChecking();
   }
 
+  /// Never leaves the app on the splash: any failure (network, storage,
+  /// parsing) or a stalled request ends in the signed-out state.
   Future<void> _restore() async {
     try {
-      final user = await ref.read(authRepositoryProvider).restoreSession();
+      final user = await ref
+          .read(authRepositoryProvider)
+          .restoreSession()
+          .timeout(restoreTimeout);
       state = user == null
           ? const SessionUnauthenticated()
           : await _accept(user);
-    } on AppFailure {
+    } catch (_) {
       state = const SessionUnauthenticated();
     }
   }
