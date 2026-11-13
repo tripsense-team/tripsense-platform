@@ -264,6 +264,8 @@ describe("Chat Reservation Offer API & Components", () => {
     it("renders accepted ticket card in UnifiedReservationsHub with booking code and open chat link", () => {
       const acceptedOffer: ReservationOfferPreview = {
         ...sampleOffer,
+        checkInDate: "2099-11-10",
+        checkOutDate: "2099-11-12",
         status: "ACCEPTED",
         bookingCode: "TS-HTL-778899",
         bookingId: "b-hub-1",
