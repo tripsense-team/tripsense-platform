@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-const defaultApiBaseUrl = 'http://10.0.2.2:8080';
+/// Android emulator -> host machine API Gateway (see README for iOS/device).
+const defaultApiBaseUrl = 'http://10.0.2.2:8085';
 
 class AppConfig {
   const AppConfig({
@@ -10,6 +11,7 @@ class AppConfig {
     ),
   });
 
+  /// Single entry point for all backend traffic. Never point at a service port.
   final String apiBaseUrl;
 }
 

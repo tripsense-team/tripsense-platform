@@ -1,0 +1,235 @@
+{
+  "@@locale": "en",
+  "appName": "TripSense",
+  "commonRetry": "Try again",
+  "commonCancel": "Cancel",
+  "commonContinue": "Continue",
+  "commonBack": "Back",
+  "commonLogout": "Log out",
+  "commonLoading": "Loading…",
+  "commonEmpty": "Nothing here yet",
+  "navExplore": "Explore",
+  "navTrips": "Trips",
+  "navAiPlanner": "Planner",
+  "navCommunity": "Community",
+  "navProfile": "Profile",
+  "comingSoon": "Coming soon",
+  "errNetwork": "No internet connection. Please check your network.",
+  "errTimeout": "The request took too long. Please try again.",
+  "errUnauthorized": "Your session has expired. Please sign in again.",
+  "errForbidden": "Your account is not activated or has been suspended.",
+  "errNotFound": "We couldn't find what you were looking for.",
+  "errConflict": "This already exists. Please check and try again.",
+  "errValidation": "Some information is invalid. Please check and try again.",
+  "errRateLimited": "Too many attempts. Please wait a moment.",
+  "errServer": "Something went wrong on our side. Please try again later.",
+  "errUnknown": "Something went wrong. Please try again.",
+  "errIncident": "Reference: {id}",
+  "@errIncident": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "errBadCredentials": "Incorrect email or password.",
+  "errWebOnlyRole": "This account is managed on the TripSense website. Please sign in there.",
+  "authWelcomeTitle": "Welcome to TripSense",
+  "authWelcomeSubtitle": "Plan smarter trips with AI.",
+  "authLoginTitle": "Sign in",
+  "authEmail": "Email",
+  "authPassword": "Password",
+  "authLoginButton": "Sign in",
+  "authNoAccount": "Don't have an account?",
+  "authRegisterTitle": "Create account",
+  "authRegisterButton": "Create account",
+  "authHaveAccount": "Already have an account?",
+  "authForgotPassword": "Forgot password?",
+  "authForgotSubtitle": "Enter your email and we'll send you a 6-digit code.",
+  "authSendCode": "Send code",
+  "authResetTitle": "Reset password",
+  "authNewPassword": "New password",
+  "authResetButton": "Update password",
+  "authResetDone": "Password updated. Please sign in.",
+  "authVerifyTitle": "Verify your email",
+  "authVerifySubtitle": "Enter the 6-digit code sent to {email}.",
+  "@authVerifySubtitle": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "authOtpCode": "6-digit code",
+  "authVerifyButton": "Verify",
+  "authResendCode": "Resend code",
+  "authCodeSent": "A new code has been sent.",
+  "authVerified": "Email verified. Please sign in.",
+  "validationRequired": "This field is required",
+  "validationEmail": "Enter a valid email address",
+  "validationPasswordMin": "Password must be at least {min} characters",
+  "@validationPasswordMin": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "validationOtp": "Enter the 6-digit code",
+  "onbEyebrow": "Make TripSense yours",
+  "onbProgress": "Step {current} of {total}",
+  "@onbProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "onbSkip": "Skip for now",
+  "onbFinish": "Finish",
+  "onbSaving": "Saving…",
+  "onbLoadRetry": "We couldn't load your setup. Try again.",
+  "onbNameTitle": "What should we call you?",
+  "onbNameHint": "Your display name",
+  "onbHomeTitle": "Where are you currently based?",
+  "onbHomeSubtitle": "This helps us tailor itineraries and departure points for you.",
+  "onbHomeHint": "Search or pick your home city…",
+  "onbVisitedTitle": "Where have you traveled?",
+  "onbVisitedSubtitle": "Select places you have visited so AI can suggest fresh experiences.",
+  "onbBucketTitle": "Where is on your bucket list?",
+  "onbBucketSubtitle": "Destinations you dream of visiting. We will tailor recommendations around them.",
+  "onbPlacesHint": "Search or type another destination…",
+  "onbPlacesAdd": "Add \"{name}\"",
+  "@onbPlacesAdd": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "onbPlacesMax": "Maximum 20 destinations per list.",
+  "onbPlacesSelected": "{count} selected",
+  "@onbPlacesSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "onbPartyTitle": "Who do you usually travel with?",
+  "onbPartySubtitle": "This helps tailor suggestions to your travel rhythm.",
+  "onbBudgetTitle": "How much do you plan to spend per person each day?",
+  "onbBudgetSubtitle": "Enter your daily budget per person in VND, then choose a spending level.",
+  "onbBudgetLabel": "Budget (VND/person/day)",
+  "onbBudgetHint": "E.g. 700.000",
+  "onbBudgetInvalid": "Enter a whole amount from 1 to 1,000,000,000 VND.",
+  "onbStayTitle": "Where do you like to stay?",
+  "onbStaySubtitle": "Pick one or more stays that feel right for you.",
+  "onbFoodTitle": "How do you like to eat when travelling?",
+  "onbFoodSubtitle": "Pick the food experiences you would like to discover.",
+  "onbActivityTitle": "What do you enjoy doing?",
+  "onbActivitySubtitle": "Choose the experiences that make a weekend memorable.",
+  "onbCustomAddOther": "Add other choice",
+  "onbCustomHint": "Enter your choice…",
+  "onbCustomAdd": "Add",
+  "onbCustomRemove": "Remove choice",
+  "onbNoteTitle": "Anything else TripSense should know about you?",
+  "onbNoteSubtitle": "Share any dietary needs, unique habits or style notes so AI can personalize your trips.",
+  "onbNoteHint": "E.g. I prefer slow travel, film photography, quiet cafés…",
+  "onbNoteCount": "{current} / {max} characters",
+  "@onbNoteCount": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "onbTagPhoto": "Photography & sightseeing",
+  "onbTagCafe": "Aesthetic & cozy cafés",
+  "onbTagNature": "Immersed in nature",
+  "onbTagBeach": "Scenic beach walks",
+  "onbTagTrek": "Adventure trekking",
+  "onbTagVegetarian": "Vegetarian friendly",
+  "onbValidationFailed": "The onboarding data is incomplete or invalid. Please check your budget and earlier steps.",
+  "optSolo": "Solo",
+  "optCouple": "As a couple",
+  "optFriends": "With friends",
+  "optFamily": "With family",
+  "optBudget": "Budget-friendly",
+  "optMidRange": "Mid-range",
+  "optPremium": "Premium",
+  "optHotel": "Hotel",
+  "optHomestay": "Homestay",
+  "optResort": "Resort",
+  "optHostel": "Hostel",
+  "optLocalFood": "Local food",
+  "optStreetFood": "Street food",
+  "optFineDining": "Fine dining",
+  "optCafe": "Aesthetic cafés",
+  "optNature": "Nature & Wildlife",
+  "optHiking": "Hiking & Trekking",
+  "optCulture": "Culture & History",
+  "optBeach": "Scenic beach walks",
+  "optNightlife": "Nightlife",
+  "authHeroBadge": "Next-Gen AI Travel Companion",
+  "authHeroTitle": "Travel differently.",
+  "authHeroSubtitle": "Plan trips, get personalized recommendations, and book all in one place with intelligent AI assistance.",
+  "navChat": "Chat",
+  "navSaved": "Saved",
+  "onbProgressPercent": "{percent}%",
+  "@onbProgressPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreSearchHint": "Search places, food, cafés…",
+  "exploreClearSearch": "Clear search",
+  "exploreTabForYou": "For you",
+  "exploreTabFood": "Food",
+  "exploreTabCafes": "Cafés",
+  "exploreTabStays": "Stays",
+  "exploreTabAttractions": "Attractions",
+  "exploreEmptyTitle": "No places found",
+  "exploreEmptyHint": "Try another keyword or destination.",
+  "exploreSearchResults": "Results for \"{query}\"",
+  "@exploreSearchResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreFallbackNote": "Showing popular places while we personalize your feed.",
+  "exploreChooseDestination": "Choose destination",
+  "placeReviewsCount": "({count})",
+  "@placeReviewsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "placeOpenToday": "Today: {hours}",
+  "@placeOpenToday": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "placeAbout": "About",
+  "placeHours": "Opening hours",
+  "placeContact": "Contact",
+  "placeReviews": "Reviews",
+  "placeAddress": "Address",
+  "placeNoPhoto": "No photo yet",
+  "placeBack": "Back"
+}
