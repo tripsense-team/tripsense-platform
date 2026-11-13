@@ -427,4 +427,74 @@ class AppLocalizationsEn extends AppLocalizations {
   String onbProgressPercent(int percent) {
     return '$percent%';
   }
+
+  @override
+  String get exploreSearchHint => 'Search places, food, cafés…';
+
+  @override
+  String get exploreClearSearch => 'Clear search';
+
+  @override
+  String get exploreTabForYou => 'For you';
+
+  @override
+  String get exploreTabFood => 'Food';
+
+  @override
+  String get exploreTabCafes => 'Cafés';
+
+  @override
+  String get exploreTabStays => 'Stays';
+
+  @override
+  String get exploreTabAttractions => 'Attractions';
+
+  @override
+  String get exploreEmptyTitle => 'No places found';
+
+  @override
+  String get exploreEmptyHint => 'Try another keyword or destination.';
+
+  @override
+  String exploreSearchResults(String query) {
+    return 'Results for \"$query\"';
+  }
+
+  @override
+  String get exploreFallbackNote =>
+      'Showing popular places while we personalize your feed.';
+
+  @override
+  String get exploreChooseDestination => 'Choose destination';
+
+  @override
+  String placeReviewsCount(int count) {
+    return '($count)';
+  }
+
+  @override
+  String placeOpenToday(String hours) {
+    return 'Today: $hours';
+  }
+
+  @override
+  String get placeAbout => 'About';
+
+  @override
+  String get placeHours => 'Opening hours';
+
+  @override
+  String get placeContact => 'Contact';
+
+  @override
+  String get placeReviews => 'Reviews';
+
+  @override
+  String get placeAddress => 'Address';
+
+  @override
+  String get placeNoPhoto => 'No photo yet';
+
+  @override
+  String get placeBack => 'Back';
 }

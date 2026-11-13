@@ -35,6 +35,14 @@ UI_COMMIT = "01b1f4f, 3645127"
 COMMIT = "60919f6, 2974c23, 2a7d1c9 (code/test); 86e0b2c (docs)"
 # Automated tests per task (name -> (type, result)); everything else done/under test has none yet.
 TESTS = {
+    'Header & ô tìm kiếm': ('Widget', 'explore_screen_test.dart: tìm, xoá, chọn điểm đến (pass)'),
+    'Gợi ý cho bạn (explore-for-you)': ('Unit + Widget', 'explore_controller_test (fallback khi lỗi/rỗng) + explore_screen_test (pass)'),
+    'Tìm kiếm địa điểm': ('Unit + Widget', 'places_repository_impl_test + explore_controller_test (request cũ bị bỏ) + explore_screen_test (pass)'),
+    'Gợi ý khi gõ (autocomplete)': ('Unit', 'explore_controller_test: debounce 300 ms, tối thiểu 2 ký tự (pass)'),
+    'Lọc theo danh mục / điểm đến': ('Unit + Widget', 'explore_controller_test + explore_screen_test: chip danh mục, đổi điểm đến (pass)'),
+    'Thông tin cơ bản': ('Unit + Widget', 'places_domain_test (parse, lọc ảnh) + explore_screen_test mở chi tiết, API lỗi vẫn hiển thị (pass)'),
+    'Giờ mở cửa & liên hệ': ('Unit + Widget', 'places_domain_test: parse giờ, hôm nay + explore_screen_test chi tiết (pass)'),
+    'Xem đánh giá cộng đồng': ('Unit', 'places_domain_test: parse reviews (pass)'),
     "Cấu trúc thư mục feature-first": ("Không áp dụng", "Cấu trúc thư mục, không có logic"),
     "Dependencies nền tảng": ("Không áp dụng", "Cấu hình; flutter pub get thành công"),
     "Lint nghiêm ngặt (analysis_options)": ("Phân tích tĩnh", "flutter analyze: 0 issue"),
@@ -126,7 +134,7 @@ def build():
                 f'&"   |   Issue đang mở: "&COUNTIF({ist},"{ISSUE_OPEN}")&"   |   Đã xử lý: "&COUNTIF({ist},"{ISSUE_FIXED}")'
                 f'&"   |   Chấp nhận rủi ro: "&COUNTIF({ist},"{ISSUE_ACCEPT}")')
     ws["A4"] = (f"Dự án: TripSense Mobile (chỉ role User, admin/partner dùng web)   |   Nhánh hiện tại: {EXPLORE_BRANCH}   |   Người thực hiện: {OWNER}   |   "
-                "Cập nhật: 13/11/2026 (Khám phá đang làm)   |   Quy ước nhánh: nhiby/feature/<tên-tính-năng>   |   Test tự động hiện có: 138 test pass   |   "
+                "Cập nhật: 13/11/2026 (Khám phá: code + test xong, chờ nghiệm thu emulator)   |   Quy ước nhánh: nhiby/feature/<tên-tính-năng>   |   Test tự động hiện có: 172 test pass   |   "
                 "LƯU Ý: code đã commit local, CHƯA push lên GitHub.")
     for row, bg, fg, size in ((2, "DDEBF7", NAVY, 11), (3, "E2EFDA", "375623", 11), (4, "FFF2CC", "7F3F00", 9)):
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)

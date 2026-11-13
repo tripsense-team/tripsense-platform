@@ -15,6 +15,9 @@ abstract final class Routes {
   static const saved = '/saved';
   static const community = '/community';
   static const profile = '/profile';
+  static const placePattern = '/places/:id';
+
+  static String place(String id) => '/places/${Uri.encodeComponent(id)}';
 
   static const emailParam = 'email';
 

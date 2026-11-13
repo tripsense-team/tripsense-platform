@@ -189,5 +189,47 @@
         "type": "int"
       }
     }
-  }
+  },
+  "exploreSearchHint": "Search places, food, cafés…",
+  "exploreClearSearch": "Clear search",
+  "exploreTabForYou": "For you",
+  "exploreTabFood": "Food",
+  "exploreTabCafes": "Cafés",
+  "exploreTabStays": "Stays",
+  "exploreTabAttractions": "Attractions",
+  "exploreEmptyTitle": "No places found",
+  "exploreEmptyHint": "Try another keyword or destination.",
+  "exploreSearchResults": "Results for \"{query}\"",
+  "@exploreSearchResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreFallbackNote": "Showing popular places while we personalize your feed.",
+  "exploreChooseDestination": "Choose destination",
+  "placeReviewsCount": "({count})",
+  "@placeReviewsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "placeOpenToday": "Today: {hours}",
+  "@placeOpenToday": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "placeAbout": "About",
+  "placeHours": "Opening hours",
+  "placeContact": "Contact",
+  "placeReviews": "Reviews",
+  "placeAddress": "Address",
+  "placeNoPhoto": "No photo yet",
+  "placeBack": "Back"
 }

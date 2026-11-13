@@ -7,9 +7,11 @@ import 'package:trip/app/app_router.dart';
 import 'package:trip/app/app_theme.dart';
 import 'package:trip/app/routes.dart';
 import 'package:trip/features/auth/data/auth_repository_impl.dart';
+import 'package:trip/features/places/data/places_repository_impl.dart';
 import 'package:trip/l10n/gen/app_localizations.dart';
 
 import '../support/fake_auth_repository.dart';
+import '../support/fake_places_repository.dart';
 import '../support/test_app.dart';
 
 /// Boots the real router (guard + shell + tabs) with a fake backend.
@@ -19,7 +21,10 @@ Future<(FakeAuthRepository, GoRouter)> _pumpApp(
 }) async {
   final fake = repo ?? FakeAuthRepository(restored: travelerUser);
   final container = ProviderContainer(
-    overrides: [authRepositoryProvider.overrideWithValue(fake)],
+    overrides: [
+      authRepositoryProvider.overrideWithValue(fake),
+      placesRepositoryProvider.overrideWithValue(FakePlacesRepository()),
+    ],
   );
   addTearDown(container.dispose);
   final router = container.read(appRouterProvider);
@@ -88,7 +93,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(router.state.uri.path, path, reason: label);
-      expect(find.text('Coming soon'), findsOneWidget, reason: label);
+      expect(
+        find.text('Coming soon'),
+        path == Routes.explore ? findsNothing : findsOneWidget,
+        reason: label,
+      );
     }
   });
 

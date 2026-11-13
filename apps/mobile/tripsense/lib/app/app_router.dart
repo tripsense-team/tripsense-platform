@@ -9,6 +9,9 @@ import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/auth/presentation/verify_email_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
+import '../features/places/domain/place.dart';
+import '../features/places/presentation/explore_screen.dart';
+import '../features/places/presentation/place_detail_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/shell/coming_soon_page.dart';
 import '../features/shell/main_shell.dart';
@@ -69,7 +72,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => MainShell(navigationShell: shell),
         branches: [
-          _tab(Routes.explore, (l10n) => l10n.navExplore),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.explore,
+                builder: (_, _) => const ExploreScreen(),
+              ),
+            ],
+          ),
           _tab(Routes.chat, (l10n) => l10n.navChat),
           _tab(Routes.trips, (l10n) => l10n.navTrips),
           _tab(Routes.aiPlanner, (l10n) => l10n.navAiPlanner),
@@ -83,6 +93,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ComingSoonScreen(title: AppLocalizations.of(context).navCommunity),
       ),
       GoRoute(path: Routes.profile, builder: (_, _) => const ProfileScreen()),
+      GoRoute(
+        path: Routes.placePattern,
+        builder: (_, state) {
+          final extra = state.extra;
+          return PlaceDetailScreen(
+            place: extra is Place
+                ? extra
+                : Place(id: state.pathParameters['id'] ?? '', name: ''),
+          );
+        },
+      ),
     ],
   );
 

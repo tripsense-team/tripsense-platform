@@ -58,8 +58,8 @@ def DONE(name, desc="", web="", prio="P0", **kw):
     return T(name, desc, web, prio, S_DONE, 1.0, D1, D1, **kw)
 
 
-def TEST(name, desc="", web="", prio="P0", prog=0.9, **kw):
-    return T(name, desc, web, prio, S_TEST, prog, D1, None, **kw)
+def TEST(name, desc="", web="", prio="P0", prog=0.9, start=D1, **kw):
+    return T(name, desc, web, prio, S_TEST, prog, start, None, **kw)
 
 
 # --------------------------------------------------------------------------
@@ -181,27 +181,32 @@ MODULES = [
     ]),
     ("Khám phá & Địa điểm", "Phase 2", "FFF2CC", [
         ("Trang Khám phá", [
-            T("Header & ô tìm kiếm", "", "(main)/explore", prio="P0"),
-            T("Gợi ý cho bạn (explore-for-you)", "/api/recommendations/explore-for-you, cá nhân hóa theo onboarding.", "(main)/explore", prio="P0", status=S_DOING, prog=0.3, start=D3,
-              note="Đã xong domain + repository gọi API (flutter analyze sạch); chưa có controller, giao diện, test. Tab này cần đăng nhập, lỗi thì rơi về tìm kiếm địa điểm nổi bật."),
+            TEST("Header & ô tìm kiếm", "Chọn điểm đến (bottom sheet) + ô tìm kiếm pill.", "(main)/explore", prio="P0", prog=0.9, start=D3,
+                 note="Đã làm + test widget; chờ đối chiếu ảnh chụp emulator với web."),
+            TEST("Gợi ý cho bạn (explore-for-you)", "/api/recommendations/explore-for-you, cá nhân hóa theo onboarding.", "(main)/explore", prio="P0", prog=0.9, start=D3,
+                 note="Có controller + giao diện + test; lỗi/rỗng thì rơi về địa điểm nổi bật kèm ghi chú."),
             T("Các mục theo danh mục (sections)", "Cuộn ngang theo danh mục.", "(main)/explore", prio="P0"),
-            T("Phân trang & kéo để làm mới", "", "(main)/explore", prio="P1"),
+            T("Phân trang & kéo để làm mới", "", "(main)/explore", prio="P1", status=S_DOING, prog=0.5, start=D3,
+              note="Đã có kéo để làm mới + skeleton khi tải; chưa có phân trang (API trả tối đa 20)."),
         ]),
         ("Tìm kiếm", [
-            T("Tìm kiếm địa điểm", "/api/places/search.", "(main)/places", prio="P0", status=S_DOING, prog=0.3, start=D3,
-              note="Đã xong repository + parser Place (lọc ảnh theo host được duyệt) + buildSearchQuery; chưa có controller, giao diện, test."),
-            T("Gợi ý khi gõ (autocomplete)", "Debounce 300 ms + bỏ kết quả của request cũ.", "(main)/explore", prio="P0", status=S_DOING, prog=0.2, start=D3,
-              note="Đã xong repository; controller debounce và giao diện chưa làm."),
-            T("Lọc theo danh mục / điểm đến", "", "(main)/explore", prio="P1"),
+            TEST("Tìm kiếm địa điểm", "/api/places/search.", "(main)/places", prio="P0", prog=0.9, start=D3,
+                 note="Gửi query + danh mục + toạ độ điểm đến; bỏ kết quả của request cũ; test controller + repository + widget."),
+            TEST("Gợi ý khi gõ (autocomplete)", "Debounce 300 ms + bỏ kết quả của request cũ.", "(main)/explore", prio="P0", prog=0.9, start=D3,
+                 note="Debounce 300 ms, tối thiểu 2 ký tự, bỏ kết quả cũ (có test)."),
+            TEST("Lọc theo danh mục / điểm đến", "", "(main)/explore", prio="P1", prog=0.9, start=D3,
+                 note="Chip For you/Food/Cafés/Stays/Attractions + chọn Đà Nẵng/Huế/Hội An."),
             T("Tìm kiếm gần đây", "", "(main)/explore", prio="P2"),
         ]),
         ("Chi tiết địa điểm", [
-            T("Thông tin cơ bản", "Tên, địa chỉ, đánh giá, danh mục.", "(main)/places", prio="P0", status=S_DOING, prog=0.2, start=D3,
-              note="Đã xong model Place + API chi tiết; chưa có màn hình."),
-            T("Thư viện ảnh", "Gallery vuốt ngang, ảnh cache.", "(main)/places", prio="P0"),
-            T("Giờ mở cửa & liên hệ", "Hiển thị giờ hôm nay + cả tuần, điện thoại, website.", "(main)/places", prio="P1", status=S_DOING, prog=0.15, start=D3,
-              note="Đã xong bộ phân tích giờ mở cửa (parseOpeningHours/todayOpeningHours); chưa có màn hình."),
-            T("Xem đánh giá cộng đồng", "", "(main)/places", prio="P1"),
+            TEST("Thông tin cơ bản", "Tên, địa chỉ, đánh giá, danh mục.", "(main)/places", prio="P0", prog=0.9, start=D3,
+                 note="Màn /places/:id: làm giàu bằng API chi tiết, vẫn hiển thị dữ liệu danh sách khi API lỗi."),
+            T("Thư viện ảnh", "Gallery vuốt ngang, ảnh cache.", "(main)/places", prio="P0", status=S_DOING, prog=0.3, start=D3,
+              note="Mới hiển thị ảnh bìa (cache) + thẻ gradient dự phòng; chưa có gallery vuốt ngang."),
+            TEST("Giờ mở cửa & liên hệ", "Hiển thị giờ hôm nay + cả tuần, điện thoại, website.", "(main)/places", prio="P1", prog=0.9, start=D3,
+                 note="Giờ hôm nay trên thẻ + cả tuần ở chi tiết (làm đậm hôm nay), điện thoại, website."),
+            TEST("Xem đánh giá cộng đồng", "", "(main)/places", prio="P1", prog=0.8, start=D3,
+                 note="Hiển thị các đánh giá có sẵn trong dữ liệu địa điểm."),
             T("Viết đánh giá", "", "(main)/places", prio="P2"),
             T("Địa điểm gần đây (nearby)", "/api/places/nearby.", "(main)/places", prio="P2"),
         ]),

@@ -426,4 +426,74 @@ class AppLocalizationsVi extends AppLocalizations {
   String onbProgressPercent(int percent) {
     return '$percent%';
   }
+
+  @override
+  String get exploreSearchHint => 'Tìm địa điểm, món ăn, quán cà phê…';
+
+  @override
+  String get exploreClearSearch => 'Xóa tìm kiếm';
+
+  @override
+  String get exploreTabForYou => 'Dành cho bạn';
+
+  @override
+  String get exploreTabFood => 'Ẩm thực';
+
+  @override
+  String get exploreTabCafes => 'Cà phê';
+
+  @override
+  String get exploreTabStays => 'Lưu trú';
+
+  @override
+  String get exploreTabAttractions => 'Tham quan';
+
+  @override
+  String get exploreEmptyTitle => 'Không tìm thấy địa điểm';
+
+  @override
+  String get exploreEmptyHint => 'Hãy thử từ khóa hoặc điểm đến khác.';
+
+  @override
+  String exploreSearchResults(String query) {
+    return 'Kết quả cho \"$query\"';
+  }
+
+  @override
+  String get exploreFallbackNote =>
+      'Đang hiển thị địa điểm nổi bật trong khi chúng tôi cá nhân hóa gợi ý cho bạn.';
+
+  @override
+  String get exploreChooseDestination => 'Chọn điểm đến';
+
+  @override
+  String placeReviewsCount(int count) {
+    return '($count)';
+  }
+
+  @override
+  String placeOpenToday(String hours) {
+    return 'Hôm nay: $hours';
+  }
+
+  @override
+  String get placeAbout => 'Giới thiệu';
+
+  @override
+  String get placeHours => 'Giờ mở cửa';
+
+  @override
+  String get placeContact => 'Liên hệ';
+
+  @override
+  String get placeReviews => 'Đánh giá';
+
+  @override
+  String get placeAddress => 'Địa chỉ';
+
+  @override
+  String get placeNoPhoto => 'Chưa có ảnh';
+
+  @override
+  String get placeBack => 'Quay lại';
 }

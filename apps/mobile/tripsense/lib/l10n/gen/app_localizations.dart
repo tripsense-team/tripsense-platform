@@ -865,6 +865,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{percent}%'**
   String onbProgressPercent(int percent);
+
+  /// No description provided for @exploreSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search places, food, cafés…'**
+  String get exploreSearchHint;
+
+  /// No description provided for @exploreClearSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get exploreClearSearch;
+
+  /// No description provided for @exploreTabForYou.
+  ///
+  /// In en, this message translates to:
+  /// **'For you'**
+  String get exploreTabForYou;
+
+  /// No description provided for @exploreTabFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Food'**
+  String get exploreTabFood;
+
+  /// No description provided for @exploreTabCafes.
+  ///
+  /// In en, this message translates to:
+  /// **'Cafés'**
+  String get exploreTabCafes;
+
+  /// No description provided for @exploreTabStays.
+  ///
+  /// In en, this message translates to:
+  /// **'Stays'**
+  String get exploreTabStays;
+
+  /// No description provided for @exploreTabAttractions.
+  ///
+  /// In en, this message translates to:
+  /// **'Attractions'**
+  String get exploreTabAttractions;
+
+  /// No description provided for @exploreEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No places found'**
+  String get exploreEmptyTitle;
+
+  /// No description provided for @exploreEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another keyword or destination.'**
+  String get exploreEmptyHint;
+
+  /// No description provided for @exploreSearchResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Results for \"{query}\"'**
+  String exploreSearchResults(String query);
+
+  /// No description provided for @exploreFallbackNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing popular places while we personalize your feed.'**
+  String get exploreFallbackNote;
+
+  /// No description provided for @exploreChooseDestination.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose destination'**
+  String get exploreChooseDestination;
+
+  /// No description provided for @placeReviewsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'({count})'**
+  String placeReviewsCount(int count);
+
+  /// No description provided for @placeOpenToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today: {hours}'**
+  String placeOpenToday(String hours);
+
+  /// No description provided for @placeAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get placeAbout;
+
+  /// No description provided for @placeHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening hours'**
+  String get placeHours;
+
+  /// No description provided for @placeContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact'**
+  String get placeContact;
+
+  /// No description provided for @placeReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews'**
+  String get placeReviews;
+
+  /// No description provided for @placeAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Address'**
+  String get placeAddress;
+
+  /// No description provided for @placeNoPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'No photo yet'**
+  String get placeNoPhoto;
+
+  /// No description provided for @placeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get placeBack;
 }
 
 class _AppLocalizationsDelegate

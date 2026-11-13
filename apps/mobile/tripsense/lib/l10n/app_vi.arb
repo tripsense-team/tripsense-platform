@@ -127,5 +127,47 @@
   "authHeroSubtitle": "Lên kế hoạch, nhận gợi ý cá nhân hóa và đặt chỗ ngay tại một nơi với trợ lý AI thông minh.",
   "navChat": "Trò chuyện",
   "navSaved": "Đã lưu",
-  "onbProgressPercent": "{percent}%"
+  "onbProgressPercent": "{percent}%",
+  "exploreSearchHint": "Tìm địa điểm, món ăn, quán cà phê…",
+  "exploreClearSearch": "Xóa tìm kiếm",
+  "exploreTabForYou": "Dành cho bạn",
+  "exploreTabFood": "Ẩm thực",
+  "exploreTabCafes": "Cà phê",
+  "exploreTabStays": "Lưu trú",
+  "exploreTabAttractions": "Tham quan",
+  "exploreEmptyTitle": "Không tìm thấy địa điểm",
+  "exploreEmptyHint": "Hãy thử từ khóa hoặc điểm đến khác.",
+  "exploreSearchResults": "Kết quả cho \"{query}\"",
+  "@exploreSearchResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "exploreFallbackNote": "Đang hiển thị địa điểm nổi bật trong khi chúng tôi cá nhân hóa gợi ý cho bạn.",
+  "exploreChooseDestination": "Chọn điểm đến",
+  "placeReviewsCount": "({count})",
+  "@placeReviewsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "placeOpenToday": "Hôm nay: {hours}",
+  "@placeOpenToday": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "placeAbout": "Giới thiệu",
+  "placeHours": "Giờ mở cửa",
+  "placeContact": "Liên hệ",
+  "placeReviews": "Đánh giá",
+  "placeAddress": "Địa chỉ",
+  "placeNoPhoto": "Chưa có ảnh",
+  "placeBack": "Quay lại"
 }
