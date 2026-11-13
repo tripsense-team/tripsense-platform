@@ -214,6 +214,7 @@ Dừng ở `STATUS: WAITING_FOR_HUMAN_APPROVAL`. Chỉ triển khai khi bạn tr
 | 0 Foundation | DONE | config, dio + cookie jar bảo mật, interceptor single-flight, sanitizer, i18n vi/en, theme, shell điều hướng, router guard |
 | 1 Auth | DONE (một phần) | Login, Register, Verify OTP, Resend, Forgot/Reset, Splash khôi phục phiên, chặn role không phải USER. **Chưa làm:** Google Sign-In (Q2, cần client ID), Onboarding wizard (tách thành phase 1b) |
 | 1b Onboarding | DONE (chờ nghiệm thu lưu thật) | Nhánh `nhiby/feature/mobile-onboarding`: wizard 10 bước, cổng bắt buộc, lưu/hoàn tất qua context-service. 135 test pass. Đã chạy trên emulator; chưa bấm Hoàn tất với DB prod. |
+| UI parity (~80% giống web) | DONE (còn bundle font Inter) | Nhánh `nhiby/feature/mobile-ui-polish`: theme pill, hero gradient, màn auth/onboarding/khung chính theo web. Đã chụp emulator đối chiếu. 137 test pass. |
 | 2 Explore & Places | TODO | |
 | 3 Trips & AI Planner | TODO | |
 | 4–7 | TODO | |
