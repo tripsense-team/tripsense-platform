@@ -39,7 +39,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navTrips => 'Trips';
 
   @override
-  String get navAiPlanner => 'AI Planner';
+  String get navAiPlanner => 'Planner';
 
   @override
   String get navCommunity => 'Community';
@@ -406,4 +406,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get optNightlife => 'Nightlife';
+
+  @override
+  String get authHeroBadge => 'Next-Gen AI Travel Companion';
+
+  @override
+  String get authHeroTitle => 'Travel differently.';
+
+  @override
+  String get authHeroSubtitle =>
+      'Plan trips, get personalized recommendations, and book all in one place with intelligent AI assistance.';
+
+  @override
+  String get navChat => 'Chat';
+
+  @override
+  String get navSaved => 'Saved';
+
+  @override
+  String onbProgressPercent(int percent) {
+    return '$percent%';
+  }
 }

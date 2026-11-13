@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:trip/app/app_theme.dart';
 import 'package:trip/app/routes.dart';
 import 'package:trip/features/auth/data/auth_repository_impl.dart';
 import 'package:trip/l10n/gen/app_localizations.dart';
@@ -35,6 +38,7 @@ Widget testApp({required Widget home, FakeAuthRepository? repo}) {
     ],
     child: MaterialApp.router(
       routerConfig: router,
+      theme: buildTripSenseTheme(),
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -44,4 +48,17 @@ Widget testApp({required Widget home, FakeAuthRepository? repo}) {
       locale: const Locale('en'),
     ),
   );
+}
+
+/// Phone-like tall viewport so whole screens (hero + form) fit without
+/// scrolling in widget tests. Call once at the top of `main()`.
+void useTallScreen() {
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+  final view = binding.platformDispatcher.implicitView!;
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false; // hermetic tests
+    view.physicalSize = const Size(800, 2600);
+    view.devicePixelRatio = 1;
+  });
+  tearDownAll(view.reset);
 }

@@ -2,28 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:trip/app/app_theme.dart';
 import 'package:trip/core/errors/app_failure.dart';
 import 'package:trip/features/auth/data/auth_repository_impl.dart';
 import 'package:trip/features/auth/presentation/login_screen.dart';
 import 'package:trip/l10n/gen/app_localizations.dart';
 
 import '../../support/fake_auth_repository.dart';
+import '../../support/test_app.dart';
 
 Widget _app(FakeAuthRepository repo) => ProviderScope(
   overrides: [authRepositoryProvider.overrideWithValue(repo)],
-  child: const MaterialApp(
-    localizationsDelegates: [
+  child: MaterialApp(
+    theme: buildTripSenseTheme(),
+    localizationsDelegates: const [
       AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
       GlobalWidgetsLocalizations.delegate,
     ],
-    supportedLocales: [Locale('en')],
-    locale: Locale('en'),
-    home: LoginScreen(),
+    supportedLocales: const [Locale('en')],
+    locale: const Locale('en'),
+    home: const LoginScreen(),
   ),
 );
 
 void main() {
+  useTallScreen();
+
   testWidgets('validates empty and malformed input before submitting', (
     tester,
   ) async {

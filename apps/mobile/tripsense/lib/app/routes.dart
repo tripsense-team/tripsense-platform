@@ -9,8 +9,10 @@ abstract final class Routes {
   static const onboarding = '/onboarding';
 
   static const explore = '/explore';
+  static const chat = '/chat';
   static const trips = '/trips';
   static const aiPlanner = '/ai-planner';
+  static const saved = '/saved';
   static const community = '/community';
   static const profile = '/profile';
 

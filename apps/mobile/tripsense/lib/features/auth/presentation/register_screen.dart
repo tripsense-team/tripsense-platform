@@ -34,6 +34,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     return AuthFormPage(
       showBack: true,
       title: l10n.authRegisterTitle,
+      showHero: true,
       subtitle: l10n.authWelcomeSubtitle,
       children: [
         Form(

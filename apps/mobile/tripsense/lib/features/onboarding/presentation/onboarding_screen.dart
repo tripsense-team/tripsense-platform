@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/design/app_tokens.dart';
+import '../../../core/ui/brand.dart';
 import '../../../core/ui/failure_message.dart';
 import '../../../core/ui/state_views.dart';
 import '../../../l10n/gen/app_localizations.dart';
@@ -50,54 +51,38 @@ class _Wizard extends StatelessWidget {
       // Stretch so narrow steps stay left-aligned instead of being centered.
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.page,
-            AppSpacing.lg,
-            AppSpacing.page,
-            AppSpacing.sm,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.onbEyebrow.toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: context.colors.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                l10n.onbProgress(state.stepIndex + 1, state.totalSteps),
-                key: const Key('onboarding-progress'),
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.pill),
-                child: LinearProgressIndicator(
-                  value: (state.stepIndex + 1) / state.totalSteps,
-                  minHeight: 6,
-                  backgroundColor: context.colors.secondary,
-                ),
-              ),
-            ],
-          ),
-        ),
         Expanded(
           child: SingleChildScrollView(
             key: ValueKey(state.step),
-            padding: const EdgeInsets.all(AppSpacing.page),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.xl,
+              AppSpacing.page,
+              AppSpacing.page,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(copy.title, style: theme.textTheme.headlineSmall),
+                const BrandMark(
+                  size: 48,
+                  icon: Icons.auto_awesome,
+                  round: true,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                Text(
+                  copy.title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontSize: 26,
+                    letterSpacing: -0.6,
+                  ),
+                ),
                 if (copy.subtitle.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     copy.subtitle,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: context.colors.mutedForeground,
+                      height: 1.5,
                     ),
                   ),
                 ],
@@ -135,6 +120,7 @@ class _StepBody extends StatelessWidget {
   };
 }
 
+/// Progress + navigation, pinned to the bottom (web footer).
 class _BottomBar extends StatelessWidget {
   const _BottomBar({required this.state, required this.controller});
 
@@ -152,7 +138,14 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colors = context.colors;
     final message = _message(l10n);
+    final progress = (state.stepIndex + 1) / state.totalSteps;
+    final labelStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colors.mutedForeground,
+      fontWeight: FontWeight.w600,
+    );
 
     return Container(
       padding: const EdgeInsets.fromLTRB(
@@ -162,8 +155,8 @@ class _BottomBar extends StatelessWidget {
         AppSpacing.lg,
       ),
       decoration: BoxDecoration(
-        color: context.colors.background,
-        border: Border(top: BorderSide(color: context.colors.border)),
+        color: colors.background,
+        border: Border(top: BorderSide(color: colors.border)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -171,23 +164,48 @@ class _BottomBar extends StatelessWidget {
         children: [
           if (message != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Text(
-                message,
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: KeyedSubtree(
                 key: const Key('onboarding-error'),
-                style: TextStyle(color: context.colors.destructive),
+                child: InlineAlert(message),
               ),
             ),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.onbProgress(state.stepIndex + 1, state.totalSteps),
+                key: const Key('onboarding-progress'),
+                style: labelStyle,
+              ),
+              Text(
+                l10n.onbProgressPercent((progress * 100).round()),
+                style: labelStyle,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              color: colors.foreground,
+              backgroundColor: colors.muted,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
             children: [
               if (state.stepIndex > 0) ...[
-                OutlinedButton(
+                OutlinedButton.icon(
                   key: const Key('onboarding-back'),
                   onPressed: state.saving ? null : controller.back,
+                  icon: const Icon(Icons.chevron_left, size: 20),
+                  label: Text(l10n.commonBack),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(96, 48),
+                    minimumSize: const Size(110, 48),
                   ),
-                  child: Text(l10n.commonBack),
                 ),
                 const SizedBox(width: AppSpacing.md),
               ],
@@ -196,24 +214,40 @@ class _BottomBar extends StatelessWidget {
                   key: const Key('onboarding-continue'),
                   onPressed: state.canContinue ? controller.next : null,
                   child: state.saving
-                      ? const SizedBox.square(
+                      ? SizedBox.square(
                           dimension: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: colors.primaryForeground,
+                          ),
                         )
-                      : Text(
-                          state.isLastStep
-                              ? l10n.onbFinish
-                              : l10n.commonContinue,
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              state.isLastStep
+                                  ? l10n.onbFinish
+                                  : l10n.commonContinue,
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right, size: 20),
+                          ],
                         ),
                 ),
               ),
             ],
           ),
           if (state.step.isOptional && !state.saving)
-            TextButton(
-              key: const Key('onboarding-skip'),
-              onPressed: controller.skip,
-              child: Text(l10n.onbSkip),
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: TextButton(
+                key: const Key('onboarding-skip'),
+                onPressed: controller.skip,
+                child: Text(
+                  l10n.onbSkip,
+                  style: TextStyle(color: colors.mutedForeground),
+                ),
+              ),
             ),
         ],
       ),

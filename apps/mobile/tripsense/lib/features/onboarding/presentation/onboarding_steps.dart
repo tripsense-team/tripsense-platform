@@ -52,6 +52,91 @@ class OptionChip extends StatelessWidget {
   }
 }
 
+/// Full-width pill row with a round check on the right (web option list).
+class OptionRow extends StatelessWidget {
+  const OptionRow({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.onRemove,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  /// Shown for user-added choices.
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final foreground = selected ? colors.primaryForeground : colors.foreground;
+    const shape = StadiumBorder();
+
+    return Material(
+      color: selected ? colors.primary : colors.background,
+      shape: shape.copyWith(
+        side: BorderSide(color: selected ? colors.primary : colors.border),
+      ),
+      child: InkWell(
+        customBorder: shape,
+        onTap: onTap,
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: foreground,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (onRemove != null)
+                InkResponse(
+                  onTap: onRemove,
+                  radius: 18,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 18, color: foreground),
+                  ),
+                ),
+              const SizedBox(width: AppSpacing.sm),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? colors.background : Colors.transparent,
+                  border: selected ? null : Border.all(color: colors.border),
+                ),
+                child: selected
+                    ? Icon(Icons.check, size: 16, color: colors.foreground)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+OutlineInputBorder _boxBorder(Color color, [double width = 1]) =>
+    OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.xxl),
+      borderSide: BorderSide(color: color, width: width),
+    );
+
 /// Search box shared by the city and destination steps.
 class _SearchField extends StatelessWidget {
   const _SearchField({
@@ -339,37 +424,32 @@ class _PreferenceStepViewState extends ConsumerState<PreferenceStepView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: [
-            for (final code in preference.options)
-              OptionChip(
-                key: Key('option-$code'),
-                label: optionLabel(l10n, code),
-                selected: chosen.contains(code),
-                onTap: () => _notifier(ref).toggleOption(
-                  preference.dimension,
-                  code,
-                  single: preference.single,
-                ),
+        for (final code in preference.options)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: OptionRow(
+              key: Key('option-$code'),
+              label: optionLabel(l10n, code),
+              selected: chosen.contains(code),
+              onTap: () => _notifier(ref).toggleOption(
+                preference.dimension,
+                code,
+                single: preference.single,
               ),
-            for (final code in customCodes)
-              OptionChip(
-                label: optionLabel(
-                  l10n,
-                  code,
-                  customLabels: draft.customLabels,
-                ),
-                selected: true,
-                onTap: () =>
-                    _notifier(ref).toggleOption(preference.dimension, code),
-                onDeleted: () => _notifier(
-                  ref,
-                ).removeCustomOption(preference.dimension, code),
-              ),
-          ],
-        ),
+            ),
+          ),
+        for (final code in customCodes)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: OptionRow(
+              label: optionLabel(l10n, code, customLabels: draft.customLabels),
+              selected: true,
+              onTap: () =>
+                  _notifier(ref).toggleOption(preference.dimension, code),
+              onRemove: () =>
+                  _notifier(ref).removeCustomOption(preference.dimension, code),
+            ),
+          ),
         if (!preference.single) ...[
           const SizedBox(height: AppSpacing.xl),
           Text(
@@ -394,7 +474,7 @@ class _PreferenceStepViewState extends ConsumerState<PreferenceStepView> {
               const SizedBox(width: AppSpacing.sm),
               FilledButton(
                 onPressed: _addCustom,
-                style: FilledButton.styleFrom(minimumSize: const Size(72, 52)),
+                style: FilledButton.styleFrom(minimumSize: const Size(88, 56)),
                 child: Text(l10n.onbCustomAdd),
               ),
             ],
@@ -504,6 +584,9 @@ class _NoteStepState extends ConsumerState<NoteStep> {
           decoration: InputDecoration(
             hintText: l10n.onbNoteHint,
             counterText: '',
+            border: _boxBorder(context.colors.input),
+            enabledBorder: _boxBorder(context.colors.input),
+            focusedBorder: _boxBorder(context.colors.foreground, 1.5),
           ),
         ),
         Align(

@@ -161,7 +161,7 @@ abstract class AppLocalizations {
   /// No description provided for @navAiPlanner.
   ///
   /// In en, this message translates to:
-  /// **'AI Planner'**
+  /// **'Planner'**
   String get navAiPlanner;
 
   /// No description provided for @navCommunity.
@@ -829,6 +829,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nightlife'**
   String get optNightlife;
+
+  /// No description provided for @authHeroBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Next-Gen AI Travel Companion'**
+  String get authHeroBadge;
+
+  /// No description provided for @authHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel differently.'**
+  String get authHeroTitle;
+
+  /// No description provided for @authHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan trips, get personalized recommendations, and book all in one place with intelligent AI assistance.'**
+  String get authHeroSubtitle;
+
+  /// No description provided for @navChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get navChat;
+
+  /// No description provided for @navSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get navSaved;
+
+  /// No description provided for @onbProgressPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%'**
+  String onbProgressPercent(int percent);
 }
 
 class _AppLocalizationsDelegate

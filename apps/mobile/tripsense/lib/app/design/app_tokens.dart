@@ -7,6 +7,8 @@ abstract final class AppRadius {
   static const double md = 8; // radius - 2px
   static const double lg = 10; // --radius (0.625rem)
   static const double xl = 14; // radius + 4px
+  static const double xxl = 24; // rounded-3xl (cards, modals)
+  static const double hero = 32; // hero banners
   static const double pill = 999;
 }
 
@@ -144,4 +146,22 @@ abstract final class AppShadows {
       offset: Offset(0, 2),
     ),
   ];
+}
+
+/// Brand gradient of the web landing hero
+/// (`from-amber-500/90 via-orange-500/80 to-amber-600`).
+abstract final class AppGradients {
+  static const hero = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF3AA2B), Color(0xFFF58F3F), Color(0xFFDB7A0C)],
+  );
+
+  /// Soft white glow at the top-right + dark fade, as on the web hero.
+  static const heroOverlay = RadialGradient(
+    center: Alignment.topRight,
+    radius: 1.2,
+    colors: [Color(0x33FFFFFF), Color(0x00000000), Color(0x1F000000)],
+    stops: [0, 0.5, 1],
+  );
 }

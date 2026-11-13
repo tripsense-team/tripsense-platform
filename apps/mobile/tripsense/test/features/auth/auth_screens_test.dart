@@ -12,6 +12,8 @@ import '../../support/test_app.dart';
 Finder _button(String label) => find.widgetWithText(FilledButton, label);
 
 void main() {
+  useTallScreen();
+
   group('RegisterScreen', () {
     testWidgets('rejects short passwords and bad emails', (tester) async {
       final repo = FakeAuthRepository();

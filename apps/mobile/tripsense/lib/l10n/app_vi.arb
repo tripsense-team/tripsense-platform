@@ -10,7 +10,7 @@
   "commonEmpty": "Chưa có nội dung",
   "navExplore": "Khám phá",
   "navTrips": "Chuyến đi",
-  "navAiPlanner": "Trợ lý AI",
+  "navAiPlanner": "Kế hoạch",
   "navCommunity": "Cộng đồng",
   "navProfile": "Hồ sơ",
   "comingSoon": "Sắp ra mắt",
@@ -121,5 +121,11 @@
   "optHiking": "Trekking & Leo núi",
   "optCulture": "Văn hóa & Lịch sử",
   "optBeach": "Đi biển ngắm cảnh",
-  "optNightlife": "Cuộc sống về đêm"
+  "optNightlife": "Cuộc sống về đêm",
+  "authHeroBadge": "Trợ lý du lịch AI thế hệ mới",
+  "authHeroTitle": "Du lịch khác biệt.",
+  "authHeroSubtitle": "Lên kế hoạch, nhận gợi ý cá nhân hóa và đặt chỗ ngay tại một nơi với trợ lý AI thông minh.",
+  "navChat": "Trò chuyện",
+  "navSaved": "Đã lưu",
+  "onbProgressPercent": "{percent}%"
 }

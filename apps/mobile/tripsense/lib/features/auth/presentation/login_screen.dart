@@ -36,6 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     return AuthFormPage(
       title: l10n.authLoginTitle,
+      showHero: true,
       subtitle: l10n.authWelcomeSubtitle,
       children: [
         Form(

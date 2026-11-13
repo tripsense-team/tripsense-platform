@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:trip/app/app_theme.dart';
 import 'package:trip/core/errors/app_failure.dart';
 import 'package:trip/features/auth/data/auth_repository_impl.dart';
@@ -15,6 +14,7 @@ import 'package:trip/l10n/gen/app_localizations_en.dart';
 
 import '../../support/fake_auth_repository.dart';
 import '../../support/fake_onboarding_repository.dart';
+import '../../support/test_app.dart';
 
 const _newcomer = AppUser(
   id: 'u1',
@@ -82,7 +82,7 @@ FilledButton _continueButton(WidgetTester tester) =>
     tester.widget<FilledButton>(_continue);
 
 void main() {
-  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+  useTallScreen();
 
   testWidgets('starts at step 1 of 10 and needs a name to continue', (
     tester,
@@ -133,9 +133,9 @@ void main() {
   ) async {
     // Wide viewport so short content is narrower than the screen (the bug only
     // shows when content does not already fill the width).
-    tester.view.physicalSize = const Size(2400, 1600);
+    tester.view.physicalSize = const Size(2400, 2600);
     tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    addTearDown(() => tester.view.physicalSize = const Size(800, 2600));
 
     await _pump(tester);
     await tester.enterText(find.byKey(const Key('onboarding-name')), 'Alex');

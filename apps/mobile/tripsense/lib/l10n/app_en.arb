@@ -10,7 +10,7 @@
   "commonEmpty": "Nothing here yet",
   "navExplore": "Explore",
   "navTrips": "Trips",
-  "navAiPlanner": "AI Planner",
+  "navAiPlanner": "Planner",
   "navCommunity": "Community",
   "navProfile": "Profile",
   "comingSoon": "Coming soon",
@@ -176,5 +176,18 @@
   "optHiking": "Hiking & Trekking",
   "optCulture": "Culture & History",
   "optBeach": "Scenic beach walks",
-  "optNightlife": "Nightlife"
+  "optNightlife": "Nightlife",
+  "authHeroBadge": "Next-Gen AI Travel Companion",
+  "authHeroTitle": "Travel differently.",
+  "authHeroSubtitle": "Plan trips, get personalized recommendations, and book all in one place with intelligent AI assistance.",
+  "navChat": "Chat",
+  "navSaved": "Saved",
+  "onbProgressPercent": "{percent}%",
+  "@onbProgressPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
 }

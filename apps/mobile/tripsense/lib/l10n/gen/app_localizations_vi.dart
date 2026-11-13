@@ -39,7 +39,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get navTrips => 'Chuyến đi';
 
   @override
-  String get navAiPlanner => 'Trợ lý AI';
+  String get navAiPlanner => 'Kế hoạch';
 
   @override
   String get navCommunity => 'Cộng đồng';
@@ -405,4 +405,25 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get optNightlife => 'Cuộc sống về đêm';
+
+  @override
+  String get authHeroBadge => 'Trợ lý du lịch AI thế hệ mới';
+
+  @override
+  String get authHeroTitle => 'Du lịch khác biệt.';
+
+  @override
+  String get authHeroSubtitle =>
+      'Lên kế hoạch, nhận gợi ý cá nhân hóa và đặt chỗ ngay tại một nơi với trợ lý AI thông minh.';
+
+  @override
+  String get navChat => 'Trò chuyện';
+
+  @override
+  String get navSaved => 'Đã lưu';
+
+  @override
+  String onbProgressPercent(int percent) {
+    return '$percent%';
+  }
 }

@@ -65,23 +65,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.onboarding,
         builder: (_, _) => const OnboardingScreen(),
       ),
+      // Bottom tabs, same five as the web mobile navigation.
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => MainShell(navigationShell: shell),
         branches: [
           _tab(Routes.explore, (l10n) => l10n.navExplore),
+          _tab(Routes.chat, (l10n) => l10n.navChat),
           _tab(Routes.trips, (l10n) => l10n.navTrips),
           _tab(Routes.aiPlanner, (l10n) => l10n.navAiPlanner),
-          _tab(Routes.community, (l10n) => l10n.navCommunity),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: Routes.profile,
-                builder: (_, _) => const ProfileScreen(),
-              ),
-            ],
-          ),
+          _tab(Routes.saved, (l10n) => l10n.navSaved),
         ],
       ),
+      // Opened from the avatar menu (web header user menu).
+      GoRoute(
+        path: Routes.community,
+        builder: (context, _) =>
+            ComingSoonScreen(title: AppLocalizations.of(context).navCommunity),
+      ),
+      GoRoute(path: Routes.profile, builder: (_, _) => const ProfileScreen()),
     ],
   );
 
