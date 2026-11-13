@@ -44,5 +44,15 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
   @Query(value = "{ 'photos': { $regex: 'googleusercontent' } }", count = true)
   long countPlacesWithStaleGooglePhotos();
 
+  @Query(
+      "{ $or: [ { 'photos': { $regex: 'googleusercontent' } }, { 'photos': { $size: 0 } }, { 'photos': null } ] }")
+  List<Place> findPlacesNeedingCloudinaryPhotos(Pageable pageable);
+
+  @Query(
+      value =
+          "{ $or: [ { 'photos': { $regex: 'googleusercontent' } }, { 'photos': { $size: 0 } }, { 'photos': null } ] }",
+      count = true)
+  long countPlacesNeedingCloudinaryPhotos();
+
   long countByMediaState(PlaceMediaState mediaState);
 }

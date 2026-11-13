@@ -9,6 +9,7 @@ import fu.tripsense.placeservice.dto.ZioMapKeyUpdateResponse;
 import fu.tripsense.placeservice.providers.ziomap.ZioMapProvider;
 import fu.tripsense.placeservice.service.PlaceBatchEnrichmentService;
 import jakarta.validation.Valid;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -69,15 +70,32 @@ public class PlaceBatchEnrichmentController {
 
   @PostMapping("/migrate-stale-photos")
   public ResponseEntity<ApiResponse<BatchEnrichmentProgressDto>> migrateStalePhotos(
-      @RequestParam(name = "limit", defaultValue = "100") int limit,
+      @RequestParam(name = "limit", defaultValue = "2000") int limit,
       @RequestParam(name = "concurrency", defaultValue = "3") int concurrency) {
     BatchEnrichmentRequest request =
         BatchEnrichmentRequest.builder()
             .limit(limit)
             .concurrency(concurrency)
             .stalePhotosOnly(true)
+            .syncEmbedding(true)
             .build();
     return ResponseEntity.ok(ApiResponse.ok(enrichmentService.startBatchEnrichment(request)));
+  }
+
+  @PostMapping("/relink-cloudinary-photos")
+  public ResponseEntity<ApiResponse<Map<String, Object>>> relinkCloudinaryPhotos(
+      @RequestParam(name = "dryRun", defaultValue = "false") boolean dryRun) {
+    return ResponseEntity.ok(
+        ApiResponse.ok(enrichmentService.relinkExistingCloudinaryPhotos(dryRun)));
+  }
+
+  @PostMapping("/normalize-and-sync-qdrant")
+  public ResponseEntity<ApiResponse<Map<String, Object>>> normalizeAndSyncQdrant(
+      @RequestParam(name = "dryRun", defaultValue = "false") boolean dryRun,
+      @RequestParam(name = "syncQdrant", defaultValue = "true") boolean syncQdrant,
+      @RequestParam(name = "async", defaultValue = "false") boolean async) {
+    return ResponseEntity.ok(
+        ApiResponse.ok(enrichmentService.normalizeMetadataAndSyncQdrant(dryRun, syncQdrant, async)));
   }
 
   @GetMapping("/batch-enrich/progress")

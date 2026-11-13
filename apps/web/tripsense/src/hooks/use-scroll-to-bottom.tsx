@@ -42,8 +42,10 @@ export function useScrollToBottom() {
       clearTimeout(scrollTimeout);
 
       const atBottom = checkIfAtBottom();
-      setIsAtBottom(atBottom);
-      isAtBottomRef.current = atBottom;
+      if (isAtBottomRef.current !== atBottom) {
+        isAtBottomRef.current = atBottom;
+        setIsAtBottom(atBottom);
+      }
 
       scrollTimeout = setTimeout(() => {
         isUserScrollingRef.current = false;
@@ -63,17 +65,19 @@ export function useScrollToBottom() {
       return;
     }
 
+    let rafId: number | null = null;
     const scrollIfNeeded = () => {
-      if (isAtBottomRef.current && !isUserScrollingRef.current) {
-        requestAnimationFrame(() => {
-          container.scrollTo({
-            behavior: "instant",
-            top: container.scrollHeight,
-          });
-          setIsAtBottom(true);
-          isAtBottomRef.current = true;
-        });
+      if (!isAtBottomRef.current || isUserScrollingRef.current || rafId !== null) {
+        return;
       }
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (!isAtBottomRef.current || isUserScrollingRef.current) return;
+        container.scrollTo({
+          behavior: "instant",
+          top: container.scrollHeight,
+        });
+      });
     };
 
     const mutationObserver = new MutationObserver(scrollIfNeeded);
@@ -91,6 +95,9 @@ export function useScrollToBottom() {
     }
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       mutationObserver.disconnect();
       resizeObserver.disconnect();
     };

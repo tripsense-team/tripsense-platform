@@ -4,8 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpClientErrorException;
 
 import fu.tripsense.recommendation.application.port.PlaceIndexer;
 import fu.tripsense.recommendation.domain.GeoPoint;
@@ -100,6 +105,27 @@ class PlaceIndexingServiceTest {
     service.removePlace("place-1");
 
     verify(mockIndexer).remove("place-1");
+  }
+
+  @Test
+  @DisplayName("Should retry with backoff on 429 TooManyRequests and succeed")
+  void shouldRetryOn429TooManyRequests() {
+    PlaceIndexer mockIndexer = mock(PlaceIndexer.class);
+    when(mockIndexer.indexIfChanged(any()))
+        .thenThrow(
+            HttpClientErrorException.create(
+                HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", HttpHeaders.EMPTY, null, null))
+        .thenReturn(true);
+
+    PlaceIndexingService service =
+        new PlaceIndexingService(Optional.of(mockIndexer), new long[] {1L, 1L}, 0L);
+
+    var outcome = service.indexPlaces(List.of(samplePlace("p1")));
+
+    assertEquals(1, outcome.submitted());
+    assertEquals(1, outcome.indexed());
+    assertEquals(0, outcome.skipped());
+    verify(mockIndexer, times(2)).indexIfChanged(any());
   }
 
   private PlaceSnapshot samplePlace(String id) {

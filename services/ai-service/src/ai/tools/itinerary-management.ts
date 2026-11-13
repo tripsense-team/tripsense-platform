@@ -10,6 +10,7 @@ import {
 } from "../trip-commit.js";
 import type { PlanningRuntimeState } from "./update-trip-planning-brief.js";
 import { itemType, parseTimes } from "./create-trip-proposal.js";
+import { resolveCanonicalActivityPlaces } from "../place-grounding.js";
 
 export interface ItineraryToolContext {
   chatId: string;
@@ -165,15 +166,30 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
         };
       }
 
-      const commitItems: TripCommitItem[] = input.items.map((it) => ({
-        sourceItemKey: crypto.randomUUID(),
-        dayNumber: input.dayNumber,
-        title: it.title.trim(),
-        itemType: itemType(it.category),
-        placeRef: it.placeId || null,
-        ...parseTimes(it.timeSlot),
-        notes: it.description?.trim() || null,
-      }));
+      const resolvedPlaces = await resolveCanonicalActivityPlaces({
+        items: input.items.map((it) => ({
+          placeId: it.placeId,
+          title: it.title.trim(),
+          category: it.category,
+        })),
+        destinationHint: context.runtime?.destinationHint || context.runtime?.brief?.where?.destinationText,
+        authorization: context.authorization,
+        tripId: targetTripId,
+        store: context.runtime?.placeStore,
+      });
+
+      const commitItems: TripCommitItem[] = input.items.map((it, idx) => {
+        const canonical = resolvedPlaces.get(idx);
+        return {
+          sourceItemKey: crypto.randomUUID(),
+          dayNumber: input.dayNumber,
+          title: canonical?.name || it.title.trim(),
+          itemType: itemType(it.category),
+          placeRef: canonical?.id || null,
+          ...parseTimes(it.timeSlot),
+          notes: it.description?.trim() || null,
+        };
+      });
 
       try {
         const proposalId = crypto.randomUUID();
@@ -371,6 +387,20 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
       }
 
       const times = input.timeSlot ? parseTimes(input.timeSlot) : { startTime: undefined, endTime: undefined };
+      const resolved = await resolveCanonicalActivityPlaces({
+        items: [
+          {
+            placeId: input.newPlaceId,
+            title: input.newTitle.trim(),
+            category: input.newCategory,
+          },
+        ],
+        destinationHint: context.runtime?.destinationHint || context.runtime?.brief?.where?.destinationText,
+        authorization: context.authorization,
+        tripId: targetTripId,
+        store: context.runtime?.placeStore,
+      });
+      const canonical = resolved.get(0);
 
       try {
         const res = await fetch(
@@ -382,8 +412,8 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              title: input.newTitle.trim(),
-              placeRef: input.newPlaceId || null,
+              title: canonical?.name || input.newTitle.trim(),
+              placeRef: canonical?.id || null,
               type: input.newCategory ? itemType(input.newCategory) : undefined,
               startTime: times.startTime || undefined,
               endTime: times.endTime || undefined,

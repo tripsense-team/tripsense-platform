@@ -13,4 +13,8 @@ public interface PlaceDetailsService {
       String id, String fallbackName, Double fallbackLat, Double fallbackLng, boolean includePhoto);
 
   List<PlaceDto> getSnapshots(List<String> ids);
+
+  default List<PlaceDto> getSnapshots(List<String> ids, boolean includePhoto) {
+    return getSnapshots(ids);
+  }
 }

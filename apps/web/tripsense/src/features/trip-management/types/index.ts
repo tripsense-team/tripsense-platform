@@ -59,6 +59,7 @@ export interface ItineraryItemResponse {
   id: string;
   dayId: string;
   placeId: string | null;
+  placeRef?: string | null;
   type: ItineraryItemType;
   title: string;
   startTime: string | null;

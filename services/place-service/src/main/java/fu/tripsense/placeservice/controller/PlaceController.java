@@ -187,11 +187,13 @@ public class PlaceController {
 
   @PostMapping("/batch-snapshots")
   public ResponseEntity<ApiResponse<List<PlaceDto>>> getBatchSnapshots(
-      @RequestBody List<String> ids) {
+      @RequestBody List<String> ids,
+      @RequestParam(name = "includePhoto", required = false, defaultValue = "false")
+          boolean includePhoto) {
     if (ids == null || ids.isEmpty()) {
       return ResponseEntity.ok(ApiResponse.ok(List.of()));
     }
-    List<PlaceDto> snapshots = placeDetailsService.getSnapshots(ids);
+    List<PlaceDto> snapshots = placeDetailsService.getSnapshots(ids, includePhoto);
     return ResponseEntity.ok(ApiResponse.ok(snapshots));
   }
 

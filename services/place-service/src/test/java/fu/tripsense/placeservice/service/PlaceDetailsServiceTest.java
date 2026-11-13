@@ -78,7 +78,7 @@ class PlaceDetailsServiceTest {
     when(repository.findById("place-1")).thenReturn(Optional.of(entity));
     when(persistence.toDto(entity)).thenReturn(dto);
     when(provider.getProviderName()).thenReturn("ziomap");
-    when(provider.getPhotoGallery("provider-1", 5))
+    when(provider.getPhotoGallery("provider-1", 3))
         .thenReturn(
             List.of(
                 new PlacePhotoDto(
@@ -92,7 +92,7 @@ class PlaceDetailsServiceTest {
 
     assertEquals("https://lh3.googleusercontent.com/photo", result.getPrimaryPhoto().url());
     assertEquals(1, result.getPhotoGallery().size());
-    verify(provider).getPhotoGallery("provider-1", 5);
+    verify(provider).getPhotoGallery("provider-1", 3);
     verify(repository).save(entity);
     assertEquals(List.of("https://lh3.googleusercontent.com/photo"), entity.getPhotos());
   }
@@ -155,13 +155,13 @@ class PlaceDetailsServiceTest {
     when(repository.findById("place-1")).thenReturn(Optional.of(entity));
     when(persistence.toDto(entity)).thenReturn(dto);
     when(provider.getProviderName()).thenReturn("ziomap");
-    when(provider.getPhotoGallery("provider-1", 5)).thenReturn(List.of(refreshedPhoto));
+    when(provider.getPhotoGallery("provider-1", 3)).thenReturn(List.of(refreshedPhoto));
 
     PlaceDto result = service.getDetails("place-1", null, null, null, true).orElseThrow();
 
     assertEquals("https://lh3.googleusercontent.com/refreshed-photo", result.getPrimaryPhoto().url());
     assertEquals(List.of("https://lh3.googleusercontent.com/refreshed-photo"), result.getPhotos());
-    verify(provider).getPhotoGallery("provider-1", 5);
+    verify(provider).getPhotoGallery("provider-1", 3);
   }
 
   @Test
@@ -184,7 +184,7 @@ class PlaceDetailsServiceTest {
     when(repository.findById("place-1")).thenReturn(Optional.of(entity));
     when(persistence.toDto(entity)).thenReturn(dto);
     when(provider.getProviderName()).thenReturn("ziomap");
-    when(provider.getPhotoGallery("provider-1", 5)).thenReturn(List.of());
+    when(provider.getPhotoGallery("provider-1", 3)).thenReturn(List.of());
 
     PlaceDto result = service.getDetails("place-1", null, null, null, true).orElseThrow();
 
@@ -320,7 +320,7 @@ class PlaceDetailsServiceTest {
     when(repository.findById("place-1")).thenReturn(Optional.of(entity));
     when(persistence.toDto(entity)).thenReturn(dto);
     when(provider.getProviderName()).thenReturn("ziomap");
-    when(provider.getPhotoGallery("provider-1", 5))
+    when(provider.getPhotoGallery("provider-1", 3))
         .thenReturn(List.of(new PlacePhotoDto(freshGoogleUrl, "ziomap", List.of(), Instant.now(), true)));
 
     Optional<PlaceDto> result = testService.getDetails("place-1", "Cafe", null, null, true);
@@ -329,6 +329,156 @@ class PlaceDetailsServiceTest {
     assertEquals(1, result.get().getPhotoGallery().size());
     assertEquals(cdnUrl, result.get().getPrimaryPhoto().url());
     assertEquals("cloudinary", result.get().getPrimaryPhoto().source());
+  }
+
+  @Test
+  void getSnapshotsWithIncludePhotoHydratesMissingPhotosAndSkipsPermanentCloudinaryUrls() {
+    String cdnUrl =
+        "https://res.cloudinary.com/dejiclsce/image/upload/v1/tripsense/places/p1/photo_0.jpg";
+    String freshGoogleUrl = "https://lh3.googleusercontent.com/grass-cs/fresh-p2=s4800";
+    String uploadedCdnUrl =
+        "https://res.cloudinary.com/dejiclsce/image/upload/v1/tripsense/places/provider-2/photo_0.jpg";
+
+    Place entity1 = completeEntity(Instant.now());
+    entity1.setId("place-1");
+    entity1.setPhotos(List.of(cdnUrl));
+    PlaceDto dto1 = completeDto();
+    dto1.setId("place-1");
+    dto1.setPhotos(List.of(cdnUrl));
+
+    Place entity2 = completeEntity(Instant.now().minus(1, ChronoUnit.HOURS));
+    entity2.setId("place-2");
+    entity2.setProviderPlaceId("provider-2");
+    entity2.setPhotos(List.of());
+    PlaceDto dto2 = completeDto();
+    dto2.setId("place-2");
+    dto2.setProvider("ziomap");
+    dto2.setProviderPlaceId("provider-2");
+    dto2.setPhotos(List.of());
+
+    PlaceCloudinaryStorageService mockCloudinary =
+        org.mockito.Mockito.mock(PlaceCloudinaryStorageService.class);
+    when(mockCloudinary.uploadRemotePhoto(eq(freshGoogleUrl), eq("provider-2"), eq(0)))
+        .thenReturn(Optional.of(uploadedCdnUrl));
+
+    PlaceDetailsService testService =
+        new PlaceDetailsServiceImpl(
+            repository,
+            provider,
+            enrichmentProvider,
+            cache,
+            persistence,
+            recommendationIndexerClient,
+            mockCloudinary);
+
+    when(repository.findAllById(List.of("place-1", "place-2")))
+        .thenReturn(List.of(entity1, entity2));
+    when(persistence.toDto(entity1)).thenReturn(dto1);
+    when(persistence.toDto(entity2)).thenReturn(dto2);
+
+    when(cache.getPlaceDetails("place-2")).thenReturn(Optional.empty());
+    when(repository.findById("place-2")).thenReturn(Optional.of(entity2));
+    when(provider.getProviderName()).thenReturn("ziomap");
+    when(provider.getPhotoGallery("provider-2", 3))
+        .thenReturn(
+            List.of(new PlacePhotoDto(freshGoogleUrl, "ziomap", List.of(), Instant.now(), true)));
+
+    List<PlaceDto> snapshots = testService.getSnapshots(List.of("place-1", "place-2"), true);
+
+    assertEquals(2, snapshots.size());
+    assertEquals(cdnUrl, snapshots.get(0).getPhotos().get(0));
+    assertEquals(uploadedCdnUrl, snapshots.get(1).getPrimaryPhoto().url());
+    verify(provider, never()).getPhotoGallery(eq("provider-1"), anyInt());
+    verify(provider).getPhotoGallery("provider-2", 3);
+  }
+
+  @Test
+  void neverPersistsEphemeralGoogleUrlsWhenCloudinaryUploadFails() {
+    String freshGoogleUrl = "https://lh3.googleusercontent.com/grass-cs/ephemeral=s4800";
+
+    Place entity = completeEntity(Instant.now().minus(1, ChronoUnit.HOURS));
+    entity.setId("place-fail");
+    entity.setProviderPlaceId("provider-fail");
+    entity.setPhotos(List.of());
+
+    PlaceDto dto = completeDto();
+    dto.setId("place-fail");
+    dto.setProvider("ziomap");
+    dto.setProviderPlaceId("provider-fail");
+    dto.setPhotos(List.of());
+
+    PlaceCloudinaryStorageService mockCloudinary =
+        org.mockito.Mockito.mock(PlaceCloudinaryStorageService.class);
+    when(mockCloudinary.uploadRemotePhoto(eq(freshGoogleUrl), eq("provider-fail"), eq(0)))
+        .thenReturn(Optional.empty());
+
+    PlaceDetailsService testService =
+        new PlaceDetailsServiceImpl(
+            repository,
+            provider,
+            enrichmentProvider,
+            cache,
+            persistence,
+            recommendationIndexerClient,
+            mockCloudinary);
+
+    when(cache.getPlaceDetails("place-fail")).thenReturn(Optional.empty());
+    when(repository.findById("place-fail")).thenReturn(Optional.of(entity));
+    when(persistence.toDto(entity)).thenReturn(dto);
+    when(provider.getProviderName()).thenReturn("ziomap");
+    when(provider.getPhotoGallery("provider-fail", 3))
+        .thenReturn(
+            List.of(new PlacePhotoDto(freshGoogleUrl, "ziomap", List.of(), Instant.now(), true)));
+
+    PlaceDto result = testService.getDetails("place-fail", "Cafe", null, null, true).orElseThrow();
+
+    assertEquals(List.of(), result.getPhotos());
+    assertEquals(null, result.getPrimaryPhoto());
+    verify(repository, never()).save(any());
+  }
+
+  @Test
+  void lazyHealReusesJustUploadedCloudinaryPhotosFromDbWithoutDuplicateProviderCalls() {
+    String cdnUrl =
+        "https://res.cloudinary.com/dejiclsce/image/upload/v1/tripsense/places/provider-race/photo_0.jpg";
+
+    Place staleCachedEntity = completeEntity(Instant.now());
+    staleCachedEntity.setId("place-race");
+    staleCachedEntity.setProviderPlaceId("provider-race");
+    staleCachedEntity.setPhotos(List.of());
+
+    Place freshlySavedEntity = completeEntity(Instant.now());
+    freshlySavedEntity.setId("place-race");
+    freshlySavedEntity.setProviderPlaceId("provider-race");
+    freshlySavedEntity.setPhotos(List.of(cdnUrl));
+
+    PlaceDto emptyCachedDto = completeDto();
+    emptyCachedDto.setId("place-race");
+    emptyCachedDto.setProvider("ziomap");
+    emptyCachedDto.setProviderPlaceId("provider-race");
+    emptyCachedDto.setPhotos(List.of());
+
+    when(cache.getPlaceDetails("place-race")).thenReturn(Optional.of(emptyCachedDto));
+    when(repository.findById("place-race")).thenReturn(Optional.of(freshlySavedEntity));
+    when(provider.getProviderName()).thenReturn("ziomap");
+
+    PlaceDetailsService testService =
+        new PlaceDetailsServiceImpl(
+            repository,
+            provider,
+            enrichmentProvider,
+            cache,
+            persistence,
+            recommendationIndexerClient,
+            org.mockito.Mockito.mock(PlaceCloudinaryStorageService.class),
+            3);
+
+    PlaceDto result = testService.getDetails("place-race", "Cafe", null, null, true).orElseThrow();
+
+    assertEquals(List.of(cdnUrl), result.getPhotos());
+    assertEquals(cdnUrl, result.getPrimaryPhoto().url());
+    assertEquals("cloudinary", result.getPrimaryPhoto().source());
+    verify(provider, never()).getPhotoGallery(any(), anyInt());
   }
 
   private Place completeEntity(Instant fetchedAt) {

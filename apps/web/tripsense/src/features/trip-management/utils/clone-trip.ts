@@ -57,7 +57,7 @@ export async function cloneTrip(
               title: item.title,
               type: item.type,
               placeId: item.placeId,
-              placeRef: item.placeId,
+              placeRef: item.placeRef ?? item.placeId,
               startTime: item.startTime,
               endTime: item.endTime,
               durationMinutes: item.durationMinutes,

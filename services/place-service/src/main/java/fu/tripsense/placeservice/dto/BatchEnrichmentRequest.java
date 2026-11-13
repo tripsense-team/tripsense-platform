@@ -11,7 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class BatchEnrichmentRequest {
   @Builder.Default private Integer concurrency = 5;
-  @Builder.Default private Integer limit = 1000;
+  @Builder.Default private Integer limit = 2000;
   @Builder.Default private Boolean forceAll = false;
   @Builder.Default private Boolean stalePhotosOnly = false;
+  @Builder.Default private Boolean syncEmbedding = true;
 }

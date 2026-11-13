@@ -76,6 +76,7 @@ tripsense:
     recommendation-service-url: ${RECOMMENDATION_SERVICE_URL:http://localhost:8088}
     recommendation-internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:}
     encryption-secret: ${API_KEY_ENCRYPTION_SECRET:tripsense-default-api-key-encryption-secret-32b}
+    lazy-photo-limit: ${PLACE_LAZY_PHOTO_LIMIT:3}
 
 eureka:
   client:

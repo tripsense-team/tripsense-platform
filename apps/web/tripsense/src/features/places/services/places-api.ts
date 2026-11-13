@@ -1,3 +1,4 @@
+import { apiClient } from "@/services/api-client";
 import type {
   AutocompleteResponse,
   Place,
@@ -150,4 +151,56 @@ export async function getNearbyPlaces(
     ...parsed,
     data: Array.isArray(parsed.data) ? parsed.data.map(normalizePlace) : [],
   };
+}
+
+const MAX_BATCH_SNAPSHOT_IDS = 100;
+
+/**
+ * Fetches canonical place snapshots (including real Cloudinary/ZioMap photo URLs when
+ * `includePhoto = true`) in batched requests of at most 100 IDs via API Gateway.
+ */
+export async function getPlaceBatchSnapshots(
+  ids: string[],
+  includePhoto = true,
+  signal?: AbortSignal,
+): Promise<Record<string, Place>> {
+  const uniqueIds = Array.from(
+    new Set(ids.map((id) => id.trim()).filter(Boolean)),
+  );
+  if (uniqueIds.length === 0) {
+    return {};
+  }
+
+  const endpoint = `/api/places/batch-snapshots${includePhoto ? "?includePhoto=true" : ""}`;
+  const chunks: string[][] = [];
+  for (let i = 0; i < uniqueIds.length; i += MAX_BATCH_SNAPSHOT_IDS) {
+    chunks.push(uniqueIds.slice(i, i + MAX_BATCH_SNAPSHOT_IDS));
+  }
+
+  const snapshotsById: Record<string, Place> = {};
+  const responses = await Promise.all(
+    chunks.map((chunk) =>
+      apiClient<PlacesResponse>(endpoint, {
+        method: "POST",
+        body: JSON.stringify(chunk),
+        signal,
+        skipAuth: true,
+      }),
+    ),
+  );
+
+  for (const res of responses) {
+    const list = Array.isArray(res?.data) ? res.data : [];
+    for (const raw of list) {
+      const normalized = normalizePlace(raw);
+      if (normalized.id) {
+        snapshotsById[normalized.id] = normalized;
+      }
+      if (normalized.providerPlaceId) {
+        snapshotsById[normalized.providerPlaceId] = normalized;
+      }
+    }
+  }
+
+  return snapshotsById;
 }

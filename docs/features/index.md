@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `semantic-trip-candidates-and-batch-photo-pipeline` | DONE | `services/ai-service`, `services/place-service`, `services/recommendation-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./semantic-trip-candidates-and-batch-photo-pipeline.md) |
 | `mobile-user-app` | IMPLEMENTING (Phase 0–1 done) | `apps/mobile/tripsense` | [Docs](./mobile-user-app.md) |
 | `generic-travel-rental-and-services` | APPROVED | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
 | `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |

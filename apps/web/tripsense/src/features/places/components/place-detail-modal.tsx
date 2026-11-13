@@ -20,6 +20,7 @@ import type { Place } from "../types";
 import { useTranslation } from "@/i18n";
 import { PlacePhotoGallery } from "./place-photo-gallery";
 import { OpeningHoursDisplay } from "./opening-hours-display";
+import { approvedPhotoGallery } from "../utils/approved-photo";
 
 export interface PlaceDetailModalProps {
   place: Place | null;
@@ -56,21 +57,34 @@ export function PlaceDetailModal({
         !currentPlace.providerPlaceId.startsWith("poi_")
           ? currentPlace.providerPlaceId
           : currentPlace.id;
+      const needsPhoto =
+        process.env.NEXT_PUBLIC_PLACE_PHOTOS_ENABLED === "true" &&
+        approvedPhotoGallery(
+          currentPlace.photoGallery,
+          currentPlace.primaryPhoto,
+          currentPlace.photos,
+        ).length === 0;
       const response = await getPlaceDetails(
         targetId,
         currentPlace.name,
         currentPlace.location?.lat,
         currentPlace.location?.lng,
         undefined,
-        false,
+        needsPhoto,
       );
 
       if (response?.success && response.data) {
         setRefreshedPlace({
           ...currentPlace,
           ...response.data,
-          primaryPhoto: currentPlace.primaryPhoto,
-          photoGallery: currentPlace.photoGallery,
+          primaryPhoto: needsPhoto
+            ? (response.data.primaryPhoto ?? currentPlace.primaryPhoto)
+            : currentPlace.primaryPhoto,
+          photoGallery: needsPhoto
+            ? (response.data.photoGallery?.length
+                ? response.data.photoGallery
+                : currentPlace.photoGallery)
+            : currentPlace.photoGallery,
         });
       }
     } catch (error) {

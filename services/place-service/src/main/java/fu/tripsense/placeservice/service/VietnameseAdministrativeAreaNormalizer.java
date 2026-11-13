@@ -50,7 +50,11 @@ public final class VietnameseAdministrativeAreaNormalizer {
     if (!StringUtils.hasText(value)) return null;
     return value
         .trim()
-        .replaceFirst("(?iu)^(?:quận|huyện|thành phố|tp\\.?)\\s+", "")
+        .replaceFirst("\\s+\\d{5,6}$", "")
+        .replaceFirst(
+            "(?iu)^(?:quận|huyện|thị xã|thành phố)\\s+|^(?:q|h|tx|tp)\\.\\s*|^(?:tx|tp)\\s+",
+            "")
+        .replaceFirst("(?iu)\\s+(?:district|ward|city)$", "")
         .replaceFirst("\\s+\\d{5,6}$", "")
         .trim();
   }

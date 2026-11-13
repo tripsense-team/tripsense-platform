@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getAutocomplete, getPlaceDetails, searchPlaces } from "./places-api";
+import {
+  getAutocomplete,
+  getPlaceBatchSnapshots,
+  getPlaceDetails,
+  searchPlaces,
+} from "./places-api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -125,5 +130,45 @@ describe("places API client", () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0].id).toBe("prov-123");
     expect(result.data[0].providerPlaceId).toBe("prov-123");
+  });
+
+  it("fetches batch snapshots in a single POST call and keys by canonical and provider ID", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "place-1",
+              providerPlaceId: "prov-1",
+              name: "Cầu Rồng",
+              categories: ["landmark"],
+              photos: ["https://res.cloudinary.com/demo/caurong.jpg"],
+              primaryPhoto: {
+                url: "https://res.cloudinary.com/demo/caurong.jpg",
+                source: "cloudinary",
+                attribution: [],
+                fetchedAt: "2026-11-13T00:00:00Z",
+                displayApproved: true,
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const map = await getPlaceBatchSnapshots([" place-1 ", "place-1", "place-2"], true);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0];
+    expect(requestUrl).toBe("/api/places/batch-snapshots?includePhoto=true");
+    expect(requestInit.method).toBe("POST");
+    expect(JSON.parse(String(requestInit.body))).toEqual(["place-1", "place-2"]);
+    expect(map["place-1"]?.primaryPhoto?.url).toBe(
+      "https://res.cloudinary.com/demo/caurong.jpg",
+    );
+    expect(map["prov-1"]?.id).toBe("place-1");
   });
 });

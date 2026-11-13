@@ -126,6 +126,13 @@ services:
       ZIOMAP_BASE_URL: https://ziomap-api.socibi.com
       ZIOMAP_API_KEY: ${ZIOMAP_API_KEY}
       ZIOMAP_PHOTO_DISPLAY_APPROVED: ${ZIOMAP_PHOTO_DISPLAY_APPROVED:-true}
+      ZIOMAP_PHOTO_PERSISTENCE_APPROVED: ${ZIOMAP_PHOTO_PERSISTENCE_APPROVED:-false}
+      ZIOMAP_PHOTO_PERSISTENCE_LICENSE_EVIDENCE_URL: ${ZIOMAP_PHOTO_PERSISTENCE_LICENSE_EVIDENCE_URL:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_PLACE_FOLDER_PREFIX: ${CLOUDINARY_PLACE_FOLDER_PREFIX:-${CLOUDINARY_PLACE_FOLDER:-tripsense/places}}
+      PLACE_LAZY_PHOTO_LIMIT: ${PLACE_LAZY_PHOTO_LIMIT:-3}
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY}
       RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       API_KEY_ENCRYPTION_SECRET: ${API_KEY_ENCRYPTION_SECRET:-tripsense-default-api-key-encryption-secret-32b}
@@ -341,6 +348,7 @@ services:
       DATABASE_URL: ${AI_DATABASE_URL:-${AI_V2_DATABASE_URL}}
       GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_MODEL_BASE_URL: ${AI_MODEL_BASE_URL:-}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET}
       PLACE_SERVICE_URL: http://place-service:8082
@@ -348,6 +356,8 @@ services:
       AI_ALLOWED_ORIGINS: ${AI_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
       USER_SERVICE_URL: http://user-service:8081
       CONTEXT_SERVICE_URL: http://context-service:8087
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
+      RECOMMENDATION_TIMEOUT_MS: ${RECOMMENDATION_TIMEOUT_MS:-4000}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8080,https://tripsense.duckdns.org}
     depends_on:
       discovery-server:
@@ -359,6 +369,8 @@ services:
       context-service:
         condition: service_started
       user-service:
+        condition: service_started
+      recommendation-service:
         condition: service_started
     healthcheck:
       test:
