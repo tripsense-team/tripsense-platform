@@ -215,7 +215,7 @@ Dừng ở `STATUS: WAITING_FOR_HUMAN_APPROVAL`. Chỉ triển khai khi bạn tr
 | 1 Auth | DONE (một phần) | Login, Register, Verify OTP, Resend, Forgot/Reset, Splash khôi phục phiên, chặn role không phải USER. **Chưa làm:** Google Sign-In (Q2, cần client ID), Onboarding wizard (tách thành phase 1b) |
 | 1b Onboarding | DONE (chờ nghiệm thu lưu thật) | Nhánh `nhiby/feature/mobile-onboarding`: wizard 10 bước, cổng bắt buộc, lưu/hoàn tất qua context-service. 135 test pass. Đã chạy trên emulator; chưa bấm Hoàn tất với DB prod. |
 | UI parity (~80% giống web) | DONE (đã nhúng font Inter) | Nhánh `nhiby/feature/mobile-ui-polish`: theme pill, hero gradient, màn auth/onboarding/khung chính theo web. Đã chụp emulator đối chiếu. 137 test pass. |
-| 2 Explore & Places | TODO | |
+| 2 Explore & Places | ĐANG LÀM (nhánh `nhiby/feature/mobile-explore-places`) | Đã xong domain + data (Place, tìm kiếm, gợi ý, chi tiết, giờ mở cửa); chưa có controller, giao diện, test. |
 | 3 Trips & AI Planner | TODO | |
 | 4–7 | TODO | |
 
@@ -227,3 +227,8 @@ Verification Phase 0–1: `flutter analyze` 0 issue; `flutter test` 23 test pass
 - Phase 0 hoàn thành thêm: theme theo web (đã áp dụng cho các màn auth).
 
 **Quy ước nhánh:** `nhiby/feature/<tên-tính-năng>`, mỗi tính năng lớn một nhánh, cắt chồng từ nhánh trước. Tiến độ chi tiết theo từng chức năng: `docs/reports/mobile-user-app-tracking-v2.xlsx`.
+
+### Quy tắc theo dõi tiến độ (bắt buộc)
+- **Làm tới đâu cập nhật Excel tới đó:** sau mỗi tính năng (và cả khi làm dở) cập nhật `docs/reports/mobile-user-app-tracking-v2.xlsx` (trạng thái, tiến độ, ngày, nhánh Git, trạng thái code, commit, issue, loại/kết quả test) rồi ghi Implementation Log ở trên.
+- Cách làm: sửa dữ liệu trong `docs/reports/tools/build_tracker.py`, ánh xạ nhánh/commit/test trong `docs/reports/tools/build_tracker2.py`, chạy `py -X utf8 docs\reports\tools\build_tracker2.py` (ghi thẳng ra bản `-v2`).
+- File Excel gốc `mobile-user-app-tracking.xlsx` hay bị Excel khóa: luôn dùng bản `-v2`.
