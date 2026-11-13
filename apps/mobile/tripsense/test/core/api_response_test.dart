@@ -4,10 +4,11 @@ import 'package:trip/core/network/api_response.dart';
 void main() {
   group('ApiResponse.fromJson', () {
     test('parses the {success, message, data} envelope', () {
-      final response = ApiResponse.fromJson<String>(
-        {'success': true, 'message': 'ok', 'data': 'payload'},
-        (data) => data! as String,
-      );
+      final response = ApiResponse.fromJson<String>({
+        'success': true,
+        'message': 'ok',
+        'data': 'payload',
+      }, (data) => data! as String);
 
       expect(response.success, isTrue);
       expect(response.message, 'ok');
@@ -15,10 +16,10 @@ void main() {
     });
 
     test('tolerates a missing data field and bad input', () {
-      final noData = ApiResponse.fromJson<String>(
-        {'success': true, 'message': 'done'},
-        (data) => data! as String,
-      );
+      final noData = ApiResponse.fromJson<String>({
+        'success': true,
+        'message': 'done',
+      }, (data) => data! as String);
       expect(noData.data, isNull);
 
       final garbage = ApiResponse.fromJson<String>(

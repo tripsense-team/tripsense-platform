@@ -20,6 +20,29 @@ void main() {
     expect(resolveRedirect(session, Routes.splash), Routes.login);
   });
 
+  test('new users are held on onboarding until it is completed', () {
+    final newcomer = travelerUser.withProfile(onboardingRequired: true);
+    final session = SessionAuthenticated(newcomer);
+
+    expect(resolveRedirect(session, Routes.explore), Routes.onboarding);
+    expect(resolveRedirect(session, Routes.trips), Routes.onboarding);
+    expect(resolveRedirect(session, Routes.login), Routes.onboarding);
+    expect(resolveRedirect(session, Routes.onboarding), isNull);
+  });
+
+  test('finished users cannot reopen the onboarding wizard', () {
+    const session = SessionAuthenticated(travelerUser);
+
+    expect(resolveRedirect(session, Routes.onboarding), Routes.explore);
+  });
+
+  test('guests cannot reach onboarding', () {
+    expect(
+      resolveRedirect(const SessionUnauthenticated(), Routes.onboarding),
+      Routes.login,
+    );
+  });
+
   test('signed-in users are moved off auth routes', () {
     const session = SessionAuthenticated(travelerUser);
     expect(resolveRedirect(session, Routes.login), Routes.explore);

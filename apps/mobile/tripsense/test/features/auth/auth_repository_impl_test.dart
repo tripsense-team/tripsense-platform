@@ -51,18 +51,19 @@ void main() {
           {'message': 'Email already registered'},
         ),
         'GET /api/users/me' => (200, {'data': _userJson}),
-        'GET /api/users/profile/u1' => profileStatus == 200
-            ? (
-                200,
-                {
-                  'data': {
-                    'displayName': 'Alex',
-                    'avatarUrl': 'https://img/a.png',
-                    'onboardingRequired': true,
+        'GET /api/users/profile/u1' =>
+          profileStatus == 200
+              ? (
+                  200,
+                  {
+                    'data': {
+                      'displayName': 'Alex',
+                      'avatarUrl': 'https://img/a.png',
+                      'onboardingRequired': true,
+                    },
                   },
-                },
-              )
-            : (profileStatus, {'message': 'boom'}),
+                )
+              : (profileStatus, {'message': 'boom'}),
         'POST /api/auth/logout' => (logoutStatus, {}),
         _ => (200, {}),
       };
@@ -150,16 +151,23 @@ void main() {
   });
 
   group('account flows', () {
-    test('register surfaces conflicts with the sanitized server text', () async {
-      await expectLater(
-        repo.register(email: 'dup@x.com', password: 'secret1'),
-        throwsA(
-          isA<AppFailure>()
-              .having((f) => f.type, 'type', AppFailureType.conflict)
-              .having((f) => f.serverMessage, 'msg', 'Email already registered'),
-        ),
-      );
-    });
+    test(
+      'register surfaces conflicts with the sanitized server text',
+      () async {
+        await expectLater(
+          repo.register(email: 'dup@x.com', password: 'secret1'),
+          throwsA(
+            isA<AppFailure>()
+                .having((f) => f.type, 'type', AppFailureType.conflict)
+                .having(
+                  (f) => f.serverMessage,
+                  'msg',
+                  'Email already registered',
+                ),
+          ),
+        );
+      },
+    );
 
     test('verify, resend, forgot and reset post the expected bodies', () async {
       await repo.verifyEmail(email: 'a@b.com', code: '123456');
@@ -199,13 +207,16 @@ void main() {
       expect(await jar.loadForRequest(Uri.parse('http://gateway')), isEmpty);
     });
 
-    test('still clears local credentials when the network call fails', () async {
-      logoutStatus = 500;
-      store.set('tok');
+    test(
+      'still clears local credentials when the network call fails',
+      () async {
+        logoutStatus = 500;
+        store.set('tok');
 
-      await repo.logout();
+        await repo.logout();
 
-      expect(store.token, isNull);
-    });
+        expect(store.token, isNull);
+      },
+    );
   });
 }

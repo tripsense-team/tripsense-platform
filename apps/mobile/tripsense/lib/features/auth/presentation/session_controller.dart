@@ -66,6 +66,20 @@ class SessionController extends Notifier<SessionState> {
     state = await _accept(user);
   }
 
+  /// Clears the onboarding gate for the signed-in user (optionally renaming).
+  void onboardingCompleted({String? displayName}) {
+    final current = state;
+    if (current is! SessionAuthenticated) return;
+    final user = current.user;
+    state = SessionAuthenticated(
+      user.withProfile(
+        name: displayName ?? user.name,
+        avatarUrl: user.avatarUrl,
+        onboardingRequired: false,
+      ),
+    );
+  }
+
   Future<void> logout() async {
     state = const SessionUnauthenticated();
     await ref.read(authRepositoryProvider).logout();

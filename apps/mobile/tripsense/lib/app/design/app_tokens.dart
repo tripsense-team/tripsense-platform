@@ -117,7 +117,8 @@ class AppColors extends ThemeExtension<AppColors> {
   AppColors copyWith() => this;
 
   @override
-  AppColors lerp(AppColors? other, double t) => t < 0.5 ? this : (other ?? this);
+  AppColors lerp(AppColors? other, double t) =>
+      t < 0.5 ? this : (other ?? this);
 }
 
 extension AppColorsContext on BuildContext {

@@ -32,9 +32,10 @@ AppFailure normalizeDioFailure(DioException error) {
   return AppFailure(
     type: type,
     statusCode: statusCode,
-    serverMessage: isClientError ? sanitizeServerMessage(_messageOf(error)) : null,
-    incidentId:
-        type == AppFailureType.server || type == AppFailureType.unknown
+    serverMessage: isClientError
+        ? sanitizeServerMessage(_messageOf(error))
+        : null,
+    incidentId: type == AppFailureType.server || type == AppFailureType.unknown
         ? createIncidentReference()
         : null,
   );

@@ -92,7 +92,9 @@ void main() {
       expect(retried, 1);
     });
 
-    testWidgets('ErrorView without onRetry has no retry button', (tester) async {
+    testWidgets('ErrorView without onRetry has no retry button', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _host(const ErrorView(error: AppFailure(type: AppFailureType.network))),
       );

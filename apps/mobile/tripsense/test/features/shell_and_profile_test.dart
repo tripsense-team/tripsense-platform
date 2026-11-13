@@ -60,7 +60,13 @@ void main() {
     expect(router.state.uri.path, Routes.explore);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byType(NavigationDestination), findsNWidgets(5));
-    for (final label in ['Explore', 'Trips', 'AI Planner', 'Community', 'Profile']) {
+    for (final label in [
+      'Explore',
+      'Trips',
+      'AI Planner',
+      'Community',
+      'Profile',
+    ]) {
       expect(find.text(label), findsWidgets, reason: label);
     }
   });

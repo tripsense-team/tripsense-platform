@@ -16,10 +16,16 @@ void main() {
   final vi = _arb('app_vi.arb');
 
   test('vi and en define exactly the same message keys', () {
-    expect(_messageKeys(vi).difference(_messageKeys(en)), isEmpty,
-        reason: 'keys only in vi');
-    expect(_messageKeys(en).difference(_messageKeys(vi)), isEmpty,
-        reason: 'keys only in en');
+    expect(
+      _messageKeys(vi).difference(_messageKeys(en)),
+      isEmpty,
+      reason: 'keys only in vi',
+    );
+    expect(
+      _messageKeys(en).difference(_messageKeys(vi)),
+      isEmpty,
+      reason: 'keys only in en',
+    );
   });
 
   test('placeholders are used identically in both languages', () {

@@ -49,11 +49,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
         ),
         const SizedBox(height: 16),
         FormError(errorText),
-        SubmitButton(
-          label: l10n.authSendCode,
-          busy: busy,
-          onPressed: _submit,
-        ),
+        SubmitButton(label: l10n.authSendCode, busy: busy, onPressed: _submit),
       ],
     );
   }

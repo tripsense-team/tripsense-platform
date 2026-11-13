@@ -66,10 +66,7 @@ class ErrorView extends StatelessWidget {
               color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(height: 12),
-            Text(
-              failureMessage(l10n, failure),
-              textAlign: TextAlign.center,
-            ),
+            Text(failureMessage(l10n, failure), textAlign: TextAlign.center),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
               OutlinedButton(onPressed: onRetry, child: Text(l10n.commonRetry)),

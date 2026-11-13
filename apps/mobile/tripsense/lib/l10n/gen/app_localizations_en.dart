@@ -184,4 +184,226 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get validationOtp => 'Enter the 6-digit code';
+
+  @override
+  String get onbEyebrow => 'Make TripSense yours';
+
+  @override
+  String onbProgress(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get onbSkip => 'Skip for now';
+
+  @override
+  String get onbFinish => 'Finish';
+
+  @override
+  String get onbSaving => 'Saving…';
+
+  @override
+  String get onbLoadRetry => 'We couldn\'t load your setup. Try again.';
+
+  @override
+  String get onbNameTitle => 'What should we call you?';
+
+  @override
+  String get onbNameHint => 'Your display name';
+
+  @override
+  String get onbHomeTitle => 'Where are you currently based?';
+
+  @override
+  String get onbHomeSubtitle =>
+      'This helps us tailor itineraries and departure points for you.';
+
+  @override
+  String get onbHomeHint => 'Search or pick your home city…';
+
+  @override
+  String get onbVisitedTitle => 'Where have you traveled?';
+
+  @override
+  String get onbVisitedSubtitle =>
+      'Select places you have visited so AI can suggest fresh experiences.';
+
+  @override
+  String get onbBucketTitle => 'Where is on your bucket list?';
+
+  @override
+  String get onbBucketSubtitle =>
+      'Destinations you dream of visiting. We will tailor recommendations around them.';
+
+  @override
+  String get onbPlacesHint => 'Search or type another destination…';
+
+  @override
+  String onbPlacesAdd(String name) {
+    return 'Add \"$name\"';
+  }
+
+  @override
+  String get onbPlacesMax => 'Maximum 20 destinations per list.';
+
+  @override
+  String onbPlacesSelected(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get onbPartyTitle => 'Who do you usually travel with?';
+
+  @override
+  String get onbPartySubtitle =>
+      'This helps tailor suggestions to your travel rhythm.';
+
+  @override
+  String get onbBudgetTitle =>
+      'How much do you plan to spend per person each day?';
+
+  @override
+  String get onbBudgetSubtitle =>
+      'Enter your daily budget per person in VND, then choose a spending level.';
+
+  @override
+  String get onbBudgetLabel => 'Budget (VND/person/day)';
+
+  @override
+  String get onbBudgetHint => 'E.g. 700.000';
+
+  @override
+  String get onbBudgetInvalid =>
+      'Enter a whole amount from 1 to 1,000,000,000 VND.';
+
+  @override
+  String get onbStayTitle => 'Where do you like to stay?';
+
+  @override
+  String get onbStaySubtitle =>
+      'Pick one or more stays that feel right for you.';
+
+  @override
+  String get onbFoodTitle => 'How do you like to eat when travelling?';
+
+  @override
+  String get onbFoodSubtitle =>
+      'Pick the food experiences you would like to discover.';
+
+  @override
+  String get onbActivityTitle => 'What do you enjoy doing?';
+
+  @override
+  String get onbActivitySubtitle =>
+      'Choose the experiences that make a weekend memorable.';
+
+  @override
+  String get onbCustomAddOther => 'Add other choice';
+
+  @override
+  String get onbCustomHint => 'Enter your choice…';
+
+  @override
+  String get onbCustomAdd => 'Add';
+
+  @override
+  String get onbCustomRemove => 'Remove choice';
+
+  @override
+  String get onbNoteTitle => 'Anything else TripSense should know about you?';
+
+  @override
+  String get onbNoteSubtitle =>
+      'Share any dietary needs, unique habits or style notes so AI can personalize your trips.';
+
+  @override
+  String get onbNoteHint =>
+      'E.g. I prefer slow travel, film photography, quiet cafés…';
+
+  @override
+  String onbNoteCount(int current, int max) {
+    return '$current / $max characters';
+  }
+
+  @override
+  String get onbTagPhoto => 'Photography & sightseeing';
+
+  @override
+  String get onbTagCafe => 'Aesthetic & cozy cafés';
+
+  @override
+  String get onbTagNature => 'Immersed in nature';
+
+  @override
+  String get onbTagBeach => 'Scenic beach walks';
+
+  @override
+  String get onbTagTrek => 'Adventure trekking';
+
+  @override
+  String get onbTagVegetarian => 'Vegetarian friendly';
+
+  @override
+  String get onbValidationFailed =>
+      'The onboarding data is incomplete or invalid. Please check your budget and earlier steps.';
+
+  @override
+  String get optSolo => 'Solo';
+
+  @override
+  String get optCouple => 'As a couple';
+
+  @override
+  String get optFriends => 'With friends';
+
+  @override
+  String get optFamily => 'With family';
+
+  @override
+  String get optBudget => 'Budget-friendly';
+
+  @override
+  String get optMidRange => 'Mid-range';
+
+  @override
+  String get optPremium => 'Premium';
+
+  @override
+  String get optHotel => 'Hotel';
+
+  @override
+  String get optHomestay => 'Homestay';
+
+  @override
+  String get optResort => 'Resort';
+
+  @override
+  String get optHostel => 'Hostel';
+
+  @override
+  String get optLocalFood => 'Local food';
+
+  @override
+  String get optStreetFood => 'Street food';
+
+  @override
+  String get optFineDining => 'Fine dining';
+
+  @override
+  String get optCafe => 'Aesthetic cafés';
+
+  @override
+  String get optNature => 'Nature & Wildlife';
+
+  @override
+  String get optHiking => 'Hiking & Trekking';
+
+  @override
+  String get optCulture => 'Culture & History';
+
+  @override
+  String get optBeach => 'Scenic beach walks';
+
+  @override
+  String get optNightlife => 'Nightlife';
 }

@@ -28,8 +28,7 @@ class AuthValidators {
       ? null
       : l10n.validationPasswordMin(minPasswordLength);
 
-  String? otp(String? value) =>
-      RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
+  String? otp(String? value) => RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
       ? null
       : l10n.validationOtp;
 }

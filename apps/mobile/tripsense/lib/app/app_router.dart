@@ -8,6 +8,7 @@ import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/auth/presentation/verify_email_screen.dart';
+import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/shell/coming_soon_page.dart';
 import '../features/shell/main_shell.dart';
@@ -17,13 +18,17 @@ import 'routes.dart';
 
 /// Pure redirect rule, kept separate so it can be unit-tested.
 String? resolveRedirect(SessionState session, String path) {
-  final isAuthPath =
-      Routes.publicPaths.contains(path) && path != Routes.splash;
+  final isAuthPath = Routes.publicPaths.contains(path) && path != Routes.splash;
   return switch (session) {
     SessionChecking() => path == Routes.splash ? null : Routes.splash,
     SessionUnauthenticated() => isAuthPath ? null : Routes.login,
+    // New users must finish onboarding before reaching the app.
+    SessionAuthenticated(:final user) when user.onboardingRequired =>
+      path == Routes.onboarding ? null : Routes.onboarding,
     SessionAuthenticated() =>
-      Routes.publicPaths.contains(path) ? Routes.explore : null,
+      Routes.publicPaths.contains(path) || path == Routes.onboarding
+          ? Routes.explore
+          : null,
   };
 }
 
@@ -37,15 +42,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) =>
         resolveRedirect(ref.read(sessionControllerProvider), state.uri.path),
     routes: [
-      GoRoute(
-        path: Routes.splash,
-        builder: (_, _) => const SplashScreen(),
-      ),
+      GoRoute(path: Routes.splash, builder: (_, _) => const SplashScreen()),
       GoRoute(path: Routes.login, builder: (_, _) => const LoginScreen()),
-      GoRoute(
-        path: Routes.register,
-        builder: (_, _) => const RegisterScreen(),
-      ),
+      GoRoute(path: Routes.register, builder: (_, _) => const RegisterScreen()),
       GoRoute(
         path: Routes.verifyEmail,
         builder: (_, state) => VerifyEmailScreen(
@@ -61,6 +60,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => ResetPasswordScreen(
           email: state.uri.queryParameters[Routes.emailParam] ?? '',
         ),
+      ),
+      GoRoute(
+        path: Routes.onboarding,
+        builder: (_, _) => const OnboardingScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => MainShell(navigationShell: shell),

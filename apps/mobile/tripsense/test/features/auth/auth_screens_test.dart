@@ -15,7 +15,9 @@ void main() {
   group('RegisterScreen', () {
     testWidgets('rejects short passwords and bad emails', (tester) async {
       final repo = FakeAuthRepository();
-      await tester.pumpWidget(testApp(home: const RegisterScreen(), repo: repo));
+      await tester.pumpWidget(
+        testApp(home: const RegisterScreen(), repo: repo),
+      );
 
       await tester.enterText(find.byType(TextFormField).first, 'nope');
       await tester.enterText(find.byType(TextFormField).last, '123');
@@ -34,7 +36,9 @@ void main() {
       tester,
     ) async {
       final repo = FakeAuthRepository();
-      await tester.pumpWidget(testApp(home: const RegisterScreen(), repo: repo));
+      await tester.pumpWidget(
+        testApp(home: const RegisterScreen(), repo: repo),
+      );
 
       await tester.enterText(find.byType(TextFormField).first, 'a@b.com');
       await tester.enterText(find.byType(TextFormField).last, 'secret1');
@@ -51,7 +55,9 @@ void main() {
           type: AppFailureType.conflict,
           serverMessage: 'Email already registered',
         );
-      await tester.pumpWidget(testApp(home: const RegisterScreen(), repo: repo));
+      await tester.pumpWidget(
+        testApp(home: const RegisterScreen(), repo: repo),
+      );
 
       await tester.enterText(find.byType(TextFormField).first, 'a@b.com');
       await tester.enterText(find.byType(TextFormField).last, 'secret1');
@@ -66,7 +72,10 @@ void main() {
     testWidgets('requires a 6-digit code', (tester) async {
       final repo = FakeAuthRepository();
       await tester.pumpWidget(
-        testApp(home: const VerifyEmailScreen(email: 'a@b.com'), repo: repo),
+        testApp(
+          home: const VerifyEmailScreen(email: 'a@b.com'),
+          repo: repo,
+        ),
       );
 
       await tester.enterText(find.byType(TextFormField), '12');
@@ -82,7 +91,10 @@ void main() {
     ) async {
       final repo = FakeAuthRepository();
       await tester.pumpWidget(
-        testApp(home: const VerifyEmailScreen(email: 'a@b.com'), repo: repo),
+        testApp(
+          home: const VerifyEmailScreen(email: 'a@b.com'),
+          repo: repo,
+        ),
       );
 
       await tester.enterText(find.byType(TextFormField), '123456');
@@ -97,7 +109,10 @@ void main() {
     testWidgets('resend requests a new code and confirms', (tester) async {
       final repo = FakeAuthRepository();
       await tester.pumpWidget(
-        testApp(home: const VerifyEmailScreen(email: 'a@b.com'), repo: repo),
+        testApp(
+          home: const VerifyEmailScreen(email: 'a@b.com'),
+          repo: repo,
+        ),
       );
 
       await tester.tap(find.text('Resend code'));
@@ -143,7 +158,10 @@ void main() {
     ) async {
       final repo = FakeAuthRepository();
       await tester.pumpWidget(
-        testApp(home: const ResetPasswordScreen(email: 'a@b.com'), repo: repo),
+        testApp(
+          home: const ResetPasswordScreen(email: 'a@b.com'),
+          repo: repo,
+        ),
       );
 
       await tester.tap(_button('Update password'));
@@ -160,7 +178,10 @@ void main() {
     testWidgets('resets the password and returns to login', (tester) async {
       final repo = FakeAuthRepository();
       await tester.pumpWidget(
-        testApp(home: const ResetPasswordScreen(email: 'a@b.com'), repo: repo),
+        testApp(
+          home: const ResetPasswordScreen(email: 'a@b.com'),
+          repo: repo,
+        ),
       );
 
       await tester.enterText(find.byType(TextFormField).first, '654321');

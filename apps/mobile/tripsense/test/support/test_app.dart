@@ -20,18 +20,12 @@ Widget testApp({required Widget home, FakeAuthRepository? repo}) {
       GoRoute(path: '/', builder: (_, _) => home),
       GoRoute(path: Routes.login, builder: (_, s) => stub('LOGIN', s)),
       GoRoute(path: Routes.register, builder: (_, s) => stub('REGISTER', s)),
-      GoRoute(
-        path: Routes.verifyEmail,
-        builder: (_, s) => stub('VERIFY', s),
-      ),
+      GoRoute(path: Routes.verifyEmail, builder: (_, s) => stub('VERIFY', s)),
       GoRoute(
         path: Routes.forgotPassword,
         builder: (_, s) => stub('FORGOT', s),
       ),
-      GoRoute(
-        path: Routes.resetPassword,
-        builder: (_, s) => stub('RESET', s),
-      ),
+      GoRoute(path: Routes.resetPassword, builder: (_, s) => stub('RESET', s)),
     ],
   );
 

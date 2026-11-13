@@ -427,6 +427,408 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter the 6-digit code'**
   String get validationOtp;
+
+  /// No description provided for @onbEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Make TripSense yours'**
+  String get onbEyebrow;
+
+  /// No description provided for @onbProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String onbProgress(int current, int total);
+
+  /// No description provided for @onbSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip for now'**
+  String get onbSkip;
+
+  /// No description provided for @onbFinish.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish'**
+  String get onbFinish;
+
+  /// No description provided for @onbSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get onbSaving;
+
+  /// No description provided for @onbLoadRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t load your setup. Try again.'**
+  String get onbLoadRetry;
+
+  /// No description provided for @onbNameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What should we call you?'**
+  String get onbNameTitle;
+
+  /// No description provided for @onbNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your display name'**
+  String get onbNameHint;
+
+  /// No description provided for @onbHomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where are you currently based?'**
+  String get onbHomeTitle;
+
+  /// No description provided for @onbHomeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This helps us tailor itineraries and departure points for you.'**
+  String get onbHomeSubtitle;
+
+  /// No description provided for @onbHomeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search or pick your home city…'**
+  String get onbHomeHint;
+
+  /// No description provided for @onbVisitedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where have you traveled?'**
+  String get onbVisitedTitle;
+
+  /// No description provided for @onbVisitedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select places you have visited so AI can suggest fresh experiences.'**
+  String get onbVisitedSubtitle;
+
+  /// No description provided for @onbBucketTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where is on your bucket list?'**
+  String get onbBucketTitle;
+
+  /// No description provided for @onbBucketSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Destinations you dream of visiting. We will tailor recommendations around them.'**
+  String get onbBucketSubtitle;
+
+  /// No description provided for @onbPlacesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search or type another destination…'**
+  String get onbPlacesHint;
+
+  /// No description provided for @onbPlacesAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add \"{name}\"'**
+  String onbPlacesAdd(String name);
+
+  /// No description provided for @onbPlacesMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum 20 destinations per list.'**
+  String get onbPlacesMax;
+
+  /// No description provided for @onbPlacesSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String onbPlacesSelected(int count);
+
+  /// No description provided for @onbPartyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Who do you usually travel with?'**
+  String get onbPartyTitle;
+
+  /// No description provided for @onbPartySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This helps tailor suggestions to your travel rhythm.'**
+  String get onbPartySubtitle;
+
+  /// No description provided for @onbBudgetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How much do you plan to spend per person each day?'**
+  String get onbBudgetTitle;
+
+  /// No description provided for @onbBudgetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your daily budget per person in VND, then choose a spending level.'**
+  String get onbBudgetSubtitle;
+
+  /// No description provided for @onbBudgetLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget (VND/person/day)'**
+  String get onbBudgetLabel;
+
+  /// No description provided for @onbBudgetHint.
+  ///
+  /// In en, this message translates to:
+  /// **'E.g. 700.000'**
+  String get onbBudgetHint;
+
+  /// No description provided for @onbBudgetInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole amount from 1 to 1,000,000,000 VND.'**
+  String get onbBudgetInvalid;
+
+  /// No description provided for @onbStayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where do you like to stay?'**
+  String get onbStayTitle;
+
+  /// No description provided for @onbStaySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick one or more stays that feel right for you.'**
+  String get onbStaySubtitle;
+
+  /// No description provided for @onbFoodTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How do you like to eat when travelling?'**
+  String get onbFoodTitle;
+
+  /// No description provided for @onbFoodSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the food experiences you would like to discover.'**
+  String get onbFoodSubtitle;
+
+  /// No description provided for @onbActivityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you enjoy doing?'**
+  String get onbActivityTitle;
+
+  /// No description provided for @onbActivitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the experiences that make a weekend memorable.'**
+  String get onbActivitySubtitle;
+
+  /// No description provided for @onbCustomAddOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Add other choice'**
+  String get onbCustomAddOther;
+
+  /// No description provided for @onbCustomHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your choice…'**
+  String get onbCustomHint;
+
+  /// No description provided for @onbCustomAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get onbCustomAdd;
+
+  /// No description provided for @onbCustomRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove choice'**
+  String get onbCustomRemove;
+
+  /// No description provided for @onbNoteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Anything else TripSense should know about you?'**
+  String get onbNoteTitle;
+
+  /// No description provided for @onbNoteSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share any dietary needs, unique habits or style notes so AI can personalize your trips.'**
+  String get onbNoteSubtitle;
+
+  /// No description provided for @onbNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'E.g. I prefer slow travel, film photography, quiet cafés…'**
+  String get onbNoteHint;
+
+  /// No description provided for @onbNoteCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} / {max} characters'**
+  String onbNoteCount(int current, int max);
+
+  /// No description provided for @onbTagPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Photography & sightseeing'**
+  String get onbTagPhoto;
+
+  /// No description provided for @onbTagCafe.
+  ///
+  /// In en, this message translates to:
+  /// **'Aesthetic & cozy cafés'**
+  String get onbTagCafe;
+
+  /// No description provided for @onbTagNature.
+  ///
+  /// In en, this message translates to:
+  /// **'Immersed in nature'**
+  String get onbTagNature;
+
+  /// No description provided for @onbTagBeach.
+  ///
+  /// In en, this message translates to:
+  /// **'Scenic beach walks'**
+  String get onbTagBeach;
+
+  /// No description provided for @onbTagTrek.
+  ///
+  /// In en, this message translates to:
+  /// **'Adventure trekking'**
+  String get onbTagTrek;
+
+  /// No description provided for @onbTagVegetarian.
+  ///
+  /// In en, this message translates to:
+  /// **'Vegetarian friendly'**
+  String get onbTagVegetarian;
+
+  /// No description provided for @onbValidationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The onboarding data is incomplete or invalid. Please check your budget and earlier steps.'**
+  String get onbValidationFailed;
+
+  /// No description provided for @optSolo.
+  ///
+  /// In en, this message translates to:
+  /// **'Solo'**
+  String get optSolo;
+
+  /// No description provided for @optCouple.
+  ///
+  /// In en, this message translates to:
+  /// **'As a couple'**
+  String get optCouple;
+
+  /// No description provided for @optFriends.
+  ///
+  /// In en, this message translates to:
+  /// **'With friends'**
+  String get optFriends;
+
+  /// No description provided for @optFamily.
+  ///
+  /// In en, this message translates to:
+  /// **'With family'**
+  String get optFamily;
+
+  /// No description provided for @optBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget-friendly'**
+  String get optBudget;
+
+  /// No description provided for @optMidRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Mid-range'**
+  String get optMidRange;
+
+  /// No description provided for @optPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get optPremium;
+
+  /// No description provided for @optHotel.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotel'**
+  String get optHotel;
+
+  /// No description provided for @optHomestay.
+  ///
+  /// In en, this message translates to:
+  /// **'Homestay'**
+  String get optHomestay;
+
+  /// No description provided for @optResort.
+  ///
+  /// In en, this message translates to:
+  /// **'Resort'**
+  String get optResort;
+
+  /// No description provided for @optHostel.
+  ///
+  /// In en, this message translates to:
+  /// **'Hostel'**
+  String get optHostel;
+
+  /// No description provided for @optLocalFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Local food'**
+  String get optLocalFood;
+
+  /// No description provided for @optStreetFood.
+  ///
+  /// In en, this message translates to:
+  /// **'Street food'**
+  String get optStreetFood;
+
+  /// No description provided for @optFineDining.
+  ///
+  /// In en, this message translates to:
+  /// **'Fine dining'**
+  String get optFineDining;
+
+  /// No description provided for @optCafe.
+  ///
+  /// In en, this message translates to:
+  /// **'Aesthetic cafés'**
+  String get optCafe;
+
+  /// No description provided for @optNature.
+  ///
+  /// In en, this message translates to:
+  /// **'Nature & Wildlife'**
+  String get optNature;
+
+  /// No description provided for @optHiking.
+  ///
+  /// In en, this message translates to:
+  /// **'Hiking & Trekking'**
+  String get optHiking;
+
+  /// No description provided for @optCulture.
+  ///
+  /// In en, this message translates to:
+  /// **'Culture & History'**
+  String get optCulture;
+
+  /// No description provided for @optBeach.
+  ///
+  /// In en, this message translates to:
+  /// **'Scenic beach walks'**
+  String get optBeach;
+
+  /// No description provided for @optNightlife.
+  ///
+  /// In en, this message translates to:
+  /// **'Nightlife'**
+  String get optNightlife;
 }
 
 class _AppLocalizationsDelegate

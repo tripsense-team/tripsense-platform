@@ -25,7 +25,13 @@
   "errServer": "Something went wrong on our side. Please try again later.",
   "errUnknown": "Something went wrong. Please try again.",
   "errIncident": "Reference: {id}",
-  "@errIncident": {"placeholders": {"id": {"type": "String"}}},
+  "@errIncident": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
   "errBadCredentials": "Incorrect email or password.",
   "errWebOnlyRole": "This account is managed on the TripSense website. Please sign in there.",
   "authWelcomeTitle": "Welcome to TripSense",
@@ -47,7 +53,13 @@
   "authResetDone": "Password updated. Please sign in.",
   "authVerifyTitle": "Verify your email",
   "authVerifySubtitle": "Enter the 6-digit code sent to {email}.",
-  "@authVerifySubtitle": {"placeholders": {"email": {"type": "String"}}},
+  "@authVerifySubtitle": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "authOtpCode": "6-digit code",
   "authVerifyButton": "Verify",
   "authResendCode": "Resend code",
@@ -56,6 +68,113 @@
   "validationRequired": "This field is required",
   "validationEmail": "Enter a valid email address",
   "validationPasswordMin": "Password must be at least {min} characters",
-  "@validationPasswordMin": {"placeholders": {"min": {"type": "int"}}},
-  "validationOtp": "Enter the 6-digit code"
+  "@validationPasswordMin": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "validationOtp": "Enter the 6-digit code",
+  "onbEyebrow": "Make TripSense yours",
+  "onbProgress": "Step {current} of {total}",
+  "@onbProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "onbSkip": "Skip for now",
+  "onbFinish": "Finish",
+  "onbSaving": "Saving…",
+  "onbLoadRetry": "We couldn't load your setup. Try again.",
+  "onbNameTitle": "What should we call you?",
+  "onbNameHint": "Your display name",
+  "onbHomeTitle": "Where are you currently based?",
+  "onbHomeSubtitle": "This helps us tailor itineraries and departure points for you.",
+  "onbHomeHint": "Search or pick your home city…",
+  "onbVisitedTitle": "Where have you traveled?",
+  "onbVisitedSubtitle": "Select places you have visited so AI can suggest fresh experiences.",
+  "onbBucketTitle": "Where is on your bucket list?",
+  "onbBucketSubtitle": "Destinations you dream of visiting. We will tailor recommendations around them.",
+  "onbPlacesHint": "Search or type another destination…",
+  "onbPlacesAdd": "Add \"{name}\"",
+  "@onbPlacesAdd": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "onbPlacesMax": "Maximum 20 destinations per list.",
+  "onbPlacesSelected": "{count} selected",
+  "@onbPlacesSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "onbPartyTitle": "Who do you usually travel with?",
+  "onbPartySubtitle": "This helps tailor suggestions to your travel rhythm.",
+  "onbBudgetTitle": "How much do you plan to spend per person each day?",
+  "onbBudgetSubtitle": "Enter your daily budget per person in VND, then choose a spending level.",
+  "onbBudgetLabel": "Budget (VND/person/day)",
+  "onbBudgetHint": "E.g. 700.000",
+  "onbBudgetInvalid": "Enter a whole amount from 1 to 1,000,000,000 VND.",
+  "onbStayTitle": "Where do you like to stay?",
+  "onbStaySubtitle": "Pick one or more stays that feel right for you.",
+  "onbFoodTitle": "How do you like to eat when travelling?",
+  "onbFoodSubtitle": "Pick the food experiences you would like to discover.",
+  "onbActivityTitle": "What do you enjoy doing?",
+  "onbActivitySubtitle": "Choose the experiences that make a weekend memorable.",
+  "onbCustomAddOther": "Add other choice",
+  "onbCustomHint": "Enter your choice…",
+  "onbCustomAdd": "Add",
+  "onbCustomRemove": "Remove choice",
+  "onbNoteTitle": "Anything else TripSense should know about you?",
+  "onbNoteSubtitle": "Share any dietary needs, unique habits or style notes so AI can personalize your trips.",
+  "onbNoteHint": "E.g. I prefer slow travel, film photography, quiet cafés…",
+  "onbNoteCount": "{current} / {max} characters",
+  "@onbNoteCount": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "onbTagPhoto": "Photography & sightseeing",
+  "onbTagCafe": "Aesthetic & cozy cafés",
+  "onbTagNature": "Immersed in nature",
+  "onbTagBeach": "Scenic beach walks",
+  "onbTagTrek": "Adventure trekking",
+  "onbTagVegetarian": "Vegetarian friendly",
+  "onbValidationFailed": "The onboarding data is incomplete or invalid. Please check your budget and earlier steps.",
+  "optSolo": "Solo",
+  "optCouple": "As a couple",
+  "optFriends": "With friends",
+  "optFamily": "With family",
+  "optBudget": "Budget-friendly",
+  "optMidRange": "Mid-range",
+  "optPremium": "Premium",
+  "optHotel": "Hotel",
+  "optHomestay": "Homestay",
+  "optResort": "Resort",
+  "optHostel": "Hostel",
+  "optLocalFood": "Local food",
+  "optStreetFood": "Street food",
+  "optFineDining": "Fine dining",
+  "optCafe": "Aesthetic cafés",
+  "optNature": "Nature & Wildlife",
+  "optHiking": "Hiking & Trekking",
+  "optCulture": "Culture & History",
+  "optBeach": "Scenic beach walks",
+  "optNightlife": "Nightlife"
 }
