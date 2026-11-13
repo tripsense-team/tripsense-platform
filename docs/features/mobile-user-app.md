@@ -213,6 +213,7 @@ Dừng ở `STATUS: WAITING_FOR_HUMAN_APPROVAL`. Chỉ triển khai khi bạn tr
 | --- | --- | --- |
 | 0 Foundation | DONE | config, dio + cookie jar bảo mật, interceptor single-flight, sanitizer, i18n vi/en, theme, shell điều hướng, router guard |
 | 1 Auth | DONE (một phần) | Login, Register, Verify OTP, Resend, Forgot/Reset, Splash khôi phục phiên, chặn role không phải USER. **Chưa làm:** Google Sign-In (Q2, cần client ID), Onboarding wizard (tách thành phase 1b) |
+| 1b Onboarding | DONE (chờ nghiệm thu lưu thật) | Nhánh `nhiby/feature/mobile-onboarding`: wizard 10 bước, cổng bắt buộc, lưu/hoàn tất qua context-service. 135 test pass. Đã chạy trên emulator; chưa bấm Hoàn tất với DB prod. |
 | 2 Explore & Places | TODO | |
 | 3 Trips & AI Planner | TODO | |
 | 4–7 | TODO | |
@@ -223,3 +224,5 @@ Verification Phase 0–1: `flutter analyze` 0 issue; `flutter test` 23 test pass
 - **Q6 đổi:** nghiệm thu **đủ cả 7 phase** (mọi trang user của web), không còn dừng ở MVP Phase 0–3.
 - **Quy tắc UI parity:** giao diện mobile phải giống web. Design tokens (màu, bo góc, bóng, cỡ chữ) port 1:1 từ `apps/web/tripsense/src/app/globals.css` vào `lib/app/design/` (`app_tokens.dart`, `app_typography.dart`); đổi token ở web thì đổi ở mobile. Font Inter qua `google_fonts` (web dùng `.woff2`, Flutter không đọc được). Mỗi màn hình mobile bám bố cục/luồng của trang web tương ứng, tối ưu cho thao tác một tay (bottom sheet thay modal, bottom nav thay sidebar).
 - Phase 0 hoàn thành thêm: theme theo web (đã áp dụng cho các màn auth).
+
+**Quy ước nhánh:** `nhiby/feature/<tên-tính-năng>`, mỗi tính năng lớn một nhánh, cắt chồng từ nhánh trước. Tiến độ chi tiết theo từng chức năng: `docs/reports/mobile-user-app-tracking-v2.xlsx`.
