@@ -34,13 +34,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Slf4j
@@ -48,6 +51,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
 
   public static final String PROVIDER_NAME = "ziomap";
+  private static final int MAX_QUOTA_ROTATIONS = 2;
+  private static final int MAX_TRANSIENT_RETRIES = 2;
+  private static final long INITIAL_RETRY_BACKOFF_MS = 250L;
   private final ZioMapProperties properties;
   private final RestClient restClient;
   private final ApiKeyPoolService apiKeyPoolService;
@@ -117,10 +123,6 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       log.error("ZioMap quota exceeded or all keys in pool exhausted: {}", ex.getMessage());
     }
     return false;
-  }
-
-  private boolean handleQuotaErrorAndRotate(Exception ex) {
-    return handleQuotaErrorAndRotate(null, ex);
   }
 
   private void recordSuccess() {
@@ -329,29 +331,30 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     if (!StringUtils.hasText(providerPlaceId)) {
       return Optional.empty();
     }
-    return fetchPlaceDetailsWithRetry(providerPlaceId, 0);
-  }
-
-  private Optional<PlaceDto> fetchPlaceDetailsWithRetry(String providerPlaceId, int retryCount) {
     try {
-      String apiKey = getEffectiveApiKey();
-      UriComponentsBuilder uriBuilder =
-          UriComponentsBuilder.fromPath("/api/place/details")
-              .queryParam("place_id", providerPlaceId)
-              .queryParam("language", "vi");
+      ZioMapPlaceResult response =
+          executeWithResilientRetry(
+              "place details",
+              1,
+              apiKey -> {
+                UriComponentsBuilder uriBuilder =
+                    UriComponentsBuilder.fromPath("/api/place/details")
+                        .queryParam("place_id", providerPlaceId)
+                        .queryParam("language", "vi");
 
-      if (StringUtils.hasText(apiKey)) {
-        uriBuilder.queryParam("key", apiKey);
-      }
+                if (StringUtils.hasText(apiKey)) {
+                  uriBuilder.queryParam("key", apiKey);
+                }
 
-      RestClient.RequestHeadersSpec<?> requestSpec =
-          restClient.get().uri(uriBuilder.build().toUriString());
+                RestClient.RequestHeadersSpec<?> requestSpec =
+                    restClient.get().uri(uriBuilder.build().toUriString());
 
-      if (StringUtils.hasText(apiKey)) {
-        requestSpec.header("x-api-key", apiKey);
-      }
+                if (StringUtils.hasText(apiKey)) {
+                  requestSpec.header("x-api-key", apiKey);
+                }
 
-      ZioMapPlaceResult response = requestSpec.retrieve().body(ZioMapPlaceResult.class);
+                return requestSpec.retrieve().body(ZioMapPlaceResult.class);
+              });
 
       if (response == null || !StringUtils.hasText(response.getPlaceId())) {
         return Optional.empty();
@@ -360,13 +363,6 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       recordSuccess();
       return Optional.ofNullable(mapPlaceResultToDto(response));
     } catch (Exception ex) {
-      String keyUsed = getEffectiveApiKey();
-      if (retryCount < 2 && handleQuotaErrorAndRotate(keyUsed, ex)) {
-        log.info(
-            "[ZioMapProvider] Retrying place details for '{}' with newly rotated key",
-            providerPlaceId);
-        return fetchPlaceDetailsWithRetry(providerPlaceId, retryCount + 1);
-      }
       log.error(
           "Failed to execute ZioMap place details for id '{}': {}",
           providerPlaceId,
@@ -398,12 +394,16 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
               .encode()
               .toUriString();
       ZioMapPhotoDetailsResponse details =
-          restClient
-              .get()
-              .uri(detailsUri)
-              .header("x-api-key", effectiveKey)
-              .retrieve()
-              .body(ZioMapPhotoDetailsResponse.class);
+          executeWithResilientRetry(
+              "photo gallery metadata",
+              MAX_TRANSIENT_RETRIES,
+              keyUsed ->
+                  restClient
+                      .get()
+                      .uri(detailsUri)
+                      .header("x-api-key", keyUsed)
+                      .retrieve()
+                      .body(ZioMapPhotoDetailsResponse.class));
       if (details == null || details.photos() == null || details.photos().isEmpty()) {
         return List.of();
       }
@@ -450,9 +450,6 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
       recordSuccess();
       return List.copyOf(gallery);
     } catch (Exception ex) {
-      if (handleQuotaErrorAndRotate(ex)) {
-        return getPhotoGallery(providerPlaceId, limit);
-      }
       log.warn("ZioMap photo unavailable for place; type={}", ex.getClass().getSimpleName());
       return List.of();
     }
@@ -469,12 +466,16 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
               .encode()
               .toUriString();
       ZioMapPhotoResponse response =
-          restClient
-              .get()
-              .uri(photoUri)
-              .header("x-api-key", getEffectiveApiKey())
-              .retrieve()
-              .body(ZioMapPhotoResponse.class);
+          executeWithResilientRetry(
+              "gallery photo",
+              MAX_TRANSIENT_RETRIES,
+              keyUsed ->
+                  restClient
+                      .get()
+                      .uri(photoUri)
+                      .header("x-api-key", keyUsed)
+                      .retrieve()
+                      .body(ZioMapPhotoResponse.class));
       if (response == null || !safePhotoUrl(response.photoUri())) {
         return Optional.empty();
       }
@@ -495,6 +496,75 @@ public class ZioMapProvider implements PlaceProvider, PlaceEnrichmentProvider {
     } catch (Exception ex) {
       log.debug("One ZioMap gallery image unavailable; type={}", ex.getClass().getSimpleName());
       return Optional.empty();
+    }
+  }
+
+  /**
+   * Executes a ZioMap API call with bounded quota-key rotation and exponential backoff retries
+   * for transient upstream errors (5xx, 408, timeouts/connection resets).
+   */
+  private <T> T executeWithResilientRetry(
+      String operation, int maxTransientRetries, Function<String, T> call) throws Exception {
+    int transientAttempt = 0;
+    int quotaRotations = 0;
+    while (true) {
+      String keyUsed = getEffectiveApiKey();
+      try {
+        return call.apply(keyUsed);
+      } catch (Exception ex) {
+        if (quotaRotations < MAX_QUOTA_ROTATIONS && handleQuotaErrorAndRotate(keyUsed, ex)) {
+          quotaRotations++;
+          log.info(
+              "[ZioMapProvider] Retrying {} with rotated key (rotation {})",
+              operation,
+              quotaRotations);
+          continue;
+        }
+        if (transientAttempt < maxTransientRetries && isTransientUpstreamError(ex)) {
+          transientAttempt++;
+          long delayMs = INITIAL_RETRY_BACKOFF_MS * (1L << (transientAttempt - 1));
+          log.warn(
+              "[ZioMapProvider] Transient {} failure ({}); retrying in {}ms (attempt {}/{})",
+              operation,
+              ex.getClass().getSimpleName(),
+              delayMs,
+              transientAttempt,
+              maxTransientRetries);
+          if (!sleepBackoff(delayMs)) {
+            throw ex;
+          }
+          continue;
+        }
+        throw ex;
+      }
+    }
+  }
+
+  private boolean isTransientUpstreamError(Throwable throwable) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (current instanceof RestClientResponseException restEx) {
+        int status = restEx.getStatusCode().value();
+        return status == 408 || status >= 500;
+      }
+      if (current instanceof ResourceAccessException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  private boolean sleepBackoff(long delayMs) {
+    if (delayMs <= 0) {
+      return true;
+    }
+    try {
+      Thread.sleep(delayMs);
+      return true;
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      return false;
     }
   }
 

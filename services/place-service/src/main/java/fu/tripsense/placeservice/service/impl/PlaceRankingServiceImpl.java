@@ -54,7 +54,10 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
           "quan", "tiem", "nha", "hang", "an", "uong", "shop", "cua", "cafe", "ca", "phe", "coffee",
           "bar", "pub", "hotel", "khach", "san", "diem", "du", "lich", "va", "tai", "la", "o", "co",
           "cho", "duoc", "tu", "den", "ve", "voi", "trong", "ngoai", "tren", "duoi", "so", "duong",
-          "phuong", "huyen", "xa", "thanh", "pho", "da", "nang", "tp");
+          "phuong", "huyen", "xa", "thanh", "pho", "da", "nang", "tp",
+          "ngon", "dep", "noi", "tieng", "nhat", "hay", "moi", "tot", "thich", "hop", "gan", "view",
+          "trung", "tam", "gia", "re", "cao", "cap", "yen", "tinh", "chill", "dac", "sac", "vui",
+          "choi", "tham", "kham", "pha", "trai", "nghiem", "check", "in", "homestay", "resort");
 
   public double computeTextMatchScore(PlaceDto place, String query) {
     if (!StringUtils.hasText(query) || place == null) {
@@ -69,6 +72,15 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
 
     String address = place.getAddress() != null ? place.getAddress().toLowerCase() : "";
     String addressStripped = stripAccents(address);
+
+    String area =
+        String.join(
+                " ",
+                place.getCity() != null ? place.getCity() : "",
+                place.getDistrict() != null ? place.getDistrict() : "")
+            .toLowerCase()
+            .trim();
+    String areaStripped = stripAccents(area);
 
     String categories =
         (place.getCategories() != null)
@@ -86,7 +98,10 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
     if (name.contains(queryLower) || nameStripped.contains(queryStripped)) {
       return 30.0;
     }
-    if (address.contains(queryLower) || addressStripped.contains(queryStripped)) {
+    if (address.contains(queryLower)
+        || addressStripped.contains(queryStripped)
+        || area.contains(queryLower)
+        || areaStripped.contains(queryStripped)) {
       return 20.0;
     }
     if (categories.contains(queryLower) || categoriesStripped.contains(queryStripped)) {
@@ -119,6 +134,7 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
       for (String dw : distinguishingWords) {
         if (isWordContainedIn(nameStripped, dw)
             || isWordContainedIn(addressStripped, dw)
+            || isWordContainedIn(areaStripped, dw)
             || isWordContainedIn(categoriesStripped, dw)) {
           matchedDistinguishing++;
         }
@@ -128,13 +144,13 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
 
       // For short specific queries (1-2 distinguishing words, e.g. "bảo long", "madame lân"),
       // ALL distinguishing words must match to avoid false positives.
-      // For longer queries (3+ words), require at least 50% match.
+      // For longer queries (3+ words), require at least 40% match so descriptive AI queries stay inclusive.
       if (distinguishingWords.size() <= 2) {
         if (matchedDistinguishing < distinguishingWords.size()) {
           return 0.0;
         }
       } else {
-        if (matchedDistinguishing == 0 || ratio < 0.50) {
+        if (matchedDistinguishing == 0 || ratio < 0.40) {
           return 0.0;
         }
       }
@@ -146,6 +162,7 @@ public class PlaceRankingServiceImpl implements PlaceRankingService {
     for (String w : allMeaningfulWords) {
       if (isWordContainedIn(nameStripped, w)
           || isWordContainedIn(addressStripped, w)
+          || isWordContainedIn(areaStripped, w)
           || isWordContainedIn(categoriesStripped, w)) {
         matchedWords++;
       }

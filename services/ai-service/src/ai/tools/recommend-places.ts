@@ -1,23 +1,30 @@
 import { tool } from "ai";
 import { z } from "zod";
-import crypto from "node:crypto";
-import type { PlaceSearchResult } from "./search-places.js";
+import {
+  groundRecommendations,
+  type PlaceGroundingStore,
+  type PlaceSearchResult,
+} from "../place-grounding.js";
 
-const DEFAULT_CATEGORY_PHOTOS: Record<string, string> = {
-  BEACH: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80",
-  ATTRACTION: "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=600&q=80",
-  FOOD: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80",
-  CAFE: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80",
-  STAY: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
-  ACTIVITY: "https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=600&q=80",
-};
+export interface RecommendPlacesToolContext {
+  destinationHint?: string | (() => string | undefined);
+  tripId?: string | (() => string | undefined);
+  authorization?: string;
+  store?: PlaceGroundingStore;
+}
+
+function readContextString(value?: string | (() => string | undefined)): string | undefined {
+  return typeof value === "function" ? value() : value;
+}
 
 export const recommendPlacesSchema = z.object({
   title: z
     .string()
     .trim()
     .default("Địa điểm gợi ý cho chuyến đi")
-    .describe("Tiêu đề ngắn gọn cho nhóm địa điểm gợi ý (ví dụ: 'Điểm đến nổi bật tại Đà Nẵng', 'Quán ngon đặc sản nên thử')"),
+    .describe(
+      "Tiêu đề ngắn gọn cho nhóm địa điểm gợi ý (ví dụ: 'Điểm đến nổi bật tại Đà Nẵng', 'Quán ngon đặc sản nên thử')"
+    ),
   destination: z
     .string()
     .trim()
@@ -26,11 +33,20 @@ export const recommendPlacesSchema = z.object({
   places: z
     .array(
       z.object({
+        placeId: z
+          .string()
+          .trim()
+          .optional()
+          .describe(
+            "ID địa điểm thật từ kết quả searchPlaces nếu có (ưu tiên truyền để giữ đúng ảnh thật, toạ độ và đánh giá)"
+          ),
         name: z
           .string()
           .trim()
           .min(1)
-          .describe("Tên địa điểm chuẩn tiếng Việt (ví dụ: 'Bãi biển Mỹ Khê', 'Bán đảo Sơn Trà', 'Cầu Rồng', 'Chợ Đêm Sơn Trà')"),
+          .describe(
+            "Tên địa điểm chuẩn tiếng Việt (ví dụ: 'Bãi biển Mỹ Khê', 'Bán đảo Sơn Trà', 'Cầu Rồng', 'Chợ Đêm Sơn Trà')"
+          ),
         category: z
           .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "BEACH", "ACTIVITY"])
           .describe("Phân loại danh mục địa điểm"),
@@ -50,11 +66,7 @@ export const recommendPlacesSchema = z.object({
           .max(5)
           .optional()
           .describe("Đánh giá sao tham khảo (ví dụ: 4.8)"),
-        photoUrl: z
-          .string()
-          .url()
-          .optional()
-          .describe("URL ảnh nếu có"),
+        photoUrl: z.string().url().optional().describe("URL ảnh nếu có"),
         lat: z.number().optional().describe("Vĩ độ toạ độ nếu biết"),
         lng: z.number().optional().describe("Kinh độ toạ độ nếu biết"),
       })
@@ -64,38 +76,47 @@ export const recommendPlacesSchema = z.object({
     .describe("Danh sách các địa điểm tinh tuyển do chính AI lựa chọn cho chuyến đi"),
 });
 
-export const recommendPlaces = tool({
-  description:
-    "Gợi ý danh sách các địa điểm du lịch, ẩm thực, check-in tinh tuyển do chính AI tuyển chọn cho chuyến đi. Kích hoạt khi người dùng hỏi tư vấn điểm đến, gợi ý chỗ ăn chơi hoặc khi lập kế hoạch chuyến đi.",
-  inputSchema: recommendPlacesSchema,
-  execute: async ({ title, destination, places }) => {
-    const formattedPlaces: PlaceSearchResult[] = places.map((p, idx) => {
-      const categoryKey = p.category.toUpperCase();
-      const fallbackPhoto =
-        DEFAULT_CATEGORY_PHOTOS[categoryKey] || DEFAULT_CATEGORY_PHOTOS.ATTRACTION;
-      return {
-        id: `ai-rec-${idx + 1}-${crypto.randomUUID().slice(0, 8)}`,
-        name: p.name,
-        categories: [p.category.toLowerCase()],
-        address: p.address,
-        city: destination,
-        rating: p.rating || 4.7,
-        photoUrl: p.photoUrl || fallbackPhoto,
-        location: p.lat && p.lng ? { lat: p.lat, lng: p.lng } : undefined,
-        reason: p.reason,
-      };
-    });
+function hasRealCatalogPhoto(photoUrl?: string): boolean {
+  return Boolean(photoUrl && !photoUrl.includes("images.unsplash.com"));
+}
 
-    return {
-      success: true,
-      title:
-        title ||
-        (destination
-          ? `Địa điểm gợi ý tại ${destination}`
-          : "Địa điểm gợi ý cho chuyến đi"),
-      destination,
-      total: formattedPlaces.length,
-      places: formattedPlaces,
-    };
-  },
-});
+export function getRecommendPlacesTool(context: RecommendPlacesToolContext = {}) {
+  return tool({
+    description:
+      "Gợi ý danh sách các địa điểm du lịch, ẩm thực, check-in tinh tuyển hiển thị thành dải thẻ trực quan cho chuyến đi. Mọi địa điểm sẽ được đối chiếu và làm giàu ảnh thật, toạ độ và đánh giá từ hệ thống TripSense.",
+    inputSchema: recommendPlacesSchema,
+    execute: async ({ title, destination, places }) => {
+      const resolvedDestination = destination || readContextString(context.destinationHint);
+      const tripId = readContextString(context.tripId);
+      const grounded = await groundRecommendations({
+        places,
+        destination: resolvedDestination,
+        authorization: context.authorization,
+        tripId,
+        store: context.store,
+      });
+
+      // Stable prioritization: catalog-grounded + real-photo items appear first in the carousel.
+      const formattedPlaces: PlaceSearchResult[] = [...grounded].sort((a, b) => {
+        const aScore = (a.grounded ? 2 : 0) + (hasRealCatalogPhoto(a.photoUrl) ? 1 : 0);
+        const bScore = (b.grounded ? 2 : 0) + (hasRealCatalogPhoto(b.photoUrl) ? 1 : 0);
+        return bScore - aScore;
+      });
+
+      return {
+        success: true,
+        title:
+          title ||
+          (resolvedDestination
+            ? `Địa điểm gợi ý tại ${resolvedDestination}`
+            : "Địa điểm gợi ý cho chuyến đi"),
+        destination: resolvedDestination,
+        total: formattedPlaces.length,
+        groundedCount: formattedPlaces.filter((p) => p.grounded).length,
+        places: formattedPlaces,
+      };
+    },
+  });
+}
+
+export const recommendPlaces = getRecommendPlacesTool();

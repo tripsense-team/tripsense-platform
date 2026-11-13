@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { tool } from "ai";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../../db/index.js";
 import { chats, messages } from "../../db/schema.js";
@@ -10,6 +10,7 @@ import {
   sha256,
   type TripDraft,
 } from "../trip-commit.js";
+import type { PlaceGroundingStore } from "../place-grounding.js";
 
 const fieldSchema = z.enum(["WHERE", "WHEN", "WHO", "BUDGET"]);
 const statusSchema = z.enum([
@@ -61,6 +62,8 @@ export type PlanningRuntimeState = {
   state?: TripBriefPart;
   stateMessageId?: string;
   userText?: string;
+  destinationHint?: string;
+  placeStore?: PlaceGroundingStore;
 };
 
 const inputSchema = z.object({
@@ -118,14 +121,9 @@ function isTripBriefPart(value: unknown): value is TripBriefPart {
   );
 }
 
-export async function loadLatestTripBrief(chatId: string): Promise<TripBriefPart | null> {
-  const recent = await db
-    .select({ parts: messages.parts })
-    .from(messages)
-    .where(eq(messages.chatId, chatId))
-    .orderBy(desc(messages.createdAt), desc(messages.id))
-    .limit(50);
-
+export function extractLatestTripBriefFromMessages(
+  recent: Array<{ parts: unknown }>,
+): TripBriefPart | null {
   for (const message of recent) {
     if (!Array.isArray(message.parts)) continue;
     for (let index = message.parts.length - 1; index >= 0; index -= 1) {
@@ -142,6 +140,22 @@ export async function loadLatestTripBrief(chatId: string): Promise<TripBriefPart
     }
   }
   return null;
+}
+
+export async function loadLatestTripBrief(chatId: string): Promise<TripBriefPart | null> {
+  const recent = await db
+    .select({ parts: messages.parts })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.chatId, chatId),
+        inArray(messages.role, ["planning_state", "assistant"]),
+      ),
+    )
+    .orderBy(desc(messages.createdAt), desc(messages.id))
+    .limit(15);
+
+  return extractLatestTripBriefFromMessages(recent);
 }
 
 export function hasExplicitPlanningIntent(text: string): boolean {
@@ -392,8 +406,12 @@ export function getUpdateTripPlanningBriefTool(context: {
         sanitizedWho = undefined;
       }
 
+      const baseBrief = terminalExisting
+        ? {}
+        : (existing?.brief ?? context.runtime.brief ?? {});
+
       const merged: TripPlanningBrief = {
-        ...(existing?.brief ?? {}),
+        ...baseBrief,
         ...(input.where ? { where: input.where } : {}),
         ...(input.when ? { when: input.when } : {}),
         ...(sanitizedWho ? { who: sanitizedWho } : {}),

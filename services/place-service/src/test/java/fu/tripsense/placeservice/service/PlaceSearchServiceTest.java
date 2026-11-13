@@ -11,12 +11,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceBrowseCategory;
 import fu.tripsense.placeservice.dto.PlaceDto;
+import fu.tripsense.placeservice.dto.PlaceMediaAssetDto;
+import fu.tripsense.placeservice.dto.PlaceMediaDto;
 import fu.tripsense.placeservice.dto.PlaceRecommendationRequest;
 import fu.tripsense.placeservice.providers.PlaceProvider;
 import fu.tripsense.placeservice.providers.PlaceProviderException;
@@ -41,6 +44,7 @@ class PlaceSearchServiceTest {
   @Mock private PlaceProvider provider;
   @Mock private PlaceCacheService cache;
   @Mock private PlacePersistenceService persistence;
+  @Mock private RecommendationIndexerClient recommendationIndexerClient;
 
   private PlaceSearchService service;
 
@@ -274,5 +278,104 @@ class PlaceSearchServiceTest {
     assertEquals(List.of("near"), result.candidates().stream().map(PlaceDto::getId).toList());
     assertEquals(true, result.evidence().refreshPerformed());
     verify(provider).textSearch(anyString(), anyDouble(), anyDouble(), eq(5_000), anyInt());
+  }
+
+  @Test
+  void categorySearchWithoutCoordinatesKeepsNonDaNangMatchesAndMapsReadyMediaPhoto() {
+    String cdnUrl =
+        "https://res.cloudinary.com/dejiclsce/image/upload/v1/tripsense/places/pq/cafe.jpg";
+    Place pqCafeEntity =
+        Place.builder()
+            .id("pq-cafe-1")
+            .name("Sunset Cafe Phú Quốc")
+            .city("Phú Quốc")
+            .categories(List.of("cafe"))
+            .location(new GeoJsonPoint(103.9571, 10.2145))
+            .lastFetchedAt(Instant.now())
+            .build();
+    PlaceDto pqCafeDto =
+        PlaceDto.builder()
+            .id("pq-cafe-1")
+            .name("Sunset Cafe Phú Quốc")
+            .city("Phú Quốc")
+            .categories(List.of("cafe"))
+            .location(new LocationDto(10.2145, 103.9571))
+            .media(
+                new PlaceMediaDto(
+                    "READY",
+                    new PlaceMediaAssetDto("a1", cdnUrl, 800, 600, "Sunset Cafe", List.of()),
+                    List.of(),
+                    "cafe"))
+            .build();
+
+    when(cache.getSearchResults(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(Optional.empty());
+    when(repository.searchByText(eq("cafe view biển phú quốc"), any(Pageable.class)))
+        .thenReturn(List.of(pqCafeEntity));
+    when(persistence.toDto(pqCafeEntity)).thenReturn(pqCafeDto);
+
+    List<PlaceDto> result =
+        service.searchPlaces(
+            "cafe view biển Phú Quốc", null, null, null, 10, PlaceBrowseCategory.CAFE);
+
+    assertEquals(1, result.size());
+    assertEquals("pq-cafe-1", result.get(0).getId());
+    assertEquals(cdnUrl, result.get(0).getPrimaryPhoto().url());
+    assertEquals(List.of(cdnUrl), result.get(0).getPhotos());
+  }
+
+  @Test
+  void providerFallbackTriggersQualityGatedAsyncQdrantIndexingForQualifiedPlacesOnly() {
+    TripSensePlaceProperties properties = new TripSensePlaceProperties();
+    properties.getSearch().setMinLocalResults(3);
+    PlaceSearchService indexingService =
+        new PlaceSearchServiceImpl(
+            repository,
+            provider,
+            cache,
+            new PlaceRankingServiceImpl(),
+            persistence,
+            properties,
+            recommendationIndexerClient);
+
+    when(cache.getSearchResults(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(Optional.empty());
+    when(repository.searchByText(eq("tam cốc"), any(Pageable.class)))
+        .thenReturn(Collections.emptyList());
+    when(provider.getProviderName()).thenReturn("ziomap");
+
+    PlaceDto qualifiedRaw =
+        PlaceDto.builder().provider("ziomap").providerPlaceId("ext-ok").name("Tam Cốc Bích Động").build();
+    PlaceDto junkRaw =
+        PlaceDto.builder().provider("ziomap").providerPlaceId("ext-junk").name("123 Tam Cốc").build();
+
+    PlaceDto qualifiedSaved =
+        PlaceDto.builder()
+            .id("ok-1")
+            .provider("ziomap")
+            .providerPlaceId("ext-ok")
+            .name("Tam Cốc Bích Động")
+            .location(new LocationDto(20.215, 105.932))
+            .categories(List.of("tourist_attraction"))
+            .rating(4.7)
+            .build();
+    PlaceDto junkSaved =
+        PlaceDto.builder()
+            .id("junk-1")
+            .provider("ziomap")
+            .providerPlaceId("ext-junk")
+            .name("123 Tam Cốc")
+            .location(new LocationDto(20.215, 105.932))
+            .build();
+
+    when(provider.textSearch(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(List.of(qualifiedRaw, junkRaw));
+    when(persistence.upsertProviderPlace(qualifiedRaw, "ziomap")).thenReturn(qualifiedSaved);
+    when(persistence.upsertProviderPlace(junkRaw, "ziomap")).thenReturn(junkSaved);
+
+    List<PlaceDto> result = indexingService.searchPlaces("tam cốc", 20.215, 105.932, 10_000, 10);
+
+    assertEquals("ok-1", result.get(0).getId());
+    verify(recommendationIndexerClient).triggerIndexingAsync(List.of(qualifiedSaved));
   }
 }

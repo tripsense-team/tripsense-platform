@@ -182,4 +182,41 @@ class PlaceBatchEnrichmentControllerTest {
         .andExpect(jsonPath("$.data.jobId").value("batch-1234"))
         .andExpect(jsonPath("$.data.status").value("RUNNING"));
   }
+
+  @Test
+  void shouldRelinkExistingCloudinaryPhotos() throws Exception {
+    when(enrichmentService.relinkExistingCloudinaryPhotos(false))
+        .thenReturn(
+            java.util.Map.of(
+                "configured", true,
+                "dryRun", false,
+                "cloudinaryFoldersFound", 100,
+                "placesRelinked", 57));
+
+    mockMvc
+        .perform(post("/api/places/admin/relink-cloudinary-photos"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.placesRelinked").value(57));
+  }
+
+  @Test
+  void shouldNormalizeMetadataAndSyncQdrant() throws Exception {
+    when(enrichmentService.normalizeMetadataAndSyncQdrant(false, true, false))
+        .thenReturn(
+            java.util.Map.of(
+                "dryRun", false,
+                "syncQdrant", true,
+                "placesScanned", 1556,
+                "placesUpdated", 1390,
+                "qdrantSynced", true,
+                "qdrantStatus", "SYNCED"));
+
+    mockMvc
+        .perform(post("/api/places/admin/normalize-and-sync-qdrant?dryRun=false&syncQdrant=true"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.placesUpdated").value(1390))
+        .andExpect(jsonPath("$.data.qdrantSynced").value(true));
+  }
 }

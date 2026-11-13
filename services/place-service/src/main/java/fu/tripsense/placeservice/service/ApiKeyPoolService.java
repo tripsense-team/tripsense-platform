@@ -34,7 +34,7 @@ public class ApiKeyPoolService {
   private final ApiKeyCryptoService apiKeyCryptoService;
   private final MongoTemplate mongoTemplate;
 
-  @Value("${EMBEDDING_API_KEY:${embedding.api-key:}}")
+  @Value("${GOOGLE_GENERATIVE_AI_API_KEY:${gemini.api-key:}}")
   private String defaultGeminiKey;
 
   /** In-memory cache for decrypted active raw keys to avoid repeated AES decryption on every request. */

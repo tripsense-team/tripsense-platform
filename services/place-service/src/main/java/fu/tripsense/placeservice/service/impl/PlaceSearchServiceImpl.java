@@ -1,5 +1,6 @@
 package fu.tripsense.placeservice.service.impl;
 
+import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
@@ -31,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.geo.Distance;
 import org.springframework.data.geo.Metrics;
@@ -43,6 +45,8 @@ import org.springframework.util.StringUtils;
 public class PlaceSearchServiceImpl implements PlaceSearchService {
 
   private static final Duration REFRESH_AFTER = Duration.ofDays(30);
+  private static final Pattern BARE_HOUSE_ADDRESS_PATTERN =
+      Pattern.compile("^\\d+[A-Za-z]?(?:/\\d+[A-Za-z]?)*\\s+.+$");
 
   private final PlaceRepository repository;
   private final PlaceProvider provider;
@@ -50,6 +54,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
   private final PlaceRankingService ranking;
   private final PlacePersistenceService persistence;
   private final TripSensePlaceProperties properties;
+  private final RecommendationIndexerClient recommendationIndexerClient;
 
   public PlaceSearchServiceImpl(
       PlaceRepository repository,
@@ -58,12 +63,25 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       PlaceRankingService ranking,
       PlacePersistenceService persistence,
       TripSensePlaceProperties properties) {
+    this(repository, provider, cache, ranking, persistence, properties, null);
+  }
+
+  @Autowired
+  public PlaceSearchServiceImpl(
+      PlaceRepository repository,
+      PlaceProvider provider,
+      PlaceCacheService cache,
+      PlaceRankingService ranking,
+      PlacePersistenceService persistence,
+      TripSensePlaceProperties properties,
+      @Autowired(required = false) RecommendationIndexerClient recommendationIndexerClient) {
     this.repository = repository;
     this.provider = provider;
     this.cache = cache;
     this.ranking = ranking;
     this.persistence = persistence;
     this.properties = properties;
+    this.recommendationIndexerClient = recommendationIndexerClient;
   }
 
   @Override
@@ -87,6 +105,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     String normalizedQuery = retrievalQuery.toLowerCase(Locale.ROOT);
     String cacheQuery =
         category == null ? normalizedQuery : category.name() + "|" + normalizedQuery;
+    boolean applyRadiusFilter = (lat != null && lng != null) || radius != null;
     double effectiveLat = lat != null ? lat : properties.getDefaultLat();
     double effectiveLng = lng != null ? lng : properties.getDefaultLng();
     int effectiveRadius = radius != null ? radius : 15_000;
@@ -104,6 +123,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
               effectiveLat,
               effectiveLng,
               effectiveRadius,
+              applyRadiusFilter,
               effectiveLimit);
       if (!rankedCached.isEmpty()) {
         return enrichPhotosForPlaces(rankedCached);
@@ -119,6 +139,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             effectiveLat,
             effectiveLng,
             effectiveRadius,
+            applyRadiusFilter,
             effectiveLimit);
 
     boolean isSpecificQuery =
@@ -177,6 +198,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             .map(result -> persistence.upsertProviderPlace(result, provider.getProviderName()))
             .filter(java.util.Objects::nonNull)
             .toList();
+    triggerQualityGatedIndexingAsync(persisted);
     List<PlaceDto> rankedResults =
         rankBrowseResults(
             mergeResults(persisted, rankedLocal),
@@ -185,6 +207,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             effectiveLat,
             effectiveLng,
             effectiveRadius,
+            applyRadiusFilter,
             effectiveLimit);
     cache.putSearchResults(
         cacheQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit, rankedResults);
@@ -198,10 +221,11 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       double lat,
       double lng,
       int radius,
+      boolean applyRadiusFilter,
       int limit) {
     List<PlaceDto> eligible =
         category == null ? candidates : candidates.stream().filter(category::matches).toList();
-    if (category != null) {
+    if (category != null && applyRadiusFilter) {
       eligible =
           eligible.stream()
               .filter(
@@ -224,6 +248,34 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     String normalized = query.trim().toLowerCase(Locale.ROOT);
     String seed = category.providerQuery().toLowerCase(Locale.ROOT);
     return normalized.equals(seed) || (normalized.startsWith(seed + " ") && normalized.contains(" ở "));
+  }
+
+  private void triggerQualityGatedIndexingAsync(List<PlaceDto> persisted) {
+    if (recommendationIndexerClient == null || persisted == null || persisted.isEmpty()) {
+      return;
+    }
+    List<PlaceDto> qualified =
+        persisted.stream().filter(PlaceSearchServiceImpl::isQualityQualifiedForIndex).toList();
+    if (!qualified.isEmpty()) {
+      recommendationIndexerClient.triggerIndexingAsync(qualified);
+    }
+  }
+
+  private static boolean isQualityQualifiedForIndex(PlaceDto place) {
+    if (place == null || !StringUtils.hasText(place.getId()) || !StringUtils.hasText(place.getName())) {
+      return false;
+    }
+    if (place.getLocation() == null) {
+      return false;
+    }
+    String name = place.getName().trim();
+    boolean hasRating = place.getRating() != null && place.getRating() > 0;
+    boolean hasCategories = place.getCategories() != null && !place.getCategories().isEmpty();
+    boolean hasPrimaryType = StringUtils.hasText(place.getPrimaryType());
+    if (BARE_HOUSE_ADDRESS_PATTERN.matcher(name).matches() && !hasRating && !hasCategories && !hasPrimaryType) {
+      return false;
+    }
+    return hasRating || hasCategories || hasPrimaryType;
   }
 
   @Override
@@ -838,9 +890,41 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
             "đà nẵng",
             "da nang",
             "hà nội",
+            "ha noi",
             "sài gòn",
+            "sai gon",
             "hồ chí minh",
+            "ho chi minh",
+            "tp hcm",
             "hội an",
+            "hoi an",
+            "phú quốc",
+            "phu quoc",
+            "đà lạt",
+            "da lat",
+            "nha trang",
+            "huế",
+            "hue",
+            "sa pa",
+            "sapa",
+            "hạ long",
+            "ha long",
+            "vũng tàu",
+            "vung tau",
+            "ninh bình",
+            "ninh binh",
+            "quy nhơn",
+            "quy nhon",
+            "phan thiết",
+            "phan thiet",
+            "mũi né",
+            "mui ne",
+            "cần thơ",
+            "can tho",
+            "hải phòng",
+            "hai phong",
+            "côn đảo",
+            "con dao",
             "sơn trà",
             "hải châu",
             "ngũ hành sơn",
@@ -884,6 +968,24 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
     }
     for (PlaceDto place : places) {
       if (place.getPrimaryPhoto() != null && StringUtils.hasText(place.getPrimaryPhoto().url())) {
+        continue;
+      }
+      if (place.getMedia() != null
+          && "READY".equals(place.getMedia().state())
+          && place.getMedia().primary() != null
+          && StringUtils.hasText(place.getMedia().primary().url())) {
+        String mediaUrl = place.getMedia().primary().url();
+        PlacePhotoDto mediaPhoto =
+            new PlacePhotoDto(
+                mediaUrl,
+                "cloudinary",
+                List.of(),
+                place.getFetchedAt() != null ? place.getFetchedAt() : Instant.now(),
+                true);
+        place.setPrimaryPhoto(mediaPhoto);
+        if (place.getPhotos() == null || place.getPhotos().isEmpty()) {
+          place.setPhotos(List.of(mediaUrl));
+        }
         continue;
       }
       if (place.getPhotos() != null && !place.getPhotos().isEmpty()) {

@@ -197,7 +197,9 @@ function useItineraryItemPhotoCache(trip: TripResponse | null, itinerary: Itiner
 
     const currentTrip = trip;
     const controller = new AbortController();
-    const items = itineraryItems(itinerary).filter((item) => item.placeId || item.placeNameSnapshot || item.title);
+    const items = itineraryItems(itinerary).filter(
+      (item) => item.placeRef || item.placeId || item.placeNameSnapshot || item.title
+    );
     const missingItems = items.filter((item) => !resolvedItemIdsRef.current.has(item.id)).slice(0, 12);
 
     if (missingItems.length === 0) {
@@ -211,10 +213,11 @@ function useItineraryItemPhotoCache(trip: TripResponse | null, itinerary: Itiner
         missingItems.map(async (item) => {
           try {
             let place: Place | null = null;
+            const placeKey = item.placeRef?.trim() || item.placeId?.trim();
 
-            if (item.placeId) {
+            if (placeKey) {
               const details = await getPlaceDetails(
-                item.placeId,
+                placeKey,
                 item.placeNameSnapshot || item.title,
                 item.latSnapshot ?? undefined,
                 item.lngSnapshot ?? undefined,

@@ -42,6 +42,27 @@ import type { TripPlanningBrief } from "@/features/ai-trip-commit/types";
 import { isGenericChatTitle } from "@/hooks/use-ai-chats";
 import { aiChatQueryKeys, getQueryClient } from "@/lib/react-query";
 
+const EMPTY_DAY_THEMES: Record<number, string> = {};
+const EMPTY_PLACE_PHOTOS: Record<string, string> = {};
+const ITINERARY_MUTATING_TOOLS = new Set([
+  "createTripProposal",
+  "addItineraryItems",
+  "removeItineraryItem",
+  "replaceItineraryItem",
+  "updateItineraryItem",
+]);
+
+function extractThemesFromText(text: string, map: Record<number, string>) {
+  const matches = text.matchAll(/(?:Ngày|Day)\s*(\d+)\s*[:–-]\s*([^\n\r#*]+)/gi);
+  for (const match of matches) {
+    const dayNum = parseInt(match[1], 10);
+    const theme = match[2].trim().replace(/^[*_~]+|[*_~]+$/g, "");
+    if (dayNum && theme && !map[dayNum]) {
+      map[dayNum] = theme;
+    }
+  }
+}
+
 export function ChatShell() {
   const router = useRouter();
   const { locale, t } = useTranslation();
@@ -66,6 +87,7 @@ export function ChatShell() {
     startNewChat,
     deleteChat,
     renameChat,
+    syncTripContext,
     isBackendReady,
     isHistoryLoading,
   } = useActiveChat();
@@ -94,55 +116,111 @@ export function ChatShell() {
   const prevStatusRef = useRef(status);
 
   const [tripPreferences, setTripPreferences] = useState<TripPreferences>({});
+  const tripPreferencesRef = useRef(tripPreferences);
+  useEffect(() => {
+    tripPreferencesRef.current = tripPreferences;
+    syncTripContext?.({
+      tripId: activeTrip?.id ?? null,
+      tripPreferences,
+    });
+  }, [activeTrip?.id, tripPreferences, syncTripContext]);
   const [planningBriefVersion, setPlanningBriefVersion] = useState<number | null>(null);
   const [planningBriefStatus, setPlanningBriefStatus] = useState<string | null>(null);
 
-  // Extract AI-generated themes for each day (e.g. Day 1: "Biển Mỹ Khê & Bán Đảo Sơn Trà")
+  // Extract AI-generated themes for each day only when the TripDetailPanel is visible
   const dayThemes = useMemo(() => {
+    if (!activeTrip || !isTripDetailOpen) {
+      return EMPTY_DAY_THEMES;
+    }
     const map: Record<number, string> = {};
+    const parseMarkdownThemes = status !== "streaming";
     for (const m of messages) {
-      if (m.role === "assistant") {
-        if (Array.isArray(m.parts)) {
-          for (const p of m.parts) {
-            const res =
-              (p as any)?.result ||
-              (p as any)?.toolInvocation?.result ||
-              (p as any)?.itineraryJson;
-            if (res?.days && Array.isArray(res.days)) {
-              for (const d of res.days) {
-                if (d.dayNumber && d.theme) {
-                  map[d.dayNumber] = d.theme;
-                }
-              }
-            }
-            if (p && typeof p === "object" && (p as any).type === "text" && typeof (p as any).text === "string") {
-              const text = (p as any).text;
-              const matches = text.matchAll(/(?:Ngày|Day)\s*(\d+)\s*[:–-]\s*([^\n\r#*]+)/gi);
-              for (const match of matches) {
-                const dayNum = parseInt(match[1], 10);
-                const theme = match[2].trim().replace(/^[*_~]+|[*_~]+$/g, "");
-                if (dayNum && theme && !map[dayNum]) {
-                  map[dayNum] = theme;
-                }
+      if (m.role !== "assistant") continue;
+      if (Array.isArray(m.parts)) {
+        for (const p of m.parts) {
+          const res =
+            (p as any)?.output ||
+            (p as any)?.result ||
+            (p as any)?.toolInvocation?.result ||
+            (p as any)?.itineraryJson;
+          if (res?.days && Array.isArray(res.days)) {
+            for (const d of res.days) {
+              if (d.dayNumber && d.theme) {
+                map[d.dayNumber] = d.theme;
               }
             }
           }
+          if (
+            parseMarkdownThemes &&
+            p &&
+            typeof p === "object" &&
+            (p as any).type === "text" &&
+            typeof (p as any).text === "string"
+          ) {
+            extractThemesFromText((p as any).text, map);
+          }
         }
-        if ("content" in m && typeof (m as any).content === "string") {
-          const text = (m as any).content;
-          const matches = text.matchAll(/(?:Ngày|Day)\s*(\d+)\s*[:–-]\s*([^\n\r#*]+)/gi);
-          for (const match of matches) {
-            const dayNum = parseInt(match[1], 10);
-            const theme = match[2].trim().replace(/^[*_~]+|[*_~]+$/g, "");
-            if (dayNum && theme && !map[dayNum]) {
-              map[dayNum] = theme;
+      }
+      if (parseMarkdownThemes && "content" in m && typeof (m as any).content === "string") {
+        extractThemesFromText((m as any).content, map);
+      }
+    }
+    return map;
+  }, [activeTrip, isTripDetailOpen, messages, status]);
+
+  // Share already-grounded Cloudinary/API photo URLs from chat tool outputs directly with TripDetailPanel
+  const knownPlacePhotos = useMemo(() => {
+    if (!activeTrip || !isTripDetailOpen) {
+      return EMPTY_PLACE_PHOTOS;
+    }
+    const map: Record<string, string> = {};
+    const recordPhoto = (key: unknown, url: unknown) => {
+      if (
+        typeof key === "string" &&
+        key.trim() &&
+        typeof url === "string" &&
+        /^https?:\/\//i.test(url.trim())
+      ) {
+        map[key.trim()] = url.trim();
+      }
+    };
+
+    for (const m of messages) {
+      if (m.role !== "assistant" || !Array.isArray(m.parts)) continue;
+      for (const p of m.parts) {
+        const res =
+          (p as any)?.output ||
+          (p as any)?.result ||
+          (p as any)?.toolInvocation?.result;
+        if (!res || typeof res !== "object") continue;
+
+        if (Array.isArray(res.days)) {
+          for (const d of res.days) {
+            if (!Array.isArray(d?.activities)) continue;
+            for (const act of d.activities) {
+              recordPhoto(act?.placeId, act?.photoUrl);
+              recordPhoto(act?.itemKey, act?.photoUrl);
+            }
+          }
+        }
+        if (Array.isArray(res.places)) {
+          for (const pl of res.places) {
+            recordPhoto(pl?.id, pl?.photoUrl);
+          }
+        }
+        if (Array.isArray(res.groups)) {
+          for (const grp of res.groups) {
+            if (!Array.isArray(grp?.places)) continue;
+            for (const pl of grp.places) {
+              recordPhoto(pl?.id, pl?.photoUrl);
             }
           }
         }
       }
     }
-    return map;
-  }, [messages]);
+
+    return Object.keys(map).length > 0 ? map : EMPTY_PLACE_PHOTOS;
+  }, [activeTrip, isTripDetailOpen, messages]);
 
   // Load trip from URL query (?tripId=...) if present
   useEffect(() => {
@@ -441,6 +519,10 @@ export function ChatShell() {
     async (newTrip: TripResponse) => {
       activeTripRef.current = newTrip;
       setActiveTrip(newTrip);
+      syncTripContext?.({
+        tripId: newTrip.id,
+        tripPreferences: tripPreferencesRef.current,
+      });
       setIsTripDetailOpen(true);
       setIsTripPanelCollapsed(false);
       pendingTripTitleUpdateIdRef.current = newTrip.id;
@@ -463,7 +545,7 @@ export function ChatShell() {
         window.history.replaceState(null, "", url.toString());
       }
     },
-    [chatId, locale]
+    [chatId, locale, syncTripContext]
   );
 
   // Handle Trip Created from modal: links trip AND dispatches prompt to AI
@@ -746,44 +828,37 @@ export function ChatShell() {
     locale,
   ]);
 
-  // Reactive Auto-Update: Whenever AI finishes streaming or generates itinerary, trigger real-time refresh in TripDetailPanel
+  // Reactive Auto-Update: Refresh TripDetailPanel once when an itinerary-mutating turn completes
   const wasStreamingTrackerRef = useRef(false);
   useEffect(() => {
     if (status === "streaming") {
       wasStreamingTrackerRef.current = true;
-    } else if (status === "ready" && wasStreamingTrackerRef.current) {
+      return;
+    }
+    if (status === "ready" && wasStreamingTrackerRef.current) {
       wasStreamingTrackerRef.current = false;
-      if (activeTrip?.id) {
-        // 1. Immediate trigger
+      if (!activeTrip?.id) return;
+
+      const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+      const didMutateItinerary = Boolean(
+        lastAssistantMsg?.parts?.some((part: any) => {
+          const toolName =
+            (typeof part?.type === "string" && part.type.startsWith("tool-")
+              ? part.type.slice(5)
+              : undefined) || part?.toolInvocation?.toolName;
+          return toolName ? ITINERARY_MUTATING_TOOLS.has(toolName) : false;
+        })
+      );
+
+      if (didMutateItinerary) {
         window.dispatchEvent(
           new CustomEvent("tripsense:itinerary-updated", {
             detail: { tripId: activeTrip.id },
           }),
         );
-        // 2. Delayed triggers (500ms and 1500ms) to ensure backend database commits have completed
-        const timer1 = setTimeout(() => {
-          window.dispatchEvent(
-            new CustomEvent("tripsense:itinerary-updated", {
-              detail: { tripId: activeTrip.id },
-            }),
-          );
-        }, 500);
-
-        const timer2 = setTimeout(() => {
-          window.dispatchEvent(
-            new CustomEvent("tripsense:itinerary-updated", {
-              detail: { tripId: activeTrip.id },
-            }),
-          );
-        }, 1500);
-
-        return () => {
-          clearTimeout(timer1);
-          clearTimeout(timer2);
-        };
       }
     }
-  }, [status, activeTrip?.id]);
+  }, [status, activeTrip?.id, messages]);
 
   const headerChatTitle = useMemo(() => {
     if (chatTitle && !isGenericChatTitle(chatTitle)) {
@@ -984,6 +1059,7 @@ export function ChatShell() {
           <TripDetailPanel
             trip={activeTrip}
             dayThemes={dayThemes}
+            knownPlacePhotos={knownPlacePhotos}
             onClose={() => setIsTripDetailOpen(false)}
             isCollapsed={isTripPanelCollapsed}
             onToggleCollapse={() =>

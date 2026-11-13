@@ -126,6 +126,30 @@ public enum DiscoveryCategory {
       Set.of("food", "store", "point_of_interest", "establishment", "lodging");
   public static final Pattern HOMESTAY_NAME =
       Pattern.compile("(?i)(?<![\\p{L}\\p{N}])home[ _-]?stay(?![\\p{L}\\p{N}])");
+  private static final Map<String, String> VIETNAMESE_PRIMARY_MAP =
+      Map.ofEntries(
+          Map.entry("địa điểm khám phá", "tourist_attraction"),
+          Map.entry("điểm tham quan", "tourist_attraction"),
+          Map.entry("du lịch", "tourist_attraction"),
+          Map.entry("bãi biển", "beach"),
+          Map.entry("bảo tàng", "museum"),
+          Map.entry("quán cafe", "cafe"),
+          Map.entry("quán cà phê", "cafe"),
+          Map.entry("cà phê", "cafe"),
+          Map.entry("trà sữa", "cafe"),
+          Map.entry("đồ uống", "cafe"),
+          Map.entry("nhà hàng", "restaurant"),
+          Map.entry("quán ăn", "restaurant"),
+          Map.entry("hải sản", "seafood_restaurant"),
+          Map.entry("ẩm thực việt", "vietnamese_restaurant"),
+          Map.entry("ẩm thực truyền thống", "vietnamese_restaurant"),
+          Map.entry("đặc sản đà nẵng", "vietnamese_restaurant"),
+          Map.entry("ẩm thực", "restaurant"),
+          Map.entry("khách sạn", "hotel"),
+          Map.entry("lưu trú", "lodging"),
+          Map.entry("home stay", "homestay"),
+          Map.entry("home_stay", "homestay"),
+          Map.entry("homestay", "homestay"));
   private final Set<String> aliases;
   private final Set<String> primaryCodes;
 
@@ -200,6 +224,47 @@ public enum DiscoveryCategory {
             .filter(Objects::nonNull)
             .map(DiscoveryCategory::normalizedLabel)
             .anyMatch(STAY.aliases::contains);
+  }
+
+  /**
+   * Deterministically derives a missing primaryType from stored category labels without making
+   * external provider or AI calls. Skips generic Google noise tags such as establishment and
+   * point_of_interest whenever a more specific type is available.
+   */
+  public static String derivePrimaryTypeFromCategories(List<String> categories, String name) {
+    if (categories == null || categories.isEmpty()) return null;
+
+    List<String> normalizedCodes = new ArrayList<>();
+    boolean hasStayIndicator = false;
+    for (String raw : categories) {
+      if (raw == null || raw.isBlank()) continue;
+      String label = normalizedLabel(raw);
+      if (STAY.aliases.contains(label) || HOMESTAY.aliases.contains(label)) {
+        hasStayIndicator = true;
+      }
+      String mapped = VIETNAMESE_PRIMARY_MAP.get(label);
+      if (mapped == null) {
+        mapped = normalizePrimaryType(raw);
+      }
+      if (mapped != null && !"point_of_interest".equals(mapped) && !"establishment".equals(mapped)) {
+        normalizedCodes.add(mapped);
+      }
+    }
+
+    if (hasStayIndicator && name != null && HOMESTAY_NAME.matcher(name).find()) {
+      return "homestay";
+    }
+
+    for (String code : normalizedCodes) {
+      if (!GENERIC.contains(code)) {
+        return code;
+      }
+    }
+
+    if (normalizedCodes.contains("lodging")) return "lodging";
+    if (normalizedCodes.contains("food")) return "food";
+    if (normalizedCodes.contains("store")) return "store";
+    return null;
   }
 
   public static List<DiscoveryCategory> preview() {
