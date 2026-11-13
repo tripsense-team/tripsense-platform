@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `mobile-user-app` | IMPLEMENTING (Phase 0–1 done) | `apps/mobile/tripsense` | [Docs](./mobile-user-app.md) |
 | `generic-travel-rental-and-services` | APPROVED | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
 | `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |
 | `in-chat-reservation-offer` | DONE | `services/social-service`, `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./in-chat-reservation-offer.md) |
