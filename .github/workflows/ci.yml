@@ -336,6 +336,11 @@ jobs:
       - name: Run AI Service build and unit tests
         if: matrix.image == 'ai-service'
         working-directory: services/ai-service
+        env:
+          AI_DATABASE_URL: postgresql://postgres:ci-placeholder@localhost:5432/tripsense_ai
+          JWT_ACCESS_SECRET: ci-placeholder-access-secret-12345678901234567890
+          AI_TRIP_COMMIT_SECRET: ci-placeholder-ai-trip-commit-secret
+          GOOGLE_GENERATIVE_AI_API_KEY: ci-placeholder-gemini-key-123456
         run: npm ci && npm test
 
       - name: Set up Docker Buildx
