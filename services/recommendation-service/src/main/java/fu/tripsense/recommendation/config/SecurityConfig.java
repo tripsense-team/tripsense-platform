@@ -36,6 +36,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
+                    .requestMatchers("/api/recommendations/admin/**")
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
