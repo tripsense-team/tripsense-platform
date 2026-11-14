@@ -8,7 +8,11 @@ import '../../domain/place.dart';
 
 /// Photo with a gradient + name fallback (most places have no approved photo yet).
 class PlaceImage extends StatelessWidget {
-  const PlaceImage({super.key, required this.place, this.aspectRatio = 16 / 10});
+  const PlaceImage({
+    super.key,
+    required this.place,
+    this.aspectRatio = 16 / 10,
+  });
 
   final Place place;
   final double aspectRatio;
@@ -89,10 +93,18 @@ class RatingRow extends StatelessWidget {
 }
 
 class PlaceCard extends StatelessWidget {
-  const PlaceCard({super.key, required this.place, required this.onTap});
+  const PlaceCard({
+    super.key,
+    required this.place,
+    required this.onTap,
+    this.trailing,
+  });
 
   final Place place;
   final VoidCallback onTap;
+
+  /// Overlay in the photo's top-right corner (e.g. the save heart).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +129,12 @@ class PlaceCard extends StatelessWidget {
             Stack(
               children: [
                 PlaceImage(place: place),
+                if (trailing != null)
+                  Positioned(
+                    right: AppSpacing.sm,
+                    top: AppSpacing.sm,
+                    child: trailing!,
+                  ),
                 if (category != null)
                   Positioned(
                     left: AppSpacing.md,
