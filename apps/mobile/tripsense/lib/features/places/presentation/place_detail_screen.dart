@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/design/app_tokens.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../collections/presentation/widgets/save_button.dart';
 import '../data/places_repository_impl.dart';
 import '../domain/opening_hours.dart';
 import '../domain/place.dart';
@@ -52,6 +53,12 @@ class PlaceDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: SaveButton(place: shown),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: PlaceImage(place: shown, aspectRatio: 1),
             ),

@@ -39,7 +39,9 @@ class PlacesRepositoryImpl implements PlacesRepository {
           'lng': ?near?.lng,
         },
       );
-      return [for (final item in jsonList(_data(response))) placeFromJson(item)];
+      return [
+        for (final item in jsonList(_data(response))) placeFromJson(item),
+      ];
     });
   }
 
@@ -68,18 +70,15 @@ class PlacesRepositoryImpl implements PlacesRepository {
   }
 
   @override
-  Future<Place> details(String id, {String? name, GeoPoint? near}) =>
-      guardApi(() async {
-        final response = await _dio.get<Map<String, dynamic>>(
-          '/api/places/${Uri.encodeComponent(id)}',
-          queryParameters: {
-            'name': ?name,
-            'lat': ?near?.lat,
-            'lng': ?near?.lng,
-          },
-        );
-        return placeFromJson(jsonMap(_data(response)) ?? const {});
-      });
+  Future<Place> details(String id, {String? name, GeoPoint? near}) => guardApi(
+    () async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/places/${Uri.encodeComponent(id)}',
+        queryParameters: {'name': ?name, 'lat': ?near?.lat, 'lng': ?near?.lng},
+      );
+      return placeFromJson(jsonMap(_data(response)) ?? const {});
+    },
+  );
 
   @override
   Future<List<Place>> exploreForYou({

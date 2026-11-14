@@ -27,13 +27,16 @@ Future<ExploreState> _loaded(ProviderContainer c) async {
 }
 
 void main() {
-  test('For you loads the personalized feed for the first destination', () async {
-    final repo = FakePlacesRepository();
-    final state = await _loaded(_container(repo));
-    expect(state.places.value!.single.id, 'f1');
-    expect(state.usedFallback, isFalse);
-    expect(repo.feedCalls, ['danang']);
-  });
+  test(
+    'For you loads the personalized feed for the first destination',
+    () async {
+      final repo = FakePlacesRepository();
+      final state = await _loaded(_container(repo));
+      expect(state.places.value!.single.id, 'f1');
+      expect(state.usedFallback, isFalse);
+      expect(repo.feedCalls, ['danang']);
+    },
+  );
 
   test('falls back to popular places when the feed fails', () async {
     final repo = FakePlacesRepository()..feedError = serverFailure;
