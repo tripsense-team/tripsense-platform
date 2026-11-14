@@ -7,6 +7,7 @@ import '../../../app/routes.dart';
 import '../../../core/ui/state_views.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../collections/presentation/widgets/save_button.dart';
+import '../../map/presentation/places_map.dart';
 import '../domain/destinations.dart';
 import '../domain/place.dart';
 import 'explore_controller.dart';
@@ -30,6 +31,7 @@ class ExploreScreen extends ConsumerStatefulWidget {
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
+  bool _mapMode = false;
 
   @override
   void dispose() {
@@ -102,11 +104,27 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ActionChip(
-                key: const Key('destination-pill'),
-                avatar: const Icon(Icons.place_outlined, size: 18),
-                label: Text(state.destination.name),
-                onPressed: _pickDestination,
+              Row(
+                children: [
+                  ActionChip(
+                    key: const Key('destination-pill'),
+                    avatar: const Icon(Icons.place_outlined, size: 18),
+                    label: Text(state.destination.name),
+                    onPressed: _pickDestination,
+                  ),
+                  const Spacer(),
+                  ActionChip(
+                    key: const Key('map-toggle'),
+                    avatar: Icon(
+                      _mapMode ? Icons.view_list_outlined : Icons.map_outlined,
+                      size: 18,
+                    ),
+                    label: Text(
+                      _mapMode ? l10n.exploreShowList : l10n.exploreShowMap,
+                    ),
+                    onPressed: () => setState(() => _mapMode = !_mapMode),
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.md),
               TextField(
@@ -176,7 +194,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                     _submit(s.title);
                   },
                 )
-              : _Results(state: state),
+              : (_mapMode ? _MapResults(state: state) : _Results(state: state)),
         ),
       ],
     );
@@ -277,6 +295,73 @@ class _Skeleton extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.xxl),
         ),
       ),
+    );
+  }
+}
+
+/// Current results as pins; tapping a pin shows a compact card over the map.
+class _MapResults extends ConsumerStatefulWidget {
+  const _MapResults({required this.state});
+
+  final ExploreState state;
+
+  @override
+  ConsumerState<_MapResults> createState() => _MapResultsState();
+}
+
+class _MapResultsState extends ConsumerState<_MapResults> {
+  String? _selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final controller = ref.read(exploreControllerProvider.notifier);
+
+    return state.places.when(
+      loading: () => const LoadingView(),
+      error: (error, _) => ErrorView(error: error, onRetry: controller.refresh),
+      data: (places) {
+        final located = [
+          for (final p in places)
+            if (p.location != null) p,
+        ];
+        Place? selected;
+        for (final p in located) {
+          if (p.id == _selectedId) selected = p;
+        }
+        final dest = state.destination;
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: ref.watch(placesMapBuilderProvider)(
+                context,
+                PlacesMapData(
+                  markers: [
+                    for (final p in located)
+                      MapMarker(id: p.id, point: p.location!),
+                  ],
+                  center: GeoPoint(dest.lat, dest.lng),
+                  selectedId: selected?.id,
+                  onSelect: (id) => setState(() => _selectedId = id),
+                ),
+              ),
+            ),
+            if (selected != null)
+              Positioned(
+                left: AppSpacing.page,
+                right: AppSpacing.page,
+                bottom: AppSpacing.page,
+                child: PlaceMiniCard(
+                  key: const Key('map-selected-card'),
+                  place: selected,
+                  trailing: SaveButton(place: selected),
+                  onTap: () =>
+                      context.push(Routes.place(selected!.id), extra: selected),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

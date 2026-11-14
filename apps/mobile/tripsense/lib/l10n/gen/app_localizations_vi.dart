@@ -574,4 +574,13 @@ class AppLocalizationsVi extends AppLocalizations {
   String collectionPlacesCount(int count) {
     return '$count địa điểm';
   }
+
+  @override
+  String get exploreShowMap => 'Bản đồ';
+
+  @override
+  String get exploreShowList => 'Danh sách';
+
+  @override
+  String get placeLocation => 'Vị trí';
 }

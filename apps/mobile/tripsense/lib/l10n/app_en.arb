@@ -262,5 +262,8 @@
         "type": "int"
       }
     }
-  }
+  },
+  "exploreShowMap": "Map",
+  "exploreShowList": "List",
+  "placeLocation": "Location"
 }

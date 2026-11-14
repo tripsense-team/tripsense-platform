@@ -580,4 +580,13 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get exploreShowMap => 'Map';
+
+  @override
+  String get exploreShowList => 'List';
+
+  @override
+  String get placeLocation => 'Location';
 }

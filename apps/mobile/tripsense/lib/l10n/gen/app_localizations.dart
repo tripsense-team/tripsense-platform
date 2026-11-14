@@ -1135,6 +1135,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 place} other{{count} places}}'**
   String collectionPlacesCount(int count);
+
+  /// No description provided for @exploreShowMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get exploreShowMap;
+
+  /// No description provided for @exploreShowList.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get exploreShowList;
+
+  /// No description provided for @placeLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get placeLocation;
 }
 
 class _AppLocalizationsDelegate

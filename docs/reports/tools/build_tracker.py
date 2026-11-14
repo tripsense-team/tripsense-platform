@@ -211,8 +211,10 @@ MODULES = [
             T("Địa điểm gần đây (nearby)", "/api/places/nearby.", "(main)/places", prio="P2"),
         ]),
         ("Bản đồ", [
-            T("Hiển thị bản đồ (MapLibre)", "Cùng nguồn tile MapVina như web.", "(main)/places", prio="P1"),
-            T("Marker & thẻ địa điểm", "", "(main)/places", prio="P1"),
+            TEST("Hiển thị bản đồ (MapLibre)", "Cùng nguồn tile MapVina như web.", "(main)/places", prio="P1", prog=0.85, start=D3,
+                 note="Chế độ Bản đồ ở Explore + bản đồ nhỏ ở chi tiết địa điểm; key MapVina nạp qua --dart-define-from-file (không commit), thiếu key thì dùng tile raster dự phòng như web. Chờ xem trên emulator."),
+            TEST("Marker & thẻ địa điểm", "", "(main)/places", prio="P1", prog=0.85, start=D3,
+                 note="Chấm đánh dấu từng địa điểm, chạm chấm hiện thẻ nhỏ rồi mở chi tiết; tự zoom vừa các điểm."),
             T("Vị trí hiện tại & chỉ đường", "Xin quyền vị trí; mở app bản đồ ngoài.", "(main)/places", prio="P2"),
         ]),
         ("Hành động trên địa điểm", [

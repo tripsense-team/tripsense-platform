@@ -45,6 +45,7 @@ dependencies:
   intl: ^0.20.2
   flutter_localizations:
     sdk: flutter
+  maplibre_gl: ^0.28.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

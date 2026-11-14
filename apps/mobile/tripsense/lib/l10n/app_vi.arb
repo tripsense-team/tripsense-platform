@@ -200,5 +200,8 @@
         "type": "int"
       }
     }
-  }
+  },
+  "exploreShowMap": "Bản đồ",
+  "exploreShowList": "Danh sách",
+  "placeLocation": "Vị trí"
 }

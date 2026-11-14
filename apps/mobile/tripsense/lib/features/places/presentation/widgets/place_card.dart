@@ -205,3 +205,75 @@ class PlaceCard extends StatelessWidget {
     );
   }
 }
+
+/// Compact horizontal card shown over the map for the selected pin.
+class PlaceMiniCard extends StatelessWidget {
+  const PlaceMiniCard({
+    super.key,
+    required this.place,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final Place place;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.colors;
+    return Material(
+      color: colors.card,
+      elevation: 4,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        side: BorderSide(color: colors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 96,
+              height: 96,
+              child: PlaceImage(place: place, aspectRatio: 1),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      place.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (place.hasRating) RatingRow(place: place),
+                    if (place.address != null)
+                      Text(
+                        place.address!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.mutedForeground,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}

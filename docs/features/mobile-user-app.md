@@ -215,7 +215,7 @@ Dừng ở `STATUS: WAITING_FOR_HUMAN_APPROVAL`. Chỉ triển khai khi bạn tr
 | 1 Auth | DONE (một phần) | Login, Register, Verify OTP, Resend, Forgot/Reset, Splash khôi phục phiên, chặn role không phải USER. **Chưa làm:** Google Sign-In (Q2, cần client ID), Onboarding wizard (tách thành phase 1b) |
 | 1b Onboarding | DONE (chờ nghiệm thu lưu thật) | Nhánh `nhiby/feature/mobile-onboarding`: wizard 10 bước, cổng bắt buộc, lưu/hoàn tất qua context-service. 135 test pass. Đã chạy trên emulator; chưa bấm Hoàn tất với DB prod. |
 | UI parity (~80% giống web) | DONE (đã nhúng font Inter) | Nhánh `nhiby/feature/mobile-ui-polish`: theme pill, hero gradient, màn auth/onboarding/khung chính theo web. Đã chụp emulator đối chiếu. 137 test pass. |
-| 2 Explore & Places | ĐANG LÀM, phần lõi xong (PR #103 chờ review; tiếp nối ở nhánh `nhiby/feature/mobile-save-collections`) | Explore + chi tiết địa điểm: PR [#103](https://github.com/tripsense-team/tripsense-platform/pull/103) (commit `55ae057`, đã push). Lưu địa điểm + Bộ sưu tập + tab Saved: code + test xong trên nhánh `nhiby/feature/mobile-save-collections`, **chưa commit**. 203 test pass, analyze 0 issue. **Chưa làm:** bản đồ MapLibre, gallery ảnh, phân trang feed, tìm kiếm trong Đã lưu, sections cuộn ngang. |
+| 2 Explore & Places | ĐANG LÀM, phần lõi xong | Explore + chi tiết: PR [#103](https://github.com/tripsense-team/tripsense-platform/pull/103) (`55ae057`, đã push, chờ review). Lưu địa điểm + Bộ sưu tập + tab Saved: commit local `29062df` (nhánh `nhiby/feature/mobile-save-collections`, chưa push). Bản đồ MapLibre/MapVina: code + test xong trên nhánh `nhiby/feature/mobile-map`, **chưa commit**. 210 test pass, analyze 0 issue. **Chưa làm:** gallery ảnh, phân trang feed, tìm kiếm trong Đã lưu, sections cuộn ngang, vị trí hiện tại & chỉ đường. |
 | 3 Trips & AI Planner | TODO | |
 | 4–7 | TODO | |
 
@@ -255,3 +255,15 @@ Verification Phase 0–1: `flutter analyze` 0 issue; `flutter test` 23 test pass
 - Chưa làm: ô tìm kiếm trong Đã lưu; nút Xóa trong hộp thoại xác nhận đang kéo dài hết chiều ngang.
 
 **Việc tiếp theo gợi ý:** commit nhánh save-collections (khi người dùng đồng ý) và push/tạo PR; sau đó Bản đồ (cần key MapVina), gallery ảnh, rồi sang Phase 3 (Trips & AI Planner).
+
+
+### Nhật ký 2026-11-14
+**Quyết định:** commit nhánh Lưu/Bộ sưu tập ở local (`29062df`, chưa push theo yêu cầu); làm tiếp Bản đồ trên nhánh `nhiby/feature/mobile-map` (cắt từ nhánh save-collections).
+
+**3. Bản đồ MapLibre + MapVina** (nhánh `nhiby/feature/mobile-map`, **chưa commit**)
+- Thêm `maplibre_gl ^0.28.0`. `lib/features/map/presentation/places_map.dart`: `PlacesMapData`/`MapMarker` (không phụ thuộc kiểu MapLibre), `placesMapBuilderProvider` (test thay bằng bản giả vì platform view không chạy trong `flutter test`), `MapLibrePlacesMap` vẽ chấm bằng `addCircles`, chạm chấm gọi `onSelect`, tự zoom vừa các điểm (1 điểm thì zoom 15).
+- Explore có nút **Map/List**: chế độ bản đồ hiển thị các địa điểm có tọa độ; chạm chấm → chấm chuyển màu cam + thẻ nhỏ `PlaceMiniCard` (tim lưu + mở chi tiết). Chi tiết địa điểm có mục "Vị trí" với bản đồ nhỏ không tương tác.
+- **Key bản đồ không commit:** `AppConfig.mapvinaApiKey` đọc từ `--dart-define=MAPVINA_API_KEY`; file `dart_defines.local.json` nằm trong `.gitignore`, có `dart_defines.example.json` làm mẫu; chạy bằng `flutter run --dart-define-from-file=dart_defines.local.json` (đã ghi trong README). Style `https://maps.mapvina.com/styles/v2/streets.json?key=...` như web; thiếu key thì dùng tile raster CARTO dự phòng (giống web). Key Ziomap chỉ dùng ở backend nên app **không** lưu/ dùng.
+- Test: 210 pass (7 test mới trong `test/features/map/places_map_test.dart`: style MapVina/dự phòng, bật/tắt bản đồ, chấm chỉ cho địa điểm có tọa độ, thẻ chọn mở chi tiết, lỗi + thử lại, bản đồ nhỏ ở chi tiết). Analyze 0 issue.
+- Đã xem trên emulator: tile MapVina hiển thị đúng quanh Đà Nẵng, các chấm đúng vị trí, chạm chấm hiện thẻ. **Chưa xem bản đồ nhỏ ở trang chi tiết trên emulator** (emulator tắt do thiếu RAM; test widget đã phủ).
+- Chưa làm: vị trí hiện tại & chỉ đường (P2), gom cụm (cluster) khi nhiều chấm chồng nhau.

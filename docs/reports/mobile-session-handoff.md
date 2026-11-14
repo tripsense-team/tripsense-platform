@@ -21,9 +21,10 @@ Thứ tự chồng (mới nhất ở dưới):
 | `nhiby/feature/mobile-onboarding` | Wizard onboarding 10 bước + cổng bắt buộc | `a27e894`, `010a156` |
 | `nhiby/feature/mobile-ui-polish` | UI giống web (pill, hero gradient, tab 5 như web, menu avatar) + nhúng font Inter | `01b1f4f`, `3645127` (font), `4c0daa3`, `9d0c115` |
 | `nhiby/feature/mobile-explore-places` | Explore + chi tiết địa điểm, **đã push**, PR #103 vào `dev` (chờ review, chưa merge) | `55ae057` |
-| `nhiby/feature/mobile-save-collections` | **ĐANG LÀM / chưa commit**: lưu địa điểm, Bộ sưu tập, tab Saved (xem mục 8) | — |
+| `nhiby/feature/mobile-save-collections` | Lưu địa điểm, Bộ sưu tập, tab Saved. **Đã commit local, chưa push** | `29062df` |
+| `nhiby/feature/mobile-map` | **ĐANG LÀM / chưa commit**: bản đồ MapLibre + MapVina (Explore + chi tiết), cắt từ nhánh save-collections | — |
 
-Trạng thái kiểm tra mới nhất (nhánh `mobile-save-collections`): `flutter analyze` 0 lỗi, **203 test pass**.
+Trạng thái kiểm tra mới nhất (nhánh `mobile-map`): `flutter analyze` 0 lỗi, **210 test pass**.
 
 ## 3. Kiến trúc app (đã dựng)
 ```
@@ -66,19 +67,21 @@ Test theo **hành vi từng tính năng**, không theo từng hàm: (1) **Unit**
 - File: `docs/reports/mobile-user-app-tracking-v2.xlsx` (157 chức năng, 11 nhóm, banner từng nhóm có % tiến độ, dropdown trạng thái, cột nhánh Git / trạng thái code / link commit / issue / test). **File gốc `mobile-user-app-tracking.xlsx` thường bị Excel khóa** (có file `~$...`) → luôn ghi ra bản `-v2` và nhờ người dùng đóng bản cũ.
 - **QUY TẮC: làm tới đâu cập nhật Excel tới đó** (cả khi làm dở), rồi gửi file cho người dùng bằng `SendUserFile`.
 - Cách cập nhật (tạo lại toàn bộ từ dữ liệu, an toàn vì người dùng chưa sửa tay): sửa dữ liệu `MODULES` trong `docs/reports/tools/build_tracker.py` (hàm `T(...)`, `DONE`, `TEST`), ánh xạ test/nhánh/commit trong `docs/reports/tools/build_tracker2.py` (dict `TESTS`, hằng `*_BRANCH`, `*_COMMIT`), rồi chạy `py -X utf8 docs\reports\tools\build_tracker2.py` (**ghi thẳng ra `-v2.xlsx`**, 2 file đã tự tìm nhau theo thư mục, không còn phụ thuộc thư mục tạm). Công thức đã được kiểm bằng thư viện `formulas`. `stage_check.py` in thống kê + liệt kê dòng thiếu test. Sau khi sinh file: gửi người dùng (`SendUserFile`) + commit file `-v2` cùng `docs/features/mobile-user-app.md` (Implementation Log).
-- Trạng thái hiện tại (13/11/2026): xem dòng tổng ở đầu sheet. Nhóm Khám phá & Địa điểm đã push (PR #103, commit `55ae057`); nhóm Bộ sưu tập & Đã lưu + 2 dòng "Hành động trên địa điểm" ở nhánh `nhiby/feature/mobile-save-collections`, trạng thái code "Chưa commit". Khi commit/push nhánh save-collections: đặt hash thật cho `SAVE_COMMIT` (thêm hằng này vào `build_tracker2.py`) và đổi `CODE_LOCAL` -> `CODE_COMMIT`/`CODE_PUSHED` cho nhóm đó.
+- Trạng thái hiện tại (14/11/2026): xem dòng tổng ở đầu sheet. Khám phá đã push (PR #103, `55ae057`); Lưu/Bộ sưu tập commit local `29062df` (`SAVE_COMMIT`); Bản đồ ở nhánh `nhiby/feature/mobile-map`, trạng thái code "Chưa commit". Khi commit nhánh map: thêm hằng `MAP_COMMIT` trong `build_tracker2.py`, đổi `CODE_LOCAL` -> `CODE_COMMIT`/`CODE_PUSHED` cho nhóm Bản đồ.
 - Việc còn mở trong Excel: Google Sign-In (Bị chặn, thiếu OAuth client ID), đăng nhập/OTP/đăng xuất/chặn admin "Đang kiểm thử" (người dùng đã đăng nhập thật nên phần lớn đã được xác nhận ngầm), kiểm tra chế độ tối, đối chiếu từng màn mới với web, CI (analyze+test), flavor dev/prod, iOS.
 
-## 8. Trạng thái Phase 2 (cập nhật 13/11/2026)
-**Đã xong:** Explore + chi tiết địa điểm (PR #103); lưu địa điểm / Bộ sưu tập / tab Saved (nhánh `nhiby/feature/mobile-save-collections`, **chưa commit**, 203 test pass). Chi tiết từng phần, lỗi đã gặp và cách xử lý: `docs/features/mobile-user-app.md` mục "Nhật ký 2026-11-13".
+## 8. Trạng thái Phase 2 (cập nhật 14/11/2026)
+**Đã xong:** Explore + chi tiết (PR #103, đã push); lưu địa điểm / Bộ sưu tập / tab Saved (commit local `29062df`, chưa push); bản đồ MapLibre + MapVina (nhánh `nhiby/feature/mobile-map`, **chưa commit**, 210 test pass). Chi tiết, lỗi đã gặp: `docs/features/mobile-user-app.md` mục "Nhật ký 2026-11-13" và "Nhật ký 2026-11-14".
 
-**Còn lại của Phase 2:** bản đồ MapLibre (cần key MapVina), gallery ảnh vuốt ngang, phân trang feed, sections cuộn ngang theo danh mục, ô tìm kiếm trong Đã lưu.
+**Còn lại của Phase 2:** gallery ảnh vuốt ngang, phân trang feed, sections cuộn ngang theo danh mục, ô tìm kiếm trong Đã lưu, vị trí hiện tại & chỉ đường, gom cụm chấm trên bản đồ.
 
-**Việc đầu tiên khi mở lại:** hỏi người dùng có muốn commit nhánh `mobile-save-collections` (rồi push + tạo PR vào `dev`) không. Tuyệt đối không commit/push khi chưa được đồng ý; trước đó chạy `flutter analyze` + `flutter test`.
+**Việc đầu tiên khi mở lại:** hỏi người dùng có muốn commit nhánh `mobile-map` không (và khi nào push + tạo PR cho `mobile-save-collections`/`mobile-map`). Không commit/push khi chưa được đồng ý; trước đó chạy `flutter analyze` + `flutter test`. Không commit `docker-compose.yml`, `android/.settings/*.prefs`, file khóa Excel `~$*.xlsx`.
+
+**Key bản đồ:** để trong `apps/mobile/tripsense/dart_defines.local.json` (gitignored, KHÔNG commit, không dán vào docs/chat). Chạy app: `flutter run -d emulator-5554 --no-pub --dart-define-from-file=dart_defines.local.json`. Nếu file mất, xin người dùng key MapVina (cùng loại `NEXT_PUBLIC_MAPVINA_API_KEY` của web). Key Ziomap là của backend, app không dùng.
 
 **Hợp đồng API đã xác minh qua gateway `:8085`:** xem plan. Thêm: `/api/places/me/collections` (GET/POST, PATCH/DELETE theo id), `/api/places/me/saved?collectionId&page&size`, `POST /api/places/me/saved-status:batch {placeRefs}`, `PUT|DELETE /api/places/me/collections/{id}/places/{placeRef}`. Đã thử thật bằng tài khoản người dùng trên DB prod (tạo/lưu/xóa) và đã dọn.
 
-**Lưu ý kỹ thuật mới:** Riverpod 3 tự retry provider lỗi (đặt `retry: (_, _) => null` cho provider cần hiện lỗi); theme có `minimumSize` vô hạn cho nút (nút trong `Row` phải đặt `minimumSize: Size(0, 48)`); test widget phải `pump()` sau `enterText` trước khi bấm nút phụ thuộc text; lệnh `python` không có, dùng `py -X utf8`; heredoc Bash dài hay lỗi → ghi file bằng công cụ Write rồi chạy.
+**Lưu ý kỹ thuật:** Riverpod 3 tự retry provider lỗi (đặt `retry: (_, _) => null` cho provider cần hiện lỗi); `Override` import từ `flutter_riverpod/misc.dart`; theme có `minimumSize` vô hạn cho nút (nút trong `Row` phải đặt `minimumSize: Size(0, 48)`); test widget phải `pump()` sau `enterText` trước khi bấm nút phụ thuộc text; lệnh `python` không có, dùng `py -X utf8`; heredoc Bash dài hay lỗi → ghi file bằng công cụ Write; emulator hay tự tắt khi thiếu RAM (bật lại bằng `emulator -avd Pixel_6 ...`).
 
 ## 9. Các phase còn lại (theo plan, thứ tự gợi ý)
 Phase 2 tiếp: tìm kiếm nâng cao/lọc, bản đồ (MapLibre + tile MapVina cần key), lưu địa điểm/Collections/Saved. Phase 3: Trips (+ mời, cộng tác SSE, Calendar) và AI Planner (stream). Phase 4: Community. Phase 5: Chat (SSE) & Notifications (FCM **không làm**). Phase 6: Hồ sơ đầy đủ & Cài đặt (đổi ngôn ngữ/theme/mật khẩu). Phase 7: Đặt chỗ (khách sạn, nhà hàng, guide, thuê đồ, PayOS deep link). Chất lượng: CI, flavor, build release, iOS (cần Mac), Google Sign-In (cần OAuth client ID Android/iOS).
