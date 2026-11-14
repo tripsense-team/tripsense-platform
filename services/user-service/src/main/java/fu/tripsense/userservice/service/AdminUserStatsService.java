@@ -75,9 +75,7 @@ public class AdminUserStatsService {
     jdbc.query(
         "SELECT status, COUNT(*) AS cnt FROM users GROUP BY status",
         rs -> {
-          while (rs.next()) {
-            statusMap.put(rs.getString("status"), rs.getLong("cnt"));
-          }
+          statusMap.put(rs.getString("status"), rs.getLong("cnt"));
         });
     long activeUsers = statusMap.getOrDefault("ACTIVE", 0L);
     long unverifiedUsers = statusMap.getOrDefault("UNVERIFIED", 0L);
@@ -120,9 +118,7 @@ public class AdminUserStatsService {
     jdbc.query(
         "SELECT COALESCE(upper(auth_provider), 'LOCAL') AS prov, COUNT(*) AS cnt FROM users GROUP BY 1",
         rs -> {
-          while (rs.next()) {
-            providerMap.put(rs.getString("prov"), rs.getLong("cnt"));
-          }
+          providerMap.put(rs.getString("prov"), rs.getLong("cnt"));
         });
     AuthProviderBreakdown authBreakdown =
         new AuthProviderBreakdown(
@@ -136,11 +132,9 @@ public class AdminUserStatsService {
     jdbc.query(
         "SELECT created_at::date AS d, COUNT(*) AS cnt FROM users WHERE created_at >= ? AND created_at < ? GROUP BY 1",
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            if (dailyMap.containsKey(d)) {
-              dailyMap.put(d, rs.getLong("cnt"));
-            }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          if (dailyMap.containsKey(d)) {
+            dailyMap.put(d, rs.getLong("cnt"));
           }
         },
         tsStart,

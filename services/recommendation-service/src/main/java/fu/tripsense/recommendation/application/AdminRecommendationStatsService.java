@@ -53,9 +53,7 @@ public class AdminRecommendationStatsService {
     jdbc.query(
         "SELECT event_type, COUNT(*) AS cnt FROM recommendation_feedback_event GROUP BY event_type",
         rs -> {
-          while (rs.next()) {
-            eventCounts.put(rs.getString("event_type"), rs.getLong("cnt"));
-          }
+          eventCounts.put(rs.getString("event_type"), rs.getLong("cnt"));
         });
 
     long impressionsEvents = eventCounts.getOrDefault("IMPRESSION", 0L);
@@ -100,12 +98,10 @@ public class AdminRecommendationStatsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            String bucket = rs.getString("bucket");
-            long imp = rs.getLong("imp_cnt");
-            long clk = rs.getLong("clk_cnt");
-            posMap.put(bucket, new long[] {imp, clk});
-          }
+          String bucket = rs.getString("bucket");
+          long imp = rs.getLong("imp_cnt");
+          long clk = rs.getLong("clk_cnt");
+          posMap.put(bucket, new long[] {imp, clk});
         });
 
     List<PositionBucketStats> positionBuckets =
@@ -130,17 +126,15 @@ public class AdminRecommendationStatsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            String mode = rs.getString("mode");
-            long imp = rs.getLong("imp_cnt");
-            long clk = rs.getLong("clk_cnt");
-            if ("PERSONALIZED".equals(mode)) {
-              persAndDeg[0] = imp;
-              persAndDeg[1] = clk;
-            } else {
-              persAndDeg[2] = imp;
-              persAndDeg[3] = clk;
-            }
+          String mode = rs.getString("mode");
+          long imp = rs.getLong("imp_cnt");
+          long clk = rs.getLong("clk_cnt");
+          if ("PERSONALIZED".equals(mode)) {
+            persAndDeg[0] = imp;
+            persAndDeg[1] = clk;
+          } else {
+            persAndDeg[2] = imp;
+            persAndDeg[3] = clk;
           }
         });
 

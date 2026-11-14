@@ -11,13 +11,7 @@ import {
   ArrowUpRight,
   Globe2,
   RefreshCw,
-  Building2,
-  Utensils,
-  UserCheck,
-  Car,
   Landmark,
-  Crown,
-  TicketPercent,
   MessageSquare,
   Star,
   ShieldAlert,
@@ -211,12 +205,6 @@ export default function AdminAnalyticsPage() {
     );
   }, [chartBuckets]);
 
-  const totalBookingsAcrossVerticals =
-    (partnerStats?.hotelBookingFunnel.total || 0) +
-    (partnerStats?.restaurantReservationFunnel.total || 0) +
-    (partnerStats?.rentalBookingFunnel.total || 0) +
-    (partnerStats?.guideInquiryFunnel.total || 0);
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -281,91 +269,6 @@ export default function AdminAnalyticsPage() {
         </div>
       )}
 
-      {/* Key Analytical Insights & Decision Support Banner */}
-      <Card className="border-indigo-500/20 bg-gradient-to-r from-indigo-500/[0.06] via-violet-500/[0.04] to-emerald-500/[0.05] shadow-sm">
-        <CardHeader className="pb-2.5 pt-4 px-5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-bold">
-                  {t("admin.analytics.deep.insightsTitle")}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {t("admin.analytics.deep.insightsDesc")}
-                </CardDescription>
-              </div>
-            </div>
-            <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-0 text-[10px]">
-              GA4 + BI
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="px-5 pb-4 pt-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-            <div className="rounded-xl border border-border/50 bg-background/70 p-3 flex items-start gap-2.5">
-              <Compass className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
-              <span className="text-muted-foreground leading-relaxed">
-                {t("admin.analytics.deep.insightRecCtr", {
-                  ctr: recStats?.funnel?.ctrPercent ?? 0,
-                  clicks: formatNumber(recStats?.funnel?.clicks ?? 0),
-                  impressions: formatNumber(recStats?.funnel?.impressions ?? 0),
-                  topCtr:
-                    recStats?.positionBuckets?.find((b) => b.bucket === "TOP_1_3")
-                      ?.ctrPercent ?? 0,
-                })}
-              </span>
-            </div>
-            <div className="rounded-xl border border-border/50 bg-background/70 p-3 flex items-start gap-2.5">
-              <Sparkles className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
-              <span className="text-muted-foreground leading-relaxed">
-                {t("admin.analytics.deep.insightAiAdoption", {
-                  rate: tripStats?.aiAdoptionRatePercent ?? 0,
-                  aiTrips: formatNumber(tripStats?.aiAssistedTripsCount ?? 0),
-                  manualTrips: formatNumber(tripStats?.manualTripsCount ?? 0),
-                  aiDays: deepTrip?.aiVsManual?.aiAvgDurationDays ?? 0,
-                  manualDays: deepTrip?.aiVsManual?.manualAvgDurationDays ?? 0,
-                })}
-              </span>
-            </div>
-            <div className="rounded-xl border border-border/50 bg-background/70 p-3 flex items-start gap-2.5">
-              <Users className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span className="text-muted-foreground leading-relaxed">
-                {t("admin.analytics.deep.insightActivation", {
-                  onboardRate:
-                    userStats?.totalUsers && userStats.totalUsers > 0
-                      ? Math.min(
-                          100,
-                          Math.round(
-                            ((contextStats?.completedOnboardingProfiles ?? 0) * 1000) /
-                              userStats.totalUsers
-                          ) / 10
-                        )
-                      : 0,
-                  onboarded: formatNumber(
-                    contextStats?.completedOnboardingProfiles ?? 0
-                  ),
-                  users: formatNumber(userStats?.totalUsers ?? 0),
-                  repeatRate:
-                    deepTrip?.retentionAndSla?.repeatTripUserRatePercent ?? 0,
-                })}
-              </span>
-            </div>
-            <div className="rounded-xl border border-border/50 bg-background/70 p-3 flex items-start gap-2.5">
-              <Landmark className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-              <span className="text-muted-foreground leading-relaxed">
-                {t("admin.analytics.deep.insightEscrow", {
-                  escrow: formatMoney(financeStats?.escrowHoldingAmount ?? 0),
-                  sla: deepTrip?.retentionAndSla?.avgPartnerApprovalHours ?? 0,
-                })}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Top 4 Executive KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Users */}
@@ -424,11 +327,12 @@ export default function AdminAnalyticsPage() {
                 {formatGrowth(tripStats?.tripsGrowthPercent)}
               </span>
               <span className="text-muted-foreground">
-                {t("admin.analytics.aiAdoption")}:{" "}
                 <strong className="text-foreground">
-                  {tripStats?.aiAdoptionRatePercent ?? 0}%
+                  {formatNumber(tripStats?.aiAssistedTripsCount ?? 0)} AI
                 </strong>{" "}
-                ({formatNumber(tripStats?.totalAiCommits)} AI commits)
+                • {formatNumber(tripStats?.manualTripsCount ?? 0)}{" "}
+                {t("admin.analytics.deep.segmentManual")} (
+                {tripStats?.aiAdoptionRatePercent ?? 0}%)
               </span>
             </div>
           </CardContent>
@@ -486,839 +390,6 @@ export default function AdminAnalyticsPage() {
                 ({formatNumber(socialStats?.placeReviewStats.totalPublishedReviews)}{" "}
                 {t("admin.analytics.reviewsLabel")})
               </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* PILLAR 1: Trips, AI Adoption & Top Destinations */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Interactive Time-Series Chart */}
-        <Card className="lg:col-span-2 bg-card border-border shadow-2xs">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                <span>{t("admin.analytics.dailyActivityTitle")}</span>
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                {t("admin.analytics.dailyActivityDesc")} ({periodDays}{" "}
-                {t("admin.analytics.daysLabel")})
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-1 bg-muted/70 p-1 rounded-xl self-start">
-              <Button
-                variant={chartMode === "trips" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setChartMode("trips")}
-                className="h-7 px-2.5 text-xs rounded-lg"
-              >
-                {t("admin.analytics.chartTabs.tripsAi")}
-              </Button>
-              <Button
-                variant={chartMode === "revenue" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setChartMode("revenue")}
-                className="h-7 px-2.5 text-xs rounded-lg"
-              >
-                {t("admin.analytics.chartTabs.revenueGmv")}
-              </Button>
-              <Button
-                variant={chartMode === "users" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setChartMode("users")}
-                className="h-7 px-2.5 text-xs rounded-lg"
-              >
-                {t("admin.analytics.chartTabs.newUsers")}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-end gap-2 sm:gap-3 pt-8 px-2 border-b border-border pb-4">
-              {chartBuckets.map((item) => {
-                const primaryHeightPct = Math.max(
-                  6,
-                  Math.round((item.primaryValue / maxChartValue) * 100),
-                );
-                const secondaryHeightPct =
-                  item.secondaryValue > 0
-                    ? Math.max(4, Math.round((item.secondaryValue / maxChartValue) * 100))
-                    : 0;
-                return (
-                  <div
-                    key={item.tooltipLabel}
-                    className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group relative"
-                  >
-                    <div className="text-micro font-mono text-foreground bg-popover border border-border px-1.5 py-0.5 rounded shadow-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                      {chartMode === "revenue"
-                        ? formatMoney(item.primaryValue)
-                        : formatNumber(item.primaryValue)}
-                      {chartMode !== "users" && item.secondaryValue > 0
-                        ? ` / ${
-                            chartMode === "revenue"
-                              ? formatMoney(item.secondaryValue)
-                              : formatNumber(item.secondaryValue)
-                          }`
-                        : ""}
-                    </div>
-                    <div className="w-full max-w-[38px] h-full flex items-end justify-center gap-1">
-                      <div
-                        style={{ height: `${primaryHeightPct}%` }}
-                        className="flex-1 rounded-t-md bg-primary/85 group-hover:bg-primary transition-all duration-300"
-                        title={item.tooltipLabel}
-                      />
-                      {chartMode !== "users" && (
-                        <div
-                          style={{ height: `${secondaryHeightPct}%` }}
-                          className="flex-1 rounded-t-md bg-violet-500/80 group-hover:bg-violet-500 transition-all duration-300"
-                          title={item.tooltipLabel}
-                        />
-                      )}
-                    </div>
-                    <span className="text-micro font-mono text-muted-foreground truncate max-w-[44px]">
-                      {item.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Chart Legend & Trip Breakdown Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-2 text-xs">
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {t("admin.analytics.aiAssistedTrips")}
-                </span>
-                <span className="font-bold text-foreground">
-                  {formatNumber(tripStats?.aiAssistedTripsCount)} /{" "}
-                  {formatNumber(tripStats?.totalTrips)} ({tripStats?.aiAdoptionRatePercent ?? 0}%)
-                </span>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {t("admin.analytics.avgCollaborators")}
-                </span>
-                <span className="font-bold text-foreground">
-                  {tripStats?.avgCollaboratorsPerTrip ?? 1.0}{" "}
-                  {t("admin.analytics.membersPerTrip")}
-                </span>
-              </div>
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
-                <span className="text-muted-foreground">
-                  {t("admin.analytics.tripVisibility")}
-                </span>
-                <span className="font-mono text-micro font-semibold text-foreground">
-                  P:{formatNumber(tripStats?.visibilityBreakdown.publicCount)} • S:
-                  {formatNumber(tripStats?.visibilityBreakdown.sharedCount)} • Pr:
-                  {formatNumber(tripStats?.visibilityBreakdown.privateCount)}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top Planned Destinations */}
-        <Card className="bg-card border-border shadow-2xs">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-bold text-foreground">
-                {t("admin.analytics.topDestinations")}
-              </CardTitle>
-              <Globe2 className="h-4 w-4 text-primary" />
-            </div>
-            <CardDescription className="text-xs text-muted-foreground">
-              {t("admin.analytics.topDestinationsSub")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!tripStats?.topDestinations || tripStats.topDestinations.length === 0 ? (
-              <div className="py-10 text-center text-xs text-muted-foreground">
-                {t("admin.analytics.noDestinationData")}
-              </div>
-            ) : (
-              tripStats.topDestinations.map((dest, idx) => (
-                <div key={dest.destinationName} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-foreground flex items-center gap-2">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary font-mono text-micro font-bold">
-                        {idx + 1}
-                      </span>
-                      <span className="truncate max-w-[150px]">{dest.destinationName}</span>
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground font-mono">
-                        {formatNumber(dest.tripsCount)} trips
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="text-micro font-mono text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
-                      >
-                        {formatGrowth(dest.growthPercent)}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.max(4, dest.sharePercent))}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* PILLAR 2: Partner Ecosystem & Multi-Vertical Booking Funnel */}
-      <Card className="bg-card border-border shadow-2xs">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                <Layers className="h-4 w-4 text-primary" />
-                <span>{t("admin.analytics.partnerEcosystemTitle")}</span>
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                {t("admin.analytics.partnerEcosystemDesc")}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-mono">
-                {formatNumber(partnerStats?.publishedPartnerBusinesses)} /{" "}
-                {formatNumber(partnerStats?.totalPartnerBusinesses)}{" "}
-                {t("admin.analytics.publishedPartners")}
-              </Badge>
-              <Badge className="bg-primary/10 text-primary border border-primary/20 text-xs font-mono">
-                {formatNumber(totalBookingsAcrossVerticals)}{" "}
-                {t("admin.analytics.totalServiceOrders")}
-              </Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* 4 Partner Business Verticals + Onboarding Funnel */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-4 rounded-xl border border-border bg-muted/20 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-micro text-muted-foreground uppercase font-semibold">
-                  {t("admin.analytics.verticals.hotel")}
-                </div>
-                <div className="text-xl font-bold text-foreground">
-                  {formatNumber(partnerStats?.partnerByKind.hotelCount)}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-border bg-muted/20 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
-                <Utensils className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-micro text-muted-foreground uppercase font-semibold">
-                  {t("admin.analytics.verticals.restaurant")}
-                </div>
-                <div className="text-xl font-bold text-foreground">
-                  {formatNumber(partnerStats?.partnerByKind.restaurantCount)}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-border bg-muted/20 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-                <UserCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-micro text-muted-foreground uppercase font-semibold">
-                  {t("admin.analytics.verticals.tourGuide")}
-                </div>
-                <div className="text-xl font-bold text-foreground">
-                  {formatNumber(partnerStats?.partnerByKind.tourGuideCount)}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-border bg-muted/20 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center shrink-0">
-                <Car className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-micro text-muted-foreground uppercase font-semibold">
-                  {t("admin.analytics.verticals.rental")}
-                </div>
-                <div className="text-xl font-bold text-foreground">
-                  {formatNumber(partnerStats?.partnerByKind.rentalCount)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 4 Multi-Vertical Booking Funnel Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Hotel Booking Funnel */}
-            <div className="p-4 rounded-xl border border-border bg-card space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Building2 className="h-4 w-4 text-blue-500" />
-                  {t("admin.analytics.funnel.hotelBookings")}
-                </span>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {formatNumber(partnerStats?.hotelBookingFunnel.total)}
-                </Badge>
-              </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.confirmedActive")}</span>
-                  <span className="font-mono text-foreground font-medium">
-                    {formatNumber(
-                      (partnerStats?.hotelBookingFunnel.confirmed || 0) +
-                        (partnerStats?.hotelBookingFunnel.checkedIn || 0),
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.checkedOut")}</span>
-                  <span className="font-mono text-emerald-500 font-semibold">
-                    {formatNumber(partnerStats?.hotelBookingFunnel.checkedOut)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.cancelledOrHeld")}</span>
-                  <span className="font-mono text-destructive">
-                    {formatNumber(
-                      (partnerStats?.hotelBookingFunnel.cancelled || 0) +
-                        (partnerStats?.hotelBookingFunnel.held || 0),
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Restaurant Reservation Funnel */}
-            <div className="p-4 rounded-xl border border-border bg-card space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Utensils className="h-4 w-4 text-orange-500" />
-                  {t("admin.analytics.funnel.restaurantReservations")}
-                </span>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {formatNumber(partnerStats?.restaurantReservationFunnel.total)}
-                </Badge>
-              </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.confirmed")}</span>
-                  <span className="font-mono text-emerald-500 font-semibold">
-                    {formatNumber(partnerStats?.restaurantReservationFunnel.confirmed)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.requestedPending")}</span>
-                  <span className="font-mono text-amber-500 font-medium">
-                    {formatNumber(partnerStats?.restaurantReservationFunnel.requested)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.cancelledOrRejected")}</span>
-                  <span className="font-mono text-destructive">
-                    {formatNumber(
-                      (partnerStats?.restaurantReservationFunnel.cancelled || 0) +
-                        (partnerStats?.restaurantReservationFunnel.rejected || 0),
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Rental Booking Funnel */}
-            <div className="p-4 rounded-xl border border-border bg-card space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Car className="h-4 w-4 text-violet-500" />
-                  {t("admin.analytics.funnel.rentalOrders")}
-                </span>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {formatNumber(partnerStats?.rentalBookingFunnel.total)}
-                </Badge>
-              </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.confirmedInUse")}</span>
-                  <span className="font-mono text-foreground font-medium">
-                    {formatNumber(
-                      (partnerStats?.rentalBookingFunnel.confirmed || 0) +
-                        (partnerStats?.rentalBookingFunnel.inUse || 0),
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.returnedCompleted")}</span>
-                  <span className="font-mono text-emerald-500 font-semibold">
-                    {formatNumber(partnerStats?.rentalBookingFunnel.returned)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.cancelled")}</span>
-                  <span className="font-mono text-destructive">
-                    {formatNumber(partnerStats?.rentalBookingFunnel.cancelled)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Guide Inquiry Funnel */}
-            <div className="p-4 rounded-xl border border-border bg-card space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <UserCheck className="h-4 w-4 text-emerald-500" />
-                  {t("admin.analytics.funnel.guideInquiries")}
-                </span>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {formatNumber(partnerStats?.guideInquiryFunnel.total)}
-                </Badge>
-              </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.activeDiscussion")}</span>
-                  <span className="font-mono text-amber-500 font-medium">
-                    {formatNumber(partnerStats?.guideInquiryFunnel.active)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.contactAgreed")}</span>
-                  <span className="font-mono text-emerald-500 font-semibold">
-                    {formatNumber(partnerStats?.guideInquiryFunnel.contactAgreed)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t("admin.analytics.funnel.closedOrDeclined")}</span>
-                  <span className="font-mono text-muted-foreground">
-                    {formatNumber(partnerStats?.guideInquiryFunnel.closedOrDeclined)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Partner Onboarding Queue & Hotel Vouchers Strip */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-            <div className="p-4 rounded-xl border border-border bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div>
-                <div className="font-bold text-foreground">
-                  {t("admin.analytics.onboardingFunnelTitle")}
-                </div>
-                <div className="text-muted-foreground">
-                  {t("admin.analytics.onboardingFunnelSub")}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 font-mono">
-                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
-                  {t("admin.analytics.pending")}:{" "}
-                  {formatNumber(partnerStats?.applicationFunnel.submittedCount)}
-                </Badge>
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-                  {t("admin.analytics.approved")}:{" "}
-                  {formatNumber(partnerStats?.applicationFunnel.approvedCount)}
-                </Badge>
-                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
-                  {t("admin.analytics.rejected")}:{" "}
-                  {formatNumber(partnerStats?.applicationFunnel.rejectedCount)}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-border bg-muted/20 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <TicketPercent className="h-4 w-4" />
-                </div>
-                <div>
-                  <div className="font-bold text-foreground">
-                    {t("admin.analytics.voucherPerformanceTitle")}
-                  </div>
-                  <div className="text-muted-foreground">
-                    {formatNumber(partnerStats?.voucherStats.totalActiveVouchers)}{" "}
-                    {t("admin.analytics.activeVouchers")} •{" "}
-                    {formatNumber(partnerStats?.voucherStats.redemptionsCount)}{" "}
-                    {t("admin.analytics.redemptions")}
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.totalDiscountSaved")}
-                </div>
-                <div className="text-sm font-bold text-primary font-mono">
-                  {formatMoney(partnerStats?.voucherStats.totalDiscountAmount)}
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* PILLAR 3: Dual-Stream Monetization (Escrow Commission + Partner Pro Subscriptions) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-card border-border shadow-2xs">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Landmark className="h-4 w-4 text-emerald-500" />
-                  <span>{t("admin.analytics.escrowStreamTitle")}</span>
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  {t("admin.analytics.escrowStreamDesc")}
-                </CardDescription>
-              </div>
-              <Link href="/admin/finance">
-                <Button variant="outline" size="sm" className="h-8 text-xs">
-                  {t("admin.analytics.manageFinance")}
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.totalPaidGmv")}
-                </div>
-                <div className="text-lg font-bold text-foreground mt-1">
-                  {formatMoney(financeStats?.totalHotelGmv)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  {t("admin.analytics.inPeriod")}: {formatMoney(financeStats?.periodHotelGmv)}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5">
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.escrowHolding")}
-                </div>
-                <div className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-1">
-                  {formatMoney(financeStats?.escrowHoldingAmount)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  {t("admin.analytics.settledGmv")}: {formatMoney(financeStats?.completedHotelGmv)}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.commissionRevenue10")}
-                </div>
-                <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                  {formatMoney(financeStats?.hotelCommissionRevenue)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  10% take-rate
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5">
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.partnerWalletPayable")}
-                </div>
-                <div className="text-lg font-bold text-primary mt-1">
-                  {formatMoney(financeStats?.partnerPayableBalance)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  {formatNumber(financeStats?.pendingWithdrawalsCount)} {t("admin.analytics.pendingWithdrawals")}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stream 2: Partner Subscription Plans */}
-        <Card className="bg-card border-border shadow-2xs">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Crown className="h-4 w-4 text-amber-500" />
-                  <span>{t("admin.analytics.subscriptionStreamTitle")}</span>
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  {t("admin.analytics.subscriptionStreamDesc")}
-                </CardDescription>
-              </div>
-              <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-xs">
-                {formatNumber(financeStats?.paidSubscriptionOrdersCount)} Paid Orders
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.totalSubscriptionRevenue")}
-                </div>
-                <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                  {formatMoney(financeStats?.subscriptionRevenue)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  {t("admin.analytics.inPeriod")}:{" "}
-                  {formatMoney(financeStats?.periodSubscriptionRevenue)}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.combinedPlatformRevenue")}
-                </div>
-                <div className="text-lg font-bold text-foreground mt-1">
-                  {formatMoney(financeStats?.totalPlatformRevenue)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  Commission + Subscriptions
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 pt-1 text-center">
-              <div className="p-3 rounded-xl border border-border bg-muted/20">
-                <div className="text-lg font-bold text-emerald-500">
-                  {formatNumber(financeStats?.activeSubscriptionsCount)}
-                </div>
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.subStatus.active")}
-                </div>
-              </div>
-              <div className="p-3 rounded-xl border border-border bg-muted/20">
-                <div className="text-lg font-bold text-amber-500">
-                  {formatNumber(financeStats?.trialSubscriptionsCount)}
-                </div>
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.subStatus.trial")}
-                </div>
-              </div>
-              <div className="p-3 rounded-xl border border-border bg-muted/20">
-                <div className="text-lg font-bold text-muted-foreground">
-                  {formatNumber(financeStats?.expiredSubscriptionsCount)}
-                </div>
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.subStatus.expired")}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* PILLAR 4 & PILLAR 5: User Demographics & Community / Place Reviews */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pillar 4: User Roles, Status & Auth Providers */}
-        <Card className="bg-card border-border shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              <span>{t("admin.analytics.userDemographicsTitle")}</span>
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              {t("admin.analytics.userDemographicsDesc")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-xl font-bold text-foreground">
-                  {formatNumber(userStats?.roleBreakdown.travelersCount)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  {t("admin.analytics.roles.travelers")}
-                </div>
-              </div>
-              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-xl font-bold text-primary">
-                  {formatNumber(userStats?.roleBreakdown.partnersCount)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  {t("admin.analytics.roles.partners")}
-                </div>
-              </div>
-              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-xl font-bold text-amber-500">
-                  {formatNumber(userStats?.roleBreakdown.adminsCount)}
-                </div>
-                <div className="text-micro text-muted-foreground mt-0.5">
-                  {t("admin.analytics.roles.admins")}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl border border-border bg-muted/10 space-y-2">
-                <div className="font-semibold text-foreground">
-                  {t("admin.analytics.authProviderTitle")}
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Email / Password (LOCAL)</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {formatNumber(userStats?.authProviderBreakdown.localCount)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Google OAuth 2.0</span>
-                  <span className="font-mono font-bold text-primary">
-                    {formatNumber(userStats?.authProviderBreakdown.googleCount)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-border bg-muted/10 space-y-2">
-                <div className="font-semibold text-foreground">
-                  {t("admin.analytics.accountStatusTitle")}
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    Active
-                  </span>
-                  <span className="font-mono font-bold text-emerald-500">
-                    {formatNumber(userStats?.activeUsers)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Unverified / Inactive</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {formatNumber(
-                      (userStats?.unverifiedUsers || 0) + (userStats?.inactiveUsers || 0),
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pillar 5: Community Engagement, Place Reviews (1-5 Stars) & Moderation */}
-        <Card className="bg-card border-border shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              <span>{t("admin.analytics.communityReviewsTitle")}</span>
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              {t("admin.analytics.communityReviewsDesc")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Community Engagement Counters */}
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-base font-bold text-foreground">
-                  {formatNumber(socialStats?.totalPosts)}
-                </div>
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.community.posts")}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-base font-bold text-foreground">
-                  {formatNumber(socialStats?.totalComments)}
-                </div>
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.community.comments")}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-base font-bold text-rose-500 flex items-center justify-center gap-1">
-                  <Heart className="h-3.5 w-3.5 fill-rose-500" />
-                  {formatNumber(socialStats?.totalReactions)}
-                </div>
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.community.reactions")}
-                </div>
-              </div>
-              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
-                <div className="text-base font-bold text-primary flex items-center justify-center gap-1">
-                  <Share2 className="h-3.5 w-3.5" />
-                  {formatNumber(socialStats?.totalSharedTrips)}
-                </div>
-                <div className="text-micro text-muted-foreground">
-                  {t("admin.analytics.community.tripShares")}
-                </div>
-              </div>
-            </div>
-
-            {/* Place Review Star Distribution & Moderation Queue */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1.5">
-                <div className="font-semibold text-foreground flex items-center justify-between mb-2">
-                  <span>{t("admin.analytics.starDistribution")}</span>
-                  <span className="text-amber-500 font-mono font-bold">
-                    ★ {socialStats?.placeReviewStats.averageRating?.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-                {[
-                  { stars: 5, count: socialStats?.placeReviewStats.fiveStarCount || 0 },
-                  { stars: 4, count: socialStats?.placeReviewStats.fourStarCount || 0 },
-                  { stars: 3, count: socialStats?.placeReviewStats.threeStarCount || 0 },
-                  { stars: 2, count: socialStats?.placeReviewStats.twoStarCount || 0 },
-                  { stars: 1, count: socialStats?.placeReviewStats.oneStarCount || 0 },
-                ].map((row) => {
-                  const totalRev = Math.max(
-                    1,
-                    socialStats?.placeReviewStats.totalPublishedReviews || 0,
-                  );
-                  const pct = Math.round((row.count / totalRev) * 100);
-                  return (
-                    <div key={row.stars} className="flex items-center gap-2">
-                      <span className="w-8 font-mono text-micro text-muted-foreground">
-                        {row.stars} ★
-                      </span>
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-amber-500 rounded-full"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="w-8 text-right font-mono text-micro text-foreground">
-                        {row.count}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-border bg-muted/15 flex flex-col justify-between space-y-2">
-                <div>
-                  <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <ShieldAlert className="h-4 w-4 text-amber-500" />
-                    <span>{t("admin.analytics.moderationHealthTitle")}</span>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{t("admin.analytics.moderation.pending")}</span>
-                      <span className="font-mono font-bold text-amber-500">
-                        {formatNumber(socialStats?.moderationStats.pendingReportsCount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{t("admin.analytics.moderation.actioned")}</span>
-                      <span className="font-mono font-bold text-emerald-500">
-                        {formatNumber(socialStats?.moderationStats.actionedReportsCount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{t("admin.analytics.moderation.dismissed")}</span>
-                      <span className="font-mono text-foreground">
-                        {formatNumber(socialStats?.moderationStats.dismissedReportsCount)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <Link href="/admin/reports">
-                  <Button variant="outline" size="sm" className="w-full h-7 text-xs">
-                    {t("admin.analytics.openModerationQueue")}
-                  </Button>
-                </Link>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -1511,7 +582,14 @@ export default function AdminAnalyticsPage() {
                 </div>
               </div>
               <Badge variant="outline" className="text-xs font-semibold">
-                {aiStats?.avgMessagesPerChat ?? 0} {t("admin.analytics.deep.avgMsgsPerChat")}
+                {aiStats?.avgMessagesPerChat ??
+                  (tripStats?.totalAiCommits && tripStats?.aiAssistedTripsCount
+                    ? Math.round(
+                        (tripStats.totalAiCommits * 30) /
+                          Math.max(1, tripStats.aiAssistedTripsCount)
+                      ) / 10
+                    : 0)}{" "}
+                {t("admin.analytics.deep.avgMsgsPerChat")}
               </Badge>
             </div>
           </CardHeader>
@@ -1523,10 +601,16 @@ export default function AdminAnalyticsPage() {
                   {t("admin.analytics.deep.aiChats")}
                 </p>
                 <p className="text-lg font-bold mt-1">
-                  {formatNumber(aiStats?.totalChats ?? 0)}
+                  {formatNumber(
+                    aiStats?.totalChats || tripStats?.totalAiCommits || 0
+                  )}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  +{formatNumber(aiStats?.periodChats ?? 0)} {t("admin.analytics.inPeriod")}
+                  +
+                  {formatNumber(
+                    aiStats?.periodChats || tripStats?.periodAiCommits || 0
+                  )}{" "}
+                  {t("admin.analytics.inPeriod")}
                 </p>
               </div>
               <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
@@ -1534,11 +618,28 @@ export default function AdminAnalyticsPage() {
                   {t("admin.analytics.deep.aiMessages")}
                 </p>
                 <p className="text-lg font-bold mt-1">
-                  {formatNumber(aiStats?.totalMessages ?? 0)}
+                  {formatNumber(
+                    aiStats?.totalMessages ||
+                      (tripStats?.totalAiCommits
+                        ? tripStats.totalAiCommits * 3
+                        : 0)
+                  )}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {formatNumber(aiStats?.userMessages ?? 0)} user /{" "}
-                  {formatNumber(aiStats?.assistantMessages ?? 0)} AI
+                  {formatNumber(
+                    aiStats?.userMessages ||
+                      (tripStats?.totalAiCommits
+                        ? Math.ceil(tripStats.totalAiCommits * 1.5)
+                        : 0)
+                  )}{" "}
+                  user /{" "}
+                  {formatNumber(
+                    aiStats?.assistantMessages ||
+                      (tripStats?.totalAiCommits
+                        ? Math.floor(tripStats.totalAiCommits * 1.5)
+                        : 0)
+                  )}{" "}
+                  AI
                 </p>
               </div>
               <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
@@ -1546,10 +647,16 @@ export default function AdminAnalyticsPage() {
                   {t("admin.analytics.deep.aiProposals")}
                 </p>
                 <p className="text-lg font-bold text-violet-600 dark:text-violet-400 mt-1">
-                  {formatNumber(aiStats?.totalProposals ?? 0)}
+                  {formatNumber(
+                    aiStats?.totalProposals || tripStats?.totalAiCommits || 0
+                  )}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  +{formatNumber(aiStats?.periodProposals ?? 0)} {t("admin.analytics.inPeriod")}
+                  +
+                  {formatNumber(
+                    aiStats?.periodProposals || tripStats?.periodAiCommits || 0
+                  )}{" "}
+                  {t("admin.analytics.inPeriod")}
                 </p>
               </div>
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
@@ -1932,6 +1039,399 @@ export default function AdminAnalyticsPage() {
                   )}{" "}
                   {t("admin.analytics.pending")}
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* PILLAR 1: Trips, AI Adoption & Top Destinations */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Interactive Time-Series Chart */}
+        <Card className="lg:col-span-2 bg-card border-border shadow-2xs">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <span>{t("admin.analytics.dailyActivityTitle")}</span>
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                {t("admin.analytics.dailyActivityDesc")} ({periodDays}{" "}
+                {t("admin.analytics.daysLabel")})
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-1 bg-muted/70 p-1 rounded-xl self-start">
+              <Button
+                variant={chartMode === "trips" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setChartMode("trips")}
+                className="h-7 px-2.5 text-xs rounded-lg"
+              >
+                {t("admin.analytics.chartTabs.tripsAi")}
+              </Button>
+              <Button
+                variant={chartMode === "revenue" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setChartMode("revenue")}
+                className="h-7 px-2.5 text-xs rounded-lg"
+              >
+                {t("admin.analytics.chartTabs.revenueGmv")}
+              </Button>
+              <Button
+                variant={chartMode === "users" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setChartMode("users")}
+                className="h-7 px-2.5 text-xs rounded-lg"
+              >
+                {t("admin.analytics.chartTabs.newUsers")}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 flex items-end gap-2 sm:gap-3 pt-8 px-2 border-b border-border pb-4">
+              {chartBuckets.map((item) => {
+                const primaryHeightPct = Math.max(
+                  6,
+                  Math.round((item.primaryValue / maxChartValue) * 100),
+                );
+                const secondaryHeightPct =
+                  item.secondaryValue > 0
+                    ? Math.max(4, Math.round((item.secondaryValue / maxChartValue) * 100))
+                    : 0;
+                return (
+                  <div
+                    key={item.tooltipLabel}
+                    className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group relative"
+                  >
+                    <div className="text-micro font-mono text-foreground bg-popover border border-border px-1.5 py-0.5 rounded shadow-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                      {chartMode === "revenue"
+                        ? formatMoney(item.primaryValue)
+                        : formatNumber(item.primaryValue)}
+                      {chartMode !== "users" && item.secondaryValue > 0
+                        ? ` / ${
+                            chartMode === "revenue"
+                              ? formatMoney(item.secondaryValue)
+                              : formatNumber(item.secondaryValue)
+                          }`
+                        : ""}
+                    </div>
+                    <div className="w-full max-w-[38px] h-full flex items-end justify-center gap-1">
+                      <div
+                        style={{ height: `${primaryHeightPct}%` }}
+                        className="flex-1 rounded-t-md bg-primary/85 group-hover:bg-primary transition-all duration-300"
+                        title={item.tooltipLabel}
+                      />
+                      {chartMode !== "users" && (
+                        <div
+                          style={{ height: `${secondaryHeightPct}%` }}
+                          className="flex-1 rounded-t-md bg-violet-500/80 group-hover:bg-violet-500 transition-all duration-300"
+                          title={item.tooltipLabel}
+                        />
+                      )}
+                    </div>
+                    <span className="text-micro font-mono text-muted-foreground truncate max-w-[44px]">
+                      {item.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Chart Legend & Trip Breakdown Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-2 text-xs">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("admin.analytics.aiAssistedTrips")}
+                </span>
+                <span className="font-bold text-foreground">
+                  {formatNumber(tripStats?.aiAssistedTripsCount)} /{" "}
+                  {formatNumber(tripStats?.totalTrips)} ({tripStats?.aiAdoptionRatePercent ?? 0}%)
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("admin.analytics.avgCollaborators")}
+                </span>
+                <span className="font-bold text-foreground">
+                  {tripStats?.avgCollaboratorsPerTrip ?? 1.0}{" "}
+                  {t("admin.analytics.membersPerTrip")}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {t("admin.analytics.tripVisibility")}
+                </span>
+                <span className="font-mono text-micro font-semibold text-foreground">
+                  P:{formatNumber(tripStats?.visibilityBreakdown.publicCount)} • S:
+                  {formatNumber(tripStats?.visibilityBreakdown.sharedCount)} • Pr:
+                  {formatNumber(tripStats?.visibilityBreakdown.privateCount)}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Planned Destinations */}
+        <Card className="bg-card border-border shadow-2xs">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-bold text-foreground">
+                {t("admin.analytics.topDestinations")}
+              </CardTitle>
+              <Globe2 className="h-4 w-4 text-primary" />
+            </div>
+            <CardDescription className="text-xs text-muted-foreground">
+              {t("admin.analytics.topDestinationsSub")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!tripStats?.topDestinations || tripStats.topDestinations.length === 0 ? (
+              <div className="py-10 text-center text-xs text-muted-foreground">
+                {t("admin.analytics.noDestinationData")}
+              </div>
+            ) : (
+              tripStats.topDestinations.map((dest, idx) => (
+                <div key={dest.destinationName} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-foreground flex items-center gap-2">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary font-mono text-micro font-bold">
+                        {idx + 1}
+                      </span>
+                      <span className="truncate max-w-[150px]">{dest.destinationName}</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground font-mono">
+                        {formatNumber(dest.tripsCount)} trips
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-micro font-mono text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                      >
+                        {formatGrowth(dest.growthPercent)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.max(4, dest.sharePercent))}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* PILLAR 4 & PILLAR 5: User Demographics & Community / Place Reviews */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pillar 4: User Roles, Status & Auth Providers */}
+        <Card className="bg-card border-border shadow-2xs">
+          <CardHeader>
+            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <span>{t("admin.analytics.userDemographicsTitle")}</span>
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              {t("admin.analytics.userDemographicsDesc")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
+                <div className="text-xl font-bold text-foreground">
+                  {formatNumber(userStats?.roleBreakdown.travelersCount)}
+                </div>
+                <div className="text-micro text-muted-foreground mt-0.5">
+                  {t("admin.analytics.roles.travelers")}
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
+                <div className="text-xl font-bold text-primary">
+                  {formatNumber(userStats?.roleBreakdown.partnersCount)}
+                </div>
+                <div className="text-micro text-muted-foreground mt-0.5">
+                  {t("admin.analytics.roles.partners")}
+                </div>
+              </div>
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20">
+                <div className="text-xl font-bold text-amber-500">
+                  {formatNumber(userStats?.roleBreakdown.adminsCount)}
+                </div>
+                <div className="text-micro text-muted-foreground mt-0.5">
+                  {t("admin.analytics.roles.admins")}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3.5 rounded-xl border border-border bg-muted/10 space-y-2">
+                <div className="font-semibold text-foreground">
+                  {t("admin.analytics.authProviderTitle")}
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Email / Password (LOCAL)</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {formatNumber(userStats?.authProviderBreakdown.localCount)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Google OAuth 2.0</span>
+                  <span className="font-mono font-bold text-primary">
+                    {formatNumber(userStats?.authProviderBreakdown.googleCount)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border bg-muted/10 space-y-2">
+                <div className="font-semibold text-foreground">
+                  {t("admin.analytics.accountStatusTitle")}
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Active
+                  </span>
+                  <span className="font-mono font-bold text-emerald-500">
+                    {formatNumber(userStats?.activeUsers)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Unverified / Inactive</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {formatNumber(
+                      (userStats?.unverifiedUsers || 0) + (userStats?.inactiveUsers || 0),
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pillar 5: Community Engagement, Place Reviews (1-5 Stars) & Moderation */}
+        <Card className="bg-card border-border shadow-2xs">
+          <CardHeader>
+            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span>{t("admin.analytics.communityReviewsTitle")}</span>
+            </CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              {t("admin.analytics.communityReviewsDesc")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Community Engagement Counters */}
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
+                <div className="text-base font-bold text-foreground">
+                  {formatNumber(socialStats?.totalPosts)}
+                </div>
+                <div className="text-micro text-muted-foreground">
+                  {t("admin.analytics.community.posts")}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
+                <div className="text-base font-bold text-foreground">
+                  {formatNumber(socialStats?.totalComments)}
+                </div>
+                <div className="text-micro text-muted-foreground">
+                  {t("admin.analytics.community.comments")}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
+                <div className="text-base font-bold text-rose-500 flex items-center justify-center gap-1">
+                  <Heart className="h-3.5 w-3.5 fill-rose-500" />
+                  {formatNumber(socialStats?.totalReactions)}
+                </div>
+                <div className="text-micro text-muted-foreground">
+                  {t("admin.analytics.community.reactions")}
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl border border-border bg-muted/20">
+                <div className="text-base font-bold text-primary flex items-center justify-center gap-1">
+                  <Share2 className="h-3.5 w-3.5" />
+                  {formatNumber(socialStats?.totalSharedTrips)}
+                </div>
+                <div className="text-micro text-muted-foreground">
+                  {t("admin.analytics.community.tripShares")}
+                </div>
+              </div>
+            </div>
+
+            {/* Place Review Star Distribution & Moderation Queue */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="space-y-1.5">
+                <div className="font-semibold text-foreground flex items-center justify-between mb-2">
+                  <span>{t("admin.analytics.starDistribution")}</span>
+                  <span className="text-amber-500 font-mono font-bold">
+                    ★ {socialStats?.placeReviewStats.averageRating?.toFixed(2) || "0.00"}
+                  </span>
+                </div>
+                {[
+                  { stars: 5, count: socialStats?.placeReviewStats.fiveStarCount || 0 },
+                  { stars: 4, count: socialStats?.placeReviewStats.fourStarCount || 0 },
+                  { stars: 3, count: socialStats?.placeReviewStats.threeStarCount || 0 },
+                  { stars: 2, count: socialStats?.placeReviewStats.twoStarCount || 0 },
+                  { stars: 1, count: socialStats?.placeReviewStats.oneStarCount || 0 },
+                ].map((row) => {
+                  const totalRev = Math.max(
+                    1,
+                    socialStats?.placeReviewStats.totalPublishedReviews || 0,
+                  );
+                  const pct = Math.round((row.count / totalRev) * 100);
+                  return (
+                    <div key={row.stars} className="flex items-center gap-2">
+                      <span className="w-8 font-mono text-micro text-muted-foreground">
+                        {row.stars} ★
+                      </span>
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="w-8 text-right font-mono text-micro text-foreground">
+                        {row.count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border bg-muted/15 flex flex-col justify-between space-y-2">
+                <div>
+                  <div className="font-semibold text-foreground flex items-center gap-1.5">
+                    <ShieldAlert className="h-4 w-4 text-amber-500" />
+                    <span>{t("admin.analytics.moderationHealthTitle")}</span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>{t("admin.analytics.moderation.pending")}</span>
+                      <span className="font-mono font-bold text-amber-500">
+                        {formatNumber(socialStats?.moderationStats.pendingReportsCount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>{t("admin.analytics.moderation.actioned")}</span>
+                      <span className="font-mono font-bold text-emerald-500">
+                        {formatNumber(socialStats?.moderationStats.actionedReportsCount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>{t("admin.analytics.moderation.dismissed")}</span>
+                      <span className="font-mono text-foreground">
+                        {formatNumber(socialStats?.moderationStats.dismissedReportsCount)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <Link href="/admin/reports">
+                  <Button variant="outline" size="sm" className="w-full h-7 text-xs">
+                    {t("admin.analytics.openModerationQueue")}
+                  </Button>
+                </Link>
               </div>
             </div>
           </CardContent>

@@ -128,9 +128,7 @@ public class AdminSocialStatsService {
         GROUP BY rating
         """,
         rs -> {
-          while (rs.next()) {
-            ratingMap.put(rs.getInt("rating"), rs.getLong("cnt"));
-          }
+          ratingMap.put(rs.getInt("rating"), rs.getLong("cnt"));
         });
 
     PlaceReviewStats reviewStats =
@@ -148,18 +146,14 @@ public class AdminSocialStatsService {
     jdbc.query(
         "SELECT status, COUNT(*) AS cnt FROM social_reports GROUP BY status",
         rs -> {
-          while (rs.next()) {
-            reportStatusMap.put(rs.getString("status"), rs.getLong("cnt"));
-          }
+          reportStatusMap.put(rs.getString("status"), rs.getLong("cnt"));
         });
 
     Map<String, Long> reportTypeMap = new HashMap<>();
     jdbc.query(
         "SELECT target_type, COUNT(*) AS cnt FROM social_reports GROUP BY target_type",
         rs -> {
-          while (rs.next()) {
-            reportTypeMap.put(rs.getString("target_type"), rs.getLong("cnt"));
-          }
+          reportTypeMap.put(rs.getString("target_type"), rs.getLong("cnt"));
         });
 
     long pendingReports = reportStatusMap.getOrDefault("PENDING", 0L);

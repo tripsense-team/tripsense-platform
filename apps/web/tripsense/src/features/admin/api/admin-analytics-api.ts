@@ -1,4 +1,5 @@
 import { apiClient } from "@/services/api-client";
+import { aiApiUrl } from "@/lib/ai-service-url";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import type {
   AdminAiStats,
@@ -91,14 +92,25 @@ export async function fetchAdminContextStats(
 export async function fetchAdminAiStats(
   periodDays: AdminPeriodDays = 30,
 ): Promise<AdminAiStats> {
-  const res = await apiClient<unknown>(
-    `/api/ai/admin/stats?periodDays=${periodDays}`,
-    {
-      method: "GET",
-      cache: "no-store",
-    },
-  );
-  return unwrapApiData<AdminAiStats>(res);
+  try {
+    const res = await apiClient<unknown>(
+      `/api/ai/admin/stats?periodDays=${periodDays}`,
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    );
+    return unwrapApiData<AdminAiStats>(res);
+  } catch {
+    const fallbackRes = await apiClient<unknown>(
+      aiApiUrl(`/admin/stats?periodDays=${periodDays}`),
+      {
+        method: "GET",
+        cache: "no-store",
+      },
+    );
+    return unwrapApiData<AdminAiStats>(fallbackRes);
+  }
 }
 
 export async function fetchAdminUnifiedAnalytics(

@@ -173,9 +173,7 @@ public class AdminPlatformAnalyticsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            visMap.put(rs.getString("vis"), rs.getLong("cnt"));
-          }
+          visMap.put(rs.getString("vis"), rs.getLong("cnt"));
         });
     VisibilityBreakdown visibilityBreakdown =
         new VisibilityBreakdown(
@@ -223,15 +221,13 @@ public class AdminPlatformAnalyticsService {
         LIMIT 6
         """,
         rs -> {
-          while (rs.next()) {
-            String name = rs.getString("dest_label");
-            long count = rs.getLong("total_cnt");
-            long curr = rs.getLong("curr_cnt");
-            long prev = rs.getLong("prev_cnt");
-            double share = totalTrips > 0 ? round1((count * 100.0) / totalTrips) : 0.0;
-            double growth = computeGrowthPercent(curr, prev);
-            list.add(new DestinationRankItem(name, count, share, growth));
-          }
+          String name = rs.getString("dest_label");
+          long count = rs.getLong("total_cnt");
+          long curr = rs.getLong("curr_cnt");
+          long prev = rs.getLong("prev_cnt");
+          double share = totalTrips > 0 ? round1((count * 100.0) / totalTrips) : 0.0;
+          double growth = computeGrowthPercent(curr, prev);
+          list.add(new DestinationRankItem(name, count, share, growth));
         },
         tsStart,
         tsEnd,
@@ -256,9 +252,7 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT kind, COUNT(*) AS cnt FROM partner_business GROUP BY kind",
         rs -> {
-          while (rs.next()) {
-            kindMap.put(rs.getString("kind"), rs.getLong("cnt"));
-          }
+          kindMap.put(rs.getString("kind"), rs.getLong("cnt"));
         });
     PartnerByKind partnerByKind =
         new PartnerByKind(
@@ -271,9 +265,7 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT state, COUNT(*) AS cnt FROM partner_application GROUP BY state",
         rs -> {
-          while (rs.next()) {
-            appMap.put(rs.getString("state"), rs.getLong("cnt"));
-          }
+          appMap.put(rs.getString("state"), rs.getLong("cnt"));
         });
     ApplicationFunnel applicationFunnel =
         new ApplicationFunnel(
@@ -286,9 +278,7 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT status, COUNT(*) AS cnt FROM hotel_booking GROUP BY status",
         rs -> {
-          while (rs.next()) {
-            hotelMap.put(rs.getString("status"), rs.getLong("cnt"));
-          }
+          hotelMap.put(rs.getString("status"), rs.getLong("cnt"));
         });
     long hotelConfirmed = hotelMap.getOrDefault("CONFIRMED", 0L);
     long hotelCheckedIn = hotelMap.getOrDefault("CHECKED_IN", 0L);
@@ -306,9 +296,7 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT state, COUNT(*) AS cnt FROM restaurant_reservation_request GROUP BY state",
         rs -> {
-          while (rs.next()) {
-            restMap.put(rs.getString("state"), rs.getLong("cnt"));
-          }
+          restMap.put(rs.getString("state"), rs.getLong("cnt"));
         });
     long restRequested = restMap.getOrDefault("REQUESTED", 0L);
     long restConfirmed = restMap.getOrDefault("CONFIRMED", 0L);
@@ -323,9 +311,7 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT status, COUNT(*) AS cnt FROM rental_booking_order GROUP BY status",
         rs -> {
-          while (rs.next()) {
-            rentalMap.put(rs.getString("status"), rs.getLong("cnt"));
-          }
+          rentalMap.put(rs.getString("status"), rs.getLong("cnt"));
         });
     long rentalPending = rentalMap.getOrDefault("PENDING", 0L);
     long rentalConfirmed = rentalMap.getOrDefault("CONFIRMED", 0L);
@@ -350,9 +336,7 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT state, COUNT(*) AS cnt FROM guide_inquiry GROUP BY state",
         rs -> {
-          while (rs.next()) {
-            guideMap.put(rs.getString("state"), rs.getLong("cnt"));
-          }
+          guideMap.put(rs.getString("state"), rs.getLong("cnt"));
         });
     long guideActive =
         guideMap.getOrDefault("SUBMITTED", 0L)
@@ -479,9 +463,7 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT status, COUNT(*) AS cnt FROM partner_subscription GROUP BY status",
         rs -> {
-          while (rs.next()) {
-            subStatusMap.put(rs.getString("status"), rs.getLong("cnt"));
-          }
+          subStatusMap.put(rs.getString("status"), rs.getLong("cnt"));
         });
     long activeSubs = subStatusMap.getOrDefault("ACTIVE", 0L);
     long trialSubs = subStatusMap.getOrDefault("TRIAL", 0L);
@@ -532,11 +514,9 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT (created_at AT TIME ZONE ?)::date AS d, COUNT(*) AS cnt FROM trips WHERE deleted_at IS NULL AND created_at >= ? AND created_at < ? GROUP BY 1",
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            long[] arr = countsMap.get(d);
-            if (arr != null) arr[0] += rs.getLong("cnt");
-          }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          long[] arr = countsMap.get(d);
+          if (arr != null) arr[0] += rs.getLong("cnt");
         },
         zoneId,
         tsStart,
@@ -545,11 +525,9 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT (created_at AT TIME ZONE ?)::date AS d, COUNT(*) AS cnt FROM itinerary_commit_receipts WHERE created_at >= ? AND created_at < ? GROUP BY 1",
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            long[] arr = countsMap.get(d);
-            if (arr != null) arr[1] += rs.getLong("cnt");
-          }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          long[] arr = countsMap.get(d);
+          if (arr != null) arr[1] += rs.getLong("cnt");
         },
         zoneId,
         tsStart,
@@ -558,11 +536,9 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT (created_at AT TIME ZONE ?)::date AS d, COUNT(*) AS cnt FROM hotel_booking WHERE created_at >= ? AND created_at < ? AND status IN ('CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT') GROUP BY 1",
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            long[] arr = countsMap.get(d);
-            if (arr != null) arr[2] += rs.getLong("cnt");
-          }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          long[] arr = countsMap.get(d);
+          if (arr != null) arr[2] += rs.getLong("cnt");
         },
         zoneId,
         tsStart,
@@ -571,11 +547,9 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT (created_at AT TIME ZONE ?)::date AS d, COUNT(*) AS cnt FROM restaurant_reservation_request WHERE created_at >= ? AND created_at < ? GROUP BY 1",
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            long[] arr = countsMap.get(d);
-            if (arr != null) arr[2] += rs.getLong("cnt");
-          }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          long[] arr = countsMap.get(d);
+          if (arr != null) arr[2] += rs.getLong("cnt");
         },
         zoneId,
         tsStart,
@@ -584,11 +558,9 @@ public class AdminPlatformAnalyticsService {
     jdbc.query(
         "SELECT (created_at AT TIME ZONE ?)::date AS d, COUNT(*) AS cnt FROM rental_booking_order WHERE created_at >= ? AND created_at < ? GROUP BY 1",
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            long[] arr = countsMap.get(d);
-            if (arr != null) arr[2] += rs.getLong("cnt");
-          }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          long[] arr = countsMap.get(d);
+          if (arr != null) arr[2] += rs.getLong("cnt");
         },
         zoneId,
         tsStart,
@@ -604,15 +576,13 @@ public class AdminPlatformAnalyticsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            BigDecimal[] arr = moneyMap.get(d);
-            if (arr != null) {
-              BigDecimal gmv = nvlDecimal(rs.getBigDecimal("amt"));
-              arr[0] = arr[0].add(gmv);
-              arr[1] =
-                  arr[1].add(gmv.multiply(new BigDecimal("0.10")).setScale(0, RoundingMode.HALF_UP));
-            }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          BigDecimal[] arr = moneyMap.get(d);
+          if (arr != null) {
+            BigDecimal gmv = nvlDecimal(rs.getBigDecimal("amt"));
+            arr[0] = arr[0].add(gmv);
+            arr[1] =
+                arr[1].add(gmv.multiply(new BigDecimal("0.10")).setScale(0, RoundingMode.HALF_UP));
           }
         },
         zoneId,
@@ -629,14 +599,12 @@ public class AdminPlatformAnalyticsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            LocalDate d = rs.getDate("d").toLocalDate();
-            BigDecimal[] arr = moneyMap.get(d);
-            if (arr != null) {
-              BigDecimal subAmt = nvlDecimal(rs.getBigDecimal("amt"));
-              arr[0] = arr[0].add(subAmt);
-              arr[1] = arr[1].add(subAmt);
-            }
+          LocalDate d = rs.getDate("d").toLocalDate();
+          BigDecimal[] arr = moneyMap.get(d);
+          if (arr != null) {
+            BigDecimal subAmt = nvlDecimal(rs.getBigDecimal("amt"));
+            arr[0] = arr[0].add(subAmt);
+            arr[1] = arr[1].add(subAmt);
           }
         },
         zoneId,
@@ -665,20 +633,18 @@ public class AdminPlatformAnalyticsService {
         LIMIT 4
         """,
         rs -> {
-          while (rs.next()) {
-            String id = rs.getString("id");
-            String dest = rs.getString("destination_name");
-            String name = rs.getString("name");
-            Timestamp ts = rs.getTimestamp("created_at");
-            events.add(
-                new PlatformActivityItem(
-                    "trip-" + id,
-                    "TRIP_CREATED",
-                    "Traveler #" + id.substring(0, 6),
-                    "Created trip \"" + name + "\" to " + dest,
-                    rs.getString("visibility"),
-                    ts != null ? ts.toInstant() : Instant.now()));
-          }
+          String id = rs.getString("id");
+          String dest = rs.getString("destination_name");
+          String name = rs.getString("name");
+          Timestamp ts = rs.getTimestamp("created_at");
+          events.add(
+              new PlatformActivityItem(
+                  "trip-" + id,
+                  "TRIP_CREATED",
+                  "Traveler #" + id.substring(0, 6),
+                  "Created trip \"" + name + "\" to " + dest,
+                  rs.getString("visibility"),
+                  ts != null ? ts.toInstant() : Instant.now()));
         });
 
     jdbc.query(
@@ -690,19 +656,17 @@ public class AdminPlatformAnalyticsService {
         LIMIT 3
         """,
         rs -> {
-          while (rs.next()) {
-            String id = rs.getString("id");
-            String dest = rs.getString("destination_name");
-            Timestamp ts = rs.getTimestamp("created_at");
-            events.add(
-                new PlatformActivityItem(
-                    "ai-" + id,
-                    "AI_ITINERARY_COMMITTED",
-                    "AI Planner",
-                    "Generated & committed AI itinerary for " + dest,
-                    "COMMITTED",
-                    ts != null ? ts.toInstant() : Instant.now()));
-          }
+          String id = rs.getString("id");
+          String dest = rs.getString("destination_name");
+          Timestamp ts = rs.getTimestamp("created_at");
+          events.add(
+              new PlatformActivityItem(
+                  "ai-" + id,
+                  "AI_ITINERARY_COMMITTED",
+                  "AI Planner",
+                  "Generated & committed AI itinerary for " + dest,
+                  "COMMITTED",
+                  ts != null ? ts.toInstant() : Instant.now()));
         });
 
     jdbc.query(
@@ -713,20 +677,18 @@ public class AdminPlatformAnalyticsService {
         LIMIT 3
         """,
         rs -> {
-          while (rs.next()) {
-            String id = rs.getString("id");
-            String prop = rs.getString("property_name");
-            String status = rs.getString("status");
-            Timestamp ts = rs.getTimestamp("created_at");
-            events.add(
-                new PlatformActivityItem(
-                    "hotel-" + id,
-                    "HOTEL_BOOKING",
-                    "Booking #" + id.substring(0, 6),
-                    "Hotel reservation at " + prop,
-                    status,
-                    ts != null ? ts.toInstant() : Instant.now()));
-          }
+          String id = rs.getString("id");
+          String prop = rs.getString("property_name");
+          String status = rs.getString("status");
+          Timestamp ts = rs.getTimestamp("created_at");
+          events.add(
+              new PlatformActivityItem(
+                  "hotel-" + id,
+                  "HOTEL_BOOKING",
+                  "Booking #" + id.substring(0, 6),
+                  "Hotel reservation at " + prop,
+                  status,
+                  ts != null ? ts.toInstant() : Instant.now()));
         });
 
     jdbc.query(
@@ -738,21 +700,19 @@ public class AdminPlatformAnalyticsService {
         LIMIT 3
         """,
         rs -> {
-          while (rs.next()) {
-            String id = rs.getString("id");
-            String bizName = rs.getString("display_name");
-            String kind = rs.getString("kind");
-            String state = rs.getString("state");
-            Timestamp ts = rs.getTimestamp("submitted_at");
-            events.add(
-                new PlatformActivityItem(
-                    "partner-" + id,
-                    "PARTNER_APPLICATION",
-                    bizName,
-                    "Partner onboarding (" + kind + ")",
-                    state,
-                    ts != null ? ts.toInstant() : Instant.now()));
-          }
+          String id = rs.getString("id");
+          String bizName = rs.getString("display_name");
+          String kind = rs.getString("kind");
+          String state = rs.getString("state");
+          Timestamp ts = rs.getTimestamp("submitted_at");
+          events.add(
+              new PlatformActivityItem(
+                  "partner-" + id,
+                  "PARTNER_APPLICATION",
+                  bizName,
+                  "Partner onboarding (" + kind + ")",
+                  state,
+                  ts != null ? ts.toInstant() : Instant.now()));
         });
 
     events.sort(Comparator.comparing(PlatformActivityItem::occurredAt).reversed());
@@ -777,21 +737,19 @@ public class AdminPlatformAnalyticsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            String seg = rs.getString("seg");
-            double d = round1(rs.getDouble("avg_days"));
-            double tr = round1(rs.getDouble("avg_travelers"));
-            BigDecimal b =
-                nvlDecimal(rs.getBigDecimal("avg_budget")).setScale(0, RoundingMode.HALF_UP);
-            if ("AI".equals(seg)) {
-              aiMetrics[0] = d;
-              aiMetrics[1] = tr;
-              aiBudgets[0] = b;
-            } else {
-              manualMetrics[0] = d;
-              manualMetrics[1] = tr;
-              aiBudgets[1] = b;
-            }
+          String seg = rs.getString("seg");
+          double d = round1(rs.getDouble("avg_days"));
+          double tr = round1(rs.getDouble("avg_travelers"));
+          BigDecimal b =
+              nvlDecimal(rs.getBigDecimal("avg_budget")).setScale(0, RoundingMode.HALF_UP);
+          if ("AI".equals(seg)) {
+            aiMetrics[0] = d;
+            aiMetrics[1] = tr;
+            aiBudgets[0] = b;
+          } else {
+            manualMetrics[0] = d;
+            manualMetrics[1] = tr;
+            aiBudgets[1] = b;
           }
         });
 
@@ -819,13 +777,11 @@ public class AdminPlatformAnalyticsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            String b = rs.getString("bucket");
-            long cnt = rs.getLong("cnt");
-            if ("SHORT".equals(b)) durCounts[0] = cnt;
-            else if ("MEDIUM".equals(b)) durCounts[1] = cnt;
-            else durCounts[2] = cnt;
-          }
+          String b = rs.getString("bucket");
+          long cnt = rs.getLong("cnt");
+          if ("SHORT".equals(b)) durCounts[0] = cnt;
+          else if ("MEDIUM".equals(b)) durCounts[1] = cnt;
+          else durCounts[2] = cnt;
         });
     DurationDistribution durationDist =
         new DurationDistribution(durCounts[0], durCounts[1], durCounts[2]);
@@ -856,13 +812,11 @@ public class AdminPlatformAnalyticsService {
         GROUP BY 1
         """,
         rs -> {
-          while (rs.next()) {
-            String b = rs.getString("bucket");
-            long c = rs.getLong("cnt");
-            if ("LAST_MINUTE".equals(b)) leadBuckets[0] = c;
-            else if ("STANDARD".equals(b)) leadBuckets[1] = c;
-            else leadBuckets[2] = c;
-          }
+          String b = rs.getString("bucket");
+          long c = rs.getLong("cnt");
+          if ("LAST_MINUTE".equals(b)) leadBuckets[0] = c;
+          else if ("STANDARD".equals(b)) leadBuckets[1] = c;
+          else leadBuckets[2] = c;
         });
 
     String[] peakMonth = new String[] {"N/A"};
@@ -878,10 +832,8 @@ public class AdminPlatformAnalyticsService {
         LIMIT 1
         """,
         rs -> {
-          if (rs.next()) {
-            peakMonth[0] = rs.getString("ym");
-            peakCount[0] = rs.getLong("cnt");
-          }
+          peakMonth[0] = rs.getString("ym");
+          peakCount[0] = rs.getLong("cnt");
         });
 
     LeadTimeAndSeasonality leadTimeAndSeasonality =
@@ -902,10 +854,8 @@ public class AdminPlatformAnalyticsService {
         ) sub
         """,
         rs -> {
-          if (rs.next()) {
-            userTripRet[0] = rs.getLong("active_creators");
-            userTripRet[1] = rs.getLong("repeat_creators");
-          }
+          userTripRet[0] = rs.getLong("active_creators");
+          userTripRet[1] = rs.getLong("repeat_creators");
         });
     double repeatRate =
         userTripRet[0] > 0 ? round1((userTripRet[1] * 100.0) / userTripRet[0]) : 0.0;

@@ -65,14 +65,12 @@ public class AdminContextStatsService {
         LIMIT 8
         """,
         rs -> {
-          while (rs.next()) {
-            topPreferences.add(
-                new PreferenceSegmentItem(
-                    rs.getString("dimension_code"),
-                    rs.getString("value_code"),
-                    rs.getLong("cnt"),
-                    round2(rs.getDouble("avg_conf"))));
-          }
+          topPreferences.add(
+              new PreferenceSegmentItem(
+                  rs.getString("dimension_code"),
+                  rs.getString("value_code"),
+                  rs.getLong("cnt"),
+                  round2(rs.getDouble("avg_conf"))));
         });
 
     return new AdminContextStatsResponse(
