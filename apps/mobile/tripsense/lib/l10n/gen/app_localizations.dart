@@ -991,6 +991,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back'**
   String get placeBack;
+
+  /// No description provided for @commonSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get commonSave;
+
+  /// No description provided for @commonCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get commonCreate;
+
+  /// No description provided for @commonDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get commonDelete;
+
+  /// No description provided for @commonEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get commonEdit;
+
+  /// No description provided for @savedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved places'**
+  String get savedTitle;
+
+  /// No description provided for @savedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'All the places you saved for later.'**
+  String get savedDescription;
+
+  /// No description provided for @savedEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved places yet'**
+  String get savedEmptyTitle;
+
+  /// No description provided for @savedEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Save places from Explore to find them here.'**
+  String get savedEmptyHint;
+
+  /// No description provided for @savedAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get savedAll;
+
+  /// No description provided for @savedManageCollections.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage collections'**
+  String get savedManageCollections;
+
+  /// No description provided for @savedLoadMoreFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load more places.'**
+  String get savedLoadMoreFailed;
+
+  /// No description provided for @saveButtonSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save place'**
+  String get saveButtonSave;
+
+  /// No description provided for @saveButtonSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Edit collections'**
+  String get saveButtonSaved;
+
+  /// No description provided for @saveToCollection.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to collection'**
+  String get saveToCollection;
+
+  /// No description provided for @collectionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Collections'**
+  String get collectionsTitle;
+
+  /// No description provided for @collectionsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize saved places into collections.'**
+  String get collectionsDescription;
+
+  /// No description provided for @collectionCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create collection'**
+  String get collectionCreate;
+
+  /// No description provided for @collectionRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename collection'**
+  String get collectionRename;
+
+  /// No description provided for @collectionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete collection'**
+  String get collectionDelete;
+
+  /// No description provided for @collectionDeleteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The collection will be deleted. Saved places remain available in other collections.'**
+  String get collectionDeleteHint;
+
+  /// No description provided for @collectionNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'New collection name'**
+  String get collectionNameHint;
+
+  /// No description provided for @collectionsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No collections yet'**
+  String get collectionsEmptyTitle;
+
+  /// No description provided for @collectionsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a collection to organize places you want to remember.'**
+  String get collectionsEmptyHint;
+
+  /// No description provided for @collectionPlacesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 place} other{{count} places}}'**
+  String collectionPlacesCount(int count);
+
+  /// No description provided for @exploreShowMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get exploreShowMap;
+
+  /// No description provided for @exploreShowList.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get exploreShowList;
+
+  /// No description provided for @placeLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get placeLocation;
 }
 
 class _AppLocalizationsDelegate

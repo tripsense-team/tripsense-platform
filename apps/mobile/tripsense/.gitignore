@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local build secrets (MapVina key) - never commit
+dart_defines.local.json

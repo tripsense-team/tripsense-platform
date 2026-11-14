@@ -15,7 +15,12 @@ abstract final class Routes {
   static const saved = '/saved';
   static const community = '/community';
   static const profile = '/profile';
+  static const collections = '/collections';
+  static const collectionDetailPattern = '/collections/:id';
   static const placePattern = '/places/:id';
+
+  static String collectionDetail(String id) =>
+      '/collections/${Uri.encodeComponent(id)}';
 
   static String place(String id) => '/places/${Uri.encodeComponent(id)}';
 

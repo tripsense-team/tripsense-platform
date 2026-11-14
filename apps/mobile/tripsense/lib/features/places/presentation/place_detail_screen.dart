@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/design/app_tokens.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../collections/presentation/widgets/save_button.dart';
+import '../../map/presentation/places_map.dart';
 import '../data/places_repository_impl.dart';
 import '../domain/opening_hours.dart';
 import '../domain/place.dart';
@@ -52,6 +54,12 @@ class PlaceDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: SaveButton(place: shown),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: PlaceImage(place: shown, aspectRatio: 1),
             ),
@@ -63,13 +71,13 @@ class PlaceDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+class _Body extends ConsumerWidget {
   const _Body({required this.place});
 
   final Place place;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = context.colors;
     final l10n = AppLocalizations.of(context);
@@ -93,6 +101,29 @@ class _Body extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             _InfoLine(icon: Icons.place_outlined, text: place.address!),
           ],
+          if (place.location != null)
+            _Section(
+              title: l10n.placeLocation,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+                child: SizedBox(
+                  key: const Key('place-map'),
+                  height: 200,
+                  child: ref.watch(placesMapBuilderProvider)(
+                    context,
+                    PlacesMapData(
+                      markers: [
+                        MapMarker(id: place.id, point: place.location!),
+                      ],
+                      center: place.location!,
+                      selectedId: place.id,
+                      interactive: false,
+                      zoom: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (place.description != null)
             _Section(
               title: l10n.placeAbout,

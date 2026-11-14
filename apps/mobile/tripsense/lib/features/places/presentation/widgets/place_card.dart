@@ -8,7 +8,11 @@ import '../../domain/place.dart';
 
 /// Photo with a gradient + name fallback (most places have no approved photo yet).
 class PlaceImage extends StatelessWidget {
-  const PlaceImage({super.key, required this.place, this.aspectRatio = 16 / 10});
+  const PlaceImage({
+    super.key,
+    required this.place,
+    this.aspectRatio = 16 / 10,
+  });
 
   final Place place;
   final double aspectRatio;
@@ -89,10 +93,18 @@ class RatingRow extends StatelessWidget {
 }
 
 class PlaceCard extends StatelessWidget {
-  const PlaceCard({super.key, required this.place, required this.onTap});
+  const PlaceCard({
+    super.key,
+    required this.place,
+    required this.onTap,
+    this.trailing,
+  });
 
   final Place place;
   final VoidCallback onTap;
+
+  /// Overlay in the photo's top-right corner (e.g. the save heart).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +129,12 @@ class PlaceCard extends StatelessWidget {
             Stack(
               children: [
                 PlaceImage(place: place),
+                if (trailing != null)
+                  Positioned(
+                    right: AppSpacing.sm,
+                    top: AppSpacing.sm,
+                    child: trailing!,
+                  ),
                 if (category != null)
                   Positioned(
                     left: AppSpacing.md,
@@ -181,6 +199,78 @@ class PlaceCard extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact horizontal card shown over the map for the selected pin.
+class PlaceMiniCard extends StatelessWidget {
+  const PlaceMiniCard({
+    super.key,
+    required this.place,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final Place place;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.colors;
+    return Material(
+      color: colors.card,
+      elevation: 4,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        side: BorderSide(color: colors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 96,
+              height: 96,
+              child: PlaceImage(place: place, aspectRatio: 1),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      place.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (place.hasRating) RatingRow(place: place),
+                    if (place.address != null)
+                      Text(
+                        place.address!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.mutedForeground,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            ?trailing,
           ],
         ),
       ),

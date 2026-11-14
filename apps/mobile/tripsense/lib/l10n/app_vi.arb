@@ -169,5 +169,39 @@
   "placeReviews": "Đánh giá",
   "placeAddress": "Địa chỉ",
   "placeNoPhoto": "Chưa có ảnh",
-  "placeBack": "Quay lại"
+  "placeBack": "Quay lại",
+  "commonSave": "Lưu",
+  "commonCreate": "Tạo",
+  "commonDelete": "Xóa",
+  "commonEdit": "Sửa",
+  "savedTitle": "Địa điểm đã lưu",
+  "savedDescription": "Tất cả địa điểm bạn đã lưu để xem sau.",
+  "savedEmptyTitle": "Chưa có địa điểm đã lưu",
+  "savedEmptyHint": "Lưu địa điểm từ trang Khám phá để xem lại tại đây.",
+  "savedAll": "Tất cả",
+  "savedManageCollections": "Quản lý bộ sưu tập",
+  "savedLoadMoreFailed": "Không tải thêm được địa điểm.",
+  "saveButtonSave": "Lưu địa điểm",
+  "saveButtonSaved": "Đã lưu. Sửa bộ sưu tập",
+  "saveToCollection": "Lưu vào bộ sưu tập",
+  "collectionsTitle": "Bộ sưu tập",
+  "collectionsDescription": "Sắp xếp các địa điểm đã lưu theo bộ sưu tập.",
+  "collectionCreate": "Tạo bộ sưu tập",
+  "collectionRename": "Đổi tên bộ sưu tập",
+  "collectionDelete": "Xóa bộ sưu tập",
+  "collectionDeleteHint": "Bộ sưu tập sẽ bị xóa. Địa điểm vẫn còn trong các bộ sưu tập khác.",
+  "collectionNameHint": "Tên bộ sưu tập mới",
+  "collectionsEmptyTitle": "Chưa có bộ sưu tập",
+  "collectionsEmptyHint": "Tạo bộ sưu tập để sắp xếp những địa điểm bạn muốn ghi nhớ.",
+  "collectionPlacesCount": "{count} địa điểm",
+  "@collectionPlacesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exploreShowMap": "Bản đồ",
+  "exploreShowList": "Danh sách",
+  "placeLocation": "Vị trí"
 }

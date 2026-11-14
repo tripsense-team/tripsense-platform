@@ -7,10 +7,12 @@ import 'package:trip/app/app_router.dart';
 import 'package:trip/app/app_theme.dart';
 import 'package:trip/app/routes.dart';
 import 'package:trip/features/auth/data/auth_repository_impl.dart';
+import 'package:trip/features/collections/data/collections_repository_impl.dart';
 import 'package:trip/features/places/data/places_repository_impl.dart';
 import 'package:trip/l10n/gen/app_localizations.dart';
 
 import '../support/fake_auth_repository.dart';
+import '../support/fake_collections_repository.dart';
 import '../support/fake_places_repository.dart';
 import '../support/test_app.dart';
 
@@ -24,6 +26,9 @@ Future<(FakeAuthRepository, GoRouter)> _pumpApp(
     overrides: [
       authRepositoryProvider.overrideWithValue(fake),
       placesRepositoryProvider.overrideWithValue(FakePlacesRepository()),
+      collectionsRepositoryProvider.overrideWithValue(
+        FakeCollectionsRepository(),
+      ),
     ],
   );
   addTearDown(container.dispose);
@@ -95,7 +100,9 @@ void main() {
       expect(router.state.uri.path, path, reason: label);
       expect(
         find.text('Coming soon'),
-        path == Routes.explore ? findsNothing : findsOneWidget,
+        (path == Routes.explore || path == Routes.saved)
+            ? findsNothing
+            : findsOneWidget,
         reason: label,
       );
     }

@@ -5,12 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:trip/app/app_theme.dart';
 import 'package:trip/app/routes.dart';
+import 'package:trip/features/collections/data/collections_repository_impl.dart';
+import 'package:trip/features/collections/presentation/collections_controller.dart';
 import 'package:trip/features/places/data/places_repository_impl.dart';
 import 'package:trip/features/places/domain/place.dart';
 import 'package:trip/features/places/presentation/explore_screen.dart';
 import 'package:trip/features/places/presentation/place_detail_screen.dart';
 import 'package:trip/l10n/gen/app_localizations.dart';
 
+import '../../support/fake_collections_repository.dart';
 import '../../support/fake_places_repository.dart';
 import '../../support/test_app.dart';
 
@@ -30,7 +33,13 @@ Future<GoRouter> _pump(WidgetTester tester, FakePlacesRepository repo) async {
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [placesRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        placesRepositoryProvider.overrideWithValue(repo),
+        collectionsRepositoryProvider.overrideWithValue(
+          FakeCollectionsRepository(),
+        ),
+        signedInUserIdProvider.overrideWithValue('u1'),
+      ],
       child: MaterialApp.router(
         routerConfig: router,
         theme: buildTripSenseTheme(),
