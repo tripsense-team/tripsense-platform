@@ -168,7 +168,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
                 ? hasStrongLocalMatch
                 : rankedLocal.size() >= properties.getSearch().getMinLocalResults());
 
-    if (localIsFreshAndSufficient) {
+    if (properties.getSearch().isLocalOnly() || localIsFreshAndSufficient) {
       cache.putSearchResults(
           cacheQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit, rankedLocal);
       return enrichPhotosForPlaces(rankedLocal);
@@ -762,23 +762,59 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
   private List<Place> findLocalPlaces(String normalizedQuery, int limit) {
     RequestDiagnostics.mark("place_mongo_query_limit", limit);
+
+    if (isBroadLocationQuery(normalizedQuery)) {
+      try {
+        List<Place> broad =
+            repository.findByLifecycleStatusNot(
+                fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED,
+                PageRequest.of(0, limit));
+        if (broad != null && !broad.isEmpty()) {
+          return broad;
+        }
+      } catch (Exception ex) {
+        log.warn("Broad local places query failed: {}", ex.getMessage());
+      }
+    }
+
     if (System.currentTimeMillis() - lastLocalSearchFailureTime < 30_000) {
       RequestDiagnostics.mark("place_search_method", "REGEX_COOLDOWN");
       try {
         return RequestDiagnostics.measure(
             "mongo_regex_query",
-            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
-                .filter(this::isPubliclyActive).toList());
+            () ->
+                repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
+                    .filter(this::isPubliclyActive)
+                    .toList());
       } catch (Exception ex) {
         return Collections.emptyList();
       }
     }
+
     RequestDiagnostics.mark("place_search_method", "TEXT");
     try {
-      return RequestDiagnostics.measure(
-          "mongo_text_query",
-          () -> repository.searchByText(normalizedQuery, PageRequest.of(0, limit)).stream()
-              .filter(this::isPubliclyActive).toList());
+      List<Place> textResults =
+          RequestDiagnostics.measure(
+              "mongo_text_query",
+              () ->
+                  repository.searchByText(normalizedQuery, PageRequest.of(0, limit)).stream()
+                      .filter(this::isPubliclyActive)
+                      .toList());
+      if (!textResults.isEmpty()) {
+        return textResults;
+      }
+      try {
+        List<Place> keywordResults =
+            repository.searchByKeywordRegex(Pattern.quote(normalizedQuery), PageRequest.of(0, limit))
+                .stream()
+                .filter(this::isPubliclyActive)
+                .toList();
+        if (!keywordResults.isEmpty()) {
+          return keywordResults;
+        }
+      } catch (Exception ignored) {
+      }
+      return textResults;
     } catch (Exception exception) {
       lastLocalSearchFailureTime = System.currentTimeMillis();
       RequestDiagnostics.mark("place_search_method", "REGEX_AFTER_TEXT_FAILURE");
@@ -789,12 +825,24 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
       try {
         return RequestDiagnostics.measure(
             "mongo_regex_query",
-            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
-                .filter(this::isPubliclyActive).toList());
+            () ->
+                repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
+                    .filter(this::isPubliclyActive)
+                    .toList());
       } catch (Exception ex) {
         return Collections.emptyList();
       }
     }
+  }
+
+  private boolean isBroadLocationQuery(String query) {
+    if (!StringUtils.hasText(query)) return true;
+    String q = query.trim().toLowerCase(Locale.ROOT);
+    return q.equals("đà nẵng")
+        || q.equals("da nang")
+        || q.equals("tất cả")
+        || q.equals("all")
+        || q.equals("địa điểm nổi tiếng ở đà nẵng");
   }
 
   private AutocompleteSuggestionDto toSuggestion(Place place) {

@@ -30,5 +30,6 @@ public class TripSensePlaceProperties {
   @Data
   public static class SearchProperties {
     private int minLocalResults = 5;
+    private boolean localOnly = false;
   }
 }

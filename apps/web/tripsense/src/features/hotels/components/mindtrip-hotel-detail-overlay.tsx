@@ -115,7 +115,7 @@ export function MindtripHotelDetailOverlay({
 
   // Resolve direct booking offer dynamically if not already populated on hotel prop
   React.useEffect(() => {
-    if (hotel.hasDirectBooking && hotel.pricePerNight) {
+    if (hotel.hasDirectBooking && hotel.pricePerNight && hotel.rooms && hotel.rooms.length > 0) {
       setDirectBooking({
         hasDirectBooking: true,
         propertyId: hotel.propertyId || hotel.id,

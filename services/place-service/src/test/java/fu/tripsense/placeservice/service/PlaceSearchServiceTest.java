@@ -52,9 +52,31 @@ class PlaceSearchServiceTest {
   void setUp() {
     TripSensePlaceProperties properties = new TripSensePlaceProperties();
     properties.getSearch().setMinLocalResults(3);
+    properties.getSearch().setLocalOnly(false);
     service =
         new PlaceSearchServiceImpl(
             repository, provider, cache, new PlaceRankingServiceImpl(), persistence, properties);
+  }
+
+  @Test
+  void whenLocalOnlyIsTrueDoesNotCallProviderEvenWhenLocalResultsAreEmpty() {
+    TripSensePlaceProperties props = new TripSensePlaceProperties();
+    props.getSearch().setLocalOnly(true);
+    PlaceSearchService localOnlyService =
+        new PlaceSearchServiceImpl(
+            repository, provider, cache, new PlaceRankingServiceImpl(), persistence, props);
+
+    when(cache.getSearchResults(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt()))
+        .thenReturn(Optional.empty());
+    when(repository.searchByText(eq("nonexistent place"), any(Pageable.class)))
+        .thenReturn(Collections.emptyList());
+
+    List<PlaceDto> result =
+        localOnlyService.searchPlaces("nonexistent place", null, null, null, 10);
+
+    assertEquals(Collections.emptyList(), result);
+    verify(provider, never())
+        .textSearch(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt());
   }
 
   @Test

@@ -29,6 +29,9 @@ import type { RentalBookingOrderDto } from "@/features/partner/types";
 import { chatApi } from "@/features/chat/services/chat-api";
 import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
 import { InChatReservationCard } from "./in-chat-reservation-card";
+import { useBookingActivitySummary } from "../hooks/use-booking-activity-summary";
+import type { ReservationVerticalKey } from "../types/activity";
+import { notifyBookingActivityChanged } from "../services/reservations-activity-api";
 import { useTranslation } from "@/i18n";
 
 interface UnifiedReservationsHubProps {
@@ -43,17 +46,30 @@ export function UnifiedReservationsHub({
   const router = useRouter();
 
   const tabParam = searchParams.get("tab");
-  const initialTab =
-    tabParam === "restaurants" || tabParam === "hotels" || tabParam === "rentals"
-      ? tabParam
-      : defaultTab;
+  const hasExplicitTabParam =
+    tabParam === "restaurants" || tabParam === "hotels" || tabParam === "rentals";
+  const initialTab: ReservationVerticalKey = hasExplicitTabParam ? tabParam : defaultTab;
 
-  const [activeTab, setActiveTab] = React.useState<string>(initialTab);
+  const [activeTab, setActiveTab] = React.useState<ReservationVerticalKey>(initialTab);
+  const hasUserSelectedTabRef = React.useRef(false);
+  const hasAutoFocusedRef = React.useRef(false);
+  const lastMarkedTabRef = React.useRef<string | null>(null);
   const [chatOffers, setChatOffers] = React.useState<ReservationOfferPreview[]>([]);
   const [rentalOrders, setRentalOrders] = React.useState<RentalBookingOrderDto[]>([]);
   const [loadingRentals, setLoadingRentals] = React.useState(false);
   const [cancellingRentalId, setCancellingRentalId] = React.useState<string | null>(null);
   const targetBookingId = searchParams.get("bookingId");
+
+  const {
+    userSummary,
+    verticalAttentionCounts,
+    verticalUnreadCounts,
+    recommendedUserTab,
+    markVerticalSeen,
+  } = useBookingActivitySummary({
+    includePartner: false,
+    includePendingOffers: true,
+  });
 
   React.useEffect(() => {
     let canceled = false;
@@ -109,6 +125,7 @@ export function UnifiedReservationsHub({
     try {
       await cancelMyRentalBooking(orderId);
       await loadRentalOrders();
+      notifyBookingActivityChanged();
     } catch {
       // handled
     } finally {
@@ -122,9 +139,68 @@ export function UnifiedReservationsHub({
     }
   }, [tabParam]);
 
+  // Smart auto-focus when opening /reservations without an explicit ?tab= parameter
+  React.useEffect(() => {
+    if (
+      hasExplicitTabParam ||
+      hasUserSelectedTabRef.current ||
+      hasAutoFocusedRef.current ||
+      !userSummary
+    ) {
+      return;
+    }
+    hasAutoFocusedRef.current = true;
+    if (recommendedUserTab && recommendedUserTab !== activeTab) {
+      setActiveTab(recommendedUserTab);
+    }
+  }, [activeTab, hasExplicitTabParam, recommendedUserTab, userSummary]);
+
+  // Mark unread notifications for the active vertical as seen once viewed
+  React.useEffect(() => {
+    const unreadInTab = userSummary?.verticals?.[activeTab]?.unreadCount ?? 0;
+    if (!userSummary || unreadInTab <= 0) return;
+    const key = `${activeTab}:${unreadInTab}`;
+    if (lastMarkedTabRef.current === key) return;
+    lastMarkedTabRef.current = key;
+    void markVerticalSeen(activeTab);
+  }, [activeTab, markVerticalSeen, userSummary]);
+
   const handleTabChange = (val: string) => {
-    setActiveTab(val);
-    router.replace(`/reservations?tab=${val}`, { scroll: false });
+    const next =
+      val === "restaurants" || val === "hotels" || val === "rentals" ? val : "hotels";
+    hasUserSelectedTabRef.current = true;
+    setActiveTab(next);
+    router.replace(`/reservations?tab=${next}`, { scroll: false });
+  };
+
+  const renderTabBadge = (tab: ReservationVerticalKey) => {
+    const attention = verticalAttentionCounts[tab] ?? 0;
+    const unread = verticalUnreadCounts[tab] ?? 0;
+    const active = userSummary?.verticals?.[tab]?.activeCount ?? 0;
+    const total = userSummary?.verticals?.[tab]?.totalCount ?? 0;
+
+    if (attention > 0) {
+      return (
+        <span
+          className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-micro font-bold leading-none ${
+            unread > 0
+              ? "bg-rose-500 text-white shadow-xs"
+              : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+          }`}
+        >
+          {attention > 99 ? "99+" : attention}
+        </span>
+      );
+    }
+    const displayCount = active > 0 ? active : total;
+    if (displayCount > 0) {
+      return (
+        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-muted text-muted-foreground text-micro font-semibold leading-none border border-border/60">
+          {displayCount > 99 ? "99+" : displayCount}
+        </span>
+      );
+    }
+    return null;
   };
 
   return (
@@ -153,14 +229,14 @@ export function UnifiedReservationsHub({
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <button
                 type="button"
-                onClick={() => router.push(activeTab === "hotels" ? "/hotels" : "/explore")}
+                onClick={() => router.push(`/services?category=${activeTab}`)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/80 bg-background hover:bg-muted text-xs font-semibold text-foreground transition-colors"
               >
                 <Compass className="h-3.5 w-3.5 text-primary" />
                 <span>
-                  {activeTab === "hotels"
-                    ? t("trip.hotels.staysDiscovery", { defaultValue: "Tìm thêm phòng" })
-                    : t("places.exploreThisArea", { defaultValue: "Khám phá quán ăn" })}
+                  {t("reservations.exploreMoreServices", {
+                    defaultValue: "Tìm & Đặt thêm dịch vụ",
+                  })}
                 </span>
               </button>
             </div>
@@ -169,13 +245,14 @@ export function UnifiedReservationsHub({
           {/* Navigation Tabs */}
           <div className="pt-2">
             <Tabs value={activeTab} onValueChange={handleTabChange}>
-              <TabsList className="h-11 p-1 bg-muted/70 border border-border/60 rounded-xl">
+              <TabsList className="h-auto sm:h-11 p-1 bg-muted/70 border border-border/60 rounded-xl flex-wrap">
                 <TabsTrigger
                   value="hotels"
                   className="gap-2 px-4 text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-xs"
                 >
                   <Building2 className="h-4 w-4" />
                   <span>{t("reservations.tabHotels", { defaultValue: "Khách sạn & Lưu trú" })}</span>
+                  {renderTabBadge("hotels")}
                 </TabsTrigger>
 
                 <TabsTrigger
@@ -184,6 +261,7 @@ export function UnifiedReservationsHub({
                 >
                   <Utensils className="h-4 w-4" />
                   <span>{t("reservations.tabRestaurants", { defaultValue: "Nhà hàng & Quán ăn" })}</span>
+                  {renderTabBadge("restaurants")}
                 </TabsTrigger>
 
                 <TabsTrigger
@@ -192,6 +270,7 @@ export function UnifiedReservationsHub({
                 >
                   <Car className="h-4 w-4" />
                   <span>{t("reservations.tabRentals", { defaultValue: "Thuê xe & Dịch vụ" })}</span>
+                  {renderTabBadge("rentals")}
                 </TabsTrigger>
               </TabsList>
             </Tabs>

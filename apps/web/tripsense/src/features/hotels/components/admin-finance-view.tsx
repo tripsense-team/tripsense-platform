@@ -512,7 +512,7 @@ export function AdminFinanceView() {
                           <div className="font-mono text-micro text-muted-foreground/70">#{w.id.slice(0, 8)}</div>
                         </td>
                         <td className="p-3.5">
-                          <div className="font-mono text-micro text-foreground">ID: {w.business_id.slice(0, 8)}</div>
+                          <div className="font-mono text-micro text-muted-foreground/70">#BIZ-{w.business_id.slice(0, 8).toUpperCase()}</div>
                           {w.partner_notes && (
                             <div className="text-micro text-muted-foreground italic mt-0.5">&quot;{w.partner_notes}&quot;</div>
                           )}

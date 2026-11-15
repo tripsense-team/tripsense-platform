@@ -17,10 +17,11 @@ import {
   User,
   LogOut,
   Store,
-  MapPin,
   CalendarCheck,
+  CalendarDays,
   Utensils,
   BarChart3,
+  Compass,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ import {
 } from "@/components/ui/tooltip";
 import { UserRole, LogoutModal, useAuthStore, isUserPartner } from "@/features/auth";
 import { useChatUnreadCount } from "@/features/chat";
+import { useBookingActivitySummary } from "@/features/reservations";
 import { useTranslation } from "@/i18n";
 import { toggleAiDrawer, useAiDrawerStore } from "@/stores/use-ai-drawer-store";
 
@@ -55,7 +57,12 @@ export interface NavItemDef {
 }
 
 const mainNavDefs: NavItemDef[] = [
-  { key: "trip.hotels.title", fallbackTitle: "Hotels", href: "/hotels", icon: MapPin },
+  {
+    key: "nav.places",
+    fallbackTitle: "Places & Map",
+    href: "/places",
+    icon: Search,
+  },
   {
     key: "nav.community",
     fallbackTitle: "Community",
@@ -69,16 +76,16 @@ const mainNavDefs: NavItemDef[] = [
     icon: MessageSquare,
   },
   {
-    key: "nav.places",
-    fallbackTitle: "Places & Map",
-    href: "/places",
-    icon: Search,
-  },
-  {
     key: "nav.trips",
     fallbackTitle: "My Trips",
     href: "/trips",
     icon: FolderBookmark,
+  },
+  {
+    key: "nav.servicesMarketplace",
+    fallbackTitle: "Dịch vụ & Đặt chỗ",
+    href: "/services",
+    icon: Compass,
   },
   {
     key: "nav.myReservations",
@@ -136,6 +143,10 @@ export function UserSidebar({
   const user = useAuthStore((state) => state.user);
   const [tripCount, setTripCount] = React.useState<number | null>(null);
   const { unreadConversationsCount } = useChatUnreadCount();
+  const { userBadgeCount, partnerPendingCount } = useBookingActivitySummary({
+    includePartner: isAuthenticated && isUserPartner(user),
+    includePendingOffers: isAuthenticated,
+  });
   const [logoutModalOpen, setLogoutModalOpen] = React.useState(false);
   const isDrawerOpen = useAiDrawerStore((state) => state.isOpen);
   const showTooltips = collapsed && !isDrawerOpen;
@@ -185,16 +196,25 @@ export function UserSidebar({
               {mainNavDefs.map((item) => {
                 const Icon = item.icon;
                 const isAi = item.href === "/ai-planner";
+                const isServices = item.href === "/services";
                 const isAiActive = isAi && isDrawerOpen;
                 const isActive =
                   pathname === item.href ||
                   pathname?.startsWith(`${item.href}/`) ||
+                  (isServices &&
+                    (pathname === "/hotels" || pathname?.startsWith("/hotels/"))) ||
                   isAiActive;
                 const isChat = item.href === "/chat";
+                const isReservations = item.href === "/reservations";
+                const alertCount = isChat
+                  ? unreadConversationsCount
+                  : isReservations
+                    ? userBadgeCount
+                    : 0;
                 const badge =
                   item.href === "/trips" &&
-                  isAuthenticated &&
-                  tripCount !== null
+                    isAuthenticated &&
+                    tripCount !== null
                     ? String(tripCount)
                     : item.badge;
                 const rawTitle = t(item.key);
@@ -212,9 +232,9 @@ export function UserSidebar({
                     onClick={
                       isAi
                         ? (e) => {
-                            e.preventDefault();
-                            toggleAiDrawer();
-                          }
+                          e.preventDefault();
+                          toggleAiDrawer();
+                        }
                         : undefined
                     }
                     className={cn(
@@ -236,12 +256,12 @@ export function UserSidebar({
                             : "text-neutral-900 group-hover:text-black dark:text-neutral-100 dark:group-hover:text-white",
                         )}
                       />
-                      {collapsed && isChat && unreadConversationsCount > 0 && (
+                      {collapsed && alertCount > 0 && (
                         <span
-                          aria-label={`${unreadConversationsCount} unread`}
+                          aria-label={`${alertCount} new`}
                           className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
                         >
-                          {unreadConversationsCount > 9 ? "9+" : unreadConversationsCount}
+                          {alertCount > 9 ? "9+" : alertCount}
                         </span>
                       )}
                     </div>
@@ -249,12 +269,12 @@ export function UserSidebar({
                     {!collapsed && (
                       <div className="flex-1 flex items-center justify-between min-w-0 overflow-hidden whitespace-nowrap pr-3">
                         <span className="truncate">{title}</span>
-                        {isChat && unreadConversationsCount > 0 ? (
+                        {alertCount > 0 ? (
                           <span
-                            aria-label={`${unreadConversationsCount} unread`}
+                            aria-label={`${alertCount} new`}
                             className="ml-auto inline-flex items-center justify-center min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
                           >
-                            {unreadConversationsCount > 99 ? "99+" : unreadConversationsCount}
+                            {alertCount > 99 ? "99+" : alertCount}
                           </span>
                         ) : badge ? (
                           <span
@@ -280,9 +300,9 @@ export function UserSidebar({
                       <TooltipContent side="right" sideOffset={12}>
                         <div className="flex items-center gap-1.5">
                           <span>{title}</span>
-                          {isChat && unreadConversationsCount > 0 ? (
+                          {alertCount > 0 ? (
                             <span className="text-micro px-1.5 py-0.5 rounded-full font-bold bg-rose-500 text-white">
-                              {unreadConversationsCount}
+                              {alertCount}
                             </span>
                           ) : (
                             badge && (
@@ -342,6 +362,9 @@ export function UserSidebar({
                 {(() => {
                   const partnerHref = "/partner";
                   const isPartner = isUserPartner(user);
+                  const isBookingsActive =
+                    pathname === "/partner/bookings" ||
+                    pathname?.startsWith("/partner/bookings/");
                   const isServicesActive =
                     pathname === "/partner/services" ||
                     pathname?.startsWith("/partner/services/");
@@ -352,11 +375,15 @@ export function UserSidebar({
                   const isAnalyticsActive = pathname === "/partner/analytics" || pathname?.startsWith("/partner/analytics/");
                   const isPartnerActive =
                     (pathname === partnerHref || pathname?.startsWith(`${partnerHref}/`)) &&
-                    !isServicesActive && !isSubscriptionActive && !isAnalyticsActive;
+                    !isBookingsActive &&
+                    !isServicesActive &&
+                    !isSubscriptionActive &&
+                    !isAnalyticsActive;
                   const partnerTitle = isUserPartner(user)
                     ? t("nav.partnerBusinesses", { defaultValue: "Cơ sở kinh doanh" })
                     : t("nav.becomePartner", { defaultValue: "Trở thành đối tác" });
                   const servicesTitle = t("nav.partnerServices", { defaultValue: "Dịch vụ & Thực đơn" });
+                  const bookingsTitle = t("nav.partnerBookings", { defaultValue: "Quản lý đơn đặt" });
                   const subscriptionTitle = t("nav.partnerSubscription", { defaultValue: "Gói Hội Viên Pro" });
                   const analyticsTitle = t("nav.partnerAnalytics", { defaultValue: "Thống kê & Tiếp cận" });
                   const partnerLinkClass = cn(
@@ -383,11 +410,9 @@ export function UserSidebar({
                     >
                       <Store className={partnerIconClass(isPartnerActive)} />
                       {!collapsed && (
-                        <div className="flex-1 min-w-0">
-                          <span className="truncate block font-medium">
-                            {partnerTitle}
-                          </span>
-                        </div>
+                        <span className="block min-w-0 flex-1 truncate font-medium">
+                          {partnerTitle}
+                        </span>
                       )}
                     </Link>
                   );
@@ -408,6 +433,47 @@ export function UserSidebar({
                         <span className="block min-w-0 flex-1 truncate font-medium">
                           {servicesTitle}
                         </span>
+                      )}
+                    </Link>
+                  );
+
+                  const bookingsElement = (
+                    <Link
+                      href="/partner/bookings"
+                      aria-current={isBookingsActive ? "page" : undefined}
+                      className={cn(
+                        partnerLinkClass,
+                        "relative",
+                        isBookingsActive
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-2xs border border-amber-500/30"
+                          : "text-sidebar-foreground/80 hover:bg-neutral-200/70 hover:text-foreground dark:hover:bg-neutral-800 font-medium",
+                      )}
+                    >
+                      <div className="relative flex items-center justify-center shrink-0">
+                        <CalendarDays className={partnerIconClass(isBookingsActive)} />
+                        {collapsed && isPartner && partnerPendingCount > 0 && (
+                          <span
+                            aria-label={`${partnerPendingCount} pending`}
+                            className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none"
+                          >
+                            {partnerPendingCount > 9 ? "9+" : partnerPendingCount}
+                          </span>
+                        )}
+                      </div>
+                      {!collapsed && (
+                        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                          <span className="truncate block font-medium">
+                            {bookingsTitle}
+                          </span>
+                          {isPartner && partnerPendingCount > 0 && (
+                            <span
+                              aria-label={`${partnerPendingCount} pending`}
+                              className="inline-flex items-center justify-center min-w-[18px] h-4.5 px-1.5 rounded-full bg-rose-500 text-white text-micro font-bold shadow-xs leading-none shrink-0"
+                            >
+                              {partnerPendingCount > 99 ? "99+" : partnerPendingCount}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </Link>
                   );
@@ -467,6 +533,21 @@ export function UserSidebar({
                         )}
                         {isPartner && (
                           <Tooltip>
+                            <TooltipTrigger asChild>{bookingsElement}</TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={12}>
+                              <div className="flex items-center gap-1.5">
+                                <span>{bookingsTitle}</span>
+                                {partnerPendingCount > 0 && (
+                                  <span className="text-micro px-1.5 py-0.5 rounded-full font-bold bg-rose-500 text-white">
+                                    {partnerPendingCount}
+                                  </span>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {isPartner && (
+                          <Tooltip>
                             <TooltipTrigger asChild>{subscriptionElement}</TooltipTrigger>
                             <TooltipContent side="right" sideOffset={12}>
                               <span>{subscriptionTitle}</span>
@@ -486,6 +567,7 @@ export function UserSidebar({
                     <>
                       {partnerElement}
                       {isPartner && servicesElement}
+                      {isPartner && bookingsElement}
                       {isPartner && subscriptionElement}
                       {isPartner && analyticsElement}
                     </>

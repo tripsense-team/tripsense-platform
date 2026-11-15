@@ -1,6 +1,6 @@
 # Generic Travel Rental & Activity Services — Specification & Business Analysis Plan
 
-`STATUS: APPROVED`
+`STATUS: DONE`
 
 - **Owner Service**: `services/trip-service`
 - **Affected Components**: `apps/web/tripsense`, `services/api-gateway`, `services/trip-service`, `services/social-service`
@@ -337,15 +337,14 @@ CREATE INDEX IF NOT EXISTS idx_rental_booking_inventory ON rental_booking_order(
 
 | Giai đoạn | Nhiệm vụ chính | Trạng thái |
 | :--- | :--- | :---: |
-| **Giai đoạn 1** | Viết tài liệu phân tích nghiệp vụ, thiết kế bảng CSDL, bổ sung enum `RENTAL_SERVICE` trong `trip-service`. | Đang chờ duyệt (`WAITING_FOR_HUMAN_APPROVAL`) |
-| **Giai đoạn 2** | Triển khai REST API quản lý danh mục xe/đồ, thuật toán kiểm tra tồn kho, mở rộng In-Chat Offer. | Chưa bắt đầu |
-| **Giai đoạn 3** | Tích hợp vào Kênh Đối tác (`PartnerBookingsHub`), giao diện tìm kiếm và đặt thuê của du khách trên web. | Chưa bắt đầu |
+| **Giai đoạn 1** | Viết tài liệu phân tích nghiệp vụ, thiết kế bảng CSDL, bổ sung enum `RENTAL_SERVICE` trong `trip-service`. | Hoàn tất |
+| **Giai đoạn 2** | Triển khai REST API quản lý danh mục xe/đồ, `/api/public/rentals/**`, thuật toán kiểm tra tồn kho, ràng buộc `RENTAL_ITEMS_REQUIRED`, mở rộng In-Chat Offer. | Hoàn tất |
+| **Giai đoạn 3** | Tích hợp vào Kênh Đối tác (`PartnerBookingsHub`), trang `/rentals/[businessId]`, card đặt thuê trên `PlaceDetailOverlay` (`RentalOverviewCard`), và đồng bộ wizard tạo đối tác. | Hoàn tất |
 
 ---
 
-### KẾT LUẬN & CHỜ DUYỆT
-Tài liệu trên đã phân tích toàn diện từ mô hình nghiệp vụ thực tế, luồng tương tác, thiết kế bảng CSDL mở rộng, đến các giải pháp xử lý tương tranh và bảo mật.
+### TRẠNG THÁI HOÀN THÀNH
+Toàn bộ các giai đoạn 1, 2 và 3 đã được triển khai, kiểm thử tự động và kết nối end-to-end với API Gateway và Place Detail Overlay.
 
-`STATUS: WAITING_FOR_HUMAN_APPROVAL`
-*(Chờ sự phê duyệt của người dùng trước khi tiến hành viết code)*
+`STATUS: DONE`
 

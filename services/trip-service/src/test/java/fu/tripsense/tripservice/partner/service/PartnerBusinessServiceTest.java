@@ -413,14 +413,55 @@ class PartnerBusinessServiceTest {
   }
 
   @Test
-  @DisplayName("getBusinessKindConfig: returns kinds and submitEnabled for region")
+  @DisplayName("getBusinessKindConfig: returns kinds including RENTAL_SERVICE and submitEnabled for region")
   void getBusinessKindConfig_success() {
     BusinessKindConfigDto supported = businessService.getBusinessKindConfig("Hoi An");
     assertThat(supported.schemaVersion()).isEqualTo(1);
     assertThat(supported.submitEnabled()).isTrue();
     assertThat(supported.kinds()).hasSize(3);
+    assertThat(supported.kinds().stream().map(BusinessKindConfigDto.KindDescriptorDto::kind))
+        .containsExactlyInAnyOrder(BusinessKind.HOTEL, BusinessKind.RESTAURANT, BusinessKind.RENTAL_SERVICE);
 
     BusinessKindConfigDto unsupported = businessService.getBusinessKindConfig("Mars");
     assertThat(unsupported.submitEnabled()).isFalse();
+  }
+
+  @Test
+  @DisplayName("updateIntake: throws 409 RENTAL_ITEMS_REQUIRED when rental business has zero active items")
+  void updateIntake_rentalWithoutItems_throws409() {
+    PartnerBusiness business =
+        PartnerBusiness.builder()
+            .id(businessId)
+            .ownerUserId(ownerId)
+            .kind(BusinessKind.RENTAL_SERVICE)
+            .approvalValidity(ApprovalValidity.VALID)
+            .operationState(OperationState.ACTIVE)
+            .publicationState(PublicationState.PUBLISHED)
+            .requiresReverification(false)
+            .acceptingNew(false)
+            .version(1L)
+            .build();
+
+    when(memberRepository.findByIdBusinessIdAndIdUserId(businessId, ownerId))
+        .thenReturn(Optional.of(PartnerBusinessMember.builder()
+            .id(new PartnerBusinessMemberId(businessId, ownerId))
+            .role(MembershipRole.OWNER)
+            .state(MembershipState.ACTIVE)
+            .build()));
+
+    when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
+    lenient().when(capabilityRepository.findByIdBusinessIdAndIdCapability(eq(businessId), any(PartnerCapability.class)))
+        .thenReturn(Optional.of(PartnerBusinessCapability.builder().build()));
+    when(db.queryForObject(anyString(), eq(Integer.class), eq(businessId))).thenReturn(0);
+
+    IntakeRequest req = new IntakeRequest(1L, true);
+
+    assertThatThrownBy(() -> businessService.updateIntake(ownerUser, businessId, req))
+        .isInstanceOf(TripServiceException.class)
+        .satisfies(e -> {
+          TripServiceException tse = (TripServiceException) e;
+          assertThat(tse.code()).isEqualTo("RENTAL_ITEMS_REQUIRED");
+          assertThat(tse.status()).isEqualTo(HttpStatus.CONFLICT);
+        });
   }
 }

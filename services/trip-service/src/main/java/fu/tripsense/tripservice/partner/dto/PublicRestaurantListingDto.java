@@ -17,5 +17,6 @@ public record PublicRestaurantListingDto(
     String publicEmail,
     String publicPhone,
     boolean verifiedPartner,
+    boolean acceptingNew,
     String badgeLabel
 ) {}

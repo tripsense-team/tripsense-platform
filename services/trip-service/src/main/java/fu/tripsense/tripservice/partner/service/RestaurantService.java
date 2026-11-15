@@ -244,33 +244,67 @@ public class RestaurantService {
         .publicEmail(publicEmail)
         .publicPhone(publicPhone)
         .verifiedPartner(verified)
+        .acceptingNew(business.isAcceptingNew())
         .badgeLabel(verified ? "Verified Partner" : null)
         .build();
   }
 
   @Transactional(readOnly = true)
   public List<PublicRestaurantListingDto> searchPublicRestaurants(String query) {
-    List<PartnerBusiness> businesses;
-    if (query != null && !query.isBlank()) {
-      businesses = businessRepository.findByDisplayNameContainingIgnoreCase(query.trim()).stream()
-          .filter(b -> b.getKind() == BusinessKind.RESTAURANT && b.getPublicationState() == PublicationState.PUBLISHED)
-          .toList();
-    } else {
-      businesses = businessRepository.findByKindAndPublicationState(BusinessKind.RESTAURANT, PublicationState.PUBLISHED);
+    String trimmed = query != null && !query.isBlank() ? query.trim() : null;
+    Map<UUID, PartnerBusiness> byId = new LinkedHashMap<>();
+    if (trimmed != null) {
+      businessRepository.findByDisplayNameContainingIgnoreCase(trimmed).stream()
+          .filter(
+              b ->
+                  b.getKind() == BusinessKind.RESTAURANT
+                      && b.getPublicationState() == PublicationState.PUBLISHED)
+          .forEach(b -> byId.put(b.getId(), b));
     }
+    businessRepository
+        .findByKindAndPublicationState(BusinessKind.RESTAURANT, PublicationState.PUBLISHED)
+        .forEach(b -> byId.putIfAbsent(b.getId(), b));
 
-    return businesses.stream()
-        .map(b -> {
-          try {
-            return getPublicRestaurant(b.getId());
-          } catch (Exception e) {
-            return null;
-          }
-        })
+    String foldedQuery = ListingTextSearchSupport.fold(trimmed);
+    return byId.values().stream()
+        .map(
+            b -> {
+              try {
+                return getPublicRestaurant(b.getId());
+              } catch (Exception e) {
+                return null;
+              }
+            })
         .filter(Objects::nonNull)
-        .sorted((a, b) -> Boolean.compare(b.verifiedPartner(), a.verifiedPartner()))
+        .filter(dto -> foldedQuery.isEmpty() || matchesRestaurantListing(dto, foldedQuery))
+        .sorted(
+            Comparator.comparing(PublicRestaurantListingDto::acceptingNew, Comparator.reverseOrder())
+                .thenComparing(
+                    PublicRestaurantListingDto::verifiedPartner, Comparator.reverseOrder()))
         .limit(50)
         .toList();
+  }
+
+  private static boolean matchesRestaurantListing(
+      PublicRestaurantListingDto dto, String foldedQuery) {
+    if (ListingTextSearchSupport.containsFolded(dto.displayName(), foldedQuery)
+        || ListingTextSearchSupport.containsFolded(dto.destination(), foldedQuery)
+        || ListingTextSearchSupport.containsFolded(dto.address(), foldedQuery)) {
+      return true;
+    }
+    if (dto.cuisineTags() != null
+        && dto.cuisineTags().stream()
+            .anyMatch(tag -> ListingTextSearchSupport.containsFolded(tag, foldedQuery))) {
+      return true;
+    }
+    return dto.menu() != null
+        && dto.menu().stream()
+            .anyMatch(
+                item ->
+                    ListingTextSearchSupport.containsFolded(item.name(), foldedQuery)
+                        || ListingTextSearchSupport.containsFolded(item.category(), foldedQuery)
+                        || ListingTextSearchSupport.containsFolded(
+                            item.description(), foldedQuery));
   }
 
   private RestaurantMenuItemDto toDto(RestaurantMenuItem item) {
