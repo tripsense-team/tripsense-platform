@@ -57,7 +57,6 @@ const adminNavGroups: AdminNavGroup[] = [
         defaultTitle: "User Accounts",
         href: "/admin/users",
         icon: Users,
-        badge: "12",
       },
       { titleKey: "admin.sidebar.destinationsPlaces", defaultTitle: "Destinations & Places", href: "/admin/places", icon: MapPin },
       { titleKey: "admin.sidebar.tripsItineraries", defaultTitle: "Trips & Itineraries", href: "/admin/trips", icon: Route },

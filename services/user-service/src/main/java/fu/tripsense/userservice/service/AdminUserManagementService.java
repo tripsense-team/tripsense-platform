@@ -74,9 +74,17 @@ public class AdminUserManagementService {
       params.addValue("searchPattern", searchPattern);
     }
     if (normalizedRole != null) {
-      where.append(" AND upper(u.role) IN (:roleMain, :rolePrefixed) ");
-      params.addValue("roleMain", normalizedRole);
-      params.addValue("rolePrefixed", "ROLE_" + normalizedRole);
+      if ("ADMIN".equals(normalizedRole)) {
+        where.append(" AND upper(u.role) IN ('ADMIN', 'ROLE_ADMIN') ");
+      } else if ("PARTNER".equals(normalizedRole)) {
+        where.append(
+            " AND upper(u.role) NOT IN ('ADMIN', 'ROLE_ADMIN') "
+                + "AND (u.partner_enrolled = true OR upper(u.role) IN ('PARTNER', 'ROLE_PARTNER')) ");
+      } else {
+        where.append(
+            " AND upper(u.role) NOT IN ('ADMIN', 'ROLE_ADMIN', 'PARTNER', 'ROLE_PARTNER') "
+                + "AND u.partner_enrolled = false ");
+      }
     }
     if (normalizedStatus != null) {
       where.append(" AND u.status = :status ");

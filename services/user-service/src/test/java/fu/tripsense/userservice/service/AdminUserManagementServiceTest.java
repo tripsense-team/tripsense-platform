@@ -123,12 +123,32 @@ class AdminUserManagementServiceTest {
     assertEquals(1, response.totalPages());
     assertEquals(22L, response.summary().totalUsers());
 
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<MapSqlParameterSource> paramsCaptor =
         ArgumentCaptor.forClass(MapSqlParameterSource.class);
-    verify(jdbc).queryForObject(anyString(), paramsCaptor.capture(), eq(Long.class));
+    verify(jdbc).queryForObject(sqlCaptor.capture(), paramsCaptor.capture(), eq(Long.class));
     assertEquals("%a\\%b\\_c%", paramsCaptor.getValue().getValue("searchPattern"));
-    assertEquals("USER", paramsCaptor.getValue().getValue("roleMain"));
     assertEquals("ACTIVE", paramsCaptor.getValue().getValue("status"));
+    assertTrue(sqlCaptor.getValue().contains("u.partner_enrolled = false"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void listUsers_partnerFilterIncludesPartnerEnrolledUsersExcludingAdmins() {
+    when(jdbc.queryForObject(anyString(), any(MapSqlParameterSource.class), eq(Long.class)))
+        .thenReturn(3L);
+    when(jdbc.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+        .thenReturn(List.of());
+    when(jdbc.queryForObject(
+            anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+        .thenReturn(new AdminUserSummaryDto(22L, 21L, 0L, 1L));
+
+    service.listUsers(adminUser, 0, 20, null, "PARTNER", null);
+
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    verify(jdbc).queryForObject(sqlCaptor.capture(), any(MapSqlParameterSource.class), eq(Long.class));
+    assertTrue(sqlCaptor.getValue().contains("u.partner_enrolled = true"));
+    assertTrue(sqlCaptor.getValue().contains("NOT IN ('ADMIN', 'ROLE_ADMIN')"));
   }
 
   @Test
