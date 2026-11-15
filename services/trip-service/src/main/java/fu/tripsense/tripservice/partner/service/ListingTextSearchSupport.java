@@ -4,11 +4,11 @@ import java.text.Normalizer;
 import java.util.Locale;
 
 /** Shared Vietnamese-friendly diacritic-folding search helpers for public partner listings. */
-final class ListingTextSearchSupport {
+public final class ListingTextSearchSupport {
 
   private ListingTextSearchSupport() {}
 
-  static String fold(String raw) {
+  public static String fold(String raw) {
     if (raw == null) {
       return "";
     }
@@ -20,7 +20,7 @@ final class ListingTextSearchSupport {
         .trim();
   }
 
-  static boolean containsFolded(String value, String foldedQuery) {
+  public static boolean containsFolded(String value, String foldedQuery) {
     return value != null && !foldedQuery.isEmpty() && fold(value).contains(foldedQuery);
   }
 }

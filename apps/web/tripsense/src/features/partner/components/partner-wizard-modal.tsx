@@ -672,9 +672,11 @@ export function PartnerWizardModal({
                         <span className="font-semibold text-foreground block">
                           {selectedCandidate.displayName}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          ID: {selectedCandidate.id}
-                        </span>
+                        {(selectedCandidate.address || selectedCandidate.destination) && (
+                          <span className="text-[11px] text-muted-foreground block truncate">
+                            {selectedCandidate.address || selectedCandidate.destination}
+                          </span>
+                        )}
                       </div>
                       <Button
                         type="button"

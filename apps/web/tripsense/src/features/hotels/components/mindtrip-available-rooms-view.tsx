@@ -166,6 +166,12 @@ export function MindtripAvailableRoomsView({
 
   const hasRooms = Array.isArray(currentHotel.rooms) && currentHotel.rooms.length > 0;
 
+  React.useEffect(() => {
+    if (!hasRooms) {
+      void refreshRooms();
+    }
+  }, [hasRooms, refreshRooms]);
+
   return (
     <div className="min-h-full w-full bg-background text-foreground p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 animate-in fade-in-0 duration-200">
       {heldBooking && (
@@ -645,8 +651,8 @@ export function MindtripAvailableRoomsView({
             <div className="p-4 rounded-2xl bg-muted/40 border border-border text-left space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Mã đặt phòng:</span>
-                <span className="font-mono font-semibold text-foreground text-[11px]">
-                  {confirmedBooking.booking.id}
+                <span className="font-mono font-bold text-foreground text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded">
+                  #TS-HTL-{confirmedBooking.booking.id.slice(0, 8).toUpperCase()}
                 </span>
               </div>
               <div className="flex justify-between">

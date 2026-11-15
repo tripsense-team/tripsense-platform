@@ -235,7 +235,7 @@ export function PartnerSubscriptionView({
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {kindName} • ID: {business.id.slice(0, 8)}...
+                {kindName} • {business.operationState === "ACTIVE" ? "Đang hoạt động" : "Đang xử lý"}
               </p>
             </div>
           </div>

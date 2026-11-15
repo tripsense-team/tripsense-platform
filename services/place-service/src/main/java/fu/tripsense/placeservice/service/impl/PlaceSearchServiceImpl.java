@@ -147,7 +147,7 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
                 ? hasStrongLocalMatch
                 : rankedLocal.size() >= properties.getSearch().getMinLocalResults());
 
-    if (localIsFreshAndSufficient) {
+    if (properties.getSearch().isLocalOnly() || localIsFreshAndSufficient) {
       cache.putSearchResults(
           cacheQuery, effectiveLat, effectiveLng, effectiveRadius, effectiveLimit, rankedLocal);
       return enrichPhotosForPlaces(rankedLocal);
@@ -710,39 +710,74 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
   private List<Place> findLocalPlaces(String normalizedQuery, int limit) {
     RequestDiagnostics.mark("place_mongo_query_limit", limit);
-    if (System.currentTimeMillis() - lastLocalSearchFailureTime < 30_000) {
-      RequestDiagnostics.mark("place_search_method", "REGEX_COOLDOWN");
+
+    if (isBroadLocationQuery(normalizedQuery)) {
       try {
-        return RequestDiagnostics.measure(
-            "mongo_regex_query",
-            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
-                .filter(this::isPubliclyActive).toList());
+        return repository.findByLifecycleStatusNot(
+            fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED,
+            PageRequest.of(0, limit));
       } catch (Exception ex) {
-        return Collections.emptyList();
+        log.warn("Broad local places query failed: {}", ex.getMessage());
       }
     }
-    RequestDiagnostics.mark("place_search_method", "TEXT");
-    try {
-      return RequestDiagnostics.measure(
-          "mongo_text_query",
-          () -> repository.searchByText(normalizedQuery, PageRequest.of(0, limit)).stream()
-              .filter(this::isPubliclyActive).toList());
-    } catch (Exception exception) {
-      lastLocalSearchFailureTime = System.currentTimeMillis();
-      RequestDiagnostics.mark("place_search_method", "REGEX_AFTER_TEXT_FAILURE");
-      log.warn(
-          "place_text_search_failed requestId={} errorType={}",
-          RequestDiagnostics.requestId(),
-          exception.getClass().getSimpleName());
+
+    List<Place> results = Collections.emptyList();
+    if (System.currentTimeMillis() - lastLocalSearchFailureTime >= 30_000) {
+      RequestDiagnostics.mark("place_search_method", "TEXT");
       try {
-        return RequestDiagnostics.measure(
-            "mongo_regex_query",
-            () -> repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
-                .filter(this::isPubliclyActive).toList());
-      } catch (Exception ex) {
-        return Collections.emptyList();
+        results =
+            RequestDiagnostics.measure(
+                "mongo_text_query",
+                () ->
+                    repository.searchByText(normalizedQuery, PageRequest.of(0, limit)).stream()
+                        .filter(this::isPubliclyActive)
+                        .toList());
+      } catch (Exception exception) {
+        lastLocalSearchFailureTime = System.currentTimeMillis();
+        RequestDiagnostics.mark("place_search_method", "REGEX_AFTER_TEXT_FAILURE");
+        log.warn(
+            "place_text_search_failed requestId={} errorType={}",
+            RequestDiagnostics.requestId(),
+            exception.getClass().getSimpleName());
       }
     }
+
+    if (results.isEmpty()) {
+      RequestDiagnostics.mark("place_search_method", "KEYWORD_REGEX");
+      try {
+        String quoted = Pattern.quote(normalizedQuery);
+        results =
+            RequestDiagnostics.measure(
+                "mongo_keyword_regex_query",
+                () ->
+                    repository.searchByKeywordRegex(quoted, PageRequest.of(0, limit)).stream()
+                        .filter(this::isPubliclyActive)
+                        .toList());
+      } catch (Exception ex) {
+        try {
+          results =
+              repository
+                  .findByNameRegex(Pattern.quote(normalizedQuery), PageRequest.of(0, limit))
+                  .stream()
+                  .filter(this::isPubliclyActive)
+                  .toList();
+        } catch (Exception ignored) {
+          results = Collections.emptyList();
+        }
+      }
+    }
+
+    return results;
+  }
+
+  private boolean isBroadLocationQuery(String query) {
+    if (!StringUtils.hasText(query)) return true;
+    String q = query.trim().toLowerCase(Locale.ROOT);
+    return q.equals("đà nẵng")
+        || q.equals("da nang")
+        || q.equals("tất cả")
+        || q.equals("all")
+        || q.equals("địa điểm nổi tiếng ở đà nẵng");
   }
 
   private AutocompleteSuggestionDto toSuggestion(Place place) {

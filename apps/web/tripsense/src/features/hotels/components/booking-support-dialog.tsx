@@ -62,12 +62,13 @@ export function BookingSupportDialog({
             resourceType: "HOTEL_BOOKING",
             resourceId: booking.id,
             category,
-            details: `[Đơn #${booking.id} - ${booking.property_name}]: ${details.trim()}`,
+            details: `[Đơn #TS-HTL-${booking.id.slice(0, 8).toUpperCase()} - ${booking.property_name}]: ${details.trim()}`,
           }),
         },
       );
 
-      setTicketId(res.data?.id || "TC-" + Date.now().toString().slice(-6));
+      const caseCode = res.data?.id ? `TC-${res.data.id.slice(0, 8).toUpperCase()}` : `TC-${Date.now().toString().slice(-6)}`;
+      setTicketId(caseCode);
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError")));
     } finally {
@@ -96,7 +97,7 @@ export function BookingSupportDialog({
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs">
-            {booking.property_name} · Mã đơn: {booking.id.slice(0, 8)}...
+            {booking.property_name} · Mã đơn: #TS-HTL-{booking.id.slice(0, 8).toUpperCase()}
           </DialogDescription>
         </DialogHeader>
 

@@ -28,7 +28,9 @@ import {
   Compass,
   Car,
   Plus,
+  Layers,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -443,13 +445,31 @@ export function PartnerBookingsHub({
 
       if (!hasAutoFocusedFilterRef.current && !hasUserPickedFilterRef.current) {
         hasAutoFocusedFilterRef.current = true;
+        const kinds = Array.from(new Set(businesses.map((b) => b.kind)));
+        let autoCategory: string = "ALL";
+        if (kinds.length === 1) {
+          if (kinds[0] === "RENTAL_SERVICE") autoCategory = "RENTAL";
+          else if (kinds[0] === "HOTEL") autoCategory = "HOTEL";
+          else if (kinds[0] === "RESTAURANT") autoCategory = "RESTAURANT";
+        }
+
         const scoped =
           selectedBusinessId !== "ALL"
             ? unifiedList.filter((b) => b.businessId === selectedBusinessId)
             : unifiedList;
         const initialPendingCount = scoped.filter((b) => b.normalizedStatus === "PENDING").length;
         if (initialPendingCount > 0) {
+          const pendingSources = Array.from(
+            new Set(scoped.filter((b) => b.normalizedStatus === "PENDING").map((b) => b.sourceType)),
+          );
+          if (pendingSources.length === 1) {
+            autoCategory = pendingSources[0];
+          }
           setSelectedStatus("PENDING");
+        }
+
+        if (autoCategory !== "ALL") {
+          setSelectedServiceType(autoCategory);
         }
       }
     } catch (err) {
@@ -816,8 +836,18 @@ export function PartnerBookingsHub({
         return false;
       }
       // Status filter
-      if (selectedStatus !== "ALL" && b.normalizedStatus !== selectedStatus) {
-        return false;
+      if (selectedStatus !== "ALL") {
+        if (selectedStatus === "IN_USE") {
+          if (b.rawStatus !== "IN_USE") return false;
+        } else if (selectedStatus === "RETURNED") {
+          if (b.rawStatus !== "RETURNED") return false;
+        } else if (selectedStatus === "CHECKED_IN") {
+          if (b.rawStatus !== "CHECKED_IN") return false;
+        } else if (selectedStatus === "CHECKED_OUT") {
+          if (b.rawStatus !== "CHECKED_OUT") return false;
+        } else if (b.normalizedStatus !== selectedStatus && b.rawStatus !== selectedStatus) {
+          return false;
+        }
       }
       // Search query filter
       if (searchQuery.trim()) {
@@ -834,6 +864,51 @@ export function PartnerBookingsHub({
       return true;
     });
   }, [bookings, selectedBusinessId, selectedServiceType, selectedStatus, searchQuery]);
+
+  // Relevant businesses tailored to active category
+  const relevantBusinesses = React.useMemo(() => {
+    if (selectedServiceType === "RENTAL") {
+      return businesses.filter((b) => b.kind === "RENTAL_SERVICE");
+    }
+    if (selectedServiceType === "HOTEL") {
+      return businesses.filter((b) => b.kind === "HOTEL");
+    }
+    if (selectedServiceType === "RESTAURANT") {
+      return businesses.filter((b) => b.kind === "RESTAURANT");
+    }
+    if (selectedServiceType === "CHAT_OFFER") {
+      const chatBizIds = new Set(
+        bookings.filter((b) => b.sourceType === "CHAT_OFFER").map((b) => b.businessId),
+      );
+      const filtered = businesses.filter((b) => chatBizIds.has(b.id));
+      return filtered.length > 0 ? filtered : businesses;
+    }
+    return businesses;
+  }, [businesses, bookings, selectedServiceType]);
+
+  const handleSelectCategory = (catId: string) => {
+    hasUserPickedFilterRef.current = true;
+    setSelectedServiceType(catId);
+    setSelectedStatus("ALL");
+    setCurrentPage(1);
+
+    // Contextual business alignment
+    if (catId === "RENTAL") {
+      const match = businesses.filter((b) => b.kind === "RENTAL_SERVICE");
+      if (match.length === 1) setSelectedBusinessId(match[0].id);
+      else if (!match.some((b) => b.id === selectedBusinessId)) setSelectedBusinessId("ALL");
+    } else if (catId === "HOTEL") {
+      const match = businesses.filter((b) => b.kind === "HOTEL");
+      if (match.length === 1) setSelectedBusinessId(match[0].id);
+      else if (!match.some((b) => b.id === selectedBusinessId)) setSelectedBusinessId("ALL");
+    } else if (catId === "RESTAURANT") {
+      const match = businesses.filter((b) => b.kind === "RESTAURANT");
+      if (match.length === 1) setSelectedBusinessId(match[0].id);
+      else if (!match.some((b) => b.id === selectedBusinessId)) setSelectedBusinessId("ALL");
+    } else {
+      setSelectedBusinessId("ALL");
+    }
+  };
 
   // Metric counts (scoped to selected business & service type for accurate chip numbers)
   const scopedBookingsForStatus = React.useMemo(
@@ -888,6 +963,147 @@ export function PartnerBookingsHub({
     (b) => b.normalizedStatus === "CANCELLED" || b.normalizedStatus === "REJECTED",
   ).length;
 
+  const categoryMetrics = React.useMemo(() => {
+    if (selectedServiceType === "RENTAL") {
+      return {
+        totalLabel: "Tổng đơn thuê",
+        totalIcon: Car,
+        pendingLabel: "Chờ xác nhận",
+        confirmedLabel: "Đã chốt (Chờ giao)",
+        completedLabel: "Đang thuê / Đã trả",
+      };
+    }
+    if (selectedServiceType === "HOTEL") {
+      return {
+        totalLabel: "Tổng đơn phòng",
+        totalIcon: Hotel,
+        pendingLabel: "Chờ xác nhận",
+        confirmedLabel: "Đã giữ phòng",
+        completedLabel: "Đang lưu trú / Đã check-out",
+      };
+    }
+    if (selectedServiceType === "RESTAURANT") {
+      return {
+        totalLabel: "Tổng yêu cầu bàn",
+        totalIcon: Utensils,
+        pendingLabel: "Chờ xác nhận",
+        confirmedLabel: "Đã giữ bàn",
+        completedLabel: "Đã đón tiếp",
+      };
+    }
+    if (selectedServiceType === "CHAT_OFFER") {
+      return {
+        totalLabel: "Tổng phiếu chat",
+        totalIcon: MessageSquare,
+        pendingLabel: "Chờ khách xác nhận",
+        confirmedLabel: "Khách đã chốt",
+        completedLabel: "Hoàn tất",
+      };
+    }
+    return {
+      totalLabel: "Tổng lượt đặt",
+      totalIcon: CalendarDays,
+      pendingLabel: "Chờ xác nhận",
+      confirmedLabel: "Đã chốt & Giữ chỗ",
+      completedLabel: "Hoàn tất / Đã đón",
+    };
+  }, [selectedServiceType]);
+
+  const categoryStatusTabs = React.useMemo(() => {
+    if (selectedServiceType === "RENTAL") {
+      const inUseCount = scopedBookingsForStatus.filter((b) => b.rawStatus === "IN_USE").length;
+      const returnedCount = scopedBookingsForStatus.filter((b) => b.rawStatus === "RETURNED").length;
+      const waitingCount = scopedBookingsForStatus.filter((b) => b.rawStatus === "CONFIRMED").length;
+      return [
+        { id: "ALL", label: `Tất cả (${totalCount})` },
+        { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
+        { id: "CONFIRMED", label: `Chờ giao xe (${waitingCount})` },
+        { id: "IN_USE", label: `Đang thuê xe (${inUseCount})` },
+        { id: "RETURNED", label: `Đã trả xe (${returnedCount})` },
+        { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
+      ];
+    }
+    if (selectedServiceType === "HOTEL") {
+      const stayingCount = scopedBookingsForStatus.filter((b) => b.rawStatus === "CHECKED_IN").length;
+      return [
+        { id: "ALL", label: `Tất cả (${totalCount})` },
+        { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
+        { id: "CONFIRMED", label: `Đã giữ phòng (${confirmedCount})` },
+        { id: "CHECKED_IN", label: `Đang ở (${stayingCount})` },
+        { id: "EXPIRED", label: `Hết hạn (${expiredCount})` },
+        { id: "CANCELLED", label: `Đã hủy / No-show (${cancelledCount})` },
+      ];
+    }
+    if (selectedServiceType === "RESTAURANT") {
+      return [
+        { id: "ALL", label: `Tất cả (${totalCount})` },
+        { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
+        { id: "CONFIRMED", label: `Đã giữ bàn (${confirmedCount})` },
+        { id: "EXPIRED", label: `Quá hạn giờ hẹn (${expiredCount})` },
+        { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
+      ];
+    }
+    if (selectedServiceType === "CHAT_OFFER") {
+      return [
+        { id: "ALL", label: `Tất cả (${totalCount})` },
+        { id: "PENDING", label: `Chờ khách chốt (${pendingCount})`, highlight: pendingCount > 0 },
+        { id: "CONFIRMED", label: `Khách đã chốt (${confirmedCount})` },
+        { id: "EXPIRED", label: `Hết hạn deal (${expiredCount})` },
+        { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
+      ];
+    }
+    return [
+      { id: "ALL", label: `Tất cả (${totalCount})` },
+      { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
+      { id: "CONFIRMED", label: `Đã xác nhận (${confirmedCount})` },
+      { id: "EXPIRED", label: `Hết hạn (${expiredCount})` },
+      { id: "COMPLETED", label: `Hoàn tất (${completedCount})` },
+      { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
+    ];
+  }, [
+    selectedServiceType,
+    scopedBookingsForStatus,
+    totalCount,
+    pendingCount,
+    confirmedCount,
+    expiredCount,
+    completedCount,
+    cancelledCount,
+  ]);
+
+  const CATEGORY_TABS = [
+    {
+      id: "RENTAL",
+      label: "Thuê xe & Dịch vụ",
+      subtitle: "Xe máy, ô tô & cắm trại",
+      icon: Car,
+    },
+    {
+      id: "HOTEL",
+      label: "Khách sạn & Lưu trú",
+      subtitle: "Phòng nghỉ & check-in",
+      icon: Hotel,
+    },
+    {
+      id: "RESTAURANT",
+      label: "Nhà hàng & Quán ăn",
+      subtitle: "Đặt bàn & tiệc dùng bữa",
+      icon: Utensils,
+    },
+    {
+      id: "CHAT_OFFER",
+      label: "Phiếu Chat",
+      subtitle: "Deal & voucher trực tiếp",
+      icon: MessageSquare,
+    },
+    {
+      id: "ALL",
+      label: "Tất cả danh mục",
+      subtitle: "Xem tổng hợp toàn bộ",
+      icon: Layers,
+    },
+  ];
+
   const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedBookings = React.useMemo(() => {
@@ -922,14 +1138,143 @@ export function PartnerBookingsHub({
     }
   };
 
+  const getEmptyStateDetails = () => {
+    if (selectedServiceType === "RENTAL") {
+      return {
+        icon: Car,
+        title: "Chưa có đơn thuê phương tiện hoặc thiết bị nào",
+        description:
+          searchQuery || selectedBusinessId !== "ALL" || selectedStatus !== "ALL"
+            ? "Hãy thử điều chỉnh lại bộ lọc trạng thái hoặc từ khóa tìm kiếm."
+            : "Khi du khách đặt thuê xe máy, ô tô tự lái hoặc thiết bị cắm trại, toàn bộ đơn đặt sẽ hiển thị tại đây để bạn duyệt và bàn giao.",
+      };
+    }
+    if (selectedServiceType === "HOTEL") {
+      return {
+        icon: Hotel,
+        title: "Chưa có đơn đặt phòng khách sạn nào",
+        description:
+          searchQuery || selectedBusinessId !== "ALL" || selectedStatus !== "ALL"
+            ? "Hãy thử điều chỉnh lại bộ lọc trạng thái hoặc từ khóa tìm kiếm."
+            : "Khi du khách đặt phòng khách sạn trực tuyến, toàn bộ đơn đặt sẽ hiển thị tại đây để bạn tiếp nhận và quản lý check-in.",
+      };
+    }
+    if (selectedServiceType === "RESTAURANT") {
+      return {
+        icon: Utensils,
+        title: "Chưa có yêu cầu đặt bàn ăn nào",
+        description:
+          searchQuery || selectedBusinessId !== "ALL" || selectedStatus !== "ALL"
+            ? "Hãy thử điều chỉnh lại bộ lọc trạng thái hoặc từ khóa tìm kiếm."
+            : "Khi du khách gửi yêu cầu giữ bàn hoặc đặt món trước, danh sách bàn đặt sẽ hiển thị tại đây để bạn xác nhận ngay.",
+      };
+    }
+    if (selectedServiceType === "CHAT_OFFER") {
+      return {
+        icon: MessageSquare,
+        title: "Chưa có phiếu đặt chốt qua Chat",
+        description:
+          searchQuery || selectedBusinessId !== "ALL" || selectedStatus !== "ALL"
+            ? "Hãy thử điều chỉnh lại bộ lọc trạng thái hoặc từ khóa tìm kiếm."
+            : "Khi bạn tạo phiếu đặt hoặc deal ưu đãi trong đoạn hội thoại với khách hàng, các phiếu chốt sẽ được tổng hợp tại đây.",
+      };
+    }
+    return {
+      icon: CalendarDays,
+      title: "Không có lượt đặt nào trong mục này",
+      description:
+        searchQuery || selectedBusinessId !== "ALL" || selectedStatus !== "ALL"
+          ? "Hãy thử điều chỉnh lại bộ lọc tìm kiếm hoặc chọn hiển thị tất cả cơ sở."
+          : "Khi du khách đặt bàn hoặc đặt phòng trực tuyến, toàn bộ đơn đặt sẽ hiển thị tại đây để bạn xử lý ngay lập tức.",
+    };
+  };
+
+  const emptyState = getEmptyStateDetails();
+  const EmptyIcon = emptyState.icon;
+  const MetricTotalIcon = categoryMetrics.totalIcon;
+
   return (
     <div className="space-y-6">
+      {/* Top Category Workspaces */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Dịch vụ:
+            </span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              Chọn danh mục để quản lý tập trung và xử lý đơn chuyên sâu
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          {CATEGORY_TABS.map((cat) => {
+            const Icon = cat.icon;
+            const isSelected = selectedServiceType === cat.id;
+            const stCount = serviceTypeCounts[cat.id] ?? { total: 0, pending: 0 };
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => handleSelectCategory(cat.id)}
+                className={cn(
+                  "relative flex flex-col items-start p-3 sm:p-3.5 rounded-2xl border text-left transition-all cursor-pointer group",
+                  isSelected
+                    ? "border-primary bg-primary/5 shadow-2xs ring-1 ring-primary/20"
+                    : "border-border/70 bg-card hover:bg-muted/40 hover:border-border",
+                )}
+              >
+                <div className="flex items-center justify-between w-full mb-2">
+                  <div
+                    className={cn(
+                      "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "bg-muted text-muted-foreground group-hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </div>
+
+                  {stCount.pending > 0 ? (
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-bold shadow-2xs animate-pulse">
+                      {stCount.pending}
+                    </span>
+                  ) : stCount.total > 0 ? (
+                    <span className="text-xs font-semibold text-muted-foreground bg-muted/70 px-2 py-0.5 rounded-full">
+                      {stCount.total}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/60">0</span>
+                  )}
+                </div>
+
+                <span
+                  className={cn(
+                    "text-xs sm:text-sm font-bold truncate w-full",
+                    isSelected
+                      ? "text-foreground"
+                      : "text-muted-foreground group-hover:text-foreground",
+                  )}
+                >
+                  {cat.label}
+                </span>
+                <span className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5 hidden sm:block">
+                  {cat.subtitle}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Metrics Banner */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="rounded-xl border border-border/70 bg-card p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Tổng lượt đặt</span>
-            <CalendarDays className="h-4 w-4" />
+            <span className="text-xs font-medium">{categoryMetrics.totalLabel}</span>
+            <MetricTotalIcon className="h-4 w-4" />
           </div>
           <p className="text-2xl font-bold text-foreground mt-1.5">{totalCount}</p>
         </div>
@@ -943,7 +1288,7 @@ export function PartnerBookingsHub({
                 )}
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
               </span>
-              Chờ xác nhận
+              {categoryMetrics.pendingLabel}
             </span>
             <Clock className="h-4 w-4" />
           </div>
@@ -954,7 +1299,7 @@ export function PartnerBookingsHub({
 
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-            <span className="text-xs font-medium">Đã chốt & Giữ chỗ</span>
+            <span className="text-xs font-medium">{categoryMetrics.confirmedLabel}</span>
             <CheckCircle2 className="h-4 w-4" />
           </div>
           <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1.5">
@@ -964,7 +1309,7 @@ export function PartnerBookingsHub({
 
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-            <span className="text-xs font-medium">Hoàn tất / Đã đón</span>
+            <span className="text-xs font-medium">{categoryMetrics.completedLabel}</span>
             <Users className="h-4 w-4" />
           </div>
           <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1.5">
@@ -1010,7 +1355,11 @@ export function PartnerBookingsHub({
               className="h-9 text-xs gap-1.5 shadow-xs"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Tạo đơn đặt trực tiếp</span>
+              <span>
+                {selectedServiceType === "RENTAL"
+                  ? "Tạo đơn thuê trực tiếp"
+                  : "Tạo đơn đặt trực tiếp"}
+              </span>
             </Button>
 
             <Button
@@ -1027,112 +1376,93 @@ export function PartnerBookingsHub({
         </div>
 
         {/* Business Filter Row */}
-        <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border/50">
-          <span className="text-xs font-semibold text-muted-foreground shrink-0">Cơ sở:</span>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Button
-              variant={selectedBusinessId === "ALL" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                hasUserPickedFilterRef.current = true;
-                setSelectedBusinessId("ALL");
-                setCurrentPage(1);
-              }}
-              className="h-8 text-xs font-medium gap-1.5 rounded-full px-3"
-            >
-              <span>Tất cả ({businesses.length})</span>
-              {bookings.filter((b) => b.normalizedStatus === "PENDING").length > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
-                  {bookings.filter((b) => b.normalizedStatus === "PENDING").length}
-                </span>
+        {relevantBusinesses.length > 1 ? (
+          <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border/50">
+            <span className="text-xs font-semibold text-muted-foreground shrink-0">Cơ sở:</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Button
+                variant={selectedBusinessId === "ALL" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  hasUserPickedFilterRef.current = true;
+                  setSelectedBusinessId("ALL");
+                  setCurrentPage(1);
+                }}
+                className="h-8 text-xs font-medium gap-1.5 rounded-full px-3"
+              >
+                <span>Tất cả ({relevantBusinesses.length})</span>
+                {bookings.filter(
+                  (b) =>
+                    (selectedServiceType === "ALL" || b.sourceType === selectedServiceType) &&
+                    b.normalizedStatus === "PENDING",
+                ).length > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
+                    {
+                      bookings.filter(
+                        (b) =>
+                          (selectedServiceType === "ALL" || b.sourceType === selectedServiceType) &&
+                          b.normalizedStatus === "PENDING",
+                      ).length
+                    }
+                  </span>
+                )}
+              </Button>
+              {relevantBusinesses.map((biz) => {
+                const isSelected = selectedBusinessId === biz.id;
+                const bizPending = pendingByBusiness.get(biz.id) ?? 0;
+                return (
+                  <Button
+                    key={biz.id}
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      hasUserPickedFilterRef.current = true;
+                      setSelectedBusinessId(biz.id);
+                      setCurrentPage(1);
+                    }}
+                    className="h-8 text-xs font-medium gap-1.5 rounded-full px-3"
+                  >
+                    {biz.kind === "RESTAURANT" ? (
+                      <Utensils className="h-3 w-3 shrink-0" />
+                    ) : biz.kind === "HOTEL" ? (
+                      <Hotel className="h-3 w-3 shrink-0" />
+                    ) : biz.kind === "RENTAL_SERVICE" ? (
+                      <Car className="h-3 w-3 text-teal-500 shrink-0" />
+                    ) : (
+                      <Compass className="h-3 w-3 shrink-0" />
+                    )}
+                    <span className="truncate max-w-[160px]">{biz.displayName}</span>
+                    {bizPending > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
+                        {bizPending}
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        ) : relevantBusinesses.length === 1 ? (
+          <div className="flex items-center gap-2 pt-3 border-t border-border/50 text-xs">
+            <span className="font-semibold text-muted-foreground shrink-0">Cơ sở:</span>
+            <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary font-semibold px-3 py-1 rounded-full">
+              {relevantBusinesses[0].kind === "RENTAL_SERVICE" ? (
+                <Car className="h-3.5 w-3.5" />
+              ) : relevantBusinesses[0].kind === "HOTEL" ? (
+                <Hotel className="h-3.5 w-3.5" />
+              ) : relevantBusinesses[0].kind === "RESTAURANT" ? (
+                <Utensils className="h-3.5 w-3.5" />
+              ) : (
+                <Compass className="h-3.5 w-3.5" />
               )}
-            </Button>
-            {businesses.map((biz) => {
-              const isSelected = selectedBusinessId === biz.id;
-              const bizPending = pendingByBusiness.get(biz.id) ?? 0;
-              return (
-                <Button
-                  key={biz.id}
-                  variant={isSelected ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    hasUserPickedFilterRef.current = true;
-                    setSelectedBusinessId(biz.id);
-                    setCurrentPage(1);
-                  }}
-                  className="h-8 text-xs font-medium gap-1.5 rounded-full px-3"
-                >
-                  {biz.kind === "RESTAURANT" ? (
-                    <Utensils className="h-3 w-3 shrink-0" />
-                  ) : biz.kind === "HOTEL" ? (
-                    <Hotel className="h-3 w-3 shrink-0" />
-                  ) : biz.kind === "RENTAL_SERVICE" ? (
-                    <Car className="h-3 w-3 text-teal-500 shrink-0" />
-                  ) : (
-                    <Compass className="h-3 w-3 shrink-0" />
-                  )}
-                  <span className="truncate max-w-[160px]">{biz.displayName}</span>
-                  {bizPending > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
-                      {bizPending}
-                    </span>
-                  )}
-                </Button>
-              );
-            })}
+              <span>{relevantBusinesses[0].displayName}</span>
+            </span>
           </div>
-        </div>
-
-        {/* Service Type & Status Rows */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-border/50">
-          {/* Service Type Filter */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-semibold text-muted-foreground mr-1 shrink-0">Dịch vụ:</span>
-            {[
-              { id: "ALL", label: "Tất cả" },
-              { id: "RENTAL", label: "Thuê xe & Dịch vụ" },
-              { id: "HOTEL", label: "Khách sạn" },
-              { id: "RESTAURANT", label: "Nhà hàng" },
-              { id: "CHAT_OFFER", label: "Phiếu Chat" },
-            ].map((svc) => {
-              const stCount = serviceTypeCounts[svc.id] ?? { total: 0, pending: 0 };
-              const active = selectedServiceType === svc.id;
-              return (
-                <Button
-                  key={svc.id}
-                  variant={active ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => {
-                    hasUserPickedFilterRef.current = true;
-                    setSelectedServiceType(svc.id);
-                    setCurrentPage(1);
-                  }}
-                  className="h-7 text-xs font-medium gap-1.5"
-                >
-                  <span>{svc.label}</span>
-                  {stCount.pending > 0 ? (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full bg-rose-500 text-white text-micro font-bold leading-none">
-                      {stCount.pending}
-                    </span>
-                  ) : stCount.total > 0 ? (
-                    <span className="text-micro text-muted-foreground">({stCount.total})</span>
-                  ) : null}
-                </Button>
-              );
-            })}
-          </div>
-        </div>
+        ) : null}
 
         {/* Status Tabs Row */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none pt-3 border-t border-border/50">
-          {[
-            { id: "ALL", label: `Tất cả (${totalCount})` },
-            { id: "PENDING", label: `Chờ xác nhận (${pendingCount})`, highlight: pendingCount > 0 },
-            { id: "CONFIRMED", label: `Đã xác nhận (${confirmedCount})` },
-            { id: "EXPIRED", label: `Hết hạn (${expiredCount})` },
-            { id: "COMPLETED", label: `Hoàn tất (${completedCount})` },
-            { id: "CANCELLED", label: `Đã hủy / Từ chối (${cancelledCount})` },
-          ].map((tab) => (
+          {categoryStatusTabs.map((tab) => (
             <Button
               key={tab.id}
               variant={selectedStatus === tab.id ? "default" : "ghost"}
@@ -1178,14 +1508,13 @@ export function PartnerBookingsHub({
         </div>
       ) : filteredBookings.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 p-12 text-center bg-card/40 space-y-2">
-          <CalendarDays className="h-10 w-10 text-muted-foreground/40 mb-1" />
-          <h3 className="text-base font-semibold text-foreground">Không có lượt đặt nào trong mục này</h3>
-          <p className="text-xs text-muted-foreground max-w-md">
-            {searchQuery || selectedBusinessId !== "ALL" || selectedStatus !== "ALL"
-              ? "Hãy thử điều chỉnh lại bộ lọc tìm kiếm hoặc chọn hiển thị tất cả cơ sở."
-              : "Khi du khách đặt bàn hoặc đặt phòng trực tuyến, toàn bộ đơn đặt sẽ hiển thị tại đây để bạn xử lý ngay lập tức."}
-          </p>
-          {(searchQuery || selectedBusinessId !== "ALL" || selectedServiceType !== "ALL" || selectedStatus !== "ALL") && (
+          <EmptyIcon className="h-10 w-10 text-muted-foreground/40 mb-1" />
+          <h3 className="text-base font-semibold text-foreground">{emptyState.title}</h3>
+          <p className="text-xs text-muted-foreground max-w-md">{emptyState.description}</p>
+          {(searchQuery ||
+            selectedBusinessId !== "ALL" ||
+            selectedServiceType !== "ALL" ||
+            selectedStatus !== "ALL") && (
             <Button
               variant="outline"
               size="sm"

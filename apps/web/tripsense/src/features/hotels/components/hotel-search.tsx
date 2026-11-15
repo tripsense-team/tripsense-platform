@@ -72,7 +72,7 @@ export function HotelSearch() {
     {bookings.map(b => <article key={b.id} className="space-y-2 rounded-lg border border-border p-3">
       <h3 className="font-semibold">{b.property_name} · {b.room_name}</h3>
       <p>{b.check_in} → {b.check_out} · {money(b.total, b.currency)}</p><p>{t(`trip.hotels.status.${b.status}`)}</p>
-      <p className="text-xs text-muted-foreground">{b.id}</p>
+      <p className="text-xs text-muted-foreground font-mono">#TS-HTL-{b.id.slice(0, 8).toUpperCase()}</p>
       {b.status === "HELD" && <Button disabled={busy} onClick={() => setReview(b)}>{t("trip.hotels.review")}</Button>}
       {["HELD", "CONFIRMED"].includes(b.status) && <Button variant="outline" disabled={busy} onClick={() => setCancel(b)}>{t("common.cancel")}</Button>}
     </article>)}

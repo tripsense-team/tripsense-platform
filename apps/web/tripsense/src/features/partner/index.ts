@@ -26,6 +26,7 @@ export * from "./components/create-direct-booking-modal";
 export * from "./services/rental-api";
 export * from "./components/partner-rentals-management-view";
 export * from "./components/rental-reservation-dialog";
+export * from "./components/hotel-reservation-dialog";
 export * from "./components/rental-overview-card";
 export * from "./components/public-rental-view";
 export * from "./components/service-discovery-workspace";

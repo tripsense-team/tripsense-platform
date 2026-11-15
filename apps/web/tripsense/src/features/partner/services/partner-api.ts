@@ -28,6 +28,7 @@ import type {
   PublicGuideProfileDto,
   PublicRestaurantListingDto,
   PublicHotelListingDto,
+  PublicHotelRoomDto,
   PublicationRequest,
   RestaurantMenuBatchRequest,
   RestaurantMenuImageUploadDto,
@@ -495,6 +496,12 @@ export async function searchPublicHotels(
 ): Promise<PublicHotelListingDto[]> {
   const q = query ? `?query=${encodeURIComponent(query)}` : "";
   return request<PublicHotelListingDto[]>(`/api/public/hotels${q}`).catch(() => []);
+}
+
+export async function getPublicHotelRooms(
+  hotelId: string,
+): Promise<PublicHotelRoomDto[]> {
+  return request<PublicHotelRoomDto[]>(`/api/public/hotels/${hotelId}/rooms`).catch(() => []);
 }
 
 // -------------------------------------------------------------

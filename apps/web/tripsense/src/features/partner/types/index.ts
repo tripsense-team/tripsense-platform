@@ -525,6 +525,18 @@ export interface PublicHotelListingDto {
   minPricePerNight?: number | null;
 }
 
+export interface PublicHotelRoomDto {
+  id: string;
+  propertyId: string;
+  name: string;
+  description?: string;
+  capacity: number;
+  pricePerNight: number;
+  availableRooms: number;
+  currency?: string;
+  cancellationPolicy?: string;
+}
+
 export interface RestaurantReservationDto {
   id: string;
   businessId: string;

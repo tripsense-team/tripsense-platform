@@ -219,7 +219,7 @@ describe("ServiceDiscoveryWorkspace & Partner Pending Activity Badges", () => {
     expect(text).toContain("VinFast VF3 Tự Lái");
     expect(text).toContain("Đặt thuê ngay");
     expect(text).toContain("Riverside Heritage Hotel");
-    expect(text).toContain("Chọn phòng & Đặt ngay");
+    expect(text).toContain("Đặt phòng ngay");
     expect(text).toContain("Bánh Xèo Làng");
     expect(text).toContain("Đặt bàn ngay");
     expect(text).not.toContain("Sắp ra mắt");

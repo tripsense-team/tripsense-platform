@@ -51,6 +51,7 @@ import {
 } from "../utils/rental-display";
 import { RentalReservationDialog } from "./rental-reservation-dialog";
 import { RestaurantReservationDialog } from "./restaurant-reservation-dialog";
+import { HotelReservationDialog } from "./hotel-reservation-dialog";
 
 export type ServiceDiscoveryCategory = "all" | "rentals" | "hotels" | "restaurants";
 
@@ -156,6 +157,8 @@ export function ServiceDiscoveryWorkspace({
   });
 
   // Quick-booking modals
+  const [bookingHotel, setBookingHotel] =
+    React.useState<PublicHotelListingDto | null>(null);
   const [bookingRental, setBookingRental] = React.useState<{
     item: RentalItemDto;
     business: PublicRentalListingDto;
@@ -231,13 +234,28 @@ export function ServiceDiscoveryWorkspace({
   }, [loadServices, searchQuery]);
 
   const matchesDestination = React.useCallback(
-    (destination?: string | null, address?: string | null) => {
+    (
+      destination?: string | null,
+      address?: string | null,
+      displayName?: string | null,
+    ) => {
       if (selectedDestination === "Tất cả") return true;
       const target = foldVietnameseText(selectedDestination);
-      return (
-        foldVietnameseText(destination).includes(target) ||
-        foldVietnameseText(address).includes(target)
-      );
+      const destFolded = foldVietnameseText(destination);
+      const addrFolded = foldVietnameseText(address);
+      const nameFolded = foldVietnameseText(displayName);
+
+      if (
+        destFolded.includes(target) ||
+        addrFolded.includes(target) ||
+        nameFolded.includes(target)
+      ) {
+        return true;
+      }
+      if (!destination && !address && target.includes("da nang")) {
+        return true;
+      }
+      return false;
     },
     [selectedDestination],
   );
@@ -248,7 +266,7 @@ export function ServiceDiscoveryWorkspace({
     const cards: FlattenedRentalCard[] = [];
 
     for (const biz of rentals) {
-      if (!matchesDestination(biz.destination, biz.address)) continue;
+      if (!matchesDestination(biz.destination, biz.address, biz.displayName)) continue;
       if (onlyReadyToBook && !biz.acceptingNew) continue;
 
       const items = (biz.items || []).filter((it) => isRentalItemActive(it));
@@ -278,7 +296,7 @@ export function ServiceDiscoveryWorkspace({
   const filteredHotels = React.useMemo(() => {
     const qFolded = foldVietnameseText(searchQuery);
     return hotels.filter((h) => {
-      if (!matchesDestination(h.destination, h.address)) return false;
+      if (!matchesDestination(h.destination, h.address, h.displayName)) return false;
       if (onlyReadyToBook && (!h.acceptingNew || !h.hasDirectInventory)) return false;
       if (qFolded) {
         const hit =
@@ -294,7 +312,7 @@ export function ServiceDiscoveryWorkspace({
   const filteredRestaurants = React.useMemo(() => {
     const qFolded = foldVietnameseText(searchQuery);
     return restaurants.filter((r) => {
-      if (!matchesDestination(r.destination, r.address)) return false;
+      if (!matchesDestination(r.destination, r.address, r.displayName)) return false;
       if (onlyReadyToBook && r.acceptingNew === false) return false;
       if (qFolded) {
         const inMenu = (r.menu || []).some((m) => foldVietnameseText(m.name).includes(qFolded));
@@ -857,11 +875,20 @@ export function ServiceDiscoveryWorkspace({
                           <div className="flex items-center gap-2">
                             <Button
                               size="sm"
-                              onClick={() => setSelectedHotelPartner(hotel)}
-                              className="flex-1 h-9 text-xs font-semibold gap-1.5 cursor-pointer"
+                              onClick={() => setBookingHotel(hotel)}
+                              className="flex-1 h-9 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white gap-1.5 cursor-pointer"
                             >
                               <Building2 className="h-3.5 w-3.5" />
-                              <span>Chọn phòng & Đặt ngay</span>
+                              <span>Đặt phòng ngay</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedHotelPartner(hotel)}
+                              className="h-9 text-xs px-2.5"
+                              title="Xem ảnh & chi tiết phòng"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
                             </Button>
                             {hotel.ownerUserId && (
                               <Button asChild variant="outline" size="sm" className="h-9 text-xs px-2.5">
@@ -993,6 +1020,21 @@ export function ServiceDiscoveryWorkspace({
           onOpenChange={(open) => {
             if (!open) setBookingRental(null);
           }}
+        />
+      )}
+
+      {/* Quick Hotel Direct Booking Modal */}
+      {bookingHotel && (
+        <HotelReservationDialog
+          hotel={bookingHotel}
+          open={Boolean(bookingHotel)}
+          onOpenChange={(open) => {
+            if (!open) setBookingHotel(null);
+          }}
+          defaultCheckIn={hotelCriteria.checkIn}
+          defaultCheckOut={hotelCriteria.checkOut}
+          defaultGuests={hotelCriteria.guests}
+          defaultQuantity={hotelCriteria.quantity}
         />
       )}
 

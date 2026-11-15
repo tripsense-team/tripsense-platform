@@ -2,6 +2,7 @@ package fu.tripsense.tripservice.hotel;
 
 import fu.tripsense.tripservice.exception.TripServiceException;
 import fu.tripsense.tripservice.partner.dto.PublicHotelListingDto;
+import fu.tripsense.tripservice.partner.dto.PublicHotelRoomDto;
 import fu.tripsense.tripservice.partner.entity.PartnerApplication;
 import fu.tripsense.tripservice.partner.entity.PartnerBusiness;
 import fu.tripsense.tripservice.partner.enums.BusinessKind;
@@ -10,6 +11,7 @@ import fu.tripsense.tripservice.partner.enums.SubscriptionStatus;
 import fu.tripsense.tripservice.partner.repository.PartnerApplicationRepository;
 import fu.tripsense.tripservice.partner.repository.PartnerBusinessRepository;
 import fu.tripsense.tripservice.partner.repository.PartnerSubscriptionRepository;
+import fu.tripsense.tripservice.partner.service.ListingTextSearchSupport;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
@@ -148,6 +150,52 @@ public class PublicHotelService {
         .build();
   }
 
+  @Transactional(readOnly = true)
+  public List<PublicHotelRoomDto> getPublicHotelRooms(UUID targetId) {
+    List<UUID> propertyIds = db.query(
+        "SELECT id FROM hotel_property WHERE business_id = ? OR id = ?",
+        (rs, rowNum) -> (UUID) rs.getObject("id"),
+        targetId, targetId);
+    if (propertyIds.isEmpty()) {
+      return List.of();
+    }
+    UUID propertyId = propertyIds.getFirst();
+
+    return db.query(
+        """
+        SELECT r.id, r.property_id, r.name, r.capacity,
+               COALESCE((
+                 SELECT MIN(i.nightly_price)
+                 FROM hotel_inventory i
+                 WHERE i.room_type_id = r.id
+                   AND i.stay_date >= CURRENT_DATE
+                   AND i.stop_sell = false
+                   AND i.held + i.booked < i.allocation
+               ), 500000.00) as price,
+               COALESCE((
+                 SELECT MIN(i.allocation - i.held - i.booked)
+                 FROM hotel_inventory i
+                 WHERE i.room_type_id = r.id
+                   AND i.stay_date >= CURRENT_DATE
+                   AND i.stop_sell = false
+               ), 10) as available_rooms
+        FROM hotel_room_type r
+        WHERE r.property_id = ?
+        ORDER BY price ASC
+        """,
+        (rs, rowNum) -> PublicHotelRoomDto.builder()
+            .id((UUID) rs.getObject("id"))
+            .propertyId((UUID) rs.getObject("property_id"))
+            .name(rs.getString("name"))
+            .capacity(rs.getInt("capacity"))
+            .pricePerNight(rs.getBigDecimal("price"))
+            .availableRooms(Math.max(1, rs.getInt("available_rooms")))
+            .currency("VND")
+            .cancellationPolicy("FREE_BEFORE_CHECK_IN")
+            .build(),
+        propertyId);
+  }
+
   private UUID ensureHotelProperty(PartnerBusiness b, String destination, String address, String email) {
     List<UUID> existing = db.query("SELECT id FROM hotel_property WHERE business_id = ?",
         (rs, rowNum) -> (UUID) rs.getObject("id"), b.getId());
@@ -174,17 +222,18 @@ public class PublicHotelService {
   }
 
   private boolean matchesQuery(PartnerBusiness b, String query) {
-    String lowerQ = query.toLowerCase();
-    if (b.getDisplayName() != null && b.getDisplayName().toLowerCase().contains(lowerQ)) {
+    if (b == null || query == null || query.isBlank()) return false;
+    String foldedQ = ListingTextSearchSupport.fold(query);
+    if (ListingTextSearchSupport.containsFolded(b.getDisplayName(), foldedQ)) {
       return true;
     }
     if (b.getDraftProfileJson() != null) {
       String placeId = (String) b.getDraftProfileJson().get("placeId");
-      if (placeId != null && placeId.equalsIgnoreCase(query)) return true;
+      if (placeId != null && placeId.equalsIgnoreCase(query.trim())) return true;
       String dest = (String) b.getDraftProfileJson().get("destination");
-      if (dest != null && dest.toLowerCase().contains(lowerQ)) return true;
+      if (ListingTextSearchSupport.containsFolded(dest, foldedQ)) return true;
       String addr = (String) b.getDraftProfileJson().get("address");
-      if (addr != null && addr.toLowerCase().contains(lowerQ)) return true;
+      if (ListingTextSearchSupport.containsFolded(addr, foldedQ)) return true;
     }
     return false;
   }
