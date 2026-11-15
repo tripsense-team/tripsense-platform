@@ -62,16 +62,9 @@ export function ChatHeader({
   const { locale, t } = useTranslation();
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(chatTitle || "");
-  const [prevChatTitle, setPrevChatTitle] = useState(chatTitle);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
-
-  // Sync title during render if chatTitle changed externally
-  if (prevChatTitle !== chatTitle) {
-    setPrevChatTitle(chatTitle);
-    setEditTitle(chatTitle || "");
-  }
 
   const handleSaveRename = async () => {
     if (!editTitle.trim()) return;

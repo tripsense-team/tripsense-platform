@@ -47,41 +47,62 @@ function ActivityRow({
   committed: boolean;
   locale: string;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const config = periodConfig[activity.period] ?? periodConfig.FLEXIBLE;
   const Icon = config.icon;
+  const hasPhoto =
+    typeof activity.photoUrl === "string" &&
+    /^https?:\/\//i.test(activity.photoUrl.trim()) &&
+    !imageFailed;
+
   return (
-    <div className="relative flex flex-col gap-0.5 text-sm leading-relaxed">
-      <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="inline-flex items-center gap-1 font-medium text-xs text-muted-foreground shrink-0">
-          <Icon className="size-3.5 text-amber-500" aria-hidden="true" />
-          <span>{locale === "vi" ? config.vi : config.en}</span>
-          {activity.timeSlot && (
-            <span className="text-muted-foreground/70">· {activity.timeSlot}</span>
-          )}
-        </span>
-        <span className="font-semibold text-foreground text-[14.5px]">
-          {activity.title}
-        </span>
-        {committed && (
-          <CheckCircle2
-            className="inline size-3.5 fill-primary text-primary-foreground shrink-0"
-            aria-label={locale === "vi" ? "Đã lưu vào chuyến đi" : "Saved to trip"}
+    <div className="relative flex items-start gap-3 text-sm leading-relaxed">
+      {hasPhoto && (
+        <div className="mt-0.5 size-14 shrink-0 overflow-hidden rounded-lg border border-border/60 bg-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={activity.photoUrl}
+            alt={activity.title}
+            loading="lazy"
+            className="size-full object-cover"
+            onError={() => setImageFailed(true)}
           />
-        )}
-      </div>
-
-      {activity.description && (
-        <p className="text-xs sm:text-[13px] text-muted-foreground/90 pl-0.5">
-          {activity.description}
-        </p>
-      )}
-
-      {activity.address && (
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70 pl-0.5">
-          <MapPin className="size-3 shrink-0 text-primary/70" />
-          <span className="truncate">{activity.address}</span>
         </div>
       )}
+
+      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 font-medium text-xs text-muted-foreground shrink-0">
+            <Icon className="size-3.5 text-amber-500" aria-hidden="true" />
+            <span>{locale === "vi" ? config.vi : config.en}</span>
+            {activity.timeSlot && (
+              <span className="text-muted-foreground/70">· {activity.timeSlot}</span>
+            )}
+          </span>
+          <span className="font-semibold text-foreground text-[14.5px]">
+            {activity.title}
+          </span>
+          {committed && (
+            <CheckCircle2
+              className="inline size-3.5 fill-primary text-primary-foreground shrink-0"
+              aria-label={locale === "vi" ? "Đã lưu vào chuyến đi" : "Saved to trip"}
+            />
+          )}
+        </div>
+
+        {activity.description && (
+          <p className="text-xs sm:text-[13px] text-muted-foreground/90 pl-0.5">
+            {activity.description}
+          </p>
+        )}
+
+        {activity.address && (
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70 pl-0.5">
+            <MapPin className="size-3 shrink-0 text-primary/70" />
+            <span className="truncate">{activity.address}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   deterministicCommitKey,
   type TripCommitItem,
 } from "../trip-commit.js";
+import { resolveCanonicalActivityPlaces } from "../place-grounding.js";
 import type { PlanningRuntimeState } from "./update-trip-planning-brief.js";
 
 const activitySchema = z.object({
@@ -76,13 +77,6 @@ export const createTripProposalSchema = z.object({
     .describe("Kế hoạch chi tiết theo từng ngày"),
 });
 
-type CanonicalPlace = {
-  id: string;
-  name?: string;
-  address?: string;
-};
-
-
 export const itemType = (category?: string): TripCommitItem["itemType"] => {
   if (category === "FOOD" || category === "CAFE") return "MEAL";
   if (category === "STAY") return "HOTEL";
@@ -113,25 +107,6 @@ export const parseTimes = (timeSlot?: string) => {
     endTime: normalize(matches[3], matches[4]),
   };
 };
-
-async function canonicalSnapshots(ids: string[]): Promise<Map<string, CanonicalPlace> | null> {
-  if (ids.length === 0) return new Map();
-  let response: Response;
-  try {
-    response = await fetch(`${config.placeServiceUrl}/api/places/batch-snapshots`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(ids),
-    });
-  } catch {
-    return null;
-  }
-  if (!response.ok) return null;
-  const payload = (await response.json()) as { data?: CanonicalPlace[] };
-  const snapshots = Array.isArray(payload.data) ? payload.data : [];
-  const byId = new Map(snapshots.filter((place) => place?.id).map((place) => [place.id, place]));
-  return byId;
-}
 
 export function getCreateTripProposalTool(context: {
   chatId: string;
@@ -190,32 +165,43 @@ export function getCreateTripProposalTool(context: {
           }
         }
 
-        const placeIds = [
-          ...new Set(
-            proposalData.days
-              .flatMap((day) => day.activities)
-              .map((activity) => activity.placeId)
-              .filter((id): id is string => Boolean(id)),
-          ),
-        ];
-        const snapshots = await canonicalSnapshots(placeIds);
-        if (!snapshots) {
-          return {
-            success: false,
-            errorCode: "CANONICAL_PLACE_UNAVAILABLE",
-            error: "Không thể xác thực đầy đủ các địa điểm trong lịch trình.",
-          };
+        const flatActivities: Array<{ placeId?: string; title: string; category?: string }> = [];
+        const flatIndexByDayAndActivity: number[][] = [];
+        for (const day of proposalData.days) {
+          const dayIndices: number[] = [];
+          for (const activity of day.activities) {
+            dayIndices.push(flatActivities.length);
+            flatActivities.push({
+              placeId: activity.placeId,
+              title: activity.title,
+              category: activity.category,
+            });
+          }
+          flatIndexByDayAndActivity.push(dayIndices);
         }
 
-        const normalizedDays = proposalData.days.map((day) => ({
+        const resolvedPlaces = await resolveCanonicalActivityPlaces({
+          items: flatActivities,
+          destinationHint:
+            context.runtime?.destinationHint ||
+            context.runtime?.brief?.where?.destinationText ||
+            proposalData.destination,
+          authorization: context.authorization,
+          tripId: context.runtime?.tripId,
+          store: context.runtime?.placeStore,
+        });
+
+        const normalizedDays = proposalData.days.map((day, dayIdx) => ({
           ...day,
-          activities: day.activities.map((activity) => {
-            const snapshot = activity.placeId ? snapshots.get(activity.placeId) : undefined;
+          activities: day.activities.map((activity, actIdx) => {
+            const canonical = resolvedPlaces.get(flatIndexByDayAndActivity[dayIdx][actIdx]);
             return {
               itemKey: crypto.randomUUID(),
               ...activity,
-              title: snapshot?.name || activity.title,
-              address: snapshot?.address || undefined,
+              placeId: canonical?.id,
+              title: canonical?.name || activity.title,
+              address: canonical?.address || undefined,
+              photoUrl: canonical?.photoUrl || undefined,
             };
           }),
         }));
@@ -268,7 +254,7 @@ export function getCreateTripProposalTool(context: {
               dayNumber: day.dayNumber,
               title: activity.title,
               itemType: itemType(activity.category),
-              placeRef: (activity.placeId && snapshots?.has(activity.placeId)) ? activity.placeId : null,
+              placeRef: activity.placeId || null,
               ...parseTimes(activity.timeSlot),
               notes: activity.description || null,
             })),

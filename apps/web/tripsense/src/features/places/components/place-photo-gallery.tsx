@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { Place } from "../types";
 import { approvedPhotoGallery } from "../utils/approved-photo";
 import { useTranslation } from "@/i18n";
+import { PlacePhotoFallback } from "./place-photo-fallback";
 
 export function PlacePhotoGallery({ place, loading }: { place: Place; loading: boolean }) {
   const { t } = useTranslation();
@@ -15,11 +16,25 @@ export function PlacePhotoGallery({ place, loading }: { place: Place; loading: b
       : "grid-cols-2 grid-rows-2";
 
   if (!photos.length) {
-    return <div className="flex h-40 items-center justify-center bg-muted px-4 text-sm text-muted-foreground" role="status">
-      {loading
-        ? t("places.loadingPhotos", { defaultValue: "Loading place photos..." })
-        : t("places.noLicensedPhotos", { defaultValue: "No photos available" })}
-    </div>;
+    if (loading) {
+      return (
+        <div
+          className="flex h-40 items-center justify-center bg-muted px-4 text-sm text-muted-foreground"
+          role="status"
+        >
+          {t("places.loadingPhotos", { defaultValue: "Loading place photos..." })}
+        </div>
+      );
+    }
+    return (
+      <div className="h-44 w-full overflow-hidden rounded-xl border border-border/50" role="status">
+        <PlacePhotoFallback
+          primaryType={place.primaryType}
+          categories={place.categories}
+          variant="compact"
+        />
+      </div>
+    );
   }
 
   const tile = (photo: (typeof photos)[number], index: number) => (

@@ -14,6 +14,9 @@ import {
   startBatchEnrichment,
   fetchBatchProgress,
   cancelBatchEnrichment,
+  relinkCloudinaryPhotos,
+  normalizeAndSyncQdrant,
+  migrateStalePhotos,
   fetchApiKeys,
   fetchActiveApiKey,
   addApiKeys,
@@ -234,6 +237,65 @@ describe("Settings API", () => {
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/places/admin/keys/key-1/test",
       expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("relinks Cloudinary photos via admin endpoint", async () => {
+    mockApiClient.mockResolvedValueOnce({
+      success: true,
+      data: { configured: true, dryRun: false, placesRelinked: 61, alreadyLinked: 35 },
+    });
+
+    const result = await relinkCloudinaryPhotos(false);
+    expect(result.placesRelinked).toBe(61);
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/relink-cloudinary-photos?dryRun=false",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("normalizes metadata and syncs Qdrant via admin endpoint", async () => {
+    mockApiClient.mockResolvedValueOnce({
+      success: true,
+      data: { dryRun: false, syncQdrant: true, placesUpdated: 1400, qdrantSynced: false, qdrantStatus: "SYNC_STARTED" },
+    });
+
+    const result = await normalizeAndSyncQdrant(false, true);
+    expect(result.placesUpdated).toBe(1400);
+    expect(result.qdrantStatus).toBe("SYNC_STARTED");
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/normalize-and-sync-qdrant?dryRun=false&syncQdrant=true&async=true",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("triggers missing photo migration with default limit 2000", async () => {
+    mockApiClient.mockResolvedValueOnce({
+      success: true,
+      data: { jobId: "batch-photos", status: "RUNNING", total: 1460 },
+    });
+
+    const result = await migrateStalePhotos();
+    expect(result.total).toBe(1460);
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/migrate-stale-photos?limit=2000&concurrency=3",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("forwards syncEmbedding flag in startBatchEnrichment", async () => {
+    mockApiClient.mockResolvedValueOnce({
+      success: true,
+      data: { jobId: "batch-sync", status: "RUNNING", total: 2000 },
+    });
+
+    await startBatchEnrichment({ concurrency: 5, limit: 2000, forceAll: false, syncEmbedding: false });
+    expect(mockApiClient).toHaveBeenCalledWith(
+      "/api/places/admin/batch-enrich",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ concurrency: 5, limit: 2000, forceAll: false, syncEmbedding: false }),
+      }),
     );
   });
 });

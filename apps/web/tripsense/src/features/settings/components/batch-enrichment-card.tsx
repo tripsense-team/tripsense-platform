@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  ImagePlus,
+  DatabaseZap,
+  RefreshCw,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import type { BatchEnrichmentProgress } from "../types";
@@ -19,6 +22,9 @@ import {
   startBatchEnrichment,
   fetchBatchProgress,
   cancelBatchEnrichment,
+  relinkCloudinaryPhotos,
+  normalizeAndSyncQdrant,
+  migrateStalePhotos,
 } from "../services/settings-api";
 
 interface BatchEnrichmentCardProps {
@@ -33,6 +39,13 @@ export function BatchEnrichmentCard({ onJobFinished }: BatchEnrichmentCardProps)
   const [syncEmbedding, setSyncEmbedding] = useState(true);
   const [starting, setStarting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [maintenanceAction, setMaintenanceAction] = useState<
+    "relink" | "normalize" | "migratePhotos" | null
+  >(null);
+  const [maintenanceMessage, setMaintenanceMessage] = useState<{
+    kind: "success" | "warning" | "error";
+    text: string;
+  } | null>(null);
   const [progress, setProgress] = useState<BatchEnrichmentProgress | null>(null);
 
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -83,17 +96,118 @@ export function BatchEnrichmentCard({ onJobFinished }: BatchEnrichmentCardProps)
     try {
       const res = await startBatchEnrichment({
         concurrency,
-        limit: 1500,
+        limit: 2000,
         forceAll,
+        syncEmbedding,
       });
       setProgress(res);
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
       pollTimerRef.current = setInterval(poll, 1200);
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
         console.error("Failed to start batch enrichment:", err instanceof Error ? err.message : String(err));
       }
+      setMaintenanceMessage({
+        kind: "error",
+        text: t("settings.batchCard.maintenanceError"),
+      });
     } finally {
       setStarting(false);
+    }
+  };
+
+  const handleRelinkCloudinary = async () => {
+    setMaintenanceAction("relink");
+    setMaintenanceMessage(null);
+    try {
+      const summary = await relinkCloudinaryPhotos(false);
+      setMaintenanceMessage({
+        kind: "success",
+        text: t("settings.batchCard.relinkOk", {
+          relinked: summary.placesRelinked,
+          alreadyLinked: summary.alreadyLinked,
+        }),
+      });
+      onJobFinished();
+    } catch {
+      setMaintenanceMessage({
+        kind: "error",
+        text: t("settings.batchCard.maintenanceError"),
+      });
+    } finally {
+      setMaintenanceAction(null);
+    }
+  };
+
+  const handleNormalizeAndSync = async () => {
+    setMaintenanceAction("normalize");
+    setMaintenanceMessage(null);
+    try {
+      const summary = await normalizeAndSyncQdrant(false, true, true);
+      if (
+        summary.qdrantStatus === "SYNC_STARTED" ||
+        summary.qdrantStatus === "JOB_ALREADY_RUNNING"
+      ) {
+        setMaintenanceMessage({
+          kind: summary.qdrantStatus === "JOB_ALREADY_RUNNING" ? "warning" : "success",
+          text:
+            summary.qdrantStatus === "JOB_ALREADY_RUNNING"
+              ? t("settings.batchCard.normalizeAlreadyRunning")
+              : t("settings.batchCard.normalizeStarted", {
+                  updated: summary.placesUpdated,
+                  candidates: summary.qdrantCandidates,
+                }),
+        });
+        await poll();
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        pollTimerRef.current = setInterval(poll, 1200);
+        return;
+      }
+      if (summary.qdrantSynced || summary.qdrantCandidates === 0) {
+        setMaintenanceMessage({
+          kind: "success",
+          text: t("settings.batchCard.normalizeOk", {
+            updated: summary.placesUpdated,
+            city: summary.cityNormalized,
+            district: summary.districtFilled,
+            primaryType: summary.primaryTypeDerived,
+            candidates: summary.qdrantCandidates,
+          }),
+        });
+      } else {
+        setMaintenanceMessage({
+          kind: "warning",
+          text: t("settings.batchCard.normalizeErrorQdrant", {
+            updated: summary.placesUpdated,
+          }),
+        });
+      }
+      onJobFinished();
+    } catch {
+      setMaintenanceMessage({
+        kind: "error",
+        text: t("settings.batchCard.maintenanceError"),
+      });
+    } finally {
+      setMaintenanceAction(null);
+    }
+  };
+
+  const handleMigrateMissingPhotos = async () => {
+    setMaintenanceAction("migratePhotos");
+    setMaintenanceMessage(null);
+    try {
+      const res = await migrateStalePhotos(2000, Math.min(5, Math.max(1, concurrency)));
+      setProgress(res);
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      pollTimerRef.current = setInterval(poll, 1200);
+    } catch {
+      setMaintenanceMessage({
+        kind: "error",
+        text: t("settings.batchCard.maintenanceError"),
+      });
+    } finally {
+      setMaintenanceAction(null);
     }
   };
 
@@ -247,6 +361,70 @@ export function BatchEnrichmentCard({ onJobFinished }: BatchEnrichmentCardProps)
             </button>
           )}
         </div>
+      </div>
+
+      {/* Targeted Zero-Waste & Media Maintenance Actions */}
+      <div className="mt-4 rounded-xl border border-border/50 bg-background/40 p-3.5">
+        <div className="mb-2.5 text-xs font-medium text-muted-foreground">
+          {t("settings.batchCard.maintenanceTitle")}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleRelinkCloudinary}
+            disabled={isRunning || maintenanceAction !== null}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60 disabled:opacity-50"
+          >
+            {maintenanceAction === "relink" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5 text-emerald-500" />
+            )}
+            <span>{t("settings.batchCard.relinkCloudinary")}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleNormalizeAndSync}
+            disabled={isRunning || maintenanceAction !== null}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60 disabled:opacity-50"
+          >
+            {maintenanceAction === "normalize" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <DatabaseZap className="h-3.5 w-3.5 text-primary" />
+            )}
+            <span>{t("settings.batchCard.normalizeSync")}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMigrateMissingPhotos}
+            disabled={isRunning || maintenanceAction !== null}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60 disabled:opacity-50"
+          >
+            {maintenanceAction === "migratePhotos" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ImagePlus className="h-3.5 w-3.5 text-amber-500" />
+            )}
+            <span>{t("settings.batchCard.migratePhotos")}</span>
+          </button>
+        </div>
+
+        {maintenanceMessage && (
+          <div
+            className={`mt-2.5 rounded-lg px-3 py-2 text-xs ${
+              maintenanceMessage.kind === "success"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : maintenanceMessage.kind === "warning"
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "bg-destructive/10 text-destructive"
+            }`}
+          >
+            {maintenanceMessage.text}
+          </div>
+        )}
       </div>
 
       {/* Progress & Live Telemetry View */}

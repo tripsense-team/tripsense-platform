@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage, PlaceSearchResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -39,14 +40,18 @@ function WaitingText({ text }: { text?: string }) {
 }
 
 function ActiveAgentStatus({ message }: { message: ChatMessage }) {
-  const { t } = useTranslation();
-  const activeToolPart = message.parts?.find((p: any) => {
+  const { t, locale } = useTranslation();
+  const activeToolPart = [...(message.parts ?? [])].reverse().find((p: any) => {
     return (
       p.state === "call" ||
       p.state === "input-available" ||
       p.toolInvocation?.state === "call"
     );
   }) as any;
+
+  const hasText = Boolean(
+    message.parts?.some((p) => p.type === "text" && p.text?.trim().length > 0)
+  );
 
   let statusText = t("aiPlanner.thinkingAndPreparing");
   if (activeToolPart) {
@@ -62,6 +67,27 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
         activeToolPart.toolInvocation?.args?.durationDays;
       const details = (dest ? ` cho ${dest}` : "") + (days ? ` (${days} ngày)` : "");
       statusText = t("aiPlanner.designingItinerary", { details });
+    } else if (toolName === "prepareTripCandidates") {
+      const dest =
+        activeToolPart.input?.destination ||
+        activeToolPart.toolInvocation?.args?.destination;
+      statusText = dest
+        ? locale === "vi"
+          ? `Đang chọn lọc địa điểm phù hợp tại ${dest}...`
+          : `Curating personalized places in ${dest}...`
+        : locale === "vi"
+          ? "Đang chọn lọc địa điểm phù hợp với gu của bạn..."
+          : "Curating personalized places for your trip...";
+    } else if (
+      toolName === "addItineraryItems" ||
+      toolName === "replaceItineraryItem" ||
+      toolName === "updateItineraryItem" ||
+      toolName === "removeItineraryItem"
+    ) {
+      statusText =
+        locale === "vi"
+          ? "Đang cập nhật lịch trình vào chuyến đi..."
+          : "Updating your trip itinerary...";
     } else if (toolName === "recommendPlaces") {
       const dest =
         activeToolPart.input?.destination ||
@@ -92,6 +118,11 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
         p.type === "tool-createTripProposal" ||
         p.toolInvocation?.toolName === "createTripProposal"
     );
+    const hasCandidates = message.parts?.some(
+      (p: any) =>
+        p.type === "tool-prepareTripCandidates" ||
+        p.toolInvocation?.toolName === "prepareTripCandidates"
+    );
     const hasRecommend = message.parts?.some(
       (p: any) =>
         p.type === "tool-recommendPlaces" ||
@@ -103,9 +134,16 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
         p.toolInvocation?.toolName === "searchPlaces"
     );
     if (hasProposal) {
-      statusText = t("aiPlanner.optimizingItinerary");
-    } else if (hasRecommend) {
-      statusText = "Đang tuyển chọn các địa điểm phù hợp...";
+      statusText = !hasText
+        ? locale === "vi"
+          ? "Đã lưu lịch trình — đang hoàn thiện lời dẫn & lưu ý cho bạn..."
+          : "Itinerary saved — writing personalized summary & tips..."
+        : t("aiPlanner.optimizingItinerary");
+    } else if (hasCandidates || hasRecommend) {
+      statusText =
+        locale === "vi"
+          ? "Đang hoàn thiện gợi ý & chuẩn bị bước tiếp theo..."
+          : "Organizing recommendations and preparing next step...";
     } else if (hasSearch) {
       statusText = t("aiPlanner.aggregatingPlaces");
     } else {
@@ -127,7 +165,7 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
   );
 }
 
-export const PreviewMessage = ({
+const PurePreviewMessage = ({
   chatId,
   message,
   isLoading,
@@ -140,7 +178,7 @@ export const PreviewMessage = ({
   regenerate?: UseChatHelpers<ChatMessage>["regenerate"];
   onEdit?: (message: ChatMessage) => void;
 }) => {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
 
@@ -162,9 +200,11 @@ export const PreviewMessage = ({
     ? authUser.email.slice(0, 2).toUpperCase()
     : "TS";
 
-  // Hoist parts into groups so suggested places render at the very end
+  // Group parts into deterministic slots:
+  // 1) weather -> 2) AI text intro & tips -> 3) itinerary proposal -> 4) intake card -> 5) suggested place carousel
   const weatherParts: React.ReactNode[] = [];
-  const textAndProposalParts: React.ReactNode[] = [];
+  const textParts: React.ReactNode[] = [];
+  const proposalParts: React.ReactNode[] = [];
   const intakeCardParts: React.ReactNode[] = [];
   const placeCardsParts: React.ReactNode[] = [];
 
@@ -174,6 +214,7 @@ export const PreviewMessage = ({
   let customPlaceTitle: string | undefined;
   let activeSearchQuery: string | undefined;
   let isSearchingPlaces = false;
+  let readyProposalTitle: string | undefined;
 
   const hasProposalInMessage = Boolean(
     message.parts?.some(
@@ -192,9 +233,9 @@ export const PreviewMessage = ({
         ? decorateItineraryMarkdown(part.text)
         : part.text.replace(/<!--[\s\S]*?-->/g, "").trim();
 
-      if (!textContent && isUser) return;
+      if (!textContent) return;
 
-      textAndProposalParts.push(
+      textParts.push(
         <MessageContent
           className={cn("text-[15px] leading-[1.6]", {
             "w-fit max-w-full overflow-hidden break-words rounded-2xl rounded-tr-xs border border-border/30 bg-gradient-to-br from-secondary to-muted px-4 py-2.5 shadow-[var(--shadow-card)]":
@@ -337,7 +378,13 @@ export const PreviewMessage = ({
         toolPart.toolInvocation?.state === "call";
 
       if (proposal && proposal.proposalId) {
-        textAndProposalParts.push(
+        readyProposalTitle =
+          typeof proposal.title === "string" && proposal.title.trim()
+            ? proposal.title.trim()
+            : typeof proposal.destination === "string" && proposal.destination.trim()
+              ? proposal.destination.trim()
+              : undefined;
+        proposalParts.push(
           <div className="w-full my-1.5" key={key}>
             <ItineraryPreview
               proposal={proposal}
@@ -347,7 +394,7 @@ export const PreviewMessage = ({
           </div>
         );
       } else if (isCall && !isLoading) {
-        textAndProposalParts.push(
+        proposalParts.push(
           <div
             key={key}
             className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 border border-border/50 rounded-xl px-3.5 py-2 my-1.5 w-fit"
@@ -424,6 +471,26 @@ export const PreviewMessage = ({
     );
   }
 
+  if (!isLoading && isAssistant && textParts.length === 0 && readyProposalTitle) {
+    const fallbackIntro =
+      locale === "vi"
+        ? `Dưới đây là kế hoạch **${readyProposalTitle}** được thiết kế theo yêu cầu của bạn và đã đồng bộ vào bảng lịch trình bên phải:`
+        : `Here is your personalized **${readyProposalTitle}** itinerary, synced directly to your trip panel:`;
+    textParts.push(
+      <MessageContent
+        className="text-[15px] leading-[1.6]"
+        data-testid="message-content"
+        key={`fallback-intro-${message.id}`}
+      >
+        <MessageResponse components={richMarkdownComponents}>
+          {fallbackIntro}
+        </MessageResponse>
+      </MessageContent>
+    );
+  }
+
+  const hasText = textParts.length > 0;
+
   const actions = (
     <MessageActions
       chatId={chatId}
@@ -439,10 +506,12 @@ export const PreviewMessage = ({
   ) : (
     <>
       {weatherParts}
-      {textAndProposalParts}
+      {textParts}
+      {isLoading && isAssistant && !hasText && <ActiveAgentStatus message={message} />}
+      {proposalParts}
       {intakeCardParts}
-      {isLoading && isAssistant && <ActiveAgentStatus message={message} />}
-      {placeCardsParts}
+      {isLoading && isAssistant && hasText && <ActiveAgentStatus message={message} />}
+      {(!isLoading || hasText) && placeCardsParts}
       {actions}
     </>
   );
@@ -498,6 +567,17 @@ export const PreviewMessage = ({
     </div>
   );
 };
+
+export const PreviewMessage = memo(
+  PurePreviewMessage,
+  (prevProps, nextProps) => {
+    if (prevProps.isLoading !== nextProps.isLoading) return false;
+    if (prevProps.chatId !== nextProps.chatId) return false;
+    if (prevProps.message !== nextProps.message) return false;
+    if (prevProps.onEdit !== nextProps.onEdit) return false;
+    return true;
+  }
+);
 
 export const ThinkingMessage = () => (
   <div

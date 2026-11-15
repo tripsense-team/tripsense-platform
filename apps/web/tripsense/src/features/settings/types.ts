@@ -2,6 +2,7 @@ export interface PlaceStats {
   totalPlaces: number;
   enrichedPlaces: number;
   pendingPlaces: number;
+  stalePhotoPlaces?: number;
   zioMapKeyConfigured: boolean;
   zioMapKeyMasked: string;
   isJobRunning: boolean;
@@ -17,6 +18,35 @@ export interface BatchEnrichmentRequest {
   concurrency?: number;
   limit?: number;
   forceAll?: boolean;
+  stalePhotosOnly?: boolean;
+  syncEmbedding?: boolean;
+}
+
+export interface CloudinaryRelinkSummary {
+  configured: boolean;
+  dryRun: boolean;
+  cloudinaryFoldersFound: number;
+  placesScanned: number;
+  placesRelinked: number;
+  alreadyLinked: number;
+  unmatchedCloudinaryFolders: number;
+}
+
+export interface MetadataNormalizeSyncSummary {
+  dryRun: boolean;
+  syncQdrant: boolean;
+  placesScanned: number;
+  placesUpdated: number;
+  cityNormalized: number;
+  districtFilled: number;
+  primaryTypeDerived: number;
+  skippedArchived: number;
+  skippedManualOverrides: number;
+  qdrantCandidates: number;
+  qdrantBatchesSucceeded: number;
+  qdrantBatchesFailed: number;
+  qdrantSynced: boolean;
+  qdrantStatus: string;
 }
 
 export interface BatchEnrichmentProgress {

@@ -76,4 +76,36 @@ class PlaceRankingServiceTest {
 
     assertEquals("close", ranked.get(0).getId());
   }
+
+  @Test
+  void shouldMatchCityAndDistrictWhenQueryIncludesDescriptiveAdjectives() {
+    PlaceDto phuQuocCafe =
+        PlaceDto.builder()
+            .id("pq-1")
+            .name("Chuồn Chuồn Bistro")
+            .city("Phú Quốc")
+            .district("Dương Đông")
+            .categories(List.of("cafe"))
+            .rating(4.7)
+            .userRatingCount(420)
+            .build();
+
+    PlaceDto hanoiCafe =
+        PlaceDto.builder()
+            .id("hn-1")
+            .name("Cà Phê Giảng")
+            .city("Hà Nội")
+            .district("Hoàn Kiếm")
+            .categories(List.of("cafe"))
+            .rating(4.8)
+            .userRatingCount(1200)
+            .build();
+
+    List<PlaceDto> ranked =
+        rankingService.rank(
+            List.of(hanoiCafe, phuQuocCafe), "cafe view biển đẹp ở Phú Quốc", null, null);
+
+    assertEquals(1, ranked.size());
+    assertEquals("pq-1", ranked.get(0).getId());
+  }
 }

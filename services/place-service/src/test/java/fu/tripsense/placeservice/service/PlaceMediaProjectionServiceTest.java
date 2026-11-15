@@ -79,6 +79,32 @@ class PlaceMediaProjectionServiceTest {
     assertThat(dto.getPrimaryPhoto()).isNull();
   }
 
+  @Test
+  void preservesPermanentCloudinaryPhotosFromPlaceAndStripsGoogleUrlsWhenNoAssetRecordsExist() {
+    String cdnUrl =
+        "https://res.cloudinary.com/dejiclsce/image/upload/v1/tripsense/places/p3/photo_0.jpg";
+    Place place =
+        Place.builder()
+            .id("place-3")
+            .name("Cầu Rồng")
+            .mediaState(PlaceMediaState.PENDING)
+            .photos(List.of(cdnUrl, "https://lh3.googleusercontent.com/expired"))
+            .build();
+    when(assets.findByPlaceIdAndModerationStatusAndHealthStatusAndDeletedAtIsNullOrderByCreatedAtAsc(
+            "place-3",
+            PlaceMediaAsset.ModerationStatus.APPROVED,
+            PlaceMediaAsset.HealthStatus.HEALTHY))
+        .thenReturn(List.of());
+    PlaceDto dto = PlaceDto.builder().id("place-3").photos(place.getPhotos()).build();
+
+    new PlaceMediaProjectionService(assets, storage).decorate(dto, place);
+
+    assertThat(dto.getPhotos()).containsExactly(cdnUrl);
+    assertThat(dto.getPrimaryPhoto().url()).isEqualTo(cdnUrl);
+    assertThat(dto.getPrimaryPhoto().source()).isEqualTo("cloudinary");
+    assertThat(dto.getPhotoGallery()).hasSize(1);
+  }
+
   private PlaceMediaAsset asset(String id, String publicId) {
     return PlaceMediaAsset.builder()
         .id(id)

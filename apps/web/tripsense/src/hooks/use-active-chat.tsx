@@ -30,8 +30,76 @@ import {
 import { aiChatQueryKeys, getQueryClient } from "@/lib/react-query";
 import { useAuthStore } from "@/features/auth";
 import { aiApiUrl } from "@/lib/ai-service-url";
+import { authenticatedFetch, requestRefreshToken } from "@/services/api-client";
+import type { TripPreferences } from "@/components/chat/modals/trip-preferences-types";
 
 export type { ChatSession };
+
+export type ChatTripContextHint = {
+  tripId?: string | null;
+  tripPreferences?: TripPreferences;
+};
+
+export function isJwtExpired(token: string, skewSeconds = 30): boolean {
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return true;
+    const base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(base64)) as { exp?: number };
+    if (typeof claims.exp !== "number") return false;
+    return claims.exp <= Math.floor(Date.now() / 1000) + skewSeconds;
+  } catch {
+    return true;
+  }
+}
+
+function hasTripPreferences(prefs?: TripPreferences): boolean {
+  if (!prefs) return false;
+  return Boolean(
+    prefs.where?.location?.trim() ||
+      prefs.when?.startDate ||
+      prefs.when?.durationDays ||
+      (prefs.when?.flexibleMonths && prefs.when.flexibleMonths.length > 0) ||
+      prefs.who ||
+      prefs.budget,
+  );
+}
+
+export function buildChatRequestBody(input: {
+  chatId: string;
+  lastMessage: unknown;
+  modelId: string;
+  hint: ChatTripContextHint;
+}) {
+  return {
+    id: input.chatId,
+    chatId: input.chatId,
+    message: input.lastMessage,
+    selectedChatModel: input.modelId,
+    selectedModel: input.modelId,
+    ...(input.hint.tripId ? { tripId: input.hint.tripId } : {}),
+    ...(hasTripPreferences(input.hint.tripPreferences)
+      ? { tripPreferences: input.hint.tripPreferences }
+      : {}),
+  };
+}
+
+export async function chatAuthenticatedFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const { accessToken, isAuthenticated } = useAuthStore.getState();
+  if (isAuthenticated && (!accessToken || isJwtExpired(accessToken))) {
+    await requestRefreshToken().catch(() => undefined);
+  }
+  const url =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+  return authenticatedFetch(url, init);
+}
 
 type ActiveChatContextValue = {
   chatId: string;
@@ -51,6 +119,7 @@ type ActiveChatContextValue = {
   startNewChat: () => void;
   deleteChat: (chatId: string) => Promise<void>;
   renameChat: (newTitle: string) => Promise<void>;
+  syncTripContext: (hint: ChatTripContextHint) => void;
   isBackendReady: boolean | null;
   refreshChats: () => Promise<void>;
   isHistoryLoading: boolean;
@@ -118,11 +187,17 @@ export function ActiveChatProvider({
   const authUser = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
   const currentUserId = authUser?.id || "guest";
+  const tripContextHintRef = useRef<ChatTripContextHint>({});
+
+  const syncTripContext = useCallback((hint: ChatTripContextHint) => {
+    tripContextHintRef.current = hint;
+  }, []);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: aiApiUrl("/chat"),
+        fetch: chatAuthenticatedFetch,
         headers: {
           "X-User-Id": currentUserId,
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -131,18 +206,18 @@ export function ActiveChatProvider({
           const lastMessage = request.messages.at(-1);
           const currentToken = useAuthStore.getState().accessToken;
           const currentUser = useAuthStore.getState().user;
+          const hint = tripContextHintRef.current;
           return {
             headers: {
               "X-User-Id": currentUser?.id || "guest",
               ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {}),
             },
-            body: {
-              id: request.id,
+            body: buildChatRequestBody({
               chatId: request.id,
-              message: lastMessage,
-              selectedChatModel: currentModelId,
-              selectedModel: currentModelId,
-            },
+              lastMessage,
+              modelId: currentModelId,
+              hint,
+            }),
           };
         },
       }),
@@ -160,6 +235,7 @@ export function ActiveChatProvider({
   } = useChat<ChatMessage>({
     id: chatId,
     generateId: generateUUID,
+    throttle: 60,
     onError: (error) => {
       console.error("[useChat onError]", error);
       const qc = getQueryClient();
@@ -174,6 +250,8 @@ export function ActiveChatProvider({
         toast.error("Hệ thống AI đạt giới hạn lượt yêu cầu miễn phí (Free Tier). Vui lòng đợi khoảng 30-60 giây rồi thử lại!");
       } else if (msg.includes("503") || msg.includes("high demand") || msg.includes("UNAVAILABLE")) {
         toast.error("Mô hình AI hiện đang quá tải từ máy chủ Google. Vui lòng thử lại sau giây lát!");
+      } else if (msg.includes("Maximum update depth exceeded")) {
+        toast.error("Giao diện gặp lỗi khi hiển thị luồng phản hồi. Vui lòng tải lại hoặc thử gửi lại!");
       } else {
         toast.error("Đã xảy ra lỗi khi kết nối với AI Service. Vui lòng thử lại!");
       }
@@ -233,6 +311,7 @@ export function ActiveChatProvider({
   // Start new chat
   const startNewChat = useCallback(() => {
     stop();
+    tripContextHintRef.current = {};
     setChatId(generateUUID());
     setMessages([]);
     setInput("");
@@ -319,6 +398,7 @@ export function ActiveChatProvider({
       startNewChat,
       deleteChat,
       renameChat,
+      syncTripContext,
       isBackendReady,
       refreshChats,
       isHistoryLoading,
@@ -339,6 +419,7 @@ export function ActiveChatProvider({
       startNewChat,
       deleteChat,
       renameChat,
+      syncTripContext,
       isBackendReady,
       refreshChats,
       isHistoryLoading,

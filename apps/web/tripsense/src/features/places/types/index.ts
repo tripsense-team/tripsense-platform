@@ -49,6 +49,7 @@ export interface Place {
   city?: string;
   district?: string;
   categories: string[];
+  primaryType?: string;
   rating?: number;
   userRatingCount?: number;
   photos: string[];

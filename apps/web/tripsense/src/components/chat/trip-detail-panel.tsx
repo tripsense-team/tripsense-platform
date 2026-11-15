@@ -42,7 +42,8 @@ import {
   deleteTrip,
   deleteItineraryItem,
 } from "@/features/trip-management/services/trip-management-api";
-import { getPlaceDetails, searchPlaces } from "@/features/places/services/places-api";
+import { getPlaceBatchSnapshots, searchPlaces } from "@/features/places/services/places-api";
+import type { Place } from "@/features/places/types";
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
 import type { TripResponse, ItineraryResponse } from "@/features/trip-management/types";
 import { formatShortRange, countTripDays } from "@/features/trip-management/utils/format";
@@ -58,6 +59,7 @@ import { toast } from "sonner";
 export interface TripDetailPanelProps {
   trip: TripResponse;
   dayThemes?: Record<number, string>;
+  knownPlacePhotos?: Record<string, string>;
   onClose: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -153,9 +155,40 @@ function formatDayTheme(theme?: string): string | null {
   return hasEmoji ? trimmed : `🏯 ${trimmed}`;
 }
 
+export function resolveItemPlaceKey(item: {
+  placeRef?: string | null;
+  placeId?: string | null;
+}): string | null {
+  const ref = item.placeRef?.trim();
+  if (ref) return ref;
+  const id = item.placeId?.trim();
+  return id || null;
+}
+
+export function resolveInstantPhoto(
+  item: {
+    placeRef?: string | null;
+    placeId?: string | null;
+    sourceItemKey?: string | null;
+  },
+  knownPlacePhotos?: Record<string, string>,
+): string | null {
+  if (!knownPlacePhotos) return null;
+  const placeKey = resolveItemPlaceKey(item);
+  if (placeKey && knownPlacePhotos[placeKey]) {
+    return knownPlacePhotos[placeKey];
+  }
+  const itemKey = item.sourceItemKey?.trim();
+  if (itemKey && knownPlacePhotos[itemKey]) {
+    return knownPlacePhotos[itemKey];
+  }
+  return null;
+}
+
 export function TripDetailPanel({
   trip,
   dayThemes,
+  knownPlacePhotos,
   onClose,
   isCollapsed = false,
   onToggleCollapse,
@@ -176,17 +209,10 @@ export function TripDetailPanel({
   const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false);
   const [isEditingTitle, setIsEditingTitle] = React.useState(false);
   const [editedTitle, setEditedTitle] = React.useState(trip.name);
-  const [prevTripName, setPrevTripName] = React.useState(trip.name);
   const [collapsedDays, setCollapsedDays] = React.useState<Record<string, boolean>>({});
   const [isIdeasSectionOpen, setIsIdeasSectionOpen] = React.useState(true);
   const [isMapActive, setIsMapActive] = React.useState(false);
   const fetchedItemIdsRef = React.useRef<Set<string>>(new Set());
-
-  // Sync title during render if trip name changed externally
-  if (prevTripName !== trip.name) {
-    setPrevTripName(trip.name);
-    setEditedTitle(trip.name);
-  }
 
   // Load itinerary from trip-service
   React.useEffect(() => {
@@ -241,77 +267,133 @@ export function TripDetailPanel({
     const items = itinerary.days.flatMap((d) => d.items || []);
     if (items.length === 0) return;
 
+    const fetchedIds = fetchedItemIdsRef.current;
     const unrequestedItems = items.filter(
-      (item) => !fetchedItemIdsRef.current.has(item.id)
+      (item) =>
+        !fetchedIds.has(item.id) &&
+        !resolveInstantPhoto(item, knownPlacePhotos)
     );
     if (unrequestedItems.length === 0) return;
 
-    for (const item of unrequestedItems) {
-      fetchedItemIdsRef.current.add(item.id);
+    const pendingIds = unrequestedItems.map((item) => item.id);
+    for (const id of pendingIds) {
+      fetchedIds.add(id);
     }
+    const resolvedIds = new Set<string>();
 
     let active = true;
+    let completed = false;
     const controller = new AbortController();
 
     async function loadPhotos() {
-      const resolved = await Promise.all(
-        unrequestedItems.map(async (item) => {
-          try {
-            let place: any = null;
-            if (item.placeId) {
-              try {
-                const details = await getPlaceDetails(
-                  item.placeId,
-                  item.placeNameSnapshot || item.title,
-                  item.latSnapshot ?? undefined,
-                  item.lngSnapshot ?? undefined,
-                  controller.signal
-                );
-                place = details.data;
-              } catch {
-                place = null;
-              }
-            }
-            if (!place || !getPlacePhotoUrl(place)) {
-              const query = [item.placeNameSnapshot || item.title, trip.destinationName]
-                .filter(Boolean)
-                .join(" ");
-              const search = await searchPlaces({
-                q: query,
-                limit: 1,
-                signal: controller.signal,
-              });
-              if (search.data && search.data[0]) {
-                place = search.data[0];
-              }
-            }
-            const photoUrl = place ? getPlacePhotoUrl(place) : null;
-            return photoUrl ? ([item.id, photoUrl] as const) : null;
-          } catch {
-            return null;
-          }
-        })
+      const resolvedEntries: Array<readonly [string, string]> = [];
+      const fallbackItems: typeof unrequestedItems = [];
+
+      const batchPlaceIds = Array.from(
+        new Set(
+          unrequestedItems
+            .map(resolveItemPlaceKey)
+            .filter((id): id is string => Boolean(id))
+        )
       );
 
+      let snapshotsById: Record<string, Place> = {};
+      if (batchPlaceIds.length > 0) {
+        try {
+          snapshotsById = await getPlaceBatchSnapshots(
+            batchPlaceIds,
+            true,
+            controller.signal,
+          );
+        } catch {
+          snapshotsById = {};
+        }
+      }
+
       if (!active || controller.signal.aborted) return;
-      const valid = resolved.filter((r): r is readonly [string, string] => Boolean(r));
-      if (valid.length > 0) {
+
+      for (const item of unrequestedItems) {
+        const placeKey = resolveItemPlaceKey(item);
+        const snap = placeKey ? snapshotsById[placeKey] : undefined;
+        const photoUrl = snap ? getPlacePhotoUrl(snap) : null;
+        if (photoUrl) {
+          resolvedEntries.push([item.id, photoUrl]);
+        } else {
+          fallbackItems.push(item);
+        }
+      }
+
+      if (resolvedEntries.length > 0) {
+        for (const [id] of resolvedEntries) {
+          resolvedIds.add(id);
+        }
         setPhotoUrls((prev) => {
           const next = { ...prev };
-          for (const [id, url] of valid) {
+          for (const [id, url] of resolvedEntries) {
             next[id] = url;
           }
           return next;
         });
       }
+
+      // Bounded fallback only for items lacking a canonical placeRef/placeId photo.
+      const FALLBACK_CONCURRENCY = 3;
+      const fallbackEntries: Array<readonly [string, string]> = [];
+      for (let i = 0; i < fallbackItems.length; i += FALLBACK_CONCURRENCY) {
+        if (!active || controller.signal.aborted) return;
+        const slice = fallbackItems.slice(i, i + FALLBACK_CONCURRENCY);
+        const batchResults = await Promise.all(
+          slice.map(async (item) => {
+            try {
+              const query = [item.placeNameSnapshot || item.title, trip.destinationName]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              if (!query) return null;
+              const search = await searchPlaces({
+                q: query,
+                limit: 1,
+                signal: controller.signal,
+              });
+              const candidate = search.data?.[0];
+              const photoUrl = candidate ? getPlacePhotoUrl(candidate) : null;
+              return photoUrl ? ([item.id, photoUrl] as const) : null;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        for (const entry of batchResults) {
+          if (entry) fallbackEntries.push(entry);
+        }
+      }
+
+      if (!active || controller.signal.aborted) return;
+      completed = true;
+      if (fallbackEntries.length === 0) return;
+
+      setPhotoUrls((prev) => {
+        const next = { ...prev };
+        for (const [id, url] of fallbackEntries) {
+          next[id] = url;
+        }
+        return next;
+      });
     }
 
     void loadPhotos();
     return () => {
       active = false;
       controller.abort();
+      if (!completed) {
+        for (const id of pendingIds) {
+          if (!resolvedIds.has(id)) {
+            fetchedIds.delete(id);
+          }
+        }
+      }
     };
-  }, [itinerary, trip.destinationName]);
+  }, [itinerary, trip.destinationName, knownPlacePhotos]);
 
   // Format date range (e.g. "2 ngày trong Tháng 11" if flexible, or "19 – 21 thg 10")
   const dateRangeStr = React.useMemo(() => {
@@ -577,7 +659,10 @@ export function TripDetailPanel({
               </div>
             ) : (
               <h1
-                onClick={() => setIsEditingTitle(true)}
+                onClick={() => {
+                  setEditedTitle(trip.name);
+                  setIsEditingTitle(true);
+                }}
                 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground hover:opacity-85 transition-opacity cursor-pointer mb-3"
                 title={locale === "vi" ? "Bấm để đổi tên chuyến đi" : "Click to rename trip"}
               >
@@ -824,7 +909,10 @@ export function TripDetailPanel({
                                 {day.items && day.items.length > 0 ? (
                                   <div>
                                     {day.items.map((item, idx) => {
-                                      const photoUrl = photoUrls[item.id];
+                                      const photoUrl =
+                                        photoUrls[item.id] ??
+                                        resolveInstantPhoto(item, knownPlacePhotos) ??
+                                        undefined;
                                       const timeRange = formatTimeRange(item.startTime, item.endTime);
                                       const nextItem = day.items[idx + 1];
                                       const distance = nextItem

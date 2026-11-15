@@ -233,6 +233,7 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
       CLOUDINARY_PLACE_FOLDER_PREFIX: ${CLOUDINARY_PLACE_FOLDER_PREFIX:-${CLOUDINARY_PLACE_FOLDER:-tripsense/places}}
+      PLACE_LAZY_PHOTO_LIMIT: ${PLACE_LAZY_PHOTO_LIMIT:-3}
       RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
       RECOMMENDATION_INTERNAL_API_KEY: ${RECOMMENDATION_INTERNAL_API_KEY:-}
       EUREKA_DEFAULT_ZONE: http://discovery-server:8761/eureka/
@@ -538,6 +539,10 @@ services:
       AI_TRIP_COMMIT_SECRET: ${AI_TRIP_COMMIT_SECRET:?AI_TRIP_COMMIT_SECRET must be set; run Docker Compose with --env-file env/.env}
       PLACE_SERVICE_URL: http://place-service:8082
       TRIP_SERVICE_URL: http://trip-service:8084
+      USER_SERVICE_URL: http://user-service:8081
+      CONTEXT_SERVICE_URL: http://context-service:8087
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8088
+      RECOMMENDATION_TIMEOUT_MS: ${RECOMMENDATION_TIMEOUT_MS:-4000}
       ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:3001,http://localhost:8080"
     depends_on:
       ai-db:
@@ -547,6 +552,12 @@ services:
       place-service:
         condition: service_started
       trip-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      context-service:
+        condition: service_started
+      recommendation-service:
         condition: service_started
     ports:
       - "8089:8089"

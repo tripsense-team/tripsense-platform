@@ -39,6 +39,62 @@ public class RecommendationIndexerClient {
     return RestClient.builder().requestFactory(requestFactory).build();
   }
 
+  private static final int INDEX_BATCH_SIZE = 25;
+
+  public record IndexBatchOutcome(
+      int submitted, int batchesSucceeded, int batchesFailed, String errorReason) {
+    public boolean isFullySynced() {
+      return batchesFailed == 0;
+    }
+  }
+
+  public IndexBatchOutcome triggerIndexingBatchSync(List<PlaceDto> places) {
+    if (places == null || places.isEmpty()) {
+      return new IndexBatchOutcome(0, 0, 0, null);
+    }
+    List<PlaceIndexingPayload> payloads =
+        places.stream().filter(Objects::nonNull).map(PlaceIndexingPayload::from).toList();
+    if (payloads.isEmpty()) {
+      return new IndexBatchOutcome(0, 0, 0, null);
+    }
+
+    String baseUrl = properties.getRecommendationServiceUrl();
+    if (baseUrl == null || baseUrl.isBlank()) {
+      baseUrl = "http://localhost:8088";
+    }
+
+    int succeeded = 0;
+    int failed = 0;
+    String lastError = null;
+
+    for (int i = 0; i < payloads.size(); i += INDEX_BATCH_SIZE) {
+      int end = Math.min(i + INDEX_BATCH_SIZE, payloads.size());
+      List<PlaceIndexingPayload> batch = payloads.subList(i, end);
+      try {
+        restClient
+            .post()
+            .uri(baseUrl + "/api/recommendations/internal/places/index")
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .header("X-Internal-Api-Key", properties.getRecommendationInternalApiKey())
+            .body(batch)
+            .retrieve()
+            .toBodilessEntity();
+        succeeded++;
+      } catch (Exception exception) {
+        failed++;
+        lastError = exception.getClass().getSimpleName();
+        log.warn(
+            "Batch recommendation indexing failed for batch [{}-{}): errorType={}, message={}",
+            i,
+            end,
+            lastError,
+            exception.getMessage());
+      }
+    }
+
+    return new IndexBatchOutcome(payloads.size(), succeeded, failed, lastError);
+  }
+
   public void triggerIndexingAsync(List<PlaceDto> places) {
     if (places == null || places.isEmpty()) {
       return;

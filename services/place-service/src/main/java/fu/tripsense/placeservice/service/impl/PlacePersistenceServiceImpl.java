@@ -11,6 +11,7 @@ import fu.tripsense.placeservice.dto.PlacePhotoDto;
 import fu.tripsense.placeservice.dto.PlaceReviewDto;
 import fu.tripsense.placeservice.dto.QuietnessEvidenceDto;
 import fu.tripsense.placeservice.observability.RequestDiagnostics;
+import fu.tripsense.placeservice.service.PlaceCloudinaryStorageService;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
 import fu.tripsense.placeservice.service.PlaceMediaProjectionService;
 import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
@@ -238,29 +239,26 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
             ? place.getDistrict()
             : VietnameseAdministrativeAreaNormalizer.district(null, place.getAddress());
 
+    List<String> permanentPhotos = filterPermanentPhotoUrls(place.getPhotos());
+
     PlacePhotoDto primaryPhoto =
-        (place.getPhotos() != null && !place.getPhotos().isEmpty())
+        !permanentPhotos.isEmpty()
             ? new PlacePhotoDto(
-                place.getPhotos().get(0),
-                StringUtils.hasText(place.getProvider()) ? place.getProvider() : "ziomap",
+                permanentPhotos.get(0),
+                "cloudinary",
                 List.of(),
                 place.getLastFetchedAt() != null ? place.getLastFetchedAt() : Instant.now(),
                 true)
             : null;
 
     List<PlacePhotoDto> photoGallery =
-        (place.getPhotos() != null && !place.getPhotos().isEmpty())
-            ? place.getPhotos().stream()
-                .filter(StringUtils::hasText)
+        !permanentPhotos.isEmpty()
+            ? permanentPhotos.stream()
                 .map(
                     url ->
                         new PlacePhotoDto(
                             url,
-                            url != null && url.contains("res.cloudinary.com")
-                                ? "cloudinary"
-                                : (StringUtils.hasText(place.getProvider())
-                                    ? place.getProvider()
-                                    : "ziomap"),
+                            "cloudinary",
                             List.of(),
                             place.getLastFetchedAt() != null
                                 ? place.getLastFetchedAt()
@@ -285,7 +283,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
         .userRatingCount(place.getUserRatingCount())
         .quietnessEvidence(toQuietnessEvidenceDto(place.getQuietnessEvidence()))
         .priceEvidence(place.getPriceEvidence())
-        .photos(place.getPhotos() == null ? List.of() : place.getPhotos())
+        .photos(permanentPhotos)
         .primaryPhoto(primaryPhoto)
         .photoGallery(photoGallery)
         .phone(place.getPhone())
@@ -345,8 +343,10 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
               .observedAt(evidence.observedAt())
               .build());
     }
-    if (dto.getPhotos() != null && !dto.getPhotos().isEmpty())
-      entity.setPhotos(new ArrayList<>(dto.getPhotos()));
+    List<String> incomingPermanentPhotos = filterPermanentPhotoUrls(dto.getPhotos());
+    if (!incomingPermanentPhotos.isEmpty()) {
+      entity.setPhotos(new ArrayList<>(incomingPermanentPhotos));
+    }
     if (StringUtils.hasText(dto.getPhone()) && providerMayWrite(entity, "phone")) entity.setPhone(dto.getPhone());
     if (StringUtils.hasText(dto.getWebsite()) && providerMayWrite(entity, "website")) entity.setWebsite(dto.getWebsite());
     if (dto.getSocials() != null && !dto.getSocials().isEmpty() && providerMayWrite(entity, "socials"))
@@ -359,6 +359,13 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
       entity.setReviews(dto.getReviews().stream().map(this::toReviewEntity).toList());
     }
     entity.setLastFetchedAt(Instant.now());
+  }
+
+  private static List<String> filterPermanentPhotoUrls(List<String> urls) {
+    if (urls == null || urls.isEmpty()) {
+      return List.of();
+    }
+    return urls.stream().filter(PlaceCloudinaryStorageService::isPermanentCloudinaryUrl).toList();
   }
 
   private boolean providerMayWrite(Place entity, String field) {

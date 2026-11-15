@@ -66,6 +66,7 @@ export interface TripActivity {
   description: string;
   placeId?: string;
   address?: string;
+  photoUrl?: string;
   category?: string;
   estimatedCost?: string;
 }
