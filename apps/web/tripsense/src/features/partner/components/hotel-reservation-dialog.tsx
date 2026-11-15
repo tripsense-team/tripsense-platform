@@ -47,8 +47,19 @@ export interface HotelReservationDialogProps {
   defaultQuantity?: number;
 }
 
-function formatVnd(amount: number): string {
-  return `${Math.round(amount).toLocaleString("vi-VN")} đ`;
+function formatPrice(amount: number, currency: string = "VND"): string {
+  if (currency === "VND") {
+    return `${Math.round(amount).toLocaleString("vi-VN")} đ`;
+  }
+  try {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${Math.round(amount).toLocaleString("vi-VN")} ${currency}`;
+  }
 }
 
 function toIsoDate(d: Date): string {
@@ -211,7 +222,8 @@ export function HotelReservationDialog({
       if (hotel.ownerUserId) {
         try {
           const bookingCode = booking.id ? booking.id.slice(0, 8).toUpperCase() : "TS";
-          const chatMsg = `[Đặt phòng trực tiếp] Khách ${customerName} (SĐT: ${customerPhone}) đã đặt ${quantity}x "${selectedRoom.name}" tại ${hotel.displayName} (${checkIn} → ${checkOut}, ${nights} đêm). Tổng tiền: ${formatVnd(totalPrice)}. Mã đơn: #TS-HTL-${bookingCode}`;
+          const currency = selectedRoom?.currency || "VND";
+          const chatMsg = `[Đặt phòng trực tiếp] Khách ${customerName} (SĐT: ${customerPhone}) đã đặt ${quantity}x "${selectedRoom.name}" tại ${hotel.displayName} (${checkIn} → ${checkOut}, ${nights} đêm). Tổng tiền: ${formatPrice(totalPrice, currency)}. Mã đơn: #TS-HTL-${bookingCode}`;
           void chatApi.sendDirectMessage(hotel.ownerUserId, chatMsg).catch(() => undefined);
         } catch {
           // Non-blocking notification
@@ -263,7 +275,7 @@ export function HotelReservationDialog({
             <div className="rounded-xl border border-border bg-muted/40 p-4 space-y-2.5 text-xs">
               <div className="flex items-center justify-between pb-2 border-b border-border/60">
                 <span className="text-muted-foreground font-medium">Mã đặt phòng:</span>
-                <span className="font-mono font-bold text-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-md text-[11px]">
+                <span className="font-mono font-bold text-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-md text-micro">
                   #TS-HTL-{createdBooking.id.slice(0, 8).toUpperCase()}
                 </span>
               </div>
@@ -298,7 +310,7 @@ export function HotelReservationDialog({
               <div className="flex items-center justify-between pt-2 border-t border-border/60 text-sm">
                 <span className="font-semibold text-foreground">Tổng chi phí:</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatVnd(totalPrice)}
+                  {formatPrice(totalPrice, selectedRoom?.currency || "VND")}
                 </span>
               </div>
             </div>
@@ -308,7 +320,7 @@ export function HotelReservationDialog({
                 <Clock className="h-3.5 w-3.5 text-teal-600" />
                 <span>Giờ nhận phòng: {hotel.checkInTime || "14:00"} · Trả phòng: {hotel.checkOutTime || "11:00"}</span>
               </div>
-              <p className="text-[11px] text-teal-700 dark:text-teal-400">
+              <p className="text-micro text-teal-700 dark:text-teal-400">
                 Miễn phí hủy phòng trước giờ nhận phòng. Bạn có thể thanh toán trực tiếp tại khách sạn khi nhận phòng.
               </p>
             </div>
@@ -343,7 +355,7 @@ export function HotelReservationDialog({
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span>Chọn hạng phòng (*)</span>
                 {loadingRooms && (
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-normal">
+                  <span className="text-micro text-muted-foreground flex items-center gap-1 font-normal">
                     <Loader2 className="h-3 w-3 animate-spin" /> Đang cập nhật phòng trống...
                   </span>
                 )}
@@ -357,7 +369,7 @@ export function HotelReservationDialog({
               ) : rooms.length === 0 ? (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
                   <p className="font-semibold">Khách sạn chưa cập nhật danh sách phòng trực tuyến.</p>
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                  <p className="text-micro text-amber-700 dark:text-amber-400 mt-0.5">
                     Bạn có thể gửi tin nhắn để đối tác hỗ trợ giữ phòng trực tiếp.
                   </p>
                 </div>
@@ -382,7 +394,7 @@ export function HotelReservationDialog({
                               Còn {room.availableRooms} phòng
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-3 text-micro text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Users className="h-3 w-3" /> Tối đa {room.capacity} khách
                             </span>
@@ -396,7 +408,7 @@ export function HotelReservationDialog({
 
                         <div className="text-right shrink-0">
                           <span className="text-sm font-bold text-teal-700 dark:text-teal-400 block">
-                            {formatVnd(room.pricePerNight)}
+                            {formatPrice(room.pricePerNight, room.currency || "VND")}
                           </span>
                           <span className="text-micro text-muted-foreground block">/ đêm</span>
                         </div>
@@ -538,16 +550,16 @@ export function HotelReservationDialog({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Số lượng phòng:</span>
                 <span className="font-medium text-foreground">
-                  {quantity} phòng × {formatVnd(nightlyRate)}
+                  {quantity} phòng × {formatPrice(nightlyRate, selectedRoom?.currency || "VND")}
                 </span>
               </div>
               <div className="flex justify-between pt-1 border-t border-border/60">
                 <span className="font-bold text-foreground">Tổng chi phí dự kiến:</span>
                 <span className="font-bold text-teal-700 dark:text-teal-400 text-sm">
-                  {formatVnd(totalPrice)}
+                  {formatPrice(totalPrice, selectedRoom?.currency || "VND")}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 pt-1">
+              <div className="flex items-center gap-1.5 text-micro text-emerald-600 dark:text-emerald-400 pt-1">
                 <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
                 <span>Miễn phí hủy phòng trước giờ nhận phòng. Giữ phòng ngay không cần thanh toán trước.</span>
               </div>

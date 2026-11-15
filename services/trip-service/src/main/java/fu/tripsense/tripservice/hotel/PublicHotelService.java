@@ -164,21 +164,29 @@ public class PublicHotelService {
     return db.query(
         """
         SELECT r.id, r.property_id, r.name, r.capacity,
-               COALESCE((
-                 SELECT MIN(i.nightly_price)
-                 FROM hotel_inventory i
-                 WHERE i.room_type_id = r.id
-                   AND i.stay_date >= CURRENT_DATE
-                   AND i.stop_sell = false
-                   AND i.held + i.booked < i.allocation
-               ), 500000.00) as price,
-               COALESCE((
-                 SELECT MIN(i.allocation - i.held - i.booked)
-                 FROM hotel_inventory i
-                 WHERE i.room_type_id = r.id
-                   AND i.stay_date >= CURRENT_DATE
-                   AND i.stop_sell = false
-               ), 10) as available_rooms
+               COALESCE(
+                 (SELECT MIN(i.nightly_price)
+                  FROM hotel_inventory i
+                  WHERE i.room_type_id = r.id
+                    AND i.stay_date >= CURRENT_DATE
+                    AND i.stop_sell = false
+                    AND i.held + i.booked < i.allocation),
+                 (SELECT MIN(i.nightly_price)
+                  FROM hotel_inventory i
+                  WHERE i.room_type_id = r.id),
+                 500000.00
+               ) as price,
+               COALESCE(
+                 (SELECT MIN(i.allocation - i.held - i.booked)
+                  FROM hotel_inventory i
+                  WHERE i.room_type_id = r.id
+                    AND i.stay_date >= CURRENT_DATE
+                    AND i.stop_sell = false),
+                 (SELECT MIN(i.allocation)
+                  FROM hotel_inventory i
+                  WHERE i.room_type_id = r.id),
+                 10
+               ) as available_rooms
         FROM hotel_room_type r
         WHERE r.property_id = ?
         ORDER BY price ASC
