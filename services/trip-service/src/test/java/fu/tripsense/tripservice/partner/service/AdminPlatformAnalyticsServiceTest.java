@@ -90,4 +90,27 @@ class AdminPlatformAnalyticsServiceTest {
     assertEquals(50.0, AdminPlatformAnalyticsService.computeGrowthPercent(15, 10));
     assertEquals(-25.0, AdminPlatformAnalyticsService.computeGrowthPercent(15, 20));
   }
+
+  @Test
+  void getUserTripCounts_handlesEmptyAndBatchLimitForAdmin() {
+    AuthenticatedUser admin =
+        new AuthenticatedUser(
+            UUID.randomUUID(), "admin@tripsense.app", "ROLE_ADMIN", List.of("ROLE_ADMIN"));
+
+    var emptyResult = service.getUserTripCounts(admin, List.of());
+    assertTrue(emptyResult.counts().isEmpty());
+
+    UUID u1 = UUID.randomUUID();
+    UUID u2 = UUID.randomUUID();
+    var batchResult = service.getUserTripCounts(admin, List.of(u1, u2, u1));
+    assertEquals(2, batchResult.counts().size());
+    assertEquals(0L, batchResult.counts().get(u1));
+    assertEquals(0L, batchResult.counts().get(u2));
+
+    List<UUID> tooMany = java.util.stream.Stream.generate(UUID::randomUUID).limit(101).toList();
+    TripServiceException limitEx =
+        assertThrows(
+            TripServiceException.class, () -> service.getUserTripCounts(admin, tooMany));
+    assertEquals(HttpStatus.BAD_REQUEST, limitEx.status());
+  }
 }

@@ -17,6 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -875,6 +877,54 @@ public class AdminPlatformAnalyticsService {
         new UserRetentionAndSla(userTripRet[0], userTripRet[1], repeatRate, avgSlaHours);
 
     return new DeepTripAnalytics(aiVsManual, durationDist, leadTimeAndSeasonality, retentionAndSla);
+  }
+
+  public record UserTripCountsDto(Map<UUID, Long> counts) {}
+
+  /** Returns active (non-archived, non-deleted) trip counts grouped by owner user ID. */
+  @Transactional(readOnly = true)
+  public UserTripCountsDto getUserTripCounts(AuthenticatedUser admin, List<UUID> userIds) {
+    requireAdmin(admin);
+    if (userIds == null || userIds.isEmpty()) {
+      return new UserTripCountsDto(Map.of());
+    }
+    List<UUID> distinctIds = userIds.stream().filter(id -> id != null).distinct().toList();
+    if (distinctIds.isEmpty()) {
+      return new UserTripCountsDto(Map.of());
+    }
+    if (distinctIds.size() > 100) {
+      throw new TripServiceException(
+          "TOO_MANY_USER_IDS",
+          "At most 100 userIds may be queried per batch",
+          HttpStatus.BAD_REQUEST);
+    }
+
+    String placeholders =
+        distinctIds.stream().map(id -> "?").collect(Collectors.joining(", "));
+    String sql =
+        """
+        SELECT owner_user_id, COUNT(*) AS trip_count
+        FROM trips
+        WHERE deleted_at IS NULL
+          AND archived_at IS NULL
+          AND owner_user_id IN (%s)
+        GROUP BY owner_user_id
+        """
+            .formatted(placeholders);
+
+    Map<UUID, Long> counts = new LinkedHashMap<>();
+    distinctIds.forEach(id -> counts.put(id, 0L));
+    jdbc.query(
+        sql,
+        rs -> {
+          UUID ownerId = rs.getObject("owner_user_id", UUID.class);
+          if (ownerId != null) {
+            counts.put(ownerId, rs.getLong("trip_count"));
+          }
+        },
+        distinctIds.toArray());
+
+    return new UserTripCountsDto(counts);
   }
 
   private static double nvlDouble(Double val) {

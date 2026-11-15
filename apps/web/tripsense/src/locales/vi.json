@@ -707,17 +707,40 @@
     "users": {
       "actions": {
         "activate": "Kích hoạt tài khoản",
+        "confirm": "Xác nhận",
+        "confirmRoleDesc": "Chuyển vai trò của {{name}} thành {{role}}?",
+        "confirmRoleTitle": "Xác nhận đổi vai trò",
+        "confirmStatusDesc": "Bạn có chắc muốn chuyển trạng thái của {{name}} sang {{status}}?",
+        "confirmStatusTitle": "Xác nhận đổi trạng thái tài khoản",
+        "currentAccount": "Tài khoản hiện tại",
         "makeAdmin": "Chuyển thành Quản trị viên",
         "makePartner": "Chuyển thành Đối tác",
         "makeUser": "Chuyển thành Người dùng",
         "reactivate": "Kích hoạt lại tài khoản",
+        "roleUpdated": "Đã cập nhật vai trò cho {{name}}",
+        "selfProtected": "Không thể tự thay đổi quyền hoặc khóa tài khoản đang đăng nhập",
         "sendEmail": "Gửi email",
-        "suspend": "Khóa tài khoản"
+        "statusUpdated": "Đã cập nhật trạng thái cho {{name}}",
+        "suspend": "Khóa tài khoản",
+        "updateError": "Không thể cập nhật tài khoản người dùng. Vui lòng thử lại."
       },
       "all": "Tất cả",
+      "cancel": "Hủy",
       "directory": "Danh bạ",
       "empty": "Không có người dùng nào khớp với tiêu chí tìm kiếm.",
+      "loadError": "Không thể tải danh sách người dùng từ máy chủ. Vui lòng thử lại.",
       "management": "Quản lý người dùng",
+      "pagination": {
+        "next": "Trang sau",
+        "pageOf": "Trang {{page}} / {{total}} ({{count}} người dùng)",
+        "prev": "Trang trước"
+      },
+      "partnerEnrolled": "Đã đăng ký Đối tác",
+      "provider": {
+        "google": "Google",
+        "local": "Email"
+      },
+      "refresh": "Làm mới",
       "roleFilter": "Vai trò:",
       "roles": {
         "admin": "Quản trị viên",
@@ -727,15 +750,22 @@
       "searchPlaceholder": "Tìm kiếm theo tên hoặc email...",
       "status": {
         "active": "Hoạt động",
+        "inactive": "Đã khóa",
         "suspended": "Đã khóa",
         "unverified": "Chưa xác thực",
         "verified": "Đã xác thực"
       },
       "statusFilter": "Trạng thái:",
       "subtitle": "Quản lý vai trò người dùng, xác thực tài khoản và kiểm soát quyền truy cập nền tảng.",
+      "summary": {
+        "active": "{{count}} Hoạt động",
+        "suspended": "{{count}} Đã khóa",
+        "unverified": "{{count}} Chưa xác thực"
+      },
       "table": {
         "actions": "Hành động",
         "joined": "Ngày tham gia",
+        "provider": "Nguồn",
         "role": "Vai trò",
         "status": "Trạng thái",
         "trips": "Chuyến đi",

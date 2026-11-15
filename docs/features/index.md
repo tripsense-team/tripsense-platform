@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `admin-user-management` | DONE | `services/user-service`, `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-user-management.md) |
 | `admin-deep-behavioral-analytics` | DONE | `services/recommendation-service`, `services/context-service`, `services/ai-service`, `services/trip-service`, `apps/web/tripsense` | [Docs](./admin-deep-behavioral-analytics.md) |
 | `admin-platform-analytics` | DONE | `services/trip-service`, `services/user-service`, `services/social-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-platform-analytics.md) |
 | `generic-travel-rental-and-services` | APPROVED | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |

@@ -707,17 +707,40 @@
     "users": {
       "actions": {
         "activate": "Activate Account",
+        "confirm": "Confirm",
+        "confirmRoleDesc": "Change {{name}}'s platform role to {{role}}?",
+        "confirmRoleTitle": "Confirm role change",
+        "confirmStatusDesc": "Are you sure you want to change {{name}}'s status to {{status}}?",
+        "confirmStatusTitle": "Confirm account status change",
+        "currentAccount": "Current session",
         "makeAdmin": "Make Admin",
         "makePartner": "Make Partner",
         "makeUser": "Make User",
         "reactivate": "Reactivate Account",
+        "roleUpdated": "Updated role for {{name}}",
+        "selfProtected": "Cannot modify your own active admin session",
         "sendEmail": "Send Email",
-        "suspend": "Suspend Account"
+        "statusUpdated": "Updated status for {{name}}",
+        "suspend": "Suspend Account",
+        "updateError": "Could not update user account. Please try again."
       },
       "all": "All",
+      "cancel": "Cancel",
       "directory": "Directory",
       "empty": "No users match your criteria.",
+      "loadError": "Could not load users from the server. Please try again.",
       "management": "User Management",
+      "pagination": {
+        "next": "Next",
+        "pageOf": "Page {{page}} of {{total}} ({{count}} users)",
+        "prev": "Previous"
+      },
+      "partnerEnrolled": "Partner Enrolled",
+      "provider": {
+        "google": "Google",
+        "local": "Email"
+      },
+      "refresh": "Refresh",
       "roleFilter": "Role:",
       "roles": {
         "admin": "Administrator",
@@ -727,15 +750,22 @@
       "searchPlaceholder": "Search by name or email...",
       "status": {
         "active": "Active",
+        "inactive": "Suspended",
         "suspended": "Suspended",
         "unverified": "Unverified",
         "verified": "Verified"
       },
       "statusFilter": "Status:",
       "subtitle": "Manage user roles, verify accounts, and oversee platform access.",
+      "summary": {
+        "active": "{{count}} Active",
+        "suspended": "{{count}} Suspended",
+        "unverified": "{{count}} Unverified"
+      },
       "table": {
         "actions": "Actions",
         "joined": "Joined",
+        "provider": "Provider",
         "role": "Role",
         "status": "Status",
         "trips": "Trips",

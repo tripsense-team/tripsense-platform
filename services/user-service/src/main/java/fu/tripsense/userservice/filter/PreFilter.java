@@ -40,7 +40,7 @@ public class PreFilter extends OncePerRequestFilter {
       final String userEmail = jwtUtils.extractEmail(token);
       if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
         UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
-        if (jwtUtils.validateToken(token, userDetails)) {
+        if (userDetails.isAccountNonLocked() && jwtUtils.validateToken(token, userDetails)) {
           SecurityContext context = SecurityContextHolder.createEmptyContext();
           UsernamePasswordAuthenticationToken authentication =
               new UsernamePasswordAuthenticationToken(

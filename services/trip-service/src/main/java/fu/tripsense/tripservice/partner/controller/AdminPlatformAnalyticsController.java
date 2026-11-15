@@ -3,7 +3,10 @@ package fu.tripsense.tripservice.partner.controller;
 import fu.tripsense.tripservice.dto.response.ApiResponse;
 import fu.tripsense.tripservice.partner.dto.AdminPlatformAnalyticsDto;
 import fu.tripsense.tripservice.partner.service.AdminPlatformAnalyticsService;
+import fu.tripsense.tripservice.partner.service.AdminPlatformAnalyticsService.UserTripCountsDto;
 import fu.tripsense.tripservice.security.AuthenticatedUser;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,6 +28,14 @@ public class AdminPlatformAnalyticsController {
       @RequestParam(name = "periodDays", defaultValue = "30") Integer periodDays) {
     return ResponseEntity.ok(
         ApiResponse.success(analyticsService.getOverview(admin, periodDays)));
+  }
+
+  @GetMapping("/user-trip-counts")
+  public ResponseEntity<ApiResponse<UserTripCountsDto>> getUserTripCounts(
+      @AuthenticationPrincipal AuthenticatedUser admin,
+      @RequestParam(name = "userIds", required = false) List<UUID> userIds) {
+    return ResponseEntity.ok(
+        ApiResponse.success(analyticsService.getUserTripCounts(admin, userIds)));
   }
 }
 
