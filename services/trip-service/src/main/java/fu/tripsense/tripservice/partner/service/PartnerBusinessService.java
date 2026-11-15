@@ -256,9 +256,6 @@ public class PartnerBusinessService {
     if (!hasIntakeCap) {
       missing.add("INTAKE_CAPABILITY_NOT_GRANTED");
     }
-    if (!hasRequiredInventory(business)) {
-      missing.add(business.getKind() == BusinessKind.HOTEL ? "HOTEL_ROOMS_REQUIRED" : "RENTAL_ITEMS_REQUIRED");
-    }
 
     boolean canAcceptNew = missing.isEmpty();
     return new BusinessReadinessDto(businessId, canPublish, canAcceptNew, missing);

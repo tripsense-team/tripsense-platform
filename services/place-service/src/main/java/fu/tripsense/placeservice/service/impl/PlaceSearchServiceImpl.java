@@ -765,61 +765,74 @@ public class PlaceSearchServiceImpl implements PlaceSearchService {
 
     if (isBroadLocationQuery(normalizedQuery)) {
       try {
-        return repository.findByLifecycleStatusNot(
-            fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED,
-            PageRequest.of(0, limit));
+        List<Place> broad =
+            repository.findByLifecycleStatusNot(
+                fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED,
+                PageRequest.of(0, limit));
+        if (broad != null && !broad.isEmpty()) {
+          return broad;
+        }
       } catch (Exception ex) {
         log.warn("Broad local places query failed: {}", ex.getMessage());
       }
     }
 
-    List<Place> results = Collections.emptyList();
-    if (System.currentTimeMillis() - lastLocalSearchFailureTime >= 30_000) {
-      RequestDiagnostics.mark("place_search_method", "TEXT");
+    if (System.currentTimeMillis() - lastLocalSearchFailureTime < 30_000) {
+      RequestDiagnostics.mark("place_search_method", "REGEX_COOLDOWN");
       try {
-        results =
-            RequestDiagnostics.measure(
-                "mongo_text_query",
-                () ->
-                    repository.searchByText(normalizedQuery, PageRequest.of(0, limit)).stream()
-                        .filter(this::isPubliclyActive)
-                        .toList());
-      } catch (Exception exception) {
-        lastLocalSearchFailureTime = System.currentTimeMillis();
-        RequestDiagnostics.mark("place_search_method", "REGEX_AFTER_TEXT_FAILURE");
-        log.warn(
-            "place_text_search_failed requestId={} errorType={}",
-            RequestDiagnostics.requestId(),
-            exception.getClass().getSimpleName());
-      }
-    }
-
-    if (results.isEmpty()) {
-      RequestDiagnostics.mark("place_search_method", "KEYWORD_REGEX");
-      try {
-        String quoted = Pattern.quote(normalizedQuery);
-        results =
-            RequestDiagnostics.measure(
-                "mongo_keyword_regex_query",
-                () ->
-                    repository.searchByKeywordRegex(quoted, PageRequest.of(0, limit)).stream()
-                        .filter(this::isPubliclyActive)
-                        .toList());
+        return RequestDiagnostics.measure(
+            "mongo_regex_query",
+            () ->
+                repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
+                    .filter(this::isPubliclyActive)
+                    .toList());
       } catch (Exception ex) {
-        try {
-          results =
-              repository
-                  .findByNameRegex(Pattern.quote(normalizedQuery), PageRequest.of(0, limit))
-                  .stream()
-                  .filter(this::isPubliclyActive)
-                  .toList();
-        } catch (Exception ignored) {
-          results = Collections.emptyList();
-        }
+        return Collections.emptyList();
       }
     }
 
-    return results;
+    RequestDiagnostics.mark("place_search_method", "TEXT");
+    try {
+      List<Place> textResults =
+          RequestDiagnostics.measure(
+              "mongo_text_query",
+              () ->
+                  repository.searchByText(normalizedQuery, PageRequest.of(0, limit)).stream()
+                      .filter(this::isPubliclyActive)
+                      .toList());
+      if (!textResults.isEmpty()) {
+        return textResults;
+      }
+      try {
+        List<Place> keywordResults =
+            repository.searchByKeywordRegex(Pattern.quote(normalizedQuery), PageRequest.of(0, limit))
+                .stream()
+                .filter(this::isPubliclyActive)
+                .toList();
+        if (!keywordResults.isEmpty()) {
+          return keywordResults;
+        }
+      } catch (Exception ignored) {
+      }
+      return textResults;
+    } catch (Exception exception) {
+      lastLocalSearchFailureTime = System.currentTimeMillis();
+      RequestDiagnostics.mark("place_search_method", "REGEX_AFTER_TEXT_FAILURE");
+      log.warn(
+          "place_text_search_failed requestId={} errorType={}",
+          RequestDiagnostics.requestId(),
+          exception.getClass().getSimpleName());
+      try {
+        return RequestDiagnostics.measure(
+            "mongo_regex_query",
+            () ->
+                repository.findByNameRegex(normalizedQuery, PageRequest.of(0, limit)).stream()
+                    .filter(this::isPubliclyActive)
+                    .toList());
+      } catch (Exception ex) {
+        return Collections.emptyList();
+      }
+    }
   }
 
   private boolean isBroadLocationQuery(String query) {
