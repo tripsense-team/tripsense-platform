@@ -94,19 +94,50 @@ export const MessageAction = ({
   return button;
 };
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+export type MessageResponseProps = ComponentProps<typeof Streamdown> & {
+  isAnimating?: boolean;
+};
+
+const STREAMING_ANIMATE_OPTIONS: ComponentProps<typeof Streamdown>["animated"] = {
+  animation: "fadeIn",
+  sep: "word",
+  duration: 150,
+  stagger: 12,
+  maxBacklogMs: 280,
+};
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose dark:prose-invert max-w-none text-[15px] leading-relaxed prose-p:text-[15px] prose-li:text-[15px]",
-        className
-      )}
-      {...props}
-    />
-  ),
-  (prevProps, nextProps) => prevProps.children === nextProps.children
+  ({
+    className,
+    isAnimating = false,
+    mode,
+    animated,
+    ...props
+  }: MessageResponseProps) => {
+    const resolvedMode = mode ?? (isAnimating ? "streaming" : "static");
+    const resolvedAnimated =
+      animated ?? (isAnimating ? STREAMING_ANIMATE_OPTIONS : false);
+
+    return (
+      <Streamdown
+        animated={resolvedAnimated}
+        className={cn(
+          "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose dark:prose-invert max-w-none text-[15px] leading-relaxed prose-p:text-[15px] prose-li:text-[15px]",
+          className
+        )}
+        isAnimating={isAnimating}
+        mode={resolvedMode}
+        {...props}
+      />
+    );
+  },
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children &&
+    prevProps.isAnimating === nextProps.isAnimating &&
+    prevProps.mode === nextProps.mode &&
+    prevProps.animated === nextProps.animated &&
+    prevProps.className === nextProps.className &&
+    prevProps.components === nextProps.components
 );
 
 MessageResponse.displayName = "MessageResponse";

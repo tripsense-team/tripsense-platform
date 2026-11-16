@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildDestinationQuery,
   executeHybridPlaceSearch,
+  extractCorePlaceQuery,
   extractPhotoUrl,
   groundRecommendations,
   mapUserPreferencesToCategories,
@@ -10,6 +11,7 @@ import {
   prepareTripCandidates,
   resolveCanonicalActivityPlaces,
 } from "./place-grounding.js";
+import { getPrepareTripCandidatesTool } from "./tools/prepare-trip-candidates.js";
 
 test("extractPhotoUrl prioritizes primaryPhoto, READY media primary, and Cloudinary URLs", () => {
   assert.equal(
@@ -586,6 +588,127 @@ test("resolveCanonicalActivityPlaces reuses cached hydrated store entries and on
   assert.deepEqual(requestedBatches[0], ["food-no-photo", "missing-id"]);
   assert.equal(mixed.get(0)?.photoUrl, "https://res.cloudinary.com/demo/sala.jpg");
   assert.equal(mixed.get(1)?.photoUrl, "https://res.cloudinary.com/demo/banhxeo.jpg");
+});
+
+test("extractCorePlaceQuery recovers specific venues from action prefixes while blocking generic phrases", () => {
+  assert.equal(extractCorePlaceQuery("Mua sắm đặc sản làm quà tại Chợ Hàn"), "Chợ Hàn");
+  assert.equal(extractCorePlaceQuery("Check-in Cổng Chùa Linh Ứng"), "Cổng Chùa Linh Ứng");
+  assert.equal(extractCorePlaceQuery("Thưởng thức Mì Quảng Bà Mua"), "Mì Quảng Bà Mua");
+  assert.equal(extractCorePlaceQuery("Ăn tối tại Hải sản Bé Mặn"), "Hải sản Bé Mặn");
+
+  assert.equal(extractCorePlaceQuery("Check-out khách sạn & Tạm biệt Đà Nẵng"), undefined);
+  assert.equal(extractCorePlaceQuery("Check-in khách sạn"), undefined);
+  assert.equal(extractCorePlaceQuery("Nghỉ ngơi tại khách sạn"), undefined);
+  assert.equal(extractCorePlaceQuery("Thưởng thức Mì Quảng"), undefined);
+});
+
+test("resolveCanonicalActivityPlaces resolves action-prefixed venue titles via core query", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const searchQueries: string[] = [];
+
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (urlStr.includes("/api/places/search")) {
+      const url = new URL(urlStr);
+      searchQueries.push(url.searchParams.get("q") || "");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "cho-han-id",
+              name: "Chợ Hàn",
+              address: "119 Trần Phú, Hải Châu, Đà Nẵng",
+              categories: ["shopping", "market"],
+              primaryPhoto: { url: "https://res.cloudinary.com/demo/cho-han.jpg" },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response(JSON.stringify({ success: true, data: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const resolved = await resolveCanonicalActivityPlaces({
+    destinationHint: "Đà Nẵng",
+    items: [
+      { title: "Mua sắm đặc sản làm quà tại Chợ Hàn", category: "ACTIVITY" },
+      { title: "Check-out khách sạn & Tạm biệt Đà Nẵng", category: "ACTIVITY" },
+    ],
+  });
+
+  assert.equal(resolved.get(0)?.id, "cho-han-id");
+  assert.equal(resolved.get(0)?.address, "119 Trần Phú, Hải Châu, Đà Nẵng");
+  assert.equal(resolved.get(0)?.photoUrl, "https://res.cloudinary.com/demo/cho-han.jpg");
+  assert.equal(resolved.has(1), false);
+  assert.equal(searchQueries.length, 1);
+  assert.match(searchQueries[0], /^Chợ Hàn/);
+});
+
+test("getPrepareTripCandidatesTool returns compact groups without duplicate places or photoUrl while keeping photos in store", async (t) => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (urlStr.includes("/api/recommendations")) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            items: [
+              {
+                score: 0.91,
+                reasons: ["Hợp gu biển"],
+                place: {
+                  id: "compact-place-1",
+                  name: "Bãi biển Mỹ Khê",
+                  address: "Võ Nguyên Giáp, Đà Nẵng",
+                  rating: 4.8,
+                  photos: ["https://res.cloudinary.com/demo/my-khe-compact.jpg"],
+                },
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response(JSON.stringify({ success: true, data: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const store = new PlaceGroundingStore();
+  const toolDef = getPrepareTripCandidatesTool({
+    destinationHint: "Đà Nẵng",
+    authorization: "Bearer test-token",
+    store,
+  });
+
+  const output = await (toolDef as any).execute({
+    categories: ["BEACH"],
+    limitPerCategory: 2,
+  });
+
+  assert.equal(output.success, true);
+  assert.equal("places" in output, false);
+  assert.equal(output.groups.length, 1);
+  assert.equal(output.groups[0].places[0].id, "compact-place-1");
+  assert.equal("photoUrl" in output.groups[0].places[0], false);
+  assert.equal(store.getById("compact-place-1")?.photoUrl, "https://res.cloudinary.com/demo/my-khe-compact.jpg");
 });
 
 

@@ -66,7 +66,7 @@ export type PlanningRuntimeState = {
   placeStore?: PlaceGroundingStore;
 };
 
-const inputSchema = z.object({
+export const updateTripPlanningBriefInputSchema = z.object({
   planningIntent: z
     .boolean()
     .default(true)
@@ -360,7 +360,7 @@ export function getUpdateTripPlanningBriefTool(context: {
   return tool({
     description:
       "Ghi nhận ý định lập chuyến đi và cập nhật các trường Where, When, Who, Budget. Phải gọi công cụ này trước khi tạo lịch trình khi user muốn lập/tạo trip, và gọi lại cho mỗi câu trả lời intake.",
-    inputSchema,
+    inputSchema: updateTripPlanningBriefInputSchema,
     execute: async (input) => {
       if (context.userId === "guest" || !context.authorization) {
         return { accepted: false, reason: "AUTH_REQUIRED" };

@@ -4,6 +4,11 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `ai-chat-streaming-ux-and-place-detail-drawer` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/api-gateway` | [Docs](./ai-chat-streaming-ux-and-place-detail-drawer.md) |
+| `ai-chat-response-spinner-and-ziomap-panel` | DONE | `apps/web/tripsense`, `services/ai-service` | [Docs](./ai-chat-response-spinner-and-ziomap-panel.md) |
+| `ai-chat-group3-refinement-and-golden-eval` | DONE | `apps/web/tripsense`, `services/ai-service` | [Docs](./ai-chat-group3-refinement-and-golden-eval.md) |
+| `ai-chat-group2-latency-and-prefetch` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-chat-group2-latency-and-prefetch.md) |
+| `ai-chat-group1-quality-and-grounding` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-chat-group1-quality-and-grounding.md) |
 | `service-rental-discovery-and-quick-booking` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/api-gateway` | [Docs](./service-rental-discovery-and-quick-booking.md) |
 | `booking-activity-badges-and-smart-focus` | DONE | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./booking-activity-badges-and-smart-focus.md) |
 | `generic-travel-rental-and-services` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |

@@ -25,6 +25,7 @@ import {
   Coffee,
   Landmark,
   ExternalLink,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collapse-button";
@@ -45,7 +46,11 @@ import {
 import { getPlaceBatchSnapshots, searchPlaces } from "@/features/places/services/places-api";
 import type { Place } from "@/features/places/types";
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
-import type { TripResponse, ItineraryResponse } from "@/features/trip-management/types";
+import type {
+  TripResponse,
+  ItineraryResponse,
+  ItineraryItemResponse,
+} from "@/features/trip-management/types";
 import { formatShortRange, countTripDays } from "@/features/trip-management/utils/format";
 import {
   formatWhenSelection,
@@ -65,6 +70,8 @@ export interface TripDetailPanelProps {
   onToggleCollapse?: () => void;
   onTripUpdated?: (updatedTrip: TripResponse) => void;
   onTripDeleted?: (tripId: string) => void;
+  onOpenPlaceDetail?: (item: ItineraryItemResponse, knownPhotoUrl?: string) => void;
+  onOpenMap?: (focusItemId?: string) => void;
   onOpenWhere?: () => void;
   onOpenWhen?: () => void;
   onOpenWho?: () => void;
@@ -194,6 +201,8 @@ export function TripDetailPanel({
   onToggleCollapse,
   onTripUpdated,
   onTripDeleted,
+  onOpenPlaceDetail,
+  onOpenMap,
   onOpenWhere,
   onOpenWhen,
   onOpenWho,
@@ -211,7 +220,6 @@ export function TripDetailPanel({
   const [editedTitle, setEditedTitle] = React.useState(trip.name);
   const [collapsedDays, setCollapsedDays] = React.useState<Record<string, boolean>>({});
   const [isIdeasSectionOpen, setIsIdeasSectionOpen] = React.useState(true);
-  const [isMapActive, setIsMapActive] = React.useState(false);
   const fetchedItemIdsRef = React.useRef<Set<string>>(new Set());
 
   // Load itinerary from trip-service
@@ -752,19 +760,18 @@ export function TripDetailPanel({
             </div>
 
             {/* Map toggle icon button at right edge of tab bar */}
-            <button
-              type="button"
-              onClick={() => setIsMapActive((prev) => !prev)}
-              className={cn(
-                "size-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-2",
-                isMapActive
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-              title="Toggle interactive map"
-            >
-              <MapIcon className="size-4" />
-            </button>
+            {onOpenMap && (
+              <button
+                type="button"
+                data-testid="trip-detail-map-toggle"
+                onClick={() => onOpenMap()}
+                className="size-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+                title={t("aiPlanner.mapToggle")}
+                aria-label={t("aiPlanner.mapToggle")}
+              >
+                <MapIcon className="size-4" />
+              </button>
+            )}
           </div>
 
           {/* 4. TAB CONTENTS */}
@@ -924,49 +931,73 @@ export function TripDetailPanel({
                                           )
                                         : null;
 
+                                      const cardSummary = (
+                                        <>
+                                          {/* Left: Thumbnail Image */}
+                                          <div className="size-16 sm:size-18 rounded-xl overflow-hidden bg-muted/50 border border-border/40 shrink-0 relative flex items-center justify-center">
+                                            {photoUrl ? (
+                                              <img
+                                                src={photoUrl}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                loading="lazy"
+                                              />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center bg-muted/40">
+                                                {getItemCategoryIcon(item.type, item.title)}
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Center: Info */}
+                                          <div className="min-w-0 flex-1 space-y-1">
+                                            <div className="flex items-center gap-1.5">
+                                              {getItemCategoryIcon(item.type, item.title)}
+                                              <h4
+                                                className={cn(
+                                                  "font-bold text-sm text-foreground truncate",
+                                                  onOpenPlaceDetail &&
+                                                    "group-hover:text-primary transition-colors"
+                                                )}
+                                                title={item.title}
+                                              >
+                                                {item.title}
+                                              </h4>
+                                            </div>
+
+                                            {timeRange ? (
+                                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                <Clock className="size-3.5 text-muted-foreground/80 shrink-0" />
+                                                <span>{timeRange}</span>
+                                              </div>
+                                            ) : item.placeAddressSnapshot ? (
+                                              <p className="text-micro text-muted-foreground truncate">
+                                                {item.placeAddressSnapshot}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        </>
+                                      );
+
                                       return (
                                         <React.Fragment key={item.id}>
                                           {/* Item Card */}
                                           <div className="group relative flex items-center justify-between gap-3.5 p-3 rounded-2xl border border-border/70 bg-card hover:border-border hover:shadow-xs transition-all">
-                                            {/* Left: Thumbnail Image */}
-                                            <div className="size-16 sm:size-18 rounded-xl overflow-hidden bg-muted/50 border border-border/40 shrink-0 relative flex items-center justify-center">
-                                              {photoUrl ? (
-                                                <img
-                                                  src={photoUrl}
-                                                  alt={item.title}
-                                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                  loading="lazy"
-                                                />
-                                              ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-muted/40">
-                                                  {getItemCategoryIcon(item.type, item.title)}
-                                                </div>
-                                              )}
-                                            </div>
-
-                                            {/* Center: Info */}
-                                            <div className="min-w-0 flex-1 space-y-1">
-                                              <div className="flex items-center gap-1.5">
-                                                {getItemCategoryIcon(item.type, item.title)}
-                                                <h4
-                                                  className="font-bold text-sm text-foreground truncate"
-                                                  title={item.title}
-                                                >
-                                                  {item.title}
-                                                </h4>
+                                            {onOpenPlaceDetail ? (
+                                              <button
+                                                type="button"
+                                                onClick={() => onOpenPlaceDetail(item, photoUrl)}
+                                                data-testid={`trip-item-detail-${item.id}`}
+                                                aria-label={`${t("aiPlanner.viewPlaceDetails")}: ${item.title}`}
+                                                className="flex min-w-0 flex-1 items-center gap-3.5 rounded-xl text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                              >
+                                                {cardSummary}
+                                              </button>
+                                            ) : (
+                                              <div className="flex min-w-0 flex-1 items-center gap-3.5">
+                                                {cardSummary}
                                               </div>
-
-                                              {timeRange ? (
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                  <Clock className="size-3.5 text-muted-foreground/80 shrink-0" />
-                                                  <span>{timeRange}</span>
-                                                </div>
-                                              ) : item.placeAddressSnapshot ? (
-                                                <p className="text-micro text-muted-foreground truncate">
-                                                  {item.placeAddressSnapshot}
-                                                </p>
-                                              ) : null}
-                                            </div>
+                                            )}
 
                                             {/* Right: Actions menu */}
                                             <DropdownMenu>
@@ -980,6 +1011,24 @@ export function TripDetailPanel({
                                                 </button>
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end" className="w-48">
+                                                {onOpenPlaceDetail && (
+                                                  <DropdownMenuItem
+                                                    onClick={() => onOpenPlaceDetail(item, photoUrl)}
+                                                    className="cursor-pointer gap-2 text-xs font-medium"
+                                                  >
+                                                    <Eye className="size-3.5 text-primary" />
+                                                    <span>{t("aiPlanner.viewPlaceDetails")}</span>
+                                                  </DropdownMenuItem>
+                                                )}
+                                                {onOpenMap && (
+                                                  <DropdownMenuItem
+                                                    onClick={() => onOpenMap(item.id)}
+                                                    className="cursor-pointer gap-2 text-xs font-medium"
+                                                  >
+                                                    <MapPin className="size-3.5 text-primary" />
+                                                    <span>{t("aiPlanner.locateOnMap")}</span>
+                                                  </DropdownMenuItem>
+                                                )}
                                                 <DropdownMenuItem
                                                   onClick={() => {
                                                     const query = item.placeNameSnapshot || item.title;

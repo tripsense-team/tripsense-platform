@@ -235,7 +235,7 @@ export function ActiveChatProvider({
   } = useChat<ChatMessage>({
     id: chatId,
     generateId: generateUUID,
-    throttle: 60,
+    throttle: 24,
     onError: (error) => {
       console.error("[useChat onError]", error);
       const qc = getQueryClient();

@@ -473,3 +473,69 @@ export function buildConversationHistory(
     .filter((m) => (m.role === "user" || m.role === "assistant") && m.content.length > 0);
 }
 
+export interface SpeculativePrefetchDecision {
+  shouldPrefetch: boolean;
+  destination?: string;
+}
+
+export function evaluateSpeculativePrefetchPlan(params: {
+  destinationHint?: string;
+  hasWhen: boolean;
+  isTripLinked: boolean;
+  hasExistingProposal: boolean;
+  hasExplicitIntent: boolean;
+  hasCancelIntent: boolean;
+}): SpeculativePrefetchDecision {
+  const destination = params.destinationHint?.trim();
+  if (!destination) return { shouldPrefetch: false };
+  if (params.hasCancelIntent || !params.hasExplicitIntent) {
+    return { shouldPrefetch: false };
+  }
+  if (params.hasExistingProposal) {
+    return { shouldPrefetch: false };
+  }
+  if (!params.hasWhen && !params.isTripLinked) {
+    return { shouldPrefetch: false };
+  }
+  return { shouldPrefetch: true, destination };
+}
+
+export interface PrefetchedCandidateGroupSummary {
+  category: string;
+  places: Array<{
+    id: string;
+    name: string;
+    address?: string;
+    rating?: number;
+    reason?: string;
+  }>;
+}
+
+export function formatPrefetchedCandidatesSummary(
+  destination: string,
+  groups: PrefetchedCandidateGroupSummary[],
+): string | undefined {
+  const lines = groups
+    .map((group) => {
+      if (!group.places || group.places.length === 0) return "";
+      const items = group.places
+        .slice(0, 6)
+        .map((p) => {
+          const meta = [
+            `id:${p.id}`,
+            p.address ? p.address : null,
+            typeof p.rating === "number" ? `★${p.rating}` : null,
+          ]
+            .filter(Boolean)
+            .join(" | ");
+          return `${p.name} (${meta})`;
+        })
+        .join(" ; ");
+      return `  + [${group.category}] ${items}`;
+    })
+    .filter(Boolean);
+
+  if (lines.length === 0) return undefined;
+  return `- ỨNG VIÊN ĐỊA ĐIỂM ĐÃ NẠP SẴN CHO "${destination}" (dùng trực tiếp id/tên/địa chỉ bên dưới cho createTripProposal hoặc addItineraryItems, KHÔNG cần gọi lại prepareTripCandidates trừ khi thiếu nhóm hoặc đổi điểm đến):\n${lines.join("\n")}`;
+}
+

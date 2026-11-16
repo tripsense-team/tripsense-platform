@@ -11,12 +11,19 @@ export interface MapMarkerItem {
   photo?: string;
 }
 
+export interface DestinationMapPin {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
 export interface MapVinaContainerProps {
   places: Place[];
   selectedPlaceId: string | null;
   onSelectPlace: (id: string | null) => void;
   onAddAndSelectPlace?: (place: Place) => void;
   onViewDetails?: (place: Place) => void;
+  openDetailsOnMarkerClick?: boolean;
   onViewportChange?: (viewport: {
     lat: number;
     lng: number;
@@ -33,6 +40,11 @@ export interface MapVinaContainerProps {
   onToggleCollapsePanel?: () => void;
   isPanelCollapsed?: boolean;
   weatherText?: string;
+  hideBuiltInPois?: boolean;
+  disableBasePoiClick?: boolean;
+  destinationPin?: DestinationMapPin | null;
+  navigationPosition?: "top-right" | "bottom-right";
+  showWeatherBadge?: boolean;
 }
 
 // Backward compatibility alias

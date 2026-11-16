@@ -13,16 +13,22 @@ import {
 import { resolveCanonicalActivityPlaces } from "../place-grounding.js";
 import type { PlanningRuntimeState } from "./update-trip-planning-brief.js";
 
+export type ActivityPeriod = "MORNING" | "NOON" | "AFTERNOON" | "EVENING" | "FLEXIBLE";
+
 const activitySchema = z.object({
   period: z
-    .enum(["MORNING", "AFTERNOON", "EVENING", "FLEXIBLE"])
-    .describe("Buổi trong ngày để frontend trình bày nhất quán"),
+    .enum(["MORNING", "NOON", "AFTERNOON", "EVENING", "FLEXIBLE"])
+    .describe(
+      "Buổi trong ngày (MORNING: 05:00-10:59, NOON: 11:00-13:29, AFTERNOON: 13:30-17:29, EVENING: từ 17:30, FLEXIBLE: linh hoạt)",
+    ),
   timeSlot: z
     .string().max(80)
-    .describe("Khung giờ gợi ý (ví dụ: '08:00 - 10:30', '12:00 - 13:30', '19:00 - 21:00')"),
+    .describe("Khung giờ gợi ý (ví dụ: '08:00 - 10:30', '11:30 - 13:00', '19:00 - 21:00')"),
   title: z
     .string().trim().min(1).max(200)
-    .describe("Tên hoạt động hoặc địa điểm (ví dụ: 'Check-in Chùa Linh Ứng', 'Ăn trưa Bánh tráng cuốn thịt heo')"),
+    .describe(
+      "Tên địa điểm/quán cụ thể từ prepareTripCandidates hoặc searchPlaces (ví dụ: 'Cổng Chùa Linh Ứng', 'Hải sản Bé Mặn', 'Chợ Hàn'), hoặc hoạt động logistics ngắn (ví dụ: 'Check-out khách sạn & gửi hành lý')",
+    ),
   description: z
     .string().max(5000)
     .describe("Mô tả trải nghiệm chi tiết, lưu ý di chuyển, món ăn nên thử"),
@@ -82,6 +88,44 @@ export const itemType = (category?: string): TripCommitItem["itemType"] => {
   if (category === "STAY") return "HOTEL";
   if (category === "ATTRACTION" || category === "BEACH") return "PLACE";
   return "ACTIVITY";
+};
+
+export const normalizeActivityPeriod = (
+  period: ActivityPeriod,
+  timeSlot?: string,
+): ActivityPeriod => {
+  if (period === "FLEXIBLE") return "FLEXIBLE";
+  const rangeMatch = timeSlot?.match(/(\d{1,2}):(\d{2})(?:\s*[-–]\s*(\d{1,2}):(\d{2}))?/);
+  if (!rangeMatch) return period;
+
+  const startHour = Number(rangeMatch[1]);
+  const startMinute = Number(rangeMatch[2]);
+  if (startHour > 23 || startMinute > 59) return period;
+
+  const startMinutes = startHour * 60 + startMinute;
+  const endHour = rangeMatch[3] ? Number(rangeMatch[3]) : null;
+  const endMinute = rangeMatch[4] ? Number(rangeMatch[4]) : null;
+  const endMinutes =
+    endHour !== null && endMinute !== null && endHour <= 23 && endMinute <= 59
+      ? endHour * 60 + endMinute
+      : null;
+
+  if (startMinutes >= 300 && startMinutes < 660 && period === "NOON") {
+    return "MORNING";
+  }
+  const isNoonSlot =
+    (startMinutes >= 690 && startMinutes < 810) ||
+    (startMinutes >= 660 && startMinutes < 690 && endMinutes !== null && endMinutes > 720);
+  if (isNoonSlot) {
+    return "NOON";
+  }
+  if (startMinutes >= 810 && startMinutes < 1050 && (period === "MORNING" || period === "NOON")) {
+    return "AFTERNOON";
+  }
+  if (startMinutes >= 1050 && (period === "MORNING" || period === "NOON")) {
+    return "EVENING";
+  }
+  return period;
 };
 
 export const parseTimes = (timeSlot?: string) => {
@@ -198,10 +242,12 @@ export function getCreateTripProposalTool(context: {
             return {
               itemKey: crypto.randomUUID(),
               ...activity,
+              period: normalizeActivityPeriod(activity.period, activity.timeSlot),
               placeId: canonical?.id,
               title: canonical?.name || activity.title,
               address: canonical?.address || undefined,
               photoUrl: canonical?.photoUrl || undefined,
+              location: canonical?.location || undefined,
             };
           }),
         }));
