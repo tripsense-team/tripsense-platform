@@ -596,22 +596,45 @@
       "actions": {
         "approve": "Phê duyệt",
         "delete": "Xóa",
-        "reject": "Từ chối"
+        "publish": "Hiển thị",
+        "reject": "Từ chối",
+        "remove": "Gỡ bỏ",
+        "restore": "Khôi phục",
+        "statusUpdated": "Đã cập nhật trạng thái đánh giá",
+        "updateError": "Không thể cập nhật trạng thái đánh giá."
       },
       "all": "Tất cả",
       "approveBtn": "Phê duyệt đánh giá",
       "communityModeration": "Kiểm duyệt cộng đồng",
       "empty": "Không có đánh giá nào phù hợp với bộ lọc.",
       "filterStatus": "Trạng thái:",
+      "flaggedBadge": "{{count}} báo cáo",
+      "loadError": "Không thể tải danh sách đánh giá. Vui lòng thử lại.",
+      "pagination": {
+        "next": "Sau",
+        "pageOf": "Trang {{page}} / {{total}} ({{count}} đánh giá)",
+        "previous": "Trước"
+      },
       "pendingCount": "{{count}} Chờ xác minh",
+      "refresh": "Làm mới",
       "rejectBtn": "Từ chối đánh giá",
-      "searchPlaceholder": "Tìm kiếm theo người đánh giá, địa điểm hoặc nội dung...",
+      "retry": "Thử lại",
+      "searchPlaceholder": "Tìm theo nội dung đánh giá, mã địa điểm hoặc ID...",
       "status": {
         "approved": "Đã duyệt",
+        "flagged": "Bị báo cáo",
         "pending": "Chờ duyệt",
-        "rejected": "Đã từ chối"
+        "published": "Đang hiển thị",
+        "rejected": "Đã từ chối",
+        "removed": "Đã gỡ bỏ"
       },
       "subtitle": "Kiểm duyệt đánh giá của du khách, xác thực trải nghiệm thực tế và bảo đảm chất lượng nội dung.",
+      "summary": {
+        "flagged": "{{count}} Bị báo cáo",
+        "published": "{{count}} Hiển thị",
+        "removed": "{{count}} Đã gỡ",
+        "total": "Tổng số: {{count}} đánh giá"
+      },
       "title": "Đánh giá & Phản hồi",
       "userFeedback": "Phản hồi du khách"
     },
@@ -666,24 +689,42 @@
     "trips": {
       "actions": {
         "archive": "Lưu trữ chuyến đi",
+        "archiveUpdated": "Đã lưu trữ chuyến đi",
         "restore": "Khôi phục chuyến đi",
+        "restoreUpdated": "Đã khôi phục chuyến đi",
+        "updateError": "Không thể cập nhật trạng thái lưu trữ chuyến đi.",
         "view": "Xem lịch trình"
       },
       "aiBadge": "AI Tạo",
       "aiCrafted": "AI Tạo",
       "all": "Tất cả",
+      "archiveFilter": "Trạng thái:",
       "daysPlanned": "{{count}} ngày lên kế hoạch",
       "empty": "Không có hành trình nào phù hợp với bộ lọc.",
       "itineraries": "Hành trình",
+      "loadError": "Không thể tải danh sách chuyến đi. Vui lòng thử lại.",
       "management": "Quản lý chuyến đi",
       "manual": "Thủ công",
-      "searchPlaceholder": "Tìm theo tên chuyến đi, điểm đến hoặc người tạo...",
+      "pagination": {
+        "next": "Sau",
+        "pageOf": "Trang {{page}} / {{total}} ({{count}} chuyến đi)",
+        "previous": "Trước"
+      },
+      "refresh": "Làm mới",
+      "retry": "Thử lại",
+      "searchPlaceholder": "Tìm theo tên chuyến đi, điểm đến hoặc ID...",
       "spotsCount": "{{count}} địa điểm",
       "status": {
         "active": "Đang hoạt động",
         "archived": "Đã lưu trữ"
       },
       "subtitle": "Giám sát các hành trình du lịch do người dùng tạo và do AI đề xuất trên nền tảng.",
+      "summary": {
+        "active": "{{count}} Hoạt động",
+        "aiCrafted": "{{count}} AI tạo",
+        "archived": "{{count}} Đã lưu trữ",
+        "public": "{{count}} Công khai"
+      },
       "table": {
         "actions": "Thao tác",
         "creator": "Người tạo",
@@ -697,6 +738,7 @@
       },
       "title": "Chuyến đi & Lịch trình",
       "totalTrips": "Tổng số: {{count}} chuyến đi",
+      "travelersCount": "{{count}} khách",
       "visibility": {
         "private": "Riêng tư",
         "public": "Công khai",

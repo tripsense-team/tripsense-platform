@@ -3,6 +3,7 @@ package fu.tripsense.socialservice.repository;
 import fu.tripsense.socialservice.entity.SocialReport;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -19,6 +20,9 @@ public interface SocialReportRepository extends JpaRepository<SocialReport, UUID
   long countByReporterIdAndCreatedAtAfter(UUID reporterId, Instant after);
 
   Page<SocialReport> findByStatusOrderByCreatedAtAsc(String status, Pageable pageable);
+
+  List<SocialReport> findByTargetTypeAndTargetIdAndStatus(
+      String targetType, UUID targetId, String status);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select r from SocialReport r where r.id = :id")
