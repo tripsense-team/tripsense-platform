@@ -12,11 +12,14 @@ import {
   Moon,
   Sparkles,
   Sun,
+  SunMedium,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n";
 import type { TripActivity, TripProposal } from "@/lib/types";
+import { tripActivityToPlace } from "./chat-place-resolver";
+import { usePlaceDetailAction } from "./place-detail-action-context";
 import {
   applyTripProposal,
   getChatTripContext,
@@ -27,47 +30,122 @@ interface ItineraryPreviewProps {
   proposal: TripProposal;
   chatId?: string;
   variant?: "chat" | "card";
+  onSelectActivity?: (activity: TripActivity) => void;
 }
 
 const periodConfig = {
   MORNING: { icon: Sun, vi: "Buổi sáng", en: "Morning" },
+  NOON: { icon: SunMedium, vi: "Buổi trưa", en: "Noon" },
   AFTERNOON: { icon: CloudSun, vi: "Buổi chiều", en: "Afternoon" },
   EVENING: { icon: Moon, vi: "Buổi tối", en: "Evening" },
   FLEXIBLE: { icon: CalendarDays, vi: "Linh hoạt", en: "Flexible" },
 } as const;
 
+function resolveDisplayPeriod(
+  period: TripActivity["period"],
+  timeSlot?: string,
+): TripActivity["period"] {
+  if (period === "FLEXIBLE") return "FLEXIBLE";
+  const rangeMatch = timeSlot?.match(/(\d{1,2}):(\d{2})(?:\s*[-–]\s*(\d{1,2}):(\d{2}))?/);
+  if (!rangeMatch) return period;
+
+  const startHour = Number(rangeMatch[1]);
+  const startMinute = Number(rangeMatch[2]);
+  if (startHour > 23 || startMinute > 59) return period;
+
+  const startMinutes = startHour * 60 + startMinute;
+  const endHour = rangeMatch[3] ? Number(rangeMatch[3]) : null;
+  const endMinute = rangeMatch[4] ? Number(rangeMatch[4]) : null;
+  const endMinutes =
+    endHour !== null && endMinute !== null && endHour <= 23 && endMinute <= 59
+      ? endHour * 60 + endMinute
+      : null;
+
+  if (startMinutes >= 300 && startMinutes < 660 && period === "NOON") {
+    return "MORNING";
+  }
+  const isNoonSlot =
+    (startMinutes >= 690 && startMinutes < 810) ||
+    (startMinutes >= 660 && startMinutes < 690 && endMinutes !== null && endMinutes > 720);
+  if (isNoonSlot) {
+    return "NOON";
+  }
+  if (startMinutes >= 810 && startMinutes < 1050 && (period === "MORNING" || period === "NOON")) {
+    return "AFTERNOON";
+  }
+  if (startMinutes >= 1050 && (period === "MORNING" || period === "NOON")) {
+    return "EVENING";
+  }
+  return period;
+}
+
 const shownToastOperations = new Set<string>();
+
+function isPlaceActivity(activity: TripActivity): boolean {
+  if (activity.placeId?.trim()) return true;
+  if (activity.address?.trim()) return true;
+  if (
+    activity.location &&
+    Number.isFinite(activity.location.lat) &&
+    Number.isFinite(activity.location.lng) &&
+    (activity.location.lat !== 0 || activity.location.lng !== 0)
+  ) {
+    return true;
+  }
+  const cat = activity.category?.toUpperCase().trim();
+  return Boolean(cat && cat !== "ACTIVITY" && cat !== "LOGISTICS");
+}
 
 function ActivityRow({
   activity,
   committed,
   locale,
+  onSelect,
+  viewLabel,
 }: {
   activity: TripActivity;
   committed: boolean;
   locale: string;
+  onSelect?: (activity: TripActivity) => void;
+  viewLabel?: string;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const config = periodConfig[activity.period] ?? periodConfig.FLEXIBLE;
+  const displayPeriod = resolveDisplayPeriod(activity.period, activity.timeSlot);
+  const config = periodConfig[displayPeriod] ?? periodConfig.FLEXIBLE;
   const Icon = config.icon;
   const hasPhoto =
     typeof activity.photoUrl === "string" &&
     /^https?:\/\//i.test(activity.photoUrl.trim()) &&
     !imageFailed;
+  const canOpenPlace = Boolean(onSelect && isPlaceActivity(activity));
+  const photoContent = hasPhoto ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={activity.photoUrl}
+      alt={activity.title}
+      loading="lazy"
+      className="size-full object-cover"
+      onError={() => setImageFailed(true)}
+    />
+  ) : null;
 
   return (
     <div className="relative flex items-start gap-3 text-sm leading-relaxed">
-      {hasPhoto && (
-        <div className="mt-0.5 size-14 shrink-0 overflow-hidden rounded-lg border border-border/60 bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={activity.photoUrl}
-            alt={activity.title}
-            loading="lazy"
-            className="size-full object-cover"
-            onError={() => setImageFailed(true)}
-          />
-        </div>
+      {photoContent && (
+        canOpenPlace ? (
+          <button
+            type="button"
+            onClick={() => onSelect?.(activity)}
+            aria-label={viewLabel ? `${viewLabel}: ${activity.title}` : activity.title}
+            className="mt-0.5 size-14 shrink-0 overflow-hidden rounded-lg border border-border/60 bg-muted cursor-pointer transition hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            {photoContent}
+          </button>
+        ) : (
+          <div className="mt-0.5 size-14 shrink-0 overflow-hidden rounded-lg border border-border/60 bg-muted">
+            {photoContent}
+          </div>
+        )
       )}
 
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
@@ -79,9 +157,21 @@ function ActivityRow({
               <span className="text-muted-foreground/70">· {activity.timeSlot}</span>
             )}
           </span>
-          <span className="font-semibold text-foreground text-[14.5px]">
-            {activity.title}
-          </span>
+          {canOpenPlace ? (
+            <button
+              type="button"
+              data-testid={`itinerary-activity-link-${activity.itemKey}`}
+              onClick={() => onSelect?.(activity)}
+              title={viewLabel}
+              className="font-semibold text-foreground text-[14.5px] text-left underline decoration-primary/40 decoration-[1.5px] underline-offset-[3px] hover:text-primary hover:decoration-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xs"
+            >
+              {activity.title}
+            </button>
+          ) : (
+            <span className="font-semibold text-foreground text-[14.5px]">
+              {activity.title}
+            </span>
+          )}
           {committed && (
             <CheckCircle2
               className="inline size-3.5 fill-primary text-primary-foreground shrink-0"
@@ -111,12 +201,33 @@ export function ItineraryPreview({
   proposal,
   chatId,
   variant = "card",
+  onSelectActivity,
 }: ItineraryPreviewProps) {
   const router = useRouter();
   const { locale, t } = useTranslation();
+  const { openPlaceDetail } = usePlaceDetailAction();
   const [context, setContext] = useState<ChatTripContext | null>(null);
   const [isLoadingContext, setIsLoadingContext] = useState(Boolean(chatId));
   const [isApplying, setIsApplying] = useState(false);
+
+  const handleSelectActivity = useCallback(
+    (activity: TripActivity) => {
+      if (onSelectActivity) {
+        onSelectActivity(activity);
+        return;
+      }
+      openPlaceDetail?.({
+        place: tripActivityToPlace(activity),
+        placeIdHint: activity.placeId,
+        nameHint: activity.title,
+        knownPhotoUrl: activity.photoUrl,
+      });
+    },
+    [onSelectActivity, openPlaceDetail],
+  );
+  const activityClickHandler =
+    onSelectActivity || openPlaceDetail ? handleSelectActivity : undefined;
+  const viewPlaceLabel = t("aiPlanner.viewPlaceDetails");
 
   const refreshContext = useCallback(async () => {
     if (!chatId) return;
@@ -278,6 +389,8 @@ export function ItineraryPreview({
                     activity={activity}
                     committed={committedKeys.has(activity.itemKey)}
                     locale={locale}
+                    onSelect={activityClickHandler}
+                    viewLabel={viewPlaceLabel}
                   />
                 ))}
               </div>
@@ -337,6 +450,8 @@ export function ItineraryPreview({
                   activity={activity}
                   committed={committedKeys.has(activity.itemKey)}
                   locale={locale}
+                  onSelect={activityClickHandler}
+                  viewLabel={viewPlaceLabel}
                 />
               ))}
             </div>

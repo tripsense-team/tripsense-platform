@@ -71,6 +71,12 @@ export const config = {
   contextServiceUrl: process.env.CONTEXT_SERVICE_URL || "http://localhost:8087",
   recommendationServiceUrl: process.env.RECOMMENDATION_SERVICE_URL || "http://localhost:8088",
   recommendationTimeoutMs: Math.max(1000, Number(process.env.RECOMMENDATION_TIMEOUT_MS || 4000)),
+  aiLatencyDiagnosticsEnabled: process.env.AI_LATENCY_DIAGNOSTICS_ENABLED !== "false",
+  aiPrefetchTimeoutMs: (() => {
+    const parsed = Number(process.env.AI_PREFETCH_TIMEOUT_MS || 2800);
+    const safe = Number.isFinite(parsed) ? parsed : 2800;
+    return Math.min(6000, Math.max(1000, safe));
+  })(),
   aiTripCommitSecret: process.env.AI_TRIP_COMMIT_SECRET || "",
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || "",
   allowedOrigins: (process.env.AI_ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://127.0.0.1:3000")

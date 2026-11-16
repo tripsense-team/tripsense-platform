@@ -10,7 +10,13 @@ import { cn } from "@/lib/utils";
 import type { MapVinaContainerProps } from "../types";
 import type { Place } from "@/features/places/types";
 import { useTranslation } from "@/i18n";
+import { isValidCoordinate } from "@/features/trip-management/utils/map";
 import { createMapVinaPopup } from "./mapvina-popup";
+import {
+  dispatchMapMarkerClick,
+  hasValidPlaceLocation,
+  shouldHideBuiltInMapLayer,
+} from "./mapvina-helpers";
 
 const MAPVINA_API_KEY = process.env.NEXT_PUBLIC_MAPVINA_API_KEY;
 const MAPVINA_STYLE_URL = MAPVINA_API_KEY
@@ -436,12 +442,52 @@ function hasOriginalUserEvent(event: unknown): boolean {
   );
 }
 
+function applyCleanMindtripStyle(map: mapvinagl.Map) {
+  try {
+    const layers = map.getStyle()?.layers;
+    if (!Array.isArray(layers)) return;
+    for (const layer of layers) {
+      if (!layer?.id || !shouldHideBuiltInMapLayer(layer)) continue;
+      if (map.getLayoutProperty(layer.id, "visibility") !== "none") {
+        map.setLayoutProperty(layer.id, "visibility", "none");
+      }
+    }
+  } catch {
+    // Style may still be initializing; styledata/load listener will re-apply cleanly.
+  }
+}
+
+function createDestinationPinElement(cityName: string): HTMLDivElement {
+  const root = document.createElement("div");
+  root.className = "tripsense-destination-pin relative flex items-center justify-center pointer-events-none select-none";
+
+  const badge = document.createElement("div");
+  badge.className =
+    "flex size-8 items-center justify-center rounded-full bg-white text-zinc-900 border border-black/15 shadow-md";
+  badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>`;
+
+  const label = document.createElement("span");
+  label.className =
+    "text-xs sm:text-sm font-semibold text-zinc-900 whitespace-nowrap drop-shadow-[0_1px_2px_rgba(255,255,255,0.95)]";
+  label.style.position = "absolute";
+  label.style.left = "100%";
+  label.style.top = "50%";
+  label.style.transform = "translateY(-50%)";
+  label.style.marginLeft = "6px";
+  label.style.textShadow = "0 0 4px rgba(255,255,255,0.95), 0 0 8px rgba(255,255,255,0.9)";
+  label.textContent = cityName;
+
+  root.append(badge, label);
+  return root;
+}
+
 export function MapVinaContainer({
   places,
   selectedPlaceId,
   onSelectPlace,
   onAddAndSelectPlace,
   onViewDetails,
+  openDetailsOnMarkerClick = false,
   onViewportChange,
   center = [108.2208, 16.0678], // Da Nang center [lng, lat]
   zoom = 13,
@@ -453,24 +499,46 @@ export function MapVinaContainer({
   onToggleCollapsePanel,
   isPanelCollapsed,
   weatherText,
+  hideBuiltInPois = false,
+  disableBasePoiClick = false,
+  destinationPin = null,
+  navigationPosition = "top-right",
+  showWeatherBadge = true,
 }: MapVinaContainerProps) {
   const { t, locale } = useTranslation();
   const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
   const mapRef = React.useRef<mapvinagl.Map | null>(null);
   const markersRef = React.useRef<{ [id: string]: mapvinagl.Marker }>({});
   const markerRenderKeysRef = React.useRef<Record<string, string>>({});
+  const destinationMarkerRef = React.useRef<mapvinagl.Marker | null>(null);
+  const destinationMarkerSignatureRef = React.useRef("");
   const popupRef = React.useRef<mapvinagl.Popup | null>(null);
   const popupSignatureRef = React.useRef("");
   const onSelectPlaceRef = React.useRef(onSelectPlace);
   const onAddAndSelectPlaceRef = React.useRef(onAddAndSelectPlace);
   const onViewDetailsRef = React.useRef(onViewDetails);
+  const openDetailsOnMarkerClickRef = React.useRef(openDetailsOnMarkerClick);
   const onViewportChangeRef = React.useRef(onViewportChange);
+  const hideBuiltInPoisRef = React.useRef(hideBuiltInPois);
+  const disableBasePoiClickRef = React.useRef(disableBasePoiClick);
+  const navigationPositionRef = React.useRef(navigationPosition);
   const isUserInteractingRef = React.useRef(false);
   const programmaticCameraMoveRef = React.useRef(false);
   const initialCenterRef = React.useRef(center);
   const initialZoomRef = React.useRef(zoom);
+  const lastDestinationCameraKeyRef = React.useRef(
+    `${center[0].toFixed(4)},${center[1].toFixed(4)}`,
+  );
   const lastFittedPlaceIdsRef = React.useRef<string>("");
   const lastSelectedPlaceIdRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    hideBuiltInPoisRef.current = hideBuiltInPois;
+  }, [hideBuiltInPois]);
+
+  React.useEffect(() => {
+    disableBasePoiClickRef.current = disableBasePoiClick;
+  }, [disableBasePoiClick]);
 
   const lastQueriedRef = React.useRef<{
     lat: number;
@@ -502,6 +570,10 @@ export function MapVinaContainer({
   React.useEffect(() => {
     onViewDetailsRef.current = onViewDetails;
   }, [onViewDetails]);
+
+  React.useEffect(() => {
+    openDetailsOnMarkerClickRef.current = openDetailsOnMarkerClick;
+  }, [openDetailsOnMarkerClick]);
 
   React.useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
@@ -544,8 +616,10 @@ export function MapVinaContainer({
     }
 
     mapInstance.addControl(
-      new mapvinagl.NavigationControl({ showCompass: true }),
-      "top-right",
+      new mapvinagl.NavigationControl({
+        showCompass: navigationPositionRef.current === "top-right",
+      }),
+      navigationPositionRef.current,
     );
 
     const handleMapError = (event: unknown) => {
@@ -567,12 +641,21 @@ export function MapVinaContainer({
 
     mapInstance.on("load", () => {
       mapRef.current = mapInstance;
+      if (hideBuiltInPoisRef.current) {
+        applyCleanMindtripStyle(mapInstance);
+      }
       setIsLoaded(true);
       setCurrentZoom(mapInstance.getZoom());
       mapInstance.resize();
       setTimeout(() => {
         mapInstance.resize();
       }, 150);
+    });
+
+    mapInstance.on("styledata", () => {
+      if (hideBuiltInPoisRef.current) {
+        applyCleanMindtripStyle(mapInstance);
+      }
     });
 
     mapInstance.on("dragstart", () => {
@@ -597,6 +680,13 @@ export function MapVinaContainer({
 
     // 🎯 Interactive Click on base map POIs / Icons / Labels / Landmarks
     mapInstance.on("click", (e) => {
+      if (disableBasePoiClickRef.current) {
+        if (onSelectPlaceRef.current) {
+          onSelectPlaceRef.current(null);
+        }
+        return;
+      }
+
       const bbox: [mapvinagl.PointLike, mapvinagl.PointLike] = [
         [e.point.x - 8, e.point.y - 8],
         [e.point.x + 8, e.point.y + 8],
@@ -711,6 +801,11 @@ export function MapVinaContainer({
 
     // 🎯 Hover effect: Pointer cursor when hovering over base map POIs
     mapInstance.on("mousemove", (e) => {
+      if (disableBasePoiClickRef.current) {
+        mapInstance.getCanvas().style.cursor = "";
+        return;
+      }
+
       const bbox: [mapvinagl.PointLike, mapvinagl.PointLike] = [
         [e.point.x - 6, e.point.y - 6],
         [e.point.x + 6, e.point.y + 6],
@@ -797,6 +892,11 @@ export function MapVinaContainer({
       // which Next.js treats as a development-overlay error.
       const style = mapInstance.style;
       style?.on("error", handleMapError);
+      if (destinationMarkerRef.current) {
+        destinationMarkerRef.current.remove();
+        destinationMarkerRef.current = null;
+        destinationMarkerSignatureRef.current = "";
+      }
       try {
         mapInstance.remove();
       } catch (error: unknown) {
@@ -820,6 +920,13 @@ export function MapVinaContainer({
       }, 0);
     };
   }, []);
+
+  // Apply clean Mindtrip layer hiding if hideBuiltInPois is toggled after initial load
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isLoaded || !hideBuiltInPois) return;
+    applyCleanMindtripStyle(map);
+  }, [hideBuiltInPois, isLoaded]);
 
   // Coalesce all known layout changes into one resize on the next frame. Map
   // workspaces switch sidebar width instantly, so the WebGL canvas only ever
@@ -923,12 +1030,7 @@ export function MapVinaContainer({
     const map = mapRef.current;
     if (!map || !isLoaded) return;
 
-    const validPlaces = places.filter(
-      (p) =>
-        p.location &&
-        typeof p.location.lat === "number" &&
-        typeof p.location.lng === "number",
-    );
+    const validPlaces = places.filter(hasValidPlaceLocation);
 
     const validPlaceIds = new Set(validPlaces.map((p) => p.id));
     Object.keys(markersRef.current).forEach((id) => {
@@ -940,13 +1042,6 @@ export function MapVinaContainer({
     });
 
     validPlaces.forEach((place) => {
-      if (
-        !place.location ||
-        typeof place.location.lat !== "number" ||
-        typeof place.location.lng !== "number"
-      ) {
-        return;
-      }
       const isSelected =
         place.id === selectedPlaceId ||
         (!!place.providerPlaceId && place.providerPlaceId === selectedPlaceId);
@@ -981,9 +1076,12 @@ export function MapVinaContainer({
 
         el.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (onSelectPlaceRef.current) {
-            onSelectPlaceRef.current(place.id);
-          }
+          dispatchMapMarkerClick({
+            place,
+            openDetailsOnMarkerClick: openDetailsOnMarkerClickRef.current,
+            onSelectPlace: onSelectPlaceRef.current,
+            onViewDetails: onViewDetailsRef.current,
+          });
         });
 
         const marker = new mapvinagl.Marker({
@@ -999,52 +1097,132 @@ export function MapVinaContainer({
     });
   }, [places, selectedPlaceId, isLoaded, currentZoom]);
 
+  // Render single clean Mindtrip destination city pin only when no AI place markers exist
+  React.useEffect(() => {
+    const map = mapRef.current;
+    const validPlaces = places.filter(hasValidPlaceLocation);
+    if (
+      !map ||
+      !isLoaded ||
+      validPlaces.length > 0 ||
+      !destinationPin ||
+      !isValidCoordinate(destinationPin.lat, destinationPin.lng)
+    ) {
+      if (destinationMarkerRef.current) {
+        destinationMarkerRef.current.remove();
+        destinationMarkerRef.current = null;
+        destinationMarkerSignatureRef.current = "";
+      }
+      return;
+    }
+
+    const signature = `${destinationPin.name}::${destinationPin.lat.toFixed(5)},${destinationPin.lng.toFixed(5)}`;
+    if (destinationMarkerRef.current && destinationMarkerSignatureRef.current === signature) {
+      return;
+    }
+
+    if (destinationMarkerRef.current) {
+      destinationMarkerRef.current.remove();
+      destinationMarkerRef.current = null;
+    }
+
+    destinationMarkerSignatureRef.current = signature;
+    destinationMarkerRef.current = new mapvinagl.Marker({
+      element: createDestinationPinElement(destinationPin.name),
+      anchor: "center",
+    })
+      .setLngLat([destinationPin.lng, destinationPin.lat])
+      .addTo(map);
+  }, [places, destinationPin, isLoaded]);
+
+  // Fly smoothly to updated destination/center when no place markers are plotted
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isLoaded) return;
+    const validPlaces = places.filter(hasValidPlaceLocation);
+    if (validPlaces.length > 0) return;
+
+    const targetCoords: [number, number] | null =
+      destinationPin && isValidCoordinate(destinationPin.lat, destinationPin.lng)
+        ? [destinationPin.lng, destinationPin.lat]
+        : isValidCoordinate(center[1], center[0])
+          ? center
+          : null;
+    if (!targetCoords) return;
+
+    const cameraKey = `${targetCoords[0].toFixed(4)},${targetCoords[1].toFixed(4)}`;
+    if (cameraKey === lastDestinationCameraKeyRef.current) return;
+
+    lastDestinationCameraKeyRef.current = cameraKey;
+    lastFittedPlaceIdsRef.current = "";
+    programmaticCameraMoveRef.current = true;
+    map.flyTo({
+      center: targetCoords,
+      zoom,
+      duration: 550,
+      essential: true,
+    });
+  }, [places, destinationPin, center, zoom, isLoaded]);
+
+  const fitMapToPlaces = React.useCallback(
+    (
+      map: mapvinagl.Map,
+      validPlaces: Array<Place & { location: { lat: number; lng: number } }>,
+    ) => {
+      if (validPlaces.length > 1) {
+        const bounds = new mapvinagl.LngLatBounds();
+        validPlaces.forEach((p) => bounds.extend([p.location.lng, p.location.lat]));
+        programmaticCameraMoveRef.current = true;
+        map.fitBounds(bounds, { padding: 60, maxZoom: 14.5, duration: 600 });
+      } else if (validPlaces.length === 1) {
+        programmaticCameraMoveRef.current = true;
+        map.flyTo({
+          center: [validPlaces[0].location.lng, validPlaces[0].location.lat],
+          zoom: 14,
+          duration: 500,
+        });
+      }
+    },
+    [],
+  );
+
   // Auto-fit camera bounds when places dataset changes (only when autoFitBounds is enabled)
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !isLoaded || !autoFitBounds) return;
     if (selectedPlaceId || isUserInteractingRef.current) return;
 
-    const validPlaces = places.filter(
-      (p) => p.location && typeof p.location.lat === "number" && typeof p.location.lng === "number"
-    );
+    const validPlaces = places.filter(hasValidPlaceLocation);
     if (validPlaces.length === 0) return;
 
     const currentPlaceIds = validPlaces.map((p) => p.id).sort().join(",");
     if (currentPlaceIds === lastFittedPlaceIdsRef.current) return;
     lastFittedPlaceIdsRef.current = currentPlaceIds;
 
-    if (validPlaces.length > 1) {
-      const bounds = new mapvinagl.LngLatBounds();
-      validPlaces.forEach((p) => bounds.extend([p.location!.lng, p.location!.lat]));
-      programmaticCameraMoveRef.current = true;
-      map.fitBounds(bounds, { padding: 60, maxZoom: 14.5, duration: 600 });
-    } else if (validPlaces.length === 1 && validPlaces[0].location) {
-      programmaticCameraMoveRef.current = true;
-      map.flyTo({ center: [validPlaces[0].location.lng, validPlaces[0].location.lat], zoom: 14, duration: 500 });
-    }
-  }, [places, selectedPlaceId, isLoaded, autoFitBounds]);
+    fitMapToPlaces(map, validPlaces);
+  }, [places, selectedPlaceId, isLoaded, autoFitBounds, fitMapToPlaces]);
 
-  // Manual fit bounds trigger (e.g. user clicks "Xem tất cả")
+  // Manual fit bounds trigger (e.g. user clicks "Fit Map" or closes Place Detail drawer)
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !isLoaded || fitBoundsTrigger === undefined || fitBoundsTrigger === 0) return;
 
-    const validPlaces = places.filter(
-      (p) => p.location && typeof p.location.lat === "number" && typeof p.location.lng === "number"
-    );
-    if (validPlaces.length === 0) return;
-
-    if (validPlaces.length > 1) {
-      const bounds = new mapvinagl.LngLatBounds();
-      validPlaces.forEach((p) => bounds.extend([p.location!.lng, p.location!.lat]));
-      programmaticCameraMoveRef.current = true;
-      map.fitBounds(bounds, { padding: 60, maxZoom: 14.5, duration: 600 });
-    } else if (validPlaces.length === 1 && validPlaces[0].location) {
-      programmaticCameraMoveRef.current = true;
-      map.flyTo({ center: [validPlaces[0].location.lng, validPlaces[0].location.lat], zoom: 14, duration: 500 });
+    map.resize();
+    const validPlaces = places.filter(hasValidPlaceLocation);
+    if (validPlaces.length === 0) {
+      if (destinationPin && isValidCoordinate(destinationPin.lat, destinationPin.lng)) {
+        programmaticCameraMoveRef.current = true;
+        map.flyTo({
+          center: [destinationPin.lng, destinationPin.lat],
+          zoom,
+          duration: 500,
+        });
+      }
+      return;
     }
-  }, [fitBoundsTrigger, places, isLoaded]);
+
+    fitMapToPlaces(map, validPlaces);
+  }, [fitBoundsTrigger, places, destinationPin, zoom, isLoaded, fitMapToPlaces]);
 
   // Update Selected Place / Popup
   React.useEffect(() => {
@@ -1208,10 +1386,12 @@ export function MapVinaContainer({
       )}
 
       {/* Bottom-Left: Floating Weather Badge */}
-      <div className="absolute bottom-4 left-4 z-20 hidden sm:flex items-center gap-2 rounded-full bg-background/95 border border-border/80 shadow-md px-3.5 py-1.5 text-xs font-medium text-foreground pointer-events-none">
-        <CloudSun className="h-4 w-4 text-amber-500" />
-        <span>{weatherText || (locale === "vi" ? `79°F ${t("places.weatherBrokenClouds", { defaultValue: "Mây rải rác" })}` : `79°F ${t("places.weatherBrokenClouds", { defaultValue: "Broken clouds" })}`)}</span>
-      </div>
+      {showWeatherBadge && (
+        <div className="pointer-events-none absolute bottom-4 left-4 z-20 hidden items-center gap-2 rounded-full border border-border/50 bg-background/65 px-3.5 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur-md dark:bg-card/65 sm:flex">
+          <CloudSun className="h-4 w-4 text-amber-500" />
+          <span>{weatherText || (locale === "vi" ? `79°F ${t("places.weatherBrokenClouds", { defaultValue: "Mây rải rác" })}` : `79°F ${t("places.weatherBrokenClouds", { defaultValue: "Broken clouds" })}`)}</span>
+        </div>
+      )}
     </div>
   );
 }

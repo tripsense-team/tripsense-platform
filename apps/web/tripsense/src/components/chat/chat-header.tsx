@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Luggage, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Luggage, Map as MapIcon, Pencil, Trash2 } from "lucide-react";
 
 import type { TripPreferences } from "./modals/trip-preferences-types";
 import {
@@ -43,6 +43,8 @@ type ChatHeaderProps = {
   activeTrip?: TripResponse | null;
   isTripDetailOpen?: boolean;
   onToggleTripDetail?: () => void;
+  isMapOpen?: boolean;
+  onToggleMap?: () => void;
 };
 
 export function ChatHeader({
@@ -58,6 +60,8 @@ export function ChatHeader({
   activeTrip,
   isTripDetailOpen,
   onToggleTripDetail,
+  isMapOpen,
+  onToggleMap,
 }: ChatHeaderProps) {
   const { locale, t } = useTranslation();
   const [isRenameOpen, setIsRenameOpen] = useState(false);
@@ -259,6 +263,23 @@ export function ChatHeader({
             >
               <Luggage className="size-3.5 shrink-0" />
               <span>{t("nav.createTrip")}</span>
+            </button>
+          )}
+          {onToggleMap && (
+            <button
+              type="button"
+              onClick={onToggleMap}
+              data-testid="header-map-toggle"
+              aria-pressed={Boolean(isMapOpen)}
+              aria-label={t("aiPlanner.mapToggle")}
+              title={t("aiPlanner.mapToggle")}
+              className={`h-8 w-8 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0 ${
+                isMapOpen
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border/70 hover:bg-muted text-foreground"
+              }`}
+            >
+              <MapIcon className="size-3.5" />
             </button>
           )}
         </div>

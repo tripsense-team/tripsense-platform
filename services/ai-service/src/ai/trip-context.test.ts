@@ -7,9 +7,11 @@ import {
   briefFromClientPreferences,
   briefFromTripRecord,
   buildConversationHistory,
+  evaluateSpeculativePrefetchPlan,
   formatBudgetTierHint,
   formatClientPreferencesSummary,
   formatPlanningStateSummary,
+  formatPrefetchedCandidatesSummary,
   formatTripSummary,
   formatUserPreferencesSummary,
   mergeEffectiveBrief,
@@ -270,5 +272,94 @@ test("extractLatestTripBriefFromMessages finds latest brief part across tool and
 
   assert.equal(extracted?.runId, "run-2");
   assert.equal(extracted?.brief.where?.destinationText, "Phú Quốc");
+});
+
+test("evaluateSpeculativePrefetchPlan triggers only on actionable non-duplicate planning requests", () => {
+  assert.deepEqual(
+    evaluateSpeculativePrefetchPlan({
+      destinationHint: "Đà Nẵng",
+      hasWhen: true,
+      isTripLinked: false,
+      hasExistingProposal: false,
+      hasExplicitIntent: true,
+      hasCancelIntent: false,
+    }),
+    { shouldPrefetch: true, destination: "Đà Nẵng" },
+  );
+
+  // Skips pure questions, cancellations, missing when/destination, and chats that already created a proposal
+  assert.equal(
+    evaluateSpeculativePrefetchPlan({
+      destinationHint: "Đà Nẵng",
+      hasWhen: true,
+      isTripLinked: false,
+      hasExistingProposal: false,
+      hasExplicitIntent: false,
+      hasCancelIntent: false,
+    }).shouldPrefetch,
+    false,
+  );
+  assert.equal(
+    evaluateSpeculativePrefetchPlan({
+      destinationHint: "Đà Nẵng",
+      hasWhen: true,
+      isTripLinked: true,
+      hasExistingProposal: true,
+      hasExplicitIntent: true,
+      hasCancelIntent: false,
+    }).shouldPrefetch,
+    false,
+  );
+  assert.equal(
+    evaluateSpeculativePrefetchPlan({
+      destinationHint: "Đà Nẵng",
+      hasWhen: true,
+      isTripLinked: false,
+      hasExistingProposal: false,
+      hasExplicitIntent: true,
+      hasCancelIntent: true,
+    }).shouldPrefetch,
+    false,
+  );
+  assert.equal(
+    evaluateSpeculativePrefetchPlan({
+      destinationHint: "Đà Nẵng",
+      hasWhen: false,
+      isTripLinked: false,
+      hasExistingProposal: false,
+      hasExplicitIntent: true,
+      hasCancelIntent: false,
+    }).shouldPrefetch,
+    false,
+  );
+});
+
+test("formatPrefetchedCandidatesSummary emits compact lines without photo URLs and injects into system prompt", () => {
+  const summary = formatPrefetchedCandidatesSummary("Đà Nẵng", [
+    {
+      category: "ATTRACTION",
+      places: [
+        {
+          id: "place-linh-ung",
+          name: "Chùa Linh Ứng",
+          address: "Sơn Trà, Đà Nẵng",
+          rating: 4.8,
+        },
+      ],
+    },
+    {
+      category: "FOOD",
+      places: [],
+    },
+  ]);
+
+  assert.ok(summary);
+  assert.match(summary, /\+ \[ATTRACTION\] Chùa Linh Ứng \(id:place-linh-ung \| Sơn Trà, Đà Nẵng \| ★4\.8\)/);
+  assert.doesNotMatch(summary, /FOOD/);
+
+  const prompt = getSystemPrompt({
+    prefetchedCandidatesSummary: summary,
+  });
+  assert.match(prompt, /ỨNG VIÊN ĐỊA ĐIỂM ĐÃ NẠP SẴN CHO "Đà Nẵng"/);
 });
 

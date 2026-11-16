@@ -385,7 +385,7 @@ class GatewayRoutesConfig {
                           return filters
                               .rewritePath("/api/v2/ai/(?<segment>.*)", "/api/ai/${segment}")
                               .rewritePath("/api/ai/v2/(?<segment>.*)", "/api/ai/${segment}")
-                              .setResponseHeader("Cache-Control", "no-store")
+                              .setResponseHeader("Cache-Control", "no-store, no-cache, no-transform")
                               .setResponseHeader("X-Accel-Buffering", "no");
                         })
                     .uri(aiServiceUrl))

@@ -102,14 +102,28 @@ export function getPrepareTripCandidatesTool(context: PrepareTripCandidatesToolC
           store: context.store,
         });
 
+        const compactGroups = result.groups.map((group) => ({
+          category: group.category,
+          source: group.source,
+          places: group.places.map((p) => ({
+            id: p.id,
+            name: p.name,
+            ...(p.address ? { address: p.address } : {}),
+            ...(typeof p.rating === "number" ? { rating: p.rating } : {}),
+            ...(typeof p.userRatingCount === "number"
+              ? { userRatingCount: p.userRatingCount }
+              : {}),
+            ...(p.reason ? { reason: p.reason } : {}),
+          })),
+        }));
+
         return {
           success: result.success,
           destination: result.destination,
           recommendationCount: result.recommendationCount,
           fallbackTriggered: result.fallbackTriggered,
           total: result.places.length,
-          groups: result.groups,
-          places: result.places,
+          groups: compactGroups,
         };
       } catch (err) {
         console.error("Failed to prepare trip candidates:", err);

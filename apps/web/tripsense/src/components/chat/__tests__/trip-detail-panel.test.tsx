@@ -212,5 +212,84 @@ describe("TripDetailPanel canonical photo resolution", () => {
       root.unmount();
     });
   });
+
+  it("switches to ZioMap when the map toggle button is clicked", async () => {
+    mockGetPlaceBatchSnapshots.mockResolvedValue({});
+    const onOpenMap = vi.fn();
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <TripDetailPanel
+          trip={sampleTrip}
+          knownPlacePhotos={{
+            "place-linh-ung": "https://res.cloudinary.com/demo/chat-linh-ung.jpg",
+            "key-nhs": "https://res.cloudinary.com/demo/chat-nhs.jpg",
+          }}
+          onOpenMap={onOpenMap}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+    await flushEffects();
+
+    const mapToggleBtn = container.querySelector('[data-testid="trip-detail-map-toggle"]') as HTMLButtonElement | null;
+    expect(mapToggleBtn).not.toBeNull();
+
+    await act(async () => {
+      mapToggleBtn?.click();
+    });
+    expect(onOpenMap).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("opens right-side place detail drawer callback when clicking an itinerary item", async () => {
+    mockGetPlaceBatchSnapshots.mockResolvedValue({});
+    const onOpenPlaceDetail = vi.fn();
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <TripDetailPanel
+          trip={sampleTrip}
+          knownPlacePhotos={{
+            "place-linh-ung": "https://res.cloudinary.com/demo/chat-linh-ung.jpg",
+            "key-nhs": "https://res.cloudinary.com/demo/chat-nhs.jpg",
+          }}
+          onOpenPlaceDetail={onOpenPlaceDetail}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+    await flushEffects();
+
+    const triggerBtn = container.querySelector(
+      '[data-testid="trip-item-detail-item-linh-ung"]',
+    ) as HTMLButtonElement | null;
+    expect(triggerBtn).not.toBeNull();
+
+    await act(async () => {
+      triggerBtn?.click();
+    });
+
+    expect(onOpenPlaceDetail).toHaveBeenCalledTimes(1);
+    expect(onOpenPlaceDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "item-linh-ung",
+        placeRef: "place-linh-ung",
+        title: "Cổng Chùa Linh Ứng",
+      }),
+      "https://res.cloudinary.com/demo/chat-linh-ung.jpg",
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
 

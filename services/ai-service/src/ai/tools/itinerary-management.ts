@@ -30,8 +30,10 @@ export const addItineraryItemsSchema = z.object({
     .array(
       z.object({
         period: z
-          .enum(["MORNING", "AFTERNOON", "EVENING", "FLEXIBLE"])
-          .describe("Buổi trong ngày để trình bày nhất quán"),
+          .enum(["MORNING", "NOON", "AFTERNOON", "EVENING", "FLEXIBLE"])
+          .describe(
+            "Buổi trong ngày (MORNING: 05:00-10:59, NOON: 11:00-13:29, AFTERNOON: 13:30-17:29, EVENING: từ 17:30, FLEXIBLE: linh hoạt)",
+          ),
         timeSlot: z
           .string()
           .max(80)

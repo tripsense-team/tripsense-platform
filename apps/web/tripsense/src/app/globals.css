@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "streamdown/styles.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -326,5 +327,12 @@
 .mapvinagl-canvas,
 .maplibregl-canvas {
   outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sd-animate],
+  [data-sd-animate-marker]::marker {
+    animation: none !important;
+  }
 }
 

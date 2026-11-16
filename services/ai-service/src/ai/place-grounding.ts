@@ -68,8 +68,16 @@ const GENERIC_ACTIVITY_PATTERNS = [
   "nghi ngoi",
   "tu do",
   "di chuyen",
-  "check in",
-  "check-in",
+  "check in khach san",
+  "check-in khach san",
+  "check in phong",
+  "check-in phong",
+  "check in resort",
+  "check-in resort",
+  "check in homestay",
+  "check-in homestay",
+  "check in san bay",
+  "check-in san bay",
   "check out",
   "check-out",
   "nhan phong",
@@ -81,6 +89,31 @@ const GENERIC_ACTIVITY_PATTERNS = [
   "chuan bi hanh ly",
   "an sang tai khach san",
 ];
+
+const ACTION_TITLE_PREFIX_REGEX =
+  /^(?:check[\s-]*in|ghé thăm|ghé qua|ghé|tham quan|viếng thăm|viếng|khám phá|trải nghiệm|thưởng thức|ăn sáng|ăn trưa|ăn tối|nhâm nhi|uống cà phê|uống cafe|mua sắm đặc sản làm quà|mua sắm đặc sản|mua sắm|dạo bộ ngắm|dạo bộ|dạo chơi|dạo biển|tắm biển|ngắm hoàng hôn|ngắm bình minh|thư giãn)\s+/i;
+
+const GENERIC_VENUE_PHRASES = new Set([
+  "mi quang",
+  "bun cha ca",
+  "bun bo",
+  "hai san",
+  "hai san tuoi song",
+  "banh xeo",
+  "banh trang cuon thit heo",
+  "dac san",
+  "dac san dia phuong",
+  "dac san xu quang",
+  "qua luu niem",
+  "am thuc duong pho",
+  "am thuc dia phuong",
+  "cho dia phuong",
+  "quan an dia phuong",
+  "mon ngon dia phuong",
+  "ca phe",
+  "cafe",
+  "an uong",
+]);
 
 function isHttpUrl(value: unknown): value is string {
   return typeof value === "string" && /^https?:\/\/.+/i.test(value.trim());
@@ -1041,7 +1074,46 @@ function toBrowseCategory(category?: string): BrowseCategory | undefined {
 function isGenericActivityTitle(title: string): boolean {
   const normalized = normalizePlaceKey(title);
   if (!normalized || normalized.length < 4) return true;
+  if (normalized === "check in") return true;
   return GENERIC_ACTIVITY_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function isSpecificCoreVenue(candidate: string): boolean {
+  const norm = normalizePlaceKey(candidate);
+  if (!norm || norm.length < 4) return false;
+  if (isGenericActivityTitle(candidate)) return false;
+  if (GENERIC_VENUE_PHRASES.has(norm)) return false;
+
+  const rawTokens = norm.split(" ").filter((t) => t.length > 1);
+  const distinctTokens = rawTokens.filter((t) => !NAME_MATCH_STOP_WORDS.has(t));
+  return distinctTokens.length > 0;
+}
+
+/**
+ * Extracts a concrete venue/landmark name from action-wrapped activity titles
+ * (e.g. "Mua sắm đặc sản làm quà tại Chợ Hàn" -> "Chợ Hàn", "Check-in Cổng Chùa Linh Ứng" -> "Cổng Chùa Linh Ứng").
+ */
+export function extractCorePlaceQuery(title: string): string | undefined {
+  const cleaned = title.normalize("NFC").replace(/\s+/g, " ").trim();
+  if (!cleaned || isGenericActivityTitle(cleaned)) return undefined;
+
+  const locationPrepositionMatch = cleaned.match(/\s+(?:tại|ở)\s+(.+)$/i);
+  if (locationPrepositionMatch?.[1]) {
+    const suffix = locationPrepositionMatch[1].trim();
+    if (suffix !== cleaned && isSpecificCoreVenue(suffix)) {
+      return suffix;
+    }
+  }
+
+  const withoutPrefix = cleaned.replace(ACTION_TITLE_PREFIX_REGEX, "").trim();
+  if (withoutPrefix && withoutPrefix !== cleaned) {
+    const nestedLocation = withoutPrefix.replace(/^(?:tại|ở)\s+/i, "").trim();
+    if (nestedLocation && nestedLocation !== cleaned && isSpecificCoreVenue(nestedLocation)) {
+      return nestedLocation;
+    }
+  }
+
+  return undefined;
 }
 
 export interface ActivityPlaceResolutionInput {
@@ -1078,7 +1150,11 @@ export async function resolveCanonicalActivityPlaces(params: {
         })
       : new Map<string, PlaceSearchResult>();
 
-  const unresolvedIndices: number[] = [];
+  const unresolvedCandidates: Array<{
+    idx: number;
+    lookupQuery: string;
+    coreQuery?: string;
+  }> = [];
 
   for (let i = 0; i < items.length; i += 1) {
     const item = items[i];
@@ -1097,23 +1173,30 @@ export async function resolveCanonicalActivityPlaces(params: {
       continue;
     }
 
-    const fromStore = store?.findBestByName(item.title);
+    const coreQuery = extractCorePlaceQuery(item.title);
+    const fromStore =
+      store?.findBestByName(item.title) ??
+      (coreQuery ? store?.findBestByName(coreQuery) : undefined);
     if (fromStore) {
       resolved.set(i, fromStore);
       continue;
     }
 
-    unresolvedIndices.push(i);
+    unresolvedCandidates.push({
+      idx: i,
+      lookupQuery: coreQuery || item.title,
+      coreQuery,
+    });
   }
 
   // Bound live lookups to keep itinerary commit snappy.
-  const searchCandidates = unresolvedIndices.slice(0, 6);
+  const searchCandidates = unresolvedCandidates.slice(0, 6);
   if (searchCandidates.length > 0) {
     await Promise.all(
-      searchCandidates.map(async (idx) => {
+      searchCandidates.map(async ({ idx, lookupQuery, coreQuery }) => {
         const item = items[idx];
         const searchRes = await executeHybridPlaceSearch({
-          query: item.title,
+          query: lookupQuery,
           category: toBrowseCategory(item.category),
           limit: 2,
           destinationHint,
@@ -1126,7 +1209,12 @@ export async function resolveCanonicalActivityPlaces(params: {
         let best: PlaceSearchResult | undefined;
         let bestScore = 0;
         for (const candidate of searchRes.places) {
-          const score = computeNameSimilarity(item.title, candidate.name);
+          const score = coreQuery
+            ? Math.max(
+                computeNameSimilarity(item.title, candidate.name),
+                computeNameSimilarity(coreQuery, candidate.name)
+              )
+            : computeNameSimilarity(item.title, candidate.name);
           if (score >= 0.65 && score > bestScore) {
             best = candidate;
             bestScore = score;

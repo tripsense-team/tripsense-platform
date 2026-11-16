@@ -60,13 +60,14 @@ export interface PlaceSearchResult {
 
 export interface TripActivity {
   itemKey: string;
-  period: "MORNING" | "AFTERNOON" | "EVENING" | "FLEXIBLE";
+  period: "MORNING" | "NOON" | "AFTERNOON" | "EVENING" | "FLEXIBLE";
   timeSlot: string;
   title: string;
   description: string;
   placeId?: string;
   address?: string;
   photoUrl?: string;
+  location?: { lat: number; lng: number };
   category?: string;
   estimatedCost?: string;
 }
