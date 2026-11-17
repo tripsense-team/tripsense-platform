@@ -412,7 +412,7 @@ export function AdminTripsView() {
                             {creatorProfile?.avatarUrl && (
                               <AvatarImage src={creatorProfile.avatarUrl} alt={creatorName} />
                             )}
-                            <AvatarFallback className="text-[10px] font-semibold">
+                            <AvatarFallback className="text-micro font-semibold">
                               {getInitials(creatorName)}
                             </AvatarFallback>
                           </Avatar>

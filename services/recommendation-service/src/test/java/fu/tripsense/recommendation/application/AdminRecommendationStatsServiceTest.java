@@ -3,7 +3,6 @@ package fu.tripsense.recommendation.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import fu.tripsense.recommendation.api.dto.AdminRecommendationStatsResponse;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +41,7 @@ class AdminRecommendationStatsServiceTest {
     AdminRecommendationStatsService service =
         new AdminRecommendationStatsService(new StubJdbcTemplate());
 
-    AdminRecommendationStatsResponse res = service.getStats(30);
+    AdminRecommendationStatsResult res = service.getStats(30);
     assertThat(res.periodDays()).isEqualTo(30);
     assertThat(res.totalImpressions()).isEqualTo(325L);
     assertThat(res.totalRecommendedItems()).isEqualTo(7578L);

@@ -1,9 +1,8 @@
 package fu.tripsense.recommendation.application;
 
-import fu.tripsense.recommendation.api.dto.AdminRecommendationStatsResponse;
-import fu.tripsense.recommendation.api.dto.AdminRecommendationStatsResponse.FunnelStats;
-import fu.tripsense.recommendation.api.dto.AdminRecommendationStatsResponse.PersonalizationComparison;
-import fu.tripsense.recommendation.api.dto.AdminRecommendationStatsResponse.PositionBucketStats;
+import fu.tripsense.recommendation.application.AdminRecommendationStatsResult.FunnelStats;
+import fu.tripsense.recommendation.application.AdminRecommendationStatsResult.PersonalizationComparison;
+import fu.tripsense.recommendation.application.AdminRecommendationStatsResult.PositionBucketStats;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -30,7 +29,7 @@ public class AdminRecommendationStatsService {
     this.jdbc = jdbc;
   }
 
-  public AdminRecommendationStatsResponse getStats(int periodDays) {
+  public AdminRecommendationStatsResult getStats(int periodDays) {
     requireAdmin();
     int days = ALLOWED_PERIODS.contains(periodDays) ? periodDays : 30;
     Instant now = Instant.now();
@@ -145,7 +144,7 @@ public class AdminRecommendationStatsService {
             persAndDeg[2],
             round2(persAndDeg[2] > 0 ? (persAndDeg[3] * 100.0) / persAndDeg[2] : 0.0));
 
-    return new AdminRecommendationStatsResponse(
+    return new AdminRecommendationStatsResult(
         days,
         totalImpressions,
         periodImpressions,

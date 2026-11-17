@@ -429,7 +429,7 @@ export default function AdminAnalyticsPage() {
                 <p className="text-lg font-bold mt-1">
                   {formatNumber(recStats?.funnel?.impressions ?? 0)}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-micro text-muted-foreground mt-0.5">
                   100% baseline
                 </p>
               </div>
@@ -440,7 +440,7 @@ export default function AdminAnalyticsPage() {
                 <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-1">
                   {formatNumber(recStats?.funnel?.clicks ?? 0)}
                 </p>
-                <p className="text-[10px] text-indigo-600/80 dark:text-indigo-300 mt-0.5">
+                <p className="text-micro text-indigo-600/80 dark:text-indigo-300 mt-0.5">
                   {recStats?.funnel?.ctrPercent ?? 0}% CTR
                 </p>
               </div>
@@ -454,7 +454,7 @@ export default function AdminAnalyticsPage() {
                       (recStats?.funnel?.detailViews ?? 0)
                   )}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-micro text-muted-foreground mt-0.5">
                   {formatNumber(recStats?.funnel?.saves ?? 0)} save •{" "}
                   {formatNumber(recStats?.funnel?.detailViews ?? 0)} view
                 </p>
@@ -466,7 +466,7 @@ export default function AdminAnalyticsPage() {
                 <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                   {formatNumber(recStats?.funnel?.addToTrip ?? 0)}
                 </p>
-                <p className="text-[10px] text-emerald-600/80 dark:text-emerald-300 mt-0.5">
+                <p className="text-micro text-emerald-600/80 dark:text-emerald-300 mt-0.5">
                   {recStats?.funnel?.conversionRatePercent ?? 0}% of clicks
                 </p>
               </div>
@@ -528,7 +528,7 @@ export default function AdminAnalyticsPage() {
                     <span className="text-muted-foreground">
                       {t("admin.analytics.deep.personalizedMode")}
                     </span>
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="text-micro">
                       {recStats?.personalizationComparison?.personalizedCtrPercent ?? 0}% CTR
                     </Badge>
                   </div>
@@ -546,7 +546,7 @@ export default function AdminAnalyticsPage() {
                     <span className="text-muted-foreground">
                       {t("admin.analytics.deep.degradedMode")}
                     </span>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-micro">
                       {recStats?.personalizationComparison?.degradedCtrPercent ?? 0}% CTR
                     </Badge>
                   </div>
@@ -605,7 +605,7 @@ export default function AdminAnalyticsPage() {
                     aiStats?.totalChats || tripStats?.totalAiCommits || 0
                   )}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-micro text-muted-foreground mt-0.5">
                   +
                   {formatNumber(
                     aiStats?.periodChats || tripStats?.periodAiCommits || 0
@@ -625,7 +625,7 @@ export default function AdminAnalyticsPage() {
                         : 0)
                   )}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-micro text-muted-foreground mt-0.5">
                   {formatNumber(
                     aiStats?.userMessages ||
                       (tripStats?.totalAiCommits
@@ -651,7 +651,7 @@ export default function AdminAnalyticsPage() {
                     aiStats?.totalProposals || tripStats?.totalAiCommits || 0
                   )}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-micro text-muted-foreground mt-0.5">
                   +
                   {formatNumber(
                     aiStats?.periodProposals || tripStats?.periodAiCommits || 0
@@ -666,7 +666,7 @@ export default function AdminAnalyticsPage() {
                 <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                   {formatNumber(tripStats?.aiAssistedTripsCount ?? 0)}
                 </p>
-                <p className="text-[10px] text-emerald-600/80 dark:text-emerald-300 mt-0.5">
+                <p className="text-micro text-emerald-600/80 dark:text-emerald-300 mt-0.5">
                   {tripStats?.aiAdoptionRatePercent ?? 0}% {t("admin.analytics.aiAdoption")}
                 </p>
               </div>
@@ -890,12 +890,12 @@ export default function AdminAnalyticsPage() {
                         <span className="font-semibold truncate capitalize">
                           {pref.valueCode.replace(/_/g, " ")}
                         </span>
-                        <Badge variant="outline" className="text-[10px] shrink-0">
+                        <Badge variant="outline" className="text-micro shrink-0">
                           {pref.count} • {Math.round(pref.avgConfidence * 100)}%{" "}
                           {t("admin.analytics.deep.confidence")}
                         </Badge>
                       </div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <p className="text-micro uppercase tracking-wider text-muted-foreground">
                         {pref.dimensionCode.replace(/_/g, " ")}
                       </p>
                       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -1010,7 +1010,7 @@ export default function AdminAnalyticsPage() {
                 <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                   {deepTrip?.retentionAndSla?.repeatTripUserRatePercent ?? 0}%
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-micro text-muted-foreground mt-0.5">
                   {formatNumber(
                     deepTrip?.retentionAndSla?.repeatTripUsersCount ?? 0
                   )}{" "}
@@ -1029,7 +1029,7 @@ export default function AdminAnalyticsPage() {
                   {deepTrip?.retentionAndSla?.avgPartnerApprovalHours ?? 0}{" "}
                   {t("admin.analytics.deep.hoursUnit")}
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-micro text-muted-foreground mt-0.5">
                   {formatNumber(
                     partnerStats?.applicationFunnel?.approvedCount ?? 0
                   )}{" "}

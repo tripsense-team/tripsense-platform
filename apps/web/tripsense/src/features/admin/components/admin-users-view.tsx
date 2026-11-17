@@ -428,7 +428,7 @@ export function AdminUsersView() {
                               {isSelf && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] px-1.5 py-0 border-primary/30 bg-primary/5 text-primary"
+                                  className="text-micro px-1.5 py-0 border-primary/30 bg-primary/5 text-primary"
                                 >
                                   {t("admin.users.actions.currentAccount") || "Current session"}
                                 </Badge>
@@ -457,7 +457,7 @@ export function AdminUsersView() {
                             {getRoleLabel(user.role)}
                           </Badge>
                           {user.partnerEnrolled && user.role !== "PARTNER" && (
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                            <span className="text-micro text-blue-600 dark:text-blue-400 font-medium">
                               + {t("admin.users.partnerEnrolled") || "Partner Enrolled"}
                             </span>
                           )}
