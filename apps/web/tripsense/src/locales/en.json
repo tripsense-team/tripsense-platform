@@ -11,9 +11,6 @@
       "approved": "Approved",
       "authProviderLocal": "Email / Password (LOCAL)",
       "authProviderTitle": "Authentication Providers",
-      "authProviderLocal": "Email / Password (LOCAL)",
-      "accountStatusActive": "Active",
-      "accountStatusUnverifiedOrInactive": "Unverified / Inactive",
       "avgCollaborators": "Avg. Collaborators",
       "chartTabs": {
         "newUsers": "New Users",
