@@ -1271,7 +1271,7 @@ export default function AdminAnalyticsPage() {
                   {t("admin.analytics.authProviderTitle")}
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Email / Password (LOCAL)</span>
+                  <span>{t("admin.analytics.authProviderLocal")}</span>
                   <span className="font-mono font-bold text-foreground">
                     {formatNumber(userStats?.authProviderBreakdown.localCount)}
                   </span>
@@ -1291,14 +1291,14 @@ export default function AdminAnalyticsPage() {
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    Active
+                    {t("admin.analytics.accountStatusActive")}
                   </span>
                   <span className="font-mono font-bold text-emerald-500">
                     {formatNumber(userStats?.activeUsers)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Unverified / Inactive</span>
+                  <span>{t("admin.analytics.accountStatusUnverifiedOrInactive")}</span>
                   <span className="font-mono font-bold text-foreground">
                     {formatNumber(
                       (userStats?.unverifiedUsers || 0) + (userStats?.inactiveUsers || 0),

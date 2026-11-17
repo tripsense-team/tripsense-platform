@@ -1,13 +1,19 @@
 {
   "admin": {
     "analytics": {
+      "accountStatusActive": "Active",
       "accountStatusTitle": "Account Verification & Status",
+      "accountStatusUnverifiedOrInactive": "Unverified / Inactive",
       "activeVouchers": "active vouchers",
       "aiAdoption": "AI Adoption",
       "aiAssistedTrips": "AI-Assisted Trips",
       "aiEfficiency": "AI Efficiency",
       "approved": "Approved",
+      "authProviderLocal": "Email / Password (LOCAL)",
       "authProviderTitle": "Authentication Providers",
+      "authProviderLocal": "Email / Password (LOCAL)",
+      "accountStatusActive": "Active",
+      "accountStatusUnverifiedOrInactive": "Unverified / Inactive",
       "avgCollaborators": "Avg. Collaborators",
       "chartTabs": {
         "newUsers": "New Users",
@@ -206,9 +212,12 @@
       "description": "Monitor real-time system performance, user activity, and microservice status.",
       "metrics": {
         "activeTrips": "Active Trips Planned",
+        "aiCommitsLabel": "AI commits",
         "eurekaStatusUp": "Eureka Status UP",
         "gatewayTraffic": "Gateway Traffic (24h)",
         "liveServices": "3 / 3 Live",
+        "partnersLabel": "Partners",
+        "proSubscriptionsLabel": "Pro Subscriptions",
         "reqsProcessed": "reqs processed",
         "systemServices": "System Microservices",
         "totalUsers": "Total Registered Users",

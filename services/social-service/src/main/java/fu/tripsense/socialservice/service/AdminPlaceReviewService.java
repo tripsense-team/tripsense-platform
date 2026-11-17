@@ -96,10 +96,16 @@ public class AdminPlaceReviewService {
 
     String trimmedSearch = search == null ? "" : search.trim();
     if (!trimmedSearch.isEmpty()) {
-      String pattern = "%" + trimmedSearch.toLowerCase(Locale.ROOT) + "%";
+      String escaped =
+          trimmedSearch
+              .toLowerCase(Locale.ROOT)
+              .replace("\\", "\\\\")
+              .replace("%", "\\%")
+              .replace("_", "\\_");
+      String pattern = "%" + escaped + "%";
       where.append(
-          " AND (LOWER(r.content) LIKE ? OR LOWER(r.place_ref) LIKE ?"
-              + " OR LOWER(CAST(r.id AS TEXT)) LIKE ? OR LOWER(CAST(r.author_user_id AS TEXT)) LIKE ?)");
+          " AND (LOWER(r.content) LIKE ? ESCAPE '\\' OR LOWER(r.place_ref) LIKE ? ESCAPE '\\'"
+              + " OR LOWER(CAST(r.id AS TEXT)) LIKE ? ESCAPE '\\' OR LOWER(CAST(r.author_user_id AS TEXT)) LIKE ? ESCAPE '\\')");
       params.add(pattern);
       params.add(pattern);
       params.add(pattern);

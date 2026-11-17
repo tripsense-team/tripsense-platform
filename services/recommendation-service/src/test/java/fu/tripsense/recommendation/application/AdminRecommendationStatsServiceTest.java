@@ -66,6 +66,11 @@ class AdminRecommendationStatsServiceTest {
     public void query(String sql, RowCallbackHandler rch) {
       // no-op for stub
     }
+
+    @Override
+    public void query(String sql, RowCallbackHandler rch, Object... args) {
+      // no-op for stub
+    }
   }
 }
 

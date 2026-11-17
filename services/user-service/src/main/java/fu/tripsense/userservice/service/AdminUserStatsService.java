@@ -9,8 +9,8 @@ import fu.tripsense.userservice.entity.User;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,13 +60,13 @@ public class AdminUserStatsService {
     LocalDate fromDate = today.minusDays(periodDays - 1L);
     LocalDate prevFromDate = fromDate.minusDays(periodDays);
 
-    LocalDateTime startLdt = fromDate.atStartOfDay();
-    LocalDateTime endLdt = today.plusDays(1).atStartOfDay();
-    LocalDateTime prevStartLdt = prevFromDate.atStartOfDay();
+    Instant periodStart = fromDate.atStartOfDay(PLATFORM_ZONE).toInstant();
+    Instant periodEnd = today.plusDays(1).atStartOfDay(PLATFORM_ZONE).toInstant();
+    Instant prevPeriodStart = prevFromDate.atStartOfDay(PLATFORM_ZONE).toInstant();
 
-    Timestamp tsStart = Timestamp.valueOf(startLdt);
-    Timestamp tsEnd = Timestamp.valueOf(endLdt);
-    Timestamp tsPrevStart = Timestamp.valueOf(prevStartLdt);
+    Timestamp tsStart = Timestamp.from(periodStart);
+    Timestamp tsEnd = Timestamp.from(periodEnd);
+    Timestamp tsPrevStart = Timestamp.from(prevPeriodStart);
 
     long totalUsers =
         nvlLong(jdbc.queryForObject("SELECT COUNT(*) FROM users", Long.class));
@@ -130,13 +130,14 @@ public class AdminUserStatsService {
     }
 
     jdbc.query(
-        "SELECT created_at::date AS d, COUNT(*) AS cnt FROM users WHERE created_at >= ? AND created_at < ? GROUP BY 1",
+        "SELECT (created_at AT TIME ZONE 'UTC' AT TIME ZONE ?)::date AS d, COUNT(*) AS cnt FROM users WHERE created_at >= ? AND created_at < ? GROUP BY 1",
         rs -> {
           LocalDate d = rs.getDate("d").toLocalDate();
           if (dailyMap.containsKey(d)) {
             dailyMap.put(d, rs.getLong("cnt"));
           }
         },
+        PLATFORM_ZONE.getId(),
         tsStart,
         tsEnd);
 

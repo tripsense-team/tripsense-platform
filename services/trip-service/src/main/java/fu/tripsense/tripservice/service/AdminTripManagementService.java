@@ -83,10 +83,16 @@ public class AdminTripManagementService {
 
     String trimmedSearch = search == null ? "" : search.trim();
     if (!trimmedSearch.isEmpty()) {
-      String pattern = "%" + trimmedSearch.toLowerCase(Locale.ROOT) + "%";
+      String escaped =
+          trimmedSearch
+              .toLowerCase(Locale.ROOT)
+              .replace("\\", "\\\\")
+              .replace("%", "\\%")
+              .replace("_", "\\_");
+      String pattern = "%" + escaped + "%";
       where.append(
-          " AND (LOWER(t.name) LIKE ? OR LOWER(t.destination_name) LIKE ?"
-              + " OR LOWER(CAST(t.id AS TEXT)) LIKE ? OR LOWER(CAST(t.owner_user_id AS TEXT)) LIKE ?)");
+          " AND (LOWER(t.name) LIKE ? ESCAPE '\\' OR LOWER(t.destination_name) LIKE ? ESCAPE '\\'"
+              + " OR LOWER(CAST(t.id AS TEXT)) LIKE ? ESCAPE '\\' OR LOWER(CAST(t.owner_user_id AS TEXT)) LIKE ? ESCAPE '\\')");
       params.add(pattern);
       params.add(pattern);
       params.add(pattern);

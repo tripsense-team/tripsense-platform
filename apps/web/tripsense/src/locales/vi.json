@@ -1,13 +1,19 @@
 {
   "admin": {
     "analytics": {
+      "accountStatusActive": "Đang hoạt động",
       "accountStatusTitle": "Trạng thái & Xác thực tài khoản",
+      "accountStatusUnverifiedOrInactive": "Chưa xác thực / Tạm khóa",
       "activeVouchers": "mã đang hoạt động",
       "aiAdoption": "Tỷ lệ dùng AI",
       "aiAssistedTrips": "Chuyến đi có AI hỗ trợ",
       "aiEfficiency": "Hiệu quả AI",
       "approved": "Đã duyệt",
+      "authProviderLocal": "Email / Mật khẩu (LOCAL)",
       "authProviderTitle": "Phương thức đăng nhập",
+      "authProviderLocal": "Email / Mật khẩu (LOCAL)",
+      "accountStatusActive": "Đang hoạt động",
+      "accountStatusUnverifiedOrInactive": "Chưa xác thực / Tạm khóa",
       "avgCollaborators": "Thành viên TB / chuyến",
       "chartTabs": {
         "newUsers": "Người dùng mới",
@@ -206,9 +212,12 @@
       "description": "Theo dõi hiệu năng hệ thống theo thời gian thực, hoạt động người dùng và trạng thái microservice.",
       "metrics": {
         "activeTrips": "Chuyến đi đang lên kế hoạch",
+        "aiCommitsLabel": "Lượt tạo AI",
         "eurekaStatusUp": "Trạng thái Eureka UP",
         "gatewayTraffic": "Lưu lượng Gateway (24h)",
         "liveServices": "3 / 3 Trực tuyến",
+        "partnersLabel": "Đối tác",
+        "proSubscriptionsLabel": "Gói Pro đang hoạt động",
         "reqsProcessed": "yêu cầu đã xử lý",
         "systemServices": "Microservices hệ thống",
         "totalUsers": "Tổng người dùng đăng ký",

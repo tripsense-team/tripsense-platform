@@ -5,8 +5,11 @@ import fu.tripsense.socialservice.exception.SocialException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,16 +98,25 @@ public class PlaceClient {
     if (placeRefs == null || placeRefs.isEmpty()) {
       return Collections.emptyMap();
     }
-    Map<String, String> names = new LinkedHashMap<>();
-    for (String ref : placeRefs) {
-      if (ref == null || ref.isBlank() || names.containsKey(ref)) {
-        continue;
-      }
-      fetchPlaceOptional(ref)
-          .map(PlaceData::name)
-          .filter(name -> !name.isBlank())
-          .ifPresent(name -> names.put(ref, name));
+    List<String> distinctRefs =
+        placeRefs.stream().filter(ref -> ref != null && !ref.isBlank()).distinct().toList();
+    Map<String, CompletableFuture<Optional<PlaceData>>> futures = new LinkedHashMap<>();
+    for (String ref : distinctRefs) {
+      futures.put(ref, CompletableFuture.supplyAsync(() -> fetchPlaceOptional(ref)));
     }
+    Map<String, String> names = new LinkedHashMap<>();
+    futures.forEach(
+        (ref, future) -> {
+          try {
+            future
+                .get(2, TimeUnit.SECONDS)
+                .map(PlaceData::name)
+                .filter(name -> !name.isBlank())
+                .ifPresent(name -> names.put(ref, name));
+          } catch (Exception ex) {
+            log.debug("Timed out/failed resolving place name for {}: {}", ref, ex.getMessage());
+          }
+        });
     return names;
   }
 }

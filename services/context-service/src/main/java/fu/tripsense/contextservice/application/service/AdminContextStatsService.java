@@ -29,7 +29,11 @@ public class AdminContextStatsService {
 
   public AdminContextStatsResponse getStats(int periodDays) {
     requireAdmin();
-    int days = ALLOWED_PERIODS.contains(periodDays) ? periodDays : 30;
+    if (!ALLOWED_PERIODS.contains(periodDays)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "periodDays must be one of 7, 30, 90, or 365");
+    }
+    int days = periodDays;
     Instant now = Instant.now();
     Timestamp tsStart = Timestamp.from(now.minus(days, ChronoUnit.DAYS));
     Timestamp tsEnd = Timestamp.from(now.plus(1, ChronoUnit.DAYS));

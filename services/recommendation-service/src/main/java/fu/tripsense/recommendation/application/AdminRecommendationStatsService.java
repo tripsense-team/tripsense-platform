@@ -31,7 +31,11 @@ public class AdminRecommendationStatsService {
 
   public AdminRecommendationStatsResult getStats(int periodDays) {
     requireAdmin();
-    int days = ALLOWED_PERIODS.contains(periodDays) ? periodDays : 30;
+    if (!ALLOWED_PERIODS.contains(periodDays)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "periodDays must be one of 7, 30, 90, or 365");
+    }
+    int days = periodDays;
     Instant now = Instant.now();
     Timestamp tsStart = Timestamp.from(now.minus(days, ChronoUnit.DAYS));
     Timestamp tsEnd = Timestamp.from(now.plus(1, ChronoUnit.DAYS));
@@ -50,14 +54,21 @@ public class AdminRecommendationStatsService {
 
     Map<String, Long> eventCounts = new HashMap<>();
     jdbc.query(
-        "SELECT event_type, COUNT(*) AS cnt FROM recommendation_feedback_event GROUP BY event_type",
+        """
+        SELECT event_type, COUNT(*) AS cnt
+        FROM recommendation_feedback_event
+        WHERE occurred_at >= ? AND occurred_at < ?
+        GROUP BY event_type
+        """,
         rs -> {
           eventCounts.put(rs.getString("event_type"), rs.getLong("cnt"));
-        });
+        },
+        tsStart,
+        tsEnd);
 
     long impressionsEvents = eventCounts.getOrDefault("IMPRESSION", 0L);
     if (impressionsEvents == 0L) {
-      impressionsEvents = totalRecommendedItems;
+      impressionsEvents = periodImpressions;
     }
     long clicks = eventCounts.getOrDefault("CLICK", 0L);
     long detailViews = eventCounts.getOrDefault("DETAIL_VIEW", 0L);
@@ -94,6 +105,7 @@ public class AdminRecommendationStatsService {
           SUM(CASE WHEN event_type = 'IMPRESSION' THEN 1 ELSE 0 END) AS imp_cnt,
           SUM(CASE WHEN event_type = 'CLICK' THEN 1 ELSE 0 END) AS clk_cnt
         FROM recommendation_feedback_event
+        WHERE occurred_at >= ? AND occurred_at < ?
         GROUP BY 1
         """,
         rs -> {
@@ -101,7 +113,9 @@ public class AdminRecommendationStatsService {
           long imp = rs.getLong("imp_cnt");
           long clk = rs.getLong("clk_cnt");
           posMap.put(bucket, new long[] {imp, clk});
-        });
+        },
+        tsStart,
+        tsEnd);
 
     List<PositionBucketStats> positionBuckets =
         List.of("TOP_1_3", "TOP_4_6", "TOP_7_PLUS").stream()
@@ -117,11 +131,12 @@ public class AdminRecommendationStatsService {
     jdbc.query(
         """
         SELECT
-          CASE WHEN jsonb_array_length(i.degradation_codes) = 0 THEN 'PERSONALIZED' ELSE 'DEGRADED' END AS mode,
+          CASE WHEN jsonb_array_length(COALESCE(i.degradation_codes, '[]'::jsonb)) = 0 THEN 'PERSONALIZED' ELSE 'DEGRADED' END AS mode,
           SUM(CASE WHEN f.event_type = 'IMPRESSION' THEN 1 ELSE 0 END) AS imp_cnt,
           SUM(CASE WHEN f.event_type = 'CLICK' THEN 1 ELSE 0 END) AS clk_cnt
         FROM recommendation_impression i
         LEFT JOIN recommendation_feedback_event f ON f.recommendation_id = i.recommendation_id
+        WHERE i.created_at >= ? AND i.created_at < ?
         GROUP BY 1
         """,
         rs -> {
@@ -135,7 +150,9 @@ public class AdminRecommendationStatsService {
             persAndDeg[2] = imp;
             persAndDeg[3] = clk;
           }
-        });
+        },
+        tsStart,
+        tsEnd);
 
     PersonalizationComparison personalizationComparison =
         new PersonalizationComparison(
