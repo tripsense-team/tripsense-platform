@@ -4,8 +4,8 @@ import fu.tripsense.recommendation.application.AdminRecommendationStatsResult.Fu
 import fu.tripsense.recommendation.application.AdminRecommendationStatsResult.PersonalizationComparison;
 import fu.tripsense.recommendation.application.AdminRecommendationStatsResult.PositionBucketStats;
 import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,11 +16,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class AdminRecommendationStatsService {
 
+  private static final ZoneId PLATFORM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
   private static final Set<Integer> ALLOWED_PERIODS = Set.of(7, 30, 90, 365);
 
   private final JdbcTemplate jdbc;
@@ -29,6 +31,7 @@ public class AdminRecommendationStatsService {
     this.jdbc = jdbc;
   }
 
+  @Transactional(readOnly = true)
   public AdminRecommendationStatsResult getStats(int periodDays) {
     requireAdmin();
     if (!ALLOWED_PERIODS.contains(periodDays)) {
@@ -36,9 +39,10 @@ public class AdminRecommendationStatsService {
           HttpStatus.BAD_REQUEST, "periodDays must be one of 7, 30, 90, or 365");
     }
     int days = periodDays;
-    Instant now = Instant.now();
-    Timestamp tsStart = Timestamp.from(now.minus(days, ChronoUnit.DAYS));
-    Timestamp tsEnd = Timestamp.from(now.plus(1, ChronoUnit.DAYS));
+    LocalDate today = LocalDate.now(PLATFORM_ZONE);
+    LocalDate fromDate = today.minusDays(days - 1L);
+    Timestamp tsStart = Timestamp.from(fromDate.atStartOfDay(PLATFORM_ZONE).toInstant());
+    Timestamp tsEnd = Timestamp.from(today.plusDays(1).atStartOfDay(PLATFORM_ZONE).toInstant());
 
     long totalImpressions =
         nvl(jdbc.queryForObject("SELECT COUNT(*) FROM recommendation_impression", Long.class));

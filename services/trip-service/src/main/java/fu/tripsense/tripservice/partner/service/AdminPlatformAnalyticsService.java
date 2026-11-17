@@ -570,21 +570,26 @@ public class AdminPlatformAnalyticsService {
 
     jdbc.query(
         """
-        SELECT (COALESCE(paid_at, created_at) AT TIME ZONE ?)::date AS d, COALESCE(SUM(amount), 0) AS amt
-        FROM hotel_payos_payment
-        WHERE state = 'PAID'
-          AND COALESCE(paid_at, created_at) >= ?
-          AND COALESCE(paid_at, created_at) < ?
+        SELECT (COALESCE(p.paid_at, p.created_at) AT TIME ZONE ?)::date AS d,
+               COALESCE(SUM(p.amount), 0) AS gmv_amt,
+               COALESCE(SUM(CASE WHEN b.status = 'CHECKED_OUT' THEN p.amount ELSE 0 END), 0) AS completed_amt
+        FROM hotel_payos_payment p
+        JOIN hotel_booking b ON b.id = p.booking_id
+        WHERE p.state = 'PAID'
+          AND COALESCE(p.paid_at, p.created_at) >= ?
+          AND COALESCE(p.paid_at, p.created_at) < ?
         GROUP BY 1
         """,
         rs -> {
           LocalDate d = rs.getDate("d").toLocalDate();
           BigDecimal[] arr = moneyMap.get(d);
           if (arr != null) {
-            BigDecimal gmv = nvlDecimal(rs.getBigDecimal("amt"));
+            BigDecimal gmv = nvlDecimal(rs.getBigDecimal("gmv_amt"));
+            BigDecimal completedGmv = nvlDecimal(rs.getBigDecimal("completed_amt"));
             arr[0] = arr[0].add(gmv);
             arr[1] =
-                arr[1].add(gmv.multiply(new BigDecimal("0.10")).setScale(0, RoundingMode.HALF_UP));
+                arr[1].add(
+                    completedGmv.multiply(new BigDecimal("0.10")).setScale(0, RoundingMode.HALF_UP));
           }
         },
         zoneId,
@@ -638,13 +643,15 @@ public class AdminPlatformAnalyticsService {
           String id = rs.getString("id");
           String dest = rs.getString("destination_name");
           String name = rs.getString("name");
+          String safeName = name != null && !name.isBlank() ? name : "Untitled trip";
+          String safeDest = dest != null && !dest.isBlank() ? dest : "Unknown destination";
           Timestamp ts = rs.getTimestamp("created_at");
           events.add(
               new PlatformActivityItem(
                   "trip-" + id,
                   "TRIP_CREATED",
                   "Traveler #" + id.substring(0, 6),
-                  "Created trip \"" + name + "\" to " + dest,
+                  "Created trip \"" + safeName + "\" to " + safeDest,
                   rs.getString("visibility"),
                   ts != null ? ts.toInstant() : Instant.now()));
         });
@@ -660,13 +667,14 @@ public class AdminPlatformAnalyticsService {
         rs -> {
           String id = rs.getString("id");
           String dest = rs.getString("destination_name");
+          String safeDest = dest != null && !dest.isBlank() ? dest : "Unknown destination";
           Timestamp ts = rs.getTimestamp("created_at");
           events.add(
               new PlatformActivityItem(
                   "ai-" + id,
                   "AI_ITINERARY_COMMITTED",
                   "AI Planner",
-                  "Generated & committed AI itinerary for " + dest,
+                  "Generated & committed AI itinerary for " + safeDest,
                   "COMMITTED",
                   ts != null ? ts.toInstant() : Instant.now()));
         });

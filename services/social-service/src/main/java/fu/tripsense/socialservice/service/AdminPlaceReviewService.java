@@ -231,7 +231,7 @@ public class AdminPlaceReviewService {
         reports.findByTargetTypeAndTargetIdAndStatus(TARGET_PLACE_REVIEW, reviewId, "PENDING");
     if (!pendingReports.isEmpty()) {
       boolean removed = "REMOVED".equals(nextStatus);
-      String reportStatus = removed ? "RESOLVED" : "DISMISSED";
+      String reportStatus = removed ? "ACTIONED" : "DISMISSED";
       String auditAction = removed ? "REMOVE_CONTENT" : "DISMISS";
       String note = normalize(request.reason());
       for (SocialReport report : pendingReports) {

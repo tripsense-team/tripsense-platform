@@ -101,7 +101,14 @@ export async function fetchAdminAiStats(
       },
     );
     return unwrapApiData<AdminAiStats>(res);
-  } catch {
+  } catch (error) {
+    const status =
+      error && typeof error === "object" && "status" in error
+        ? (error as { status?: number }).status
+        : undefined;
+    if (status === 401 || status === 403 || status === 429) {
+      throw error;
+    }
     const fallbackRes = await apiClient<unknown>(
       aiApiUrl(`/admin/stats?periodDays=${periodDays}`),
       {

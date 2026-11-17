@@ -165,7 +165,7 @@ class AdminPlaceReviewServiceTest {
 
     assertEquals("REMOVED", response.status());
     assertEquals(0L, response.pendingReportCount());
-    assertEquals("RESOLVED", pendingReport.getStatus());
+    assertEquals("ACTIONED", pendingReport.getStatus());
     assertEquals(admin.id(), pendingReport.getReviewedBy());
     verify(auditRepository, times(1)).save(any(SocialModerationAudit.class));
   }
