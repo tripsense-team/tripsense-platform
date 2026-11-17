@@ -8,6 +8,7 @@ import {
   replaceItineraryItemSchema,
   getItineraryManagementTools,
 } from "./itinerary-management.js";
+import { normalizeActivityPeriod } from "./create-trip-proposal.js";
 
 test("addItineraryItemsSchema validates inputs correctly", () => {
   const valid = {
@@ -110,4 +111,27 @@ test("tools return safe error when no linked trip is found", async () => {
     newTitle: "Replaced",
   });
   assert.equal(replaceResult.success, false);
+});
+
+test("addItineraryItemsSchema accepts NOON period and normalizeActivityPeriod aligns lunch slots", () => {
+  const parsed = addItineraryItemsSchema.safeParse({
+    dayNumber: 1,
+    items: [
+      {
+        period: "NOON",
+        timeSlot: "11:30 - 13:00",
+        title: "Ẩm thực Trần",
+        category: "FOOD",
+      },
+    ],
+  });
+  assert.equal(parsed.success, true);
+
+  assert.equal(normalizeActivityPeriod("MORNING", "11:30 - 13:00"), "NOON");
+  assert.equal(normalizeActivityPeriod("MORNING", "11:00 - 12:30"), "NOON");
+  assert.equal(normalizeActivityPeriod("MORNING", "11:00 - 11:30"), "MORNING");
+  assert.equal(normalizeActivityPeriod("NOON", "08:30 - 10:30"), "MORNING");
+  assert.equal(normalizeActivityPeriod("MORNING", "14:00 - 16:00"), "AFTERNOON");
+  assert.equal(normalizeActivityPeriod("MORNING", "19:00 - 21:00"), "EVENING");
+  assert.equal(normalizeActivityPeriod("FLEXIBLE", "12:00 - 13:00"), "FLEXIBLE");
 });

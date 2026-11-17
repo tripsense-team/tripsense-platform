@@ -25,6 +25,7 @@ import {
   Coffee,
   Landmark,
   ExternalLink,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collapse-button";
@@ -42,9 +43,14 @@ import {
   deleteTrip,
   deleteItineraryItem,
 } from "@/features/trip-management/services/trip-management-api";
-import { getPlaceDetails, searchPlaces } from "@/features/places/services/places-api";
+import { getPlaceBatchSnapshots, searchPlaces } from "@/features/places/services/places-api";
+import type { Place } from "@/features/places/types";
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
-import type { TripResponse, ItineraryResponse } from "@/features/trip-management/types";
+import type {
+  TripResponse,
+  ItineraryResponse,
+  ItineraryItemResponse,
+} from "@/features/trip-management/types";
 import { formatShortRange, countTripDays } from "@/features/trip-management/utils/format";
 import {
   formatWhenSelection,
@@ -58,11 +64,14 @@ import { toast } from "sonner";
 export interface TripDetailPanelProps {
   trip: TripResponse;
   dayThemes?: Record<number, string>;
+  knownPlacePhotos?: Record<string, string>;
   onClose: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onTripUpdated?: (updatedTrip: TripResponse) => void;
   onTripDeleted?: (tripId: string) => void;
+  onOpenPlaceDetail?: (item: ItineraryItemResponse, knownPhotoUrl?: string) => void;
+  onOpenMap?: (focusItemId?: string) => void;
   onOpenWhere?: () => void;
   onOpenWhen?: () => void;
   onOpenWho?: () => void;
@@ -153,14 +162,47 @@ function formatDayTheme(theme?: string): string | null {
   return hasEmoji ? trimmed : `🏯 ${trimmed}`;
 }
 
+export function resolveItemPlaceKey(item: {
+  placeRef?: string | null;
+  placeId?: string | null;
+}): string | null {
+  const ref = item.placeRef?.trim();
+  if (ref) return ref;
+  const id = item.placeId?.trim();
+  return id || null;
+}
+
+export function resolveInstantPhoto(
+  item: {
+    placeRef?: string | null;
+    placeId?: string | null;
+    sourceItemKey?: string | null;
+  },
+  knownPlacePhotos?: Record<string, string>,
+): string | null {
+  if (!knownPlacePhotos) return null;
+  const placeKey = resolveItemPlaceKey(item);
+  if (placeKey && knownPlacePhotos[placeKey]) {
+    return knownPlacePhotos[placeKey];
+  }
+  const itemKey = item.sourceItemKey?.trim();
+  if (itemKey && knownPlacePhotos[itemKey]) {
+    return knownPlacePhotos[itemKey];
+  }
+  return null;
+}
+
 export function TripDetailPanel({
   trip,
   dayThemes,
+  knownPlacePhotos,
   onClose,
   isCollapsed = false,
   onToggleCollapse,
   onTripUpdated,
   onTripDeleted,
+  onOpenPlaceDetail,
+  onOpenMap,
   onOpenWhere,
   onOpenWhen,
   onOpenWho,
@@ -176,17 +218,9 @@ export function TripDetailPanel({
   const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false);
   const [isEditingTitle, setIsEditingTitle] = React.useState(false);
   const [editedTitle, setEditedTitle] = React.useState(trip.name);
-  const [prevTripName, setPrevTripName] = React.useState(trip.name);
   const [collapsedDays, setCollapsedDays] = React.useState<Record<string, boolean>>({});
   const [isIdeasSectionOpen, setIsIdeasSectionOpen] = React.useState(true);
-  const [isMapActive, setIsMapActive] = React.useState(false);
   const fetchedItemIdsRef = React.useRef<Set<string>>(new Set());
-
-  // Sync title during render if trip name changed externally
-  if (prevTripName !== trip.name) {
-    setPrevTripName(trip.name);
-    setEditedTitle(trip.name);
-  }
 
   // Load itinerary from trip-service
   React.useEffect(() => {
@@ -241,77 +275,133 @@ export function TripDetailPanel({
     const items = itinerary.days.flatMap((d) => d.items || []);
     if (items.length === 0) return;
 
+    const fetchedIds = fetchedItemIdsRef.current;
     const unrequestedItems = items.filter(
-      (item) => !fetchedItemIdsRef.current.has(item.id)
+      (item) =>
+        !fetchedIds.has(item.id) &&
+        !resolveInstantPhoto(item, knownPlacePhotos)
     );
     if (unrequestedItems.length === 0) return;
 
-    for (const item of unrequestedItems) {
-      fetchedItemIdsRef.current.add(item.id);
+    const pendingIds = unrequestedItems.map((item) => item.id);
+    for (const id of pendingIds) {
+      fetchedIds.add(id);
     }
+    const resolvedIds = new Set<string>();
 
     let active = true;
+    let completed = false;
     const controller = new AbortController();
 
     async function loadPhotos() {
-      const resolved = await Promise.all(
-        unrequestedItems.map(async (item) => {
-          try {
-            let place: any = null;
-            if (item.placeId) {
-              try {
-                const details = await getPlaceDetails(
-                  item.placeId,
-                  item.placeNameSnapshot || item.title,
-                  item.latSnapshot ?? undefined,
-                  item.lngSnapshot ?? undefined,
-                  controller.signal
-                );
-                place = details.data;
-              } catch {
-                place = null;
-              }
-            }
-            if (!place || !getPlacePhotoUrl(place)) {
-              const query = [item.placeNameSnapshot || item.title, trip.destinationName]
-                .filter(Boolean)
-                .join(" ");
-              const search = await searchPlaces({
-                q: query,
-                limit: 1,
-                signal: controller.signal,
-              });
-              if (search.data && search.data[0]) {
-                place = search.data[0];
-              }
-            }
-            const photoUrl = place ? getPlacePhotoUrl(place) : null;
-            return photoUrl ? ([item.id, photoUrl] as const) : null;
-          } catch {
-            return null;
-          }
-        })
+      const resolvedEntries: Array<readonly [string, string]> = [];
+      const fallbackItems: typeof unrequestedItems = [];
+
+      const batchPlaceIds = Array.from(
+        new Set(
+          unrequestedItems
+            .map(resolveItemPlaceKey)
+            .filter((id): id is string => Boolean(id))
+        )
       );
 
+      let snapshotsById: Record<string, Place> = {};
+      if (batchPlaceIds.length > 0) {
+        try {
+          snapshotsById = await getPlaceBatchSnapshots(
+            batchPlaceIds,
+            true,
+            controller.signal,
+          );
+        } catch {
+          snapshotsById = {};
+        }
+      }
+
       if (!active || controller.signal.aborted) return;
-      const valid = resolved.filter((r): r is readonly [string, string] => Boolean(r));
-      if (valid.length > 0) {
+
+      for (const item of unrequestedItems) {
+        const placeKey = resolveItemPlaceKey(item);
+        const snap = placeKey ? snapshotsById[placeKey] : undefined;
+        const photoUrl = snap ? getPlacePhotoUrl(snap) : null;
+        if (photoUrl) {
+          resolvedEntries.push([item.id, photoUrl]);
+        } else {
+          fallbackItems.push(item);
+        }
+      }
+
+      if (resolvedEntries.length > 0) {
+        for (const [id] of resolvedEntries) {
+          resolvedIds.add(id);
+        }
         setPhotoUrls((prev) => {
           const next = { ...prev };
-          for (const [id, url] of valid) {
+          for (const [id, url] of resolvedEntries) {
             next[id] = url;
           }
           return next;
         });
       }
+
+      // Bounded fallback only for items lacking a canonical placeRef/placeId photo.
+      const FALLBACK_CONCURRENCY = 3;
+      const fallbackEntries: Array<readonly [string, string]> = [];
+      for (let i = 0; i < fallbackItems.length; i += FALLBACK_CONCURRENCY) {
+        if (!active || controller.signal.aborted) return;
+        const slice = fallbackItems.slice(i, i + FALLBACK_CONCURRENCY);
+        const batchResults = await Promise.all(
+          slice.map(async (item) => {
+            try {
+              const query = [item.placeNameSnapshot || item.title, trip.destinationName]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              if (!query) return null;
+              const search = await searchPlaces({
+                q: query,
+                limit: 1,
+                signal: controller.signal,
+              });
+              const candidate = search.data?.[0];
+              const photoUrl = candidate ? getPlacePhotoUrl(candidate) : null;
+              return photoUrl ? ([item.id, photoUrl] as const) : null;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        for (const entry of batchResults) {
+          if (entry) fallbackEntries.push(entry);
+        }
+      }
+
+      if (!active || controller.signal.aborted) return;
+      completed = true;
+      if (fallbackEntries.length === 0) return;
+
+      setPhotoUrls((prev) => {
+        const next = { ...prev };
+        for (const [id, url] of fallbackEntries) {
+          next[id] = url;
+        }
+        return next;
+      });
     }
 
     void loadPhotos();
     return () => {
       active = false;
       controller.abort();
+      if (!completed) {
+        for (const id of pendingIds) {
+          if (!resolvedIds.has(id)) {
+            fetchedIds.delete(id);
+          }
+        }
+      }
     };
-  }, [itinerary, trip.destinationName]);
+  }, [itinerary, trip.destinationName, knownPlacePhotos]);
 
   // Format date range (e.g. "2 ngày trong Tháng 11" if flexible, or "19 – 21 thg 10")
   const dateRangeStr = React.useMemo(() => {
@@ -577,7 +667,10 @@ export function TripDetailPanel({
               </div>
             ) : (
               <h1
-                onClick={() => setIsEditingTitle(true)}
+                onClick={() => {
+                  setEditedTitle(trip.name);
+                  setIsEditingTitle(true);
+                }}
                 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground hover:opacity-85 transition-opacity cursor-pointer mb-3"
                 title={locale === "vi" ? "Bấm để đổi tên chuyến đi" : "Click to rename trip"}
               >
@@ -667,19 +760,18 @@ export function TripDetailPanel({
             </div>
 
             {/* Map toggle icon button at right edge of tab bar */}
-            <button
-              type="button"
-              onClick={() => setIsMapActive((prev) => !prev)}
-              className={cn(
-                "size-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-2",
-                isMapActive
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-              title="Toggle interactive map"
-            >
-              <MapIcon className="size-4" />
-            </button>
+            {onOpenMap && (
+              <button
+                type="button"
+                data-testid="trip-detail-map-toggle"
+                onClick={() => onOpenMap()}
+                className="size-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+                title={t("aiPlanner.mapToggle")}
+                aria-label={t("aiPlanner.mapToggle")}
+              >
+                <MapIcon className="size-4" />
+              </button>
+            )}
           </div>
 
           {/* 4. TAB CONTENTS */}
@@ -824,7 +916,10 @@ export function TripDetailPanel({
                                 {day.items && day.items.length > 0 ? (
                                   <div>
                                     {day.items.map((item, idx) => {
-                                      const photoUrl = photoUrls[item.id];
+                                      const photoUrl =
+                                        photoUrls[item.id] ??
+                                        resolveInstantPhoto(item, knownPlacePhotos) ??
+                                        undefined;
                                       const timeRange = formatTimeRange(item.startTime, item.endTime);
                                       const nextItem = day.items[idx + 1];
                                       const distance = nextItem
@@ -836,49 +931,73 @@ export function TripDetailPanel({
                                           )
                                         : null;
 
+                                      const cardSummary = (
+                                        <>
+                                          {/* Left: Thumbnail Image */}
+                                          <div className="size-16 sm:size-18 rounded-xl overflow-hidden bg-muted/50 border border-border/40 shrink-0 relative flex items-center justify-center">
+                                            {photoUrl ? (
+                                              <img
+                                                src={photoUrl}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                loading="lazy"
+                                              />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center bg-muted/40">
+                                                {getItemCategoryIcon(item.type, item.title)}
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Center: Info */}
+                                          <div className="min-w-0 flex-1 space-y-1">
+                                            <div className="flex items-center gap-1.5">
+                                              {getItemCategoryIcon(item.type, item.title)}
+                                              <h4
+                                                className={cn(
+                                                  "font-bold text-sm text-foreground truncate",
+                                                  onOpenPlaceDetail &&
+                                                    "group-hover:text-primary transition-colors"
+                                                )}
+                                                title={item.title}
+                                              >
+                                                {item.title}
+                                              </h4>
+                                            </div>
+
+                                            {timeRange ? (
+                                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                <Clock className="size-3.5 text-muted-foreground/80 shrink-0" />
+                                                <span>{timeRange}</span>
+                                              </div>
+                                            ) : item.placeAddressSnapshot ? (
+                                              <p className="text-micro text-muted-foreground truncate">
+                                                {item.placeAddressSnapshot}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        </>
+                                      );
+
                                       return (
                                         <React.Fragment key={item.id}>
                                           {/* Item Card */}
                                           <div className="group relative flex items-center justify-between gap-3.5 p-3 rounded-2xl border border-border/70 bg-card hover:border-border hover:shadow-xs transition-all">
-                                            {/* Left: Thumbnail Image */}
-                                            <div className="size-16 sm:size-18 rounded-xl overflow-hidden bg-muted/50 border border-border/40 shrink-0 relative flex items-center justify-center">
-                                              {photoUrl ? (
-                                                <img
-                                                  src={photoUrl}
-                                                  alt={item.title}
-                                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                  loading="lazy"
-                                                />
-                                              ) : (
-                                                <div className="w-full h-full flex items-center justify-center bg-muted/40">
-                                                  {getItemCategoryIcon(item.type, item.title)}
-                                                </div>
-                                              )}
-                                            </div>
-
-                                            {/* Center: Info */}
-                                            <div className="min-w-0 flex-1 space-y-1">
-                                              <div className="flex items-center gap-1.5">
-                                                {getItemCategoryIcon(item.type, item.title)}
-                                                <h4
-                                                  className="font-bold text-sm text-foreground truncate"
-                                                  title={item.title}
-                                                >
-                                                  {item.title}
-                                                </h4>
+                                            {onOpenPlaceDetail ? (
+                                              <button
+                                                type="button"
+                                                onClick={() => onOpenPlaceDetail(item, photoUrl)}
+                                                data-testid={`trip-item-detail-${item.id}`}
+                                                aria-label={`${t("aiPlanner.viewPlaceDetails")}: ${item.title}`}
+                                                className="flex min-w-0 flex-1 items-center gap-3.5 rounded-xl text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                                              >
+                                                {cardSummary}
+                                              </button>
+                                            ) : (
+                                              <div className="flex min-w-0 flex-1 items-center gap-3.5">
+                                                {cardSummary}
                                               </div>
-
-                                              {timeRange ? (
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                  <Clock className="size-3.5 text-muted-foreground/80 shrink-0" />
-                                                  <span>{timeRange}</span>
-                                                </div>
-                                              ) : item.placeAddressSnapshot ? (
-                                                <p className="text-micro text-muted-foreground truncate">
-                                                  {item.placeAddressSnapshot}
-                                                </p>
-                                              ) : null}
-                                            </div>
+                                            )}
 
                                             {/* Right: Actions menu */}
                                             <DropdownMenu>
@@ -892,6 +1011,24 @@ export function TripDetailPanel({
                                                 </button>
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end" className="w-48">
+                                                {onOpenPlaceDetail && (
+                                                  <DropdownMenuItem
+                                                    onClick={() => onOpenPlaceDetail(item, photoUrl)}
+                                                    className="cursor-pointer gap-2 text-xs font-medium"
+                                                  >
+                                                    <Eye className="size-3.5 text-primary" />
+                                                    <span>{t("aiPlanner.viewPlaceDetails")}</span>
+                                                  </DropdownMenuItem>
+                                                )}
+                                                {onOpenMap && (
+                                                  <DropdownMenuItem
+                                                    onClick={() => onOpenMap(item.id)}
+                                                    className="cursor-pointer gap-2 text-xs font-medium"
+                                                  >
+                                                    <MapPin className="size-3.5 text-primary" />
+                                                    <span>{t("aiPlanner.locateOnMap")}</span>
+                                                  </DropdownMenuItem>
+                                                )}
                                                 <DropdownMenuItem
                                                   onClick={() => {
                                                     const query = item.placeNameSnapshot || item.title;

@@ -2,6 +2,7 @@ package fu.tripsense.tripservice.hotel;
 
 import fu.tripsense.tripservice.dto.response.ApiResponse;
 import fu.tripsense.tripservice.partner.dto.PublicHotelListingDto;
+import fu.tripsense.tripservice.partner.dto.PublicHotelRoomDto;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -26,5 +27,12 @@ public class PublicHotelController {
       @PathVariable UUID id) {
     PublicHotelListingDto dto = publicHotelService.getPublicHotel(id);
     return ResponseEntity.ok(ApiResponse.success(dto));
+  }
+
+  @GetMapping("/api/public/hotels/{id}/rooms")
+  public ResponseEntity<ApiResponse<List<PublicHotelRoomDto>>> getPublicHotelRooms(
+      @PathVariable UUID id) {
+    List<PublicHotelRoomDto> rooms = publicHotelService.getPublicHotelRooms(id);
+    return ResponseEntity.ok(ApiResponse.success(rooms));
   }
 }

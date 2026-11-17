@@ -223,4 +223,29 @@ describe("PlaceDetailOverlay", () => {
     expect(html).toContain("Tiện nghi");
     expect(html).toContain("Tiện ích hồ bơi và spa");
   });
+
+  it("renders rental overview card for car_rental places instead of empty booking slot", () => {
+    const rentalPlace: Place = {
+      id: "6af324b7bcd2fb211d1190bb",
+      name: "Vân Khang Car - Cho Thuê VF3 Tự Lái Đà Nẵng",
+      categories: ["car_rental", "point_of_interest", "service", "establishment"],
+      address: "334/3 Nguyễn Văn Linh, Thanh Khê, Đà Nẵng 550000",
+      phone: "+84 934 842 844",
+      rating: 5.0,
+      userRatingCount: 15,
+      photos: [],
+    };
+
+    const html = renderToStaticMarkup(
+      <I18nProvider initialLocale="vi">
+        <PlaceDetailOverlay place={rentalPlace} onClose={() => {}} />
+      </I18nProvider>
+    );
+
+    expect(html).toContain("Vân Khang Car - Cho Thuê VF3 Tự Lái Đà Nẵng");
+    expect(html).toContain("Thuê xe &amp; Dịch vụ");
+    expect(html).toContain("Chưa kích hoạt đặt thuê trực tuyến");
+    expect(html).toContain("Gọi ngay: +84 934 842 844");
+    expect(html).toContain("Xem chỉ đường");
+  });
 });

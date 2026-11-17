@@ -57,9 +57,25 @@ public class PlaceMediaProjectionService {
               .map(item -> new PlacePhotoDto(item.url(), "cloudinary", List.of(), Instant.now(), true))
               .toList());
     } else {
-      dto.setPhotos(List.of());
-      dto.setPrimaryPhoto(null);
-      dto.setPhotoGallery(List.of());
+      List<String> permanentPlaceUrls =
+          place.getPhotos() == null
+              ? List.of()
+              : place.getPhotos().stream()
+                  .filter(PlaceCloudinaryStorageService::isPermanentCloudinaryUrl)
+                  .toList();
+      if (!permanentPlaceUrls.isEmpty()) {
+        List<PlacePhotoDto> cloudinaryGallery =
+            permanentPlaceUrls.stream()
+                .map(url -> new PlacePhotoDto(url, "cloudinary", List.of(), Instant.now(), true))
+                .toList();
+        dto.setPhotos(permanentPlaceUrls);
+        dto.setPrimaryPhoto(cloudinaryGallery.getFirst());
+        dto.setPhotoGallery(cloudinaryGallery);
+      } else {
+        dto.setPhotos(List.of());
+        dto.setPrimaryPhoto(null);
+        dto.setPhotoGallery(List.of());
+      }
     }
     return dto;
   }

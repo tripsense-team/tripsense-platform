@@ -1,10 +1,10 @@
-import { HotelWorkspace } from "@/features/hotels";
 import { Suspense } from "react";
+import { ServiceDiscoveryWorkspace } from "@/features/partner";
 
 export default function HotelsPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-background" />}>
-      <HotelWorkspace />
+      <ServiceDiscoveryWorkspace defaultCategory="hotels" />
     </Suspense>
   );
 }

@@ -10,11 +10,6 @@ import {
   Share2,
   Headphones,
   Star,
-  Utensils,
-  Coffee,
-  Waves,
-  Landmark,
-  Compass,
   MapPin,
   ExternalLink,
   Clock,
@@ -23,8 +18,6 @@ import {
   ChevronRight,
   Maximize2,
   Navigation,
-  ImageOff,
-  Hotel,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -34,6 +27,10 @@ import type { Place } from "../types";
 import { approvedPhotoGallery } from "../utils/approved-photo";
 import { OpeningHoursDisplay } from "./opening-hours-display";
 import { CommunityReviewsSection } from "@/features/community-reviews";
+import {
+  PlaceCategoryIcon,
+  PlacePhotoFallback,
+} from "./place-photo-fallback";
 
 export interface PlaceDetailContentProps {
   place: Place;
@@ -52,20 +49,6 @@ export interface PlaceDetailContentProps {
   amenitiesSection?: React.ReactNode;
   /** Optional category label override. */
   categoryLabel?: string;
-}
-
-function CategoryIcon({ category = "" }: { category?: string }) {
-  const className = "h-3.5 w-3.5 text-muted-foreground shrink-0";
-  const text = category.toLowerCase();
-  if (/cà phê|cafe|coffee/i.test(text)) return <Coffee className={className} />;
-  if (/ăn|quán|bún|phở|mì|cơm|bánh|lẩu|restaurant|food|ẩm thực|nướng|pizza|steak|seafood|vietnamese/i.test(text))
-    return <Utensils className={className} />;
-  if (/biển|bãi|beach|sea|đảo|ocean/i.test(text)) return <Waves className={className} />;
-  if (/chùa|temple|pagoda|linh ứng|tháp|nhà thờ|di tích|lăng|heritage|museum/i.test(text))
-    return <Landmark className={className} />;
-  if (/stay|hotel|resort|khách sạn|khu nghỉ|bungalow|villa|lodging/i.test(text))
-    return <Hotel className={className} />;
-  return <Compass className={className} />;
 }
 
 function formatRating(rating?: number, locale: string = "en"): string {
@@ -386,7 +369,11 @@ export function PlaceDetailContent({
             </div>
 
             <div className="flex items-center gap-1.5 text-xs sm:text-[13px] text-muted-foreground">
-              <CategoryIcon category={primaryCategory} />
+              <PlaceCategoryIcon
+                primaryType={place.primaryType}
+                category={primaryCategory}
+                categories={place.categories}
+              />
               <span className="capitalize">{primaryCategory.replace(/_/g, " ")}</span>
               <span>·</span>
               <span className="font-medium text-foreground/80">$$</span>
@@ -395,11 +382,12 @@ export function PlaceDetailContent({
 
           {/* Adaptive gallery: render each verified photo exactly once */}
           {validPhotos.length === 0 ? (
-            <div className="flex h-[240px] w-full flex-col items-center justify-center gap-3 rounded-2xl bg-muted text-muted-foreground sm:h-[300px]">
-              <ImageOff className="h-8 w-8" aria-hidden="true" />
-              <span className="text-sm font-medium">
-                {t("places.noLicensedPhotos", { defaultValue: "No photos available" })}
-              </span>
+            <div className="h-[240px] w-full overflow-hidden rounded-2xl border border-border/50 sm:h-[300px]">
+              <PlacePhotoFallback
+                primaryType={place.primaryType}
+                categories={place.categories}
+                variant="gallery"
+              />
             </div>
           ) : validPhotos.length <= 2 ? (
             <div
@@ -816,7 +804,12 @@ export function PlaceDetailContent({
               <div className="absolute inset-0 bg-sky-50 dark:bg-zinc-900 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-1.5 animate-bounce">
                   <div className="h-10 w-10 rounded-full bg-foreground text-background flex items-center justify-center shadow-lg">
-                    <CategoryIcon category={primaryCategory} />
+                    <PlaceCategoryIcon
+                      primaryType={place.primaryType}
+                      category={primaryCategory}
+                      categories={place.categories}
+                      className="h-4 w-4 text-background shrink-0"
+                    />
                   </div>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-background/90 text-foreground border border-border/60 shadow-xs">
                     {place.name}

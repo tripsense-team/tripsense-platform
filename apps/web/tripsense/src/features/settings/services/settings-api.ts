@@ -4,6 +4,8 @@ import type {
   ApiKeyProvider,
   BatchEnrichmentProgress,
   BatchEnrichmentRequest,
+  CloudinaryRelinkSummary,
+  MetadataNormalizeSyncSummary,
   PlaceStats,
   PlaceMediaBackfillJob,
   PlaceMediaCoverage,
@@ -105,6 +107,48 @@ export async function cancelBatchEnrichment(
     method: "POST",
     signal,
   });
+}
+
+export async function relinkCloudinaryPhotos(
+  dryRun = false,
+  signal?: AbortSignal,
+): Promise<CloudinaryRelinkSummary> {
+  return request<CloudinaryRelinkSummary>(
+    `/api/places/admin/relink-cloudinary-photos?dryRun=${dryRun}`,
+    {
+      method: "POST",
+      signal,
+    },
+  );
+}
+
+export async function normalizeAndSyncQdrant(
+  dryRun = false,
+  syncQdrant = true,
+  asyncSync = true,
+  signal?: AbortSignal,
+): Promise<MetadataNormalizeSyncSummary> {
+  return request<MetadataNormalizeSyncSummary>(
+    `/api/places/admin/normalize-and-sync-qdrant?dryRun=${dryRun}&syncQdrant=${syncQdrant}&async=${asyncSync}`,
+    {
+      method: "POST",
+      signal,
+    },
+  );
+}
+
+export async function migrateStalePhotos(
+  limit = 2000,
+  concurrency = 3,
+  signal?: AbortSignal,
+): Promise<BatchEnrichmentProgress> {
+  return request<BatchEnrichmentProgress>(
+    `/api/places/admin/migrate-stale-photos?limit=${limit}&concurrency=${concurrency}`,
+    {
+      method: "POST",
+      signal,
+    },
+  );
 }
 
 export async function fetchApiKeys(

@@ -88,7 +88,7 @@ export default function PartnerHotelBookingsPage() {
     setActionSuccess(null);
     try {
       await hotelApi(`/bookings/${b.id}/confirm`, "POST");
-      setActionSuccess(`Đã xác nhận đơn đặt phòng #${b.id.slice(0, 8)} (${b.room_name}) thành công!`);
+      setActionSuccess(`Đã xác nhận đơn đặt phòng #TS-HTL-${b.id.slice(0, 8).toUpperCase()} (${b.room_name}) thành công!`);
       await loadBookings();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
@@ -115,7 +115,7 @@ export default function PartnerHotelBookingsPage() {
           : action === "check-out"
           ? "trả phòng (Check-out)"
           : "báo vắng mặt (No-show)";
-      setActionSuccess(`Đã cập nhật trạng thái ${actionName} cho đơn #${b.id.slice(0, 8)}.`);
+      setActionSuccess(`Đã cập nhật trạng thái ${actionName} cho đơn #TS-HTL-${b.id.slice(0, 8).toUpperCase()}.`);
       await loadBookings();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
@@ -139,7 +139,7 @@ export default function PartnerHotelBookingsPage() {
       });
       setCancelReason("");
       setCancelTargetId(null);
-      setActionSuccess(`Đã từ chối/hủy đơn đặt phòng #${b.id.slice(0, 8)}.`);
+      setActionSuccess(`Đã từ chối/hủy đơn đặt phòng #TS-HTL-${b.id.slice(0, 8).toUpperCase()}.`);
       await loadBookings();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
@@ -330,7 +330,7 @@ export default function PartnerHotelBookingsPage() {
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground font-mono">
-                          Mã đơn: #{b.id.slice(0, 8)} · Thanh toán: {b.payment_method}
+                          Mã đơn: #TS-HTL-{b.id.slice(0, 8).toUpperCase()} · Thanh toán: {b.payment_method}
                         </p>
                       </div>
 

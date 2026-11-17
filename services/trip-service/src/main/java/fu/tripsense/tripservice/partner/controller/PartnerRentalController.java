@@ -13,8 +13,10 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -52,6 +54,24 @@ public class PartnerRentalController {
       @PathVariable UUID businessId, @PathVariable UUID itemId) {
     AuthenticatedUser user = currentUserProvider.get();
     rentalService.deleteRentalItem(user, businessId, itemId);
+    return ResponseEntity.ok(ApiResponse.success(null));
+  }
+
+  @PostMapping(
+      value = "/businesses/{businessId}/rental-items/images",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<ApiResponse<RestaurantMenuImageUploadDto>> uploadRentalItemImage(
+      @PathVariable UUID businessId, @RequestPart("file") MultipartFile file) {
+    AuthenticatedUser user = currentUserProvider.get();
+    return ResponseEntity.ok(
+        ApiResponse.success(rentalService.uploadRentalItemImage(user, businessId, file)));
+  }
+
+  @DeleteMapping("/businesses/{businessId}/rental-items/images")
+  public ResponseEntity<ApiResponse<Void>> deleteUnreferencedRentalItemImage(
+      @PathVariable UUID businessId, @RequestParam String imagePublicId) {
+    AuthenticatedUser user = currentUserProvider.get();
+    rentalService.deleteUnreferencedRentalItemImage(user, businessId, imagePublicId);
     return ResponseEntity.ok(ApiResponse.success(null));
   }
 

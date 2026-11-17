@@ -115,7 +115,7 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
 
       if (item.customerId) {
         const timeStr = new Date(item.startAt).toLocaleString("vi-VN");
-        const confirmMsg = `✅ [Xác nhận đặt bàn] Chào bạn, quán đã xác nhận yêu cầu đặt bàn của bạn vào lúc ${timeStr} (${item.adults + item.children} khách). Mã đặt bàn: #${item.id.slice(0, 8)}... Quán rất hân hạnh được đón tiếp bạn!`;
+        const confirmMsg = `✅ [Xác nhận đặt bàn] Chào bạn, quán đã xác nhận yêu cầu đặt bàn của bạn vào lúc ${timeStr} (${item.adults + item.children} khách). Mã đặt bàn: #TS-RES-${item.id.slice(-8).toUpperCase()}. Quán rất hân hạnh được đón tiếp bạn!`;
         void chatApi.sendDirectMessage(item.customerId, confirmMsg).catch(() => undefined);
       }
 
@@ -161,7 +161,7 @@ export function RestaurantReservationsTab({ businessId }: RestaurantReservations
 
       if (targetReservation.customerId) {
         const reasonPart = rejectReason.trim() ? ` Lý do: ${rejectReason.trim()}` : "";
-        const rejectMsg = `❌ [Thông báo đặt bàn] Rất tiếc, quán hiện không thể tiếp nhận yêu cầu đặt bàn #${targetReservation.id.slice(0, 8)}... của bạn.${reasonPart} Rất mong có dịp được đón tiếp bạn vào thời gian khác.`;
+        const rejectMsg = `❌ [Thông báo đặt bàn] Rất tiếc, quán hiện không thể tiếp nhận yêu cầu đặt bàn #TS-RES-${targetReservation.id.slice(-8).toUpperCase()} của bạn.${reasonPart} Rất mong có dịp được đón tiếp bạn vào thời gian khác.`;
         void chatApi.sendDirectMessage(targetReservation.customerId, rejectMsg).catch(() => undefined);
       }
 

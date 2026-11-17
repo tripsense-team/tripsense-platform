@@ -14,6 +14,10 @@ import {
   getSubscriptionOrderStatus,
   verifyManualSubscriptionPayment,
 } from "../services/partner-api";
+import {
+  uploadRentalItemImage,
+  deleteUnreferencedRentalItemImage,
+} from "../services/rental-api";
 import { apiClient } from "@/services/api-client";
 
 vi.mock("@/services/api-client", () => ({
@@ -448,6 +452,30 @@ describe("Partner Frontend API Service", () => {
     expect(result.status).toBe("ACTIVE");
     expect(result.isActive).toBe(true);
     expect(result.badgeLabel).toBe("Verified Partner");
+  });
+
+  it("uploads and discards a rental item photo through rental-api", async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      success: true,
+      data: {
+        imagePublicId: "tripsense/partners/biz-rental-1/rental-items/img-1",
+        imageUrl: "https://res.cloudinary.com/demo/image/upload/img-1",
+      },
+    } as any);
+
+    const file = new File(["image"], "vf3.jpg", { type: "image/jpeg" });
+    const uploaded = await uploadRentalItemImage("biz-rental-1", file);
+    expect(uploaded.imagePublicId).toContain("rental-items");
+    const uploadRequest = vi.mocked(apiClient).mock.calls.at(-1)?.[1];
+    expect(uploadRequest?.method).toBe("POST");
+    expect(uploadRequest?.body).toBeInstanceOf(FormData);
+
+    vi.mocked(apiClient).mockResolvedValueOnce({ success: true, data: null } as any);
+    await deleteUnreferencedRentalItemImage("biz-rental-1", uploaded.imagePublicId);
+    expect(apiClient).toHaveBeenLastCalledWith(
+      expect.stringContaining("/rental-items/images?imagePublicId="),
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 });
 

@@ -475,7 +475,10 @@ export async function fetchDirectOffersForPlace(
     let bestMatch: HotelOffer[] | null = null;
     for (const [, propOffers] of grouped) {
       const first = propOffers[0];
+      const isDirectIdMatch =
+        place.id && (place.id === first.property_id || place.id === first.business_id);
       if (
+        isDirectIdMatch ||
         isSameHotel(
           { name: first.name, destination: first.destination, address: first.address },
           { name: place.name, destination: place.city, city: place.city, address: place.address }
@@ -486,7 +489,50 @@ export async function fetchDirectOffersForPlace(
       }
     }
 
-    if (!bestMatch) return null;
+    if (!bestMatch) {
+      if (place.id) {
+        try {
+          const publicRooms = await hotelApi<Array<{
+            id: string;
+            propertyId: string;
+            name: string;
+            capacity: number;
+            pricePerNight: number;
+            availableRooms: number;
+            currency?: string;
+            cancellationPolicy?: string;
+          }>>(`/public/hotels/${place.id}/rooms`).catch(() => []);
+
+          if (publicRooms && publicRooms.length > 0) {
+            const rooms = publicRooms.map((r) => ({
+              id: r.id,
+              name: r.name,
+              sleeps: r.capacity,
+              roomsLeft: r.availableRooms,
+              refundable: r.cancellationPolicy === "FREE_BEFORE_CHECK_IN",
+              refundPolicyText: "Miễn phí hủy phòng trước giờ nhận phòng",
+              pricePerNight: r.pricePerNight,
+              totalForStay: r.pricePerNight * nights * quantity,
+              totalWithTax: r.pricePerNight * nights * quantity,
+              currency: r.currency || "VND",
+              photos: [] as string[],
+              amenities: [] as string[],
+            }));
+            return {
+              hasDirectBooking: true,
+              propertyId: publicRooms[0].propertyId,
+              businessId: place.id,
+              rooms,
+              pricePerNight: Math.min(...publicRooms.map((r) => r.pricePerNight)),
+              currency: publicRooms[0].currency || "VND",
+            };
+          }
+        } catch {
+          // Continue
+        }
+      }
+      return null;
+    }
 
     const propertyId = bestMatch[0].property_id;
     const rooms = bestMatch.map((o) => ({

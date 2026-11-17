@@ -558,7 +558,6 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                             {r.capacity} {t("trip.hotels.guests", { defaultValue: "khách tối đa" })}
                           </p>
                         </div>
-                        <span className="text-micro text-muted-foreground font-mono">#{r.id.slice(0, 6)}</span>
                       </div>
                     ))}
                   </div>
@@ -833,7 +832,7 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
                       <p className="text-xs text-muted-foreground">
                         {b.check_in} → {b.check_out} · {b.quantity} phòng · {b.guests} khách · {money(b.total, b.currency)}
                       </p>
-                      <p className="text-micro text-muted-foreground font-mono">#{b.id}</p>
+                      <p className="text-micro text-muted-foreground font-mono font-medium">#TS-HTL-{b.id.slice(0, 8).toUpperCase()}</p>
                     </div>
 
                     {/* Action buttons */}

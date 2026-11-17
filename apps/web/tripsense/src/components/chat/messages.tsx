@@ -9,6 +9,11 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
+import type {
+  OpenPlaceDetailTarget,
+  PlaceMentionTarget,
+} from "./chat-place-resolver";
+import { PlaceDetailActionProvider } from "./place-detail-action-context";
 
 type MessagesProps = {
   chatId?: string;
@@ -18,6 +23,10 @@ type MessagesProps = {
   regenerate?: (options?: { messageId?: string } & Record<string, unknown>) => Promise<void>;
   isLoading?: boolean;
   onEditMessage?: (message: ChatMessage) => void;
+  onQuickReply?: (prompt: string) => void;
+  onOpenPlaceDetail?: (target: OpenPlaceDetailTarget) => void;
+  placeMentionTargets?: ReadonlyArray<PlaceMentionTarget>;
+  excludedPlaceNames?: ReadonlyArray<string>;
 };
 
 export function Messages({
@@ -28,6 +37,10 @@ export function Messages({
   regenerate,
   isLoading,
   onEditMessage,
+  onQuickReply,
+  onOpenPlaceDetail,
+  placeMentionTargets,
+  excludedPlaceNames,
 }: MessagesProps) {
   const { t } = useTranslation();
   const {
@@ -53,7 +66,12 @@ export function Messages({
   }, [scrollToBottom]);
 
   return (
-    <div className="relative flex-1 bg-background overflow-hidden">
+    <PlaceDetailActionProvider
+      openPlaceDetail={onOpenPlaceDetail}
+      placeMentionTargets={placeMentionTargets}
+      excludedPlaceNames={excludedPlaceNames}
+    >
+      <div className="relative flex-1 bg-background overflow-hidden">
       {messages.length === 0 && !isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <Greeting />
@@ -87,8 +105,12 @@ export function Messages({
               key={message.id}
               message={message}
               onEdit={onEditMessage}
+              onQuickReply={onQuickReply}
               regenerate={regenerate}
               setMessages={setMessages}
+              showRefinementChips={
+                status === "ready" && !isLoading && index === messages.length - 1
+              }
             />
           ))}
 
@@ -114,6 +136,7 @@ export function Messages({
       >
         <ArrowDownIcon className="size-3 text-muted-foreground" />
       </button>
-    </div>
+      </div>
+    </PlaceDetailActionProvider>
   );
 }

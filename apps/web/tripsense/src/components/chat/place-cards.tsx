@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import {
-  MapPin,
   Star,
   Heart,
   Plus,
@@ -13,11 +12,12 @@ import {
   Utensils,
   Coffee,
   Landmark,
-  ExternalLink,
   Sparkles,
   Compass,
 } from "lucide-react";
 import type { PlaceSearchResult } from "@/lib/types";
+import { placeSearchResultToPlace } from "./chat-place-resolver";
+import { usePlaceDetailAction } from "./place-detail-action-context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTripStore } from "@/features/trip-management/store/use-trip-store";
@@ -37,6 +37,7 @@ interface PlaceCardsProps {
   query?: string;
   total?: number;
   title?: string;
+  onSelectPlace?: (place: PlaceSearchResult) => void;
 }
 
 function getCategoryMeta(categories?: string[]) {
@@ -59,8 +60,9 @@ function getCategoryMeta(categories?: string[]) {
   return { icon: Compass, label: categories?.[0] || "Địa điểm" };
 }
 
-export function PlaceCards({ places, query, total, title }: PlaceCardsProps) {
+export function PlaceCards({ places, total, title, onSelectPlace }: PlaceCardsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { openPlaceDetail } = usePlaceDetailAction();
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -164,6 +166,29 @@ export function PlaceCards({ places, query, total, title }: PlaceCardsProps) {
     }
   };
 
+  const handleCardClick = (place: PlaceSearchResult) => {
+    if (onSelectPlace) {
+      onSelectPlace(place);
+      return;
+    }
+    if (openPlaceDetail) {
+      openPlaceDetail({
+        place: placeSearchResultToPlace(place),
+        placeIdHint: place.id,
+        nameHint: place.name,
+        knownPhotoUrl: place.photoUrl,
+      });
+      return;
+    }
+    if (place.location?.lat && place.location?.lng) {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    }
+  };
+
   if (!places || places.length === 0) {
     return null;
   }
@@ -219,13 +244,15 @@ export function PlaceCards({ places, query, total, title }: PlaceCardsProps) {
             return (
               <div
                 key={place.id}
-                className="w-[210px] sm:w-[225px] shrink-0 snap-start flex flex-col group/card cursor-pointer select-none"
-                onClick={() => {
-                  if (place.location?.lat && place.location?.lng) {
-                    window.open(
-                      `https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`,
-                      "_blank"
-                    );
+                role="button"
+                tabIndex={0}
+                data-testid={`place-card-${place.id}`}
+                className="w-[210px] sm:w-[225px] shrink-0 snap-start flex flex-col group/card cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-2xl"
+                onClick={() => handleCardClick(place)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleCardClick(place);
                   }
                 }}
               >

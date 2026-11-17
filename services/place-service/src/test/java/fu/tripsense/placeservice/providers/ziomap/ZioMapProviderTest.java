@@ -310,4 +310,90 @@ class ZioMapProviderTest {
     assertEquals("Doanh Nghiệp", dto.getReviews().get(0).getAuthorName());
     server.verify();
   }
+
+  @Test
+  void photoGalleryRetriesTransientBadGatewayAndRecovers() {
+    ZioMapProperties props = new ZioMapProperties();
+    props.setBaseUrl("https://ziomap-api.socibi.com");
+    props.setApiKey("test-key");
+    props.setPhotoDisplayApproved(true);
+    RestClient.Builder builder = RestClient.builder().baseUrl(props.getBaseUrl());
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    provider = new ZioMapProvider(props, builder.build());
+
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/v1/places/provider-1")))
+        .andRespond(withStatus(HttpStatus.BAD_GATEWAY));
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/v1/places/provider-1")))
+        .andRespond(
+            withSuccess(
+                "{\"photos\":[{\"name\":\"places/provider-1/photos/photo-1\"}]}",
+                MediaType.APPLICATION_JSON));
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/photos")))
+        .andRespond(withStatus(HttpStatus.BAD_GATEWAY));
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/photos")))
+        .andRespond(
+            withSuccess(
+                "{\"photoUri\":\"https://lh3.googleusercontent.com/photo-retry-ok\"}",
+                MediaType.APPLICATION_JSON));
+
+    var gallery = provider.getPhotoGallery("provider-1", 3);
+
+    assertEquals(1, gallery.size());
+    assertEquals("https://lh3.googleusercontent.com/photo-retry-ok", gallery.get(0).url());
+    server.verify();
+  }
+
+  @Test
+  void photoGalleryRetriesResourceAccessTimeoutAndStopsImmediatelyOnNotFound() {
+    ZioMapProperties props = new ZioMapProperties();
+    props.setBaseUrl("https://ziomap-api.socibi.com");
+    props.setApiKey("test-key");
+    props.setPhotoDisplayApproved(true);
+    RestClient.Builder builder = RestClient.builder().baseUrl(props.getBaseUrl());
+    MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+    provider = new ZioMapProvider(props, builder.build());
+
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/v1/places/provider-timeout")))
+        .andRespond(
+            request -> {
+              throw new org.springframework.web.client.ResourceAccessException("Read timed out");
+            });
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/v1/places/provider-timeout")))
+        .andRespond(
+            withSuccess(
+                "{\"photos\":[{\"name\":\"places/provider-timeout/photos/photo-1\"}]}",
+                MediaType.APPLICATION_JSON));
+    server
+        .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/place/photos")))
+        .andRespond(
+            withSuccess(
+                "{\"photoUri\":\"https://lh3.googleusercontent.com/photo-timeout-ok\"}",
+                MediaType.APPLICATION_JSON));
+
+    var recovered = provider.getPhotoGallery("provider-timeout", 3);
+    assertEquals(1, recovered.size());
+    assertEquals("https://lh3.googleusercontent.com/photo-timeout-ok", recovered.get(0).url());
+    server.verify();
+
+    RestClient.Builder notFoundBuilder = RestClient.builder().baseUrl(props.getBaseUrl());
+    MockRestServiceServer notFoundServer = MockRestServiceServer.bindTo(notFoundBuilder).build();
+    ZioMapProvider notFoundProvider = new ZioMapProvider(props, notFoundBuilder.build());
+    try {
+      notFoundServer
+          .expect(requestTo(startsWith("https://ziomap-api.socibi.com/api/v1/places/provider-404")))
+          .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+      var missing = notFoundProvider.getPhotoGallery("provider-404", 3);
+      assertTrue(missing.isEmpty());
+      notFoundServer.verify();
+    } finally {
+      notFoundProvider.destroy();
+    }
+  }
 }

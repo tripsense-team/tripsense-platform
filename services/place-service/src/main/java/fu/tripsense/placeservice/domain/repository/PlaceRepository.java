@@ -29,6 +29,13 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
   List<Place> searchByText(String text, Pageable pageable);
 
   @Query(
+      "{ $or: [ { 'name': { $regex: ?0, $options: 'i' } }, { 'address': { $regex: ?0, $options: 'i' } }, { 'categories': { $regex: ?0, $options: 'i' } } ] }")
+  List<Place> searchByKeywordRegex(String regex, Pageable pageable);
+
+  List<Place> findByLifecycleStatusNot(
+      fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus status, Pageable pageable);
+
+  @Query(
       "{ $or: [ { 'reviews': { $size: 0 } }, { 'reviews': null }, { 'photos': { $size: 0 } }, { 'photos': null }, { 'rating': null } ] }")
   List<Place> findPendingEnrichment(Pageable pageable);
 
@@ -43,6 +50,16 @@ public interface PlaceRepository extends MongoRepository<Place, String> {
 
   @Query(value = "{ 'photos': { $regex: 'googleusercontent' } }", count = true)
   long countPlacesWithStaleGooglePhotos();
+
+  @Query(
+      "{ $or: [ { 'photos': { $regex: 'googleusercontent' } }, { 'photos': { $size: 0 } }, { 'photos': null } ] }")
+  List<Place> findPlacesNeedingCloudinaryPhotos(Pageable pageable);
+
+  @Query(
+      value =
+          "{ $or: [ { 'photos': { $regex: 'googleusercontent' } }, { 'photos': { $size: 0 } }, { 'photos': null } ] }",
+      count = true)
+  long countPlacesNeedingCloudinaryPhotos();
 
   long countByMediaState(PlaceMediaState mediaState);
 }

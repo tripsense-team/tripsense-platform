@@ -4,24 +4,20 @@ import * as React from "react";
 import Link from "next/link";
 import {
   Car,
-  Bike,
-  Compass,
   Plus,
   RefreshCw,
   Edit2,
   Trash2,
   Package,
-  Layers,
   CheckCircle2,
   AlertCircle,
-  Clock,
-  DollarSign,
-  ShieldAlert,
-  MapPin,
-  ExternalLink,
   ChevronLeft,
   X,
   Loader2,
+  ImagePlus,
+  PauseCircle,
+  PlayCircle,
+  Upload,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,10 +35,17 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import {
+  validatePartnerImageFile,
+  createPartnerImagePreview,
+  releasePartnerImagePreview,
+} from "../utils/partner-image-file";
+import {
   getPartnerRentalItems,
   createPartnerRentalItem,
   updatePartnerRentalItem,
   deletePartnerRentalItem,
+  uploadRentalItemImage,
+  deleteUnreferencedRentalItemImage,
 } from "../services/rental-api";
 import type {
   RentalItemDto,
@@ -52,9 +55,20 @@ import type {
   PickupOption,
 } from "../types";
 
+import {
+  isRentalItemActive,
+  supportsRentalDelivery,
+  toSafeDisplayImageUrl as toDisplayImageUrl,
+} from "../utils/rental-display";
+
 export interface PartnerRentalsManagementViewProps {
   businessId: string;
 }
+
+const RENTAL_IMAGE_RULES = {
+  maxBytes: 5 * 1024 * 1024,
+  allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"] as const,
+};
 
 const CATEGORY_LABELS: Record<RentalCategory, { label: string; icon: string }> = {
   CAR_4_SEATS: { label: "Ô tô 4 chỗ", icon: "🚗" },
@@ -77,21 +91,28 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState<RentalItemDto | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [modalError, setModalError] = React.useState<string | null>(null);
+  const [togglingId, setTogglingId] = React.useState<string | null>(null);
 
   // Form State
   const [name, setName] = React.useState("");
   const [category, setCategory] = React.useState<RentalCategory>("MOTORBIKE_SCOOTER");
   const [description, setDescription] = React.useState("");
   const [thumbnailUrl, setThumbnailUrl] = React.useState("");
+  const [pendingImageFile, setPendingImageFile] = React.useState<File | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = React.useState<string>("");
+  const [showManualUrlInput, setShowManualUrlInput] = React.useState(false);
   const [pricePerDay, setPricePerDay] = React.useState<number | "">(150000);
   const [pricePerHour, setPricePerHour] = React.useState<number | "">("");
   const [depositAmount, setDepositAmount] = React.useState<number | "">(500000);
   const [totalInventory, setTotalInventory] = React.useState<number | "">(5);
   const [pickupOption, setPickupOption] = React.useState<PickupOption>("BOTH");
   const [deliveryFee, setDeliveryFee] = React.useState<number | "">(0);
+  const [itemActive, setItemActive] = React.useState(true);
   const [specSeats, setSpecSeats] = React.useState("");
   const [specFuel, setSpecFuel] = React.useState("");
   const [specTransmission, setSpecTransmission] = React.useState("");
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const loadItems = React.useCallback(async () => {
     setLoading(true);
@@ -110,18 +131,66 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
     void loadItems();
   }, [loadItems]);
 
+  React.useEffect(() => {
+    return () => {
+      releasePartnerImagePreview(previewImageUrl);
+    };
+  }, [previewImageUrl]);
+
+  const clearPendingImage = () => {
+    releasePartnerImagePreview(previewImageUrl);
+    setPendingImageFile(null);
+    setPreviewImageUrl("");
+    setThumbnailUrl("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCloseModal = (open: boolean) => {
+    if (!open) {
+      releasePartnerImagePreview(previewImageUrl);
+      setPendingImageFile(null);
+      setPreviewImageUrl("");
+      setModalError(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+    setIsModalOpen(open);
+  };
+
+  const handleSelectImageFile = (file: File | undefined) => {
+    if (!file) return;
+    const validationError = validatePartnerImageFile(file, RENTAL_IMAGE_RULES);
+    if (validationError === "invalidType") {
+      setModalError("Chỉ hỗ trợ ảnh định dạng JPG, PNG hoặc WEBP.");
+      return;
+    }
+    if (validationError === "tooLarge") {
+      setModalError("Dung lượng ảnh tối đa 5 MB.");
+      return;
+    }
+    releasePartnerImagePreview(previewImageUrl);
+    setModalError(null);
+    setPendingImageFile(file);
+    setPreviewImageUrl(createPartnerImagePreview(file));
+  };
+
   const handleOpenAdd = () => {
     setEditingItem(null);
     setName("");
     setCategory("MOTORBIKE_SCOOTER");
     setDescription("");
     setThumbnailUrl("");
+    releasePartnerImagePreview(previewImageUrl);
+    setPendingImageFile(null);
+    setPreviewImageUrl("");
+    setShowManualUrlInput(false);
+    setModalError(null);
     setPricePerDay(150000);
     setPricePerHour("");
     setDepositAmount(500000);
     setTotalInventory(5);
     setPickupOption("BOTH");
     setDeliveryFee(0);
+    setItemActive(true);
     setSpecSeats("");
     setSpecFuel("");
     setSpecTransmission("");
@@ -133,13 +202,20 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
     setName(item.name);
     setCategory(item.category);
     setDescription(item.description || "");
-    setThumbnailUrl(item.thumbnailUrl || "");
+    const existingThumb = toDisplayImageUrl(item.thumbnailUrl || item.images?.[0]) || "";
+    setThumbnailUrl(existingThumb);
+    releasePartnerImagePreview(previewImageUrl);
+    setPendingImageFile(null);
+    setPreviewImageUrl(existingThumb);
+    setShowManualUrlInput(false);
+    setModalError(null);
     setPricePerDay(item.pricePerDay);
     setPricePerHour(item.pricePerHour || "");
     setDepositAmount(item.depositAmount);
     setTotalInventory(item.totalInventory);
-    setPickupOption(item.pickupOption);
+    setPickupOption(supportsRentalDelivery(item) ? "BOTH" : "STORE_PICKUP");
     setDeliveryFee(item.deliveryFee || 0);
+    setItemActive(isRentalItemActive(item));
 
     const specs = item.specifications || {};
     setSpecSeats(specs.seats ? String(specs.seats) : "");
@@ -151,19 +227,20 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError("Vui lòng nhập tên dịch vụ/phương tiện.");
+      setModalError("Vui lòng nhập tên dịch vụ/phương tiện.");
       return;
     }
     if (!pricePerDay || Number(pricePerDay) <= 0) {
-      setError("Vui lòng nhập đơn giá thuê theo ngày hợp lệ.");
+      setModalError("Vui lòng nhập đơn giá thuê theo ngày hợp lệ.");
       return;
     }
     if (!totalInventory || Number(totalInventory) <= 0) {
-      setError("Vui lòng nhập số lượng tồn kho khả dụng.");
+      setModalError("Vui lòng nhập số lượng tồn kho khả dụng.");
       return;
     }
 
     setIsSubmitting(true);
+    setModalError(null);
     setError(null);
     setActionSuccess(null);
 
@@ -172,50 +249,106 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
     if (specFuel) specifications.fuel = specFuel;
     if (specTransmission) specifications.transmission = specTransmission;
 
+    let uploadedPublicId: string | null = null;
+    let committed = false;
+
     try {
-      const itemImages = thumbnailUrl.trim() ? [thumbnailUrl.trim()] : [];
+      let resolvedUrl = thumbnailUrl.trim();
+      if (pendingImageFile) {
+        const uploaded = await uploadRentalItemImage(businessId, pendingImageFile);
+        uploadedPublicId = uploaded.imagePublicId;
+        resolvedUrl = uploaded.imageUrl;
+      }
+
+      const itemImages = resolvedUrl ? [resolvedUrl] : [];
+      const deliveryAvailable = pickupOption !== "STORE_PICKUP" && pickupOption !== "PICKUP_AT_STORE";
+
       if (editingItem) {
         const payload: UpdateRentalItemRequest = {
           name: name.trim(),
           category,
           description: description.trim() || undefined,
-          thumbnailUrl: thumbnailUrl.trim() || undefined,
+          thumbnailUrl: resolvedUrl || undefined,
           images: itemImages,
           pricePerDay: Number(pricePerDay),
           pricePerHour: pricePerHour ? Number(pricePerHour) : undefined,
           depositAmount: depositAmount ? Number(depositAmount) : 0,
           totalInventory: Number(totalInventory),
+          deliveryAvailable,
           pickupOption,
           deliveryFee: deliveryFee ? Number(deliveryFee) : 0,
           specifications,
+          active: itemActive,
         };
         await updatePartnerRentalItem(businessId, editingItem.id, payload);
-        setActionSuccess(`Cập nhật "${name}" thành công.`);
+        setActionSuccess(`Cập nhật "${name.trim()}" thành công.`);
       } else {
         const payload: CreateRentalItemRequest = {
           name: name.trim(),
           category,
           description: description.trim() || undefined,
-          thumbnailUrl: thumbnailUrl.trim() || undefined,
+          thumbnailUrl: resolvedUrl || undefined,
           images: itemImages,
           pricePerDay: Number(pricePerDay),
           pricePerHour: pricePerHour ? Number(pricePerHour) : undefined,
           depositAmount: depositAmount ? Number(depositAmount) : 0,
           totalInventory: Number(totalInventory),
+          deliveryAvailable,
           pickupOption,
           deliveryFee: deliveryFee ? Number(deliveryFee) : 0,
           specifications,
-          isActive: true,
         };
         await createPartnerRentalItem(businessId, payload);
-        setActionSuccess(`Thêm mới "${name}" vào danh mục thành công.`);
+        setActionSuccess(`Thêm mới "${name.trim()}" vào danh mục thành công.`);
       }
-      setIsModalOpen(false);
+
+      committed = true;
+      handleCloseModal(false);
       await loadItems();
     } catch (err) {
-      setError(getSafeErrorMessage(err, "Không thể lưu thông tin cho thuê."));
+      if (!committed && uploadedPublicId) {
+        await Promise.allSettled([
+          deleteUnreferencedRentalItemImage(businessId, uploadedPublicId),
+        ]);
+      }
+      setModalError(getSafeErrorMessage(err, "Không thể lưu thông tin cho thuê."));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleItemActive = async (item: RentalItemDto) => {
+    const nextActive = !isRentalItemActive(item);
+    setTogglingId(item.id);
+    setError(null);
+    setActionSuccess(null);
+    try {
+      await updatePartnerRentalItem(businessId, item.id, {
+        name: item.name,
+        category: item.category,
+        description: item.description || undefined,
+        thumbnailUrl: item.thumbnailUrl || undefined,
+        images: item.images,
+        pricePerDay: item.pricePerDay,
+        pricePerHour: item.pricePerHour || undefined,
+        depositAmount: item.depositAmount,
+        totalInventory: item.totalInventory,
+        deliveryAvailable: supportsRentalDelivery(item),
+        pickupOption: item.pickupOption,
+        deliveryFee: item.deliveryFee || 0,
+        specifications: item.specifications,
+        active: nextActive,
+      });
+      setActionSuccess(
+        nextActive
+          ? `Đã mở lại cho thuê "${item.name}".`
+          : `Đã tạm ngưng cho thuê "${item.name}".`,
+      );
+      await loadItems();
+    } catch (err) {
+      setError(getSafeErrorMessage(err, "Không thể cập nhật trạng thái phương tiện."));
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -325,26 +458,37 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((item) => {
             const cat = CATEGORY_LABELS[item.category] || { label: item.category, icon: "📦" };
+            const active = isRentalItemActive(item);
+            const hasDelivery = supportsRentalDelivery(item);
+            const cardImage = toDisplayImageUrl(item.thumbnailUrl || item.images?.[0]);
             return (
               <Card key={item.id} className="overflow-hidden border-border/80 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
-                <CardHeader className="p-4 pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <Badge variant="outline" className="border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-400 text-micro gap-1">
-                      <span>{cat.icon}</span> {cat.label}
-                    </Badge>
-                    <Badge variant="outline" className={item.isActive ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 text-micro" : "text-muted-foreground text-micro"}>
-                      {item.isActive ? "Đang mở cho thuê" : "Tạm ngưng"}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-base font-bold text-foreground mt-2 line-clamp-1">
-                    {item.name}
-                  </CardTitle>
-                  {item.description && (
-                    <CardDescription className="text-xs line-clamp-2 mt-1">
-                      {item.description}
-                    </CardDescription>
-                  )}
-                </CardHeader>
+                <div>
+                  {cardImage ? (
+                    <div className="aspect-[16/9] bg-muted overflow-hidden border-b border-border/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={cardImage} alt={item.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : null}
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <Badge variant="outline" className="border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-400 text-micro gap-1">
+                        <span>{cat.icon}</span> {cat.label}
+                      </Badge>
+                      <Badge variant="outline" className={active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-micro" : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-micro"}>
+                        {active ? "Đang mở cho thuê" : "Tạm ngưng"}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-base font-bold text-foreground mt-2 line-clamp-1">
+                      {item.name}
+                    </CardTitle>
+                    {item.description && (
+                      <CardDescription className="text-xs line-clamp-2 mt-1">
+                        {item.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                </div>
 
                 <CardContent className="p-4 pt-2 space-y-3">
                   <div className="rounded-xl bg-muted/40 p-3 space-y-1.5 text-xs">
@@ -365,29 +509,47 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
                     <div className="flex justify-between items-center text-muted-foreground">
                       <span>Giao nhận:</span>
                       <span className="font-medium text-foreground">
-                        {item.pickupOption === "BOTH" ? "Tại cửa hàng & Tận nơi" : item.pickupOption === "DOOR_DELIVERY" ? "Giao tận nơi" : "Tại cửa hàng"}
+                        {hasDelivery ? "Tại cửa hàng & Tận nơi" : "Tại cửa hàng"}
                       </span>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenEdit(item)}
-                      className="h-8 text-xs gap-1"
-                    >
-                      <Edit2 className="h-3 w-3" /> Sửa
-                    </Button>
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(item)}
-                      className="h-8 text-xs text-destructive hover:bg-destructive/10 gap-1"
+                      disabled={togglingId === item.id}
+                      onClick={() => handleToggleItemActive(item)}
+                      className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
                     >
-                      <Trash2 className="h-3 w-3" /> Xóa
+                      {togglingId === item.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : active ? (
+                        <PauseCircle className="h-3.5 w-3.5 text-amber-600" />
+                      ) : (
+                        <PlayCircle className="h-3.5 w-3.5 text-emerald-600" />
+                      )}
+                      {active ? "Tạm ngưng" : "Mở lại"}
                     </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenEdit(item)}
+                        className="h-8 text-xs gap-1"
+                      >
+                        <Edit2 className="h-3 w-3" /> Sửa
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(item)}
+                        className="h-8 text-xs text-destructive hover:bg-destructive/10 gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /> Xóa
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -397,7 +559,7 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
       )}
 
       {/* Add / Edit Dialog */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -405,11 +567,17 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
               {editingItem ? "Chỉnh sửa dịch vụ cho thuê" : "Thêm phương tiện / Dịch vụ mới"}
             </DialogTitle>
             <DialogDescription>
-              Nhập thông tin chi tiết về xe hoặc trang thiết bị du lịch để niêm yết cho khách thuê.
+              Nhập thông tin chi tiết và tải ảnh thực tế lên Cloud để du khách xem và đặt thuê.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            {modalError && (
+              <div className="flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">Tên xe / Dụng cụ (*)</label>
               <Input
@@ -490,14 +658,114 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Ảnh đại diện (URL)</label>
-              <Input
-                placeholder="https://example.com/images/xe-may.jpg"
-                value={thumbnailUrl}
-                onChange={(e) => setThumbnailUrl(e.target.value)}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-foreground">Hình ảnh phương tiện / thiết bị (Cloud)</label>
+                <button
+                  type="button"
+                  onClick={() => setShowManualUrlInput((prev) => !prev)}
+                  className="text-[11px] font-medium text-teal-700 dark:text-teal-400 hover:underline cursor-pointer"
+                >
+                  {showManualUrlInput ? "Ẩn nhập URL" : "Hoặc dán URL ảnh"}
+                </button>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="sr-only"
+                onChange={(e) => handleSelectImageFile(e.target.files?.[0])}
               />
+
+              {toDisplayImageUrl(previewImageUrl || thumbnailUrl) ? (
+                <div className="rounded-xl border border-border/80 bg-muted/20 overflow-hidden">
+                  <div className="aspect-[16/9] max-h-48 w-full bg-muted overflow-hidden relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={toDisplayImageUrl(previewImageUrl || thumbnailUrl) ?? ""}
+                      alt={name || "Preview"}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 p-2.5 bg-background/80 border-t border-border/50 text-xs">
+                    <span className="text-muted-foreground truncate">
+                      {pendingImageFile ? `Sẵn sàng tải lên Cloud: ${pendingImageFile.name}` : "Ảnh đang sử dụng"}
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="h-3 w-3" /> Đổi ảnh
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:bg-destructive/10 gap-1"
+                        onClick={clearPendingImage}
+                      >
+                        <X className="h-3 w-3" /> Xóa
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full rounded-xl border-2 border-dashed border-border hover:border-teal-500/60 hover:bg-teal-500/5 transition-colors p-5 text-center flex flex-col items-center gap-1.5 cursor-pointer"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600">
+                    <ImagePlus className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-semibold text-foreground">
+                    Nhấn để chọn ảnh từ máy tải lên Cloud
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Hỗ trợ JPG, PNG, WEBP (tối đa 5 MB)
+                  </span>
+                </button>
+              )}
+
+              {showManualUrlInput && (
+                <Input
+                  placeholder="https://res.cloudinary.com/... hoặc link ảnh trực tiếp"
+                  value={thumbnailUrl}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (pendingImageFile) {
+                      releasePartnerImagePreview(previewImageUrl);
+                      setPendingImageFile(null);
+                    }
+                    setThumbnailUrl(val);
+                    setPreviewImageUrl(val);
+                  }}
+                  className="text-xs"
+                />
+              )}
             </div>
+
+            {editingItem && (
+              <label className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 p-3 text-xs cursor-pointer">
+                <div>
+                  <span className="font-semibold text-foreground block">Trạng thái mở cho thuê</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Bật để hiển thị mục này trên trang đặt xe của du khách.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={itemActive}
+                  onChange={(e) => setItemActive(e.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-teal-600"
+                />
+              </label>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">Mô tả chi tiết & Phụ kiện kèm theo</label>
@@ -537,7 +805,7 @@ export function PartnerRentalsManagementView({ businessId }: PartnerRentalsManag
             )}
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => handleCloseModal(false)}>
                 Hủy
               </Button>
               <Button type="submit" disabled={isSubmitting} className="bg-teal-600 hover:bg-teal-700 text-white font-semibold">

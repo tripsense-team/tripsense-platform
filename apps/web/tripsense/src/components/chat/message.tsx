@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage, PlaceSearchResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -11,7 +12,8 @@ import { Weather } from "./weather";
 import { PlaceCards } from "./place-cards";
 import { ItineraryPreview } from "./itinerary-preview";
 import { TripIntakeCard } from "./trip-intake-card";
-import { Loader2, User as UserIcon } from "lucide-react";
+import { Suggestion } from "../ai-elements/suggestion";
+import { Clock, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/features/auth";
 import { useTranslation } from "@/i18n";
@@ -20,6 +22,77 @@ import {
   decorateItineraryMarkdown,
   richMarkdownComponents,
 } from "./rich-itinerary-decorator";
+import { usePlaceDetailAction } from "./place-detail-action-context";
+
+/**
+ * Assistant avatar showing a rotating circular arc while AI generation is active
+ * and settling to a static Sparkles badge once streaming completes.
+ */
+export function AiResponseAvatar({
+  isRunning,
+  isInitializing = false,
+}: {
+  isRunning: boolean;
+  isInitializing?: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      className="relative flex size-8 shrink-0 items-center justify-center rounded-full"
+      data-testid="ai-response-avatar"
+      data-ai-running={isRunning ? "true" : "false"}
+      data-ai-initializing={isInitializing ? "true" : "false"}
+      role={isRunning ? "status" : undefined}
+      aria-live={isRunning ? "polite" : undefined}
+      aria-label={isRunning ? t("aiPlanner.aiRunning") : undefined}
+      aria-hidden={!isRunning ? true : undefined}
+    >
+      {isRunning ? (
+        <>
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 size-8 text-foreground/85 motion-safe:animate-spin"
+            viewBox="0 0 32 32"
+            fill="none"
+          >
+            <circle
+              cx="16"
+              cy="16"
+              r="14"
+              stroke="currentColor"
+              strokeOpacity="0.12"
+              strokeWidth="1.5"
+            />
+            <circle
+              cx="16"
+              cy="16"
+              r="14"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeDasharray="66 22"
+            />
+          </svg>
+          <span
+            aria-hidden="true"
+            data-ai-sparkles="true"
+            className={cn(
+              "flex items-center justify-center text-foreground",
+              isInitializing && "motion-safe:animate-pulse"
+            )}
+          >
+            <SparklesIcon size={15} />
+          </span>
+        </>
+      ) : (
+        <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-border/50 shadow-2xs">
+          <SparklesIcon size={15} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function WaitingText({ text }: { text?: string }) {
   const { t } = useTranslation();
@@ -39,14 +112,18 @@ function WaitingText({ text }: { text?: string }) {
 }
 
 function ActiveAgentStatus({ message }: { message: ChatMessage }) {
-  const { t } = useTranslation();
-  const activeToolPart = message.parts?.find((p: any) => {
+  const { t, locale } = useTranslation();
+  const activeToolPart = [...(message.parts ?? [])].reverse().find((p: any) => {
     return (
       p.state === "call" ||
       p.state === "input-available" ||
       p.toolInvocation?.state === "call"
     );
   }) as any;
+
+  const hasText = Boolean(
+    message.parts?.some((p) => p.type === "text" && p.text?.trim().length > 0)
+  );
 
   let statusText = t("aiPlanner.thinkingAndPreparing");
   if (activeToolPart) {
@@ -62,6 +139,27 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
         activeToolPart.toolInvocation?.args?.durationDays;
       const details = (dest ? ` cho ${dest}` : "") + (days ? ` (${days} ngày)` : "");
       statusText = t("aiPlanner.designingItinerary", { details });
+    } else if (toolName === "prepareTripCandidates") {
+      const dest =
+        activeToolPart.input?.destination ||
+        activeToolPart.toolInvocation?.args?.destination;
+      statusText = dest
+        ? locale === "vi"
+          ? `Đang chọn lọc địa điểm phù hợp tại ${dest}...`
+          : `Curating personalized places in ${dest}...`
+        : locale === "vi"
+          ? "Đang chọn lọc địa điểm phù hợp với gu của bạn..."
+          : "Curating personalized places for your trip...";
+    } else if (
+      toolName === "addItineraryItems" ||
+      toolName === "replaceItineraryItem" ||
+      toolName === "updateItineraryItem" ||
+      toolName === "removeItineraryItem"
+    ) {
+      statusText =
+        locale === "vi"
+          ? "Đang cập nhật lịch trình vào chuyến đi..."
+          : "Updating your trip itinerary...";
     } else if (toolName === "recommendPlaces") {
       const dest =
         activeToolPart.input?.destination ||
@@ -92,6 +190,11 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
         p.type === "tool-createTripProposal" ||
         p.toolInvocation?.toolName === "createTripProposal"
     );
+    const hasCandidates = message.parts?.some(
+      (p: any) =>
+        p.type === "tool-prepareTripCandidates" ||
+        p.toolInvocation?.toolName === "prepareTripCandidates"
+    );
     const hasRecommend = message.parts?.some(
       (p: any) =>
         p.type === "tool-recommendPlaces" ||
@@ -103,9 +206,16 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
         p.toolInvocation?.toolName === "searchPlaces"
     );
     if (hasProposal) {
-      statusText = t("aiPlanner.optimizingItinerary");
-    } else if (hasRecommend) {
-      statusText = "Đang tuyển chọn các địa điểm phù hợp...";
+      statusText = !hasText
+        ? locale === "vi"
+          ? "Đã lưu lịch trình — đang hoàn thiện lời dẫn & lưu ý cho bạn..."
+          : "Itinerary saved — writing personalized summary & tips..."
+        : t("aiPlanner.optimizingItinerary");
+    } else if (hasCandidates || hasRecommend) {
+      statusText =
+        locale === "vi"
+          ? "Đang hoàn thiện gợi ý & chuẩn bị bước tiếp theo..."
+          : "Organizing recommendations and preparing next step...";
     } else if (hasSearch) {
       statusText = t("aiPlanner.aggregatingPlaces");
     } else {
@@ -115,7 +225,10 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
 
   return (
     <div className="flex items-center gap-2.5 text-xs text-muted-foreground bg-muted/30 border border-border/50 rounded-xl px-3.5 py-2 my-1.5 w-fit">
-      <Loader2 className="size-3.5 animate-spin text-primary shrink-0" />
+      <span
+        aria-hidden="true"
+        className="size-1.5 rounded-full bg-primary/75 motion-safe:animate-pulse shrink-0"
+      />
       <Shimmer
         as="span"
         duration={1.2}
@@ -127,11 +240,13 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
   );
 }
 
-export const PreviewMessage = ({
+const PurePreviewMessage = ({
   chatId,
   message,
   isLoading,
   onEdit,
+  onQuickReply,
+  showRefinementChips,
 }: {
   chatId?: string;
   message: ChatMessage;
@@ -139,8 +254,11 @@ export const PreviewMessage = ({
   setMessages?: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate?: UseChatHelpers<ChatMessage>["regenerate"];
   onEdit?: (message: ChatMessage) => void;
+  onQuickReply?: (prompt: string) => void;
+  showRefinementChips?: boolean;
 }) => {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const { placeMentionTargets, excludedPlaceNames } = usePlaceDetailAction();
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
 
@@ -162,9 +280,11 @@ export const PreviewMessage = ({
     ? authUser.email.slice(0, 2).toUpperCase()
     : "TS";
 
-  // Hoist parts into groups so suggested places render at the very end
+  // Group parts into deterministic slots:
+  // 1) weather -> 2) AI text intro & tips -> 3) itinerary proposal -> 4) intake card -> 5) suggested place carousel
   const weatherParts: React.ReactNode[] = [];
-  const textAndProposalParts: React.ReactNode[] = [];
+  const textParts: React.ReactNode[] = [];
+  const proposalParts: React.ReactNode[] = [];
   const intakeCardParts: React.ReactNode[] = [];
   const placeCardsParts: React.ReactNode[] = [];
 
@@ -174,6 +294,7 @@ export const PreviewMessage = ({
   let customPlaceTitle: string | undefined;
   let activeSearchQuery: string | undefined;
   let isSearchingPlaces = false;
+  let readyProposalTitle: string | undefined;
 
   const hasProposalInMessage = Boolean(
     message.parts?.some(
@@ -189,12 +310,16 @@ export const PreviewMessage = ({
 
     if (type === "text") {
       const textContent = isAssistant
-        ? decorateItineraryMarkdown(part.text)
+        ? decorateItineraryMarkdown(part.text, {
+            placeTargets: placeMentionTargets,
+            excludedNames: excludedPlaceNames,
+            isStreaming: Boolean(isLoading),
+          })
         : part.text.replace(/<!--[\s\S]*?-->/g, "").trim();
 
-      if (!textContent && isUser) return;
+      if (!textContent) return;
 
-      textAndProposalParts.push(
+      textParts.push(
         <MessageContent
           className={cn("text-[15px] leading-[1.6]", {
             "w-fit max-w-full overflow-hidden break-words rounded-2xl rounded-tr-xs border border-border/30 bg-gradient-to-br from-secondary to-muted px-4 py-2.5 shadow-[var(--shadow-card)]":
@@ -205,6 +330,7 @@ export const PreviewMessage = ({
         >
           <MessageResponse
             components={isAssistant ? richMarkdownComponents : undefined}
+            isAnimating={Boolean(isLoading) && isAssistant}
           >
             {textContent}
           </MessageResponse>
@@ -241,7 +367,7 @@ export const PreviewMessage = ({
             key={key}
             className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 border border-border/50 rounded-xl px-3.5 py-2 my-1.5 w-fit"
           >
-            <Loader2 className="size-3.5 animate-spin text-primary" />
+            <Clock className="size-3.5 text-muted-foreground shrink-0" />
             <span>
               Đang tra cứu dữ liệu thời tiết {city ? `cho ${city}...` : "..."}
             </span>
@@ -337,7 +463,13 @@ export const PreviewMessage = ({
         toolPart.toolInvocation?.state === "call";
 
       if (proposal && proposal.proposalId) {
-        textAndProposalParts.push(
+        readyProposalTitle =
+          typeof proposal.title === "string" && proposal.title.trim()
+            ? proposal.title.trim()
+            : typeof proposal.destination === "string" && proposal.destination.trim()
+              ? proposal.destination.trim()
+              : undefined;
+        proposalParts.push(
           <div className="w-full my-1.5" key={key}>
             <ItineraryPreview
               proposal={proposal}
@@ -347,12 +479,12 @@ export const PreviewMessage = ({
           </div>
         );
       } else if (isCall && !isLoading) {
-        textAndProposalParts.push(
+        proposalParts.push(
           <div
             key={key}
             className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 border border-border/50 rounded-xl px-3.5 py-2 my-1.5 w-fit"
           >
-            <Loader2 className="size-3.5 animate-spin text-primary" />
+            <Clock className="size-3.5 text-muted-foreground shrink-0" />
             <span>
               Đang thiết kế kế hoạch lịch trình{" "}
               {destination ? `cho ${destination}` : ""}
@@ -414,7 +546,7 @@ export const PreviewMessage = ({
         key={`places-loading-${message.id}`}
         className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 border border-border/50 rounded-xl px-3.5 py-2 my-1.5 w-fit"
       >
-        <Loader2 className="size-3.5 animate-spin text-primary" />
+        <Clock className="size-3.5 text-muted-foreground shrink-0" />
         <span>
           {activeSearchQuery
             ? t("aiPlanner.searchingPlacesFor", { query: activeSearchQuery })
@@ -423,6 +555,26 @@ export const PreviewMessage = ({
       </div>
     );
   }
+
+  if (!isLoading && isAssistant && textParts.length === 0 && readyProposalTitle) {
+    const fallbackIntro =
+      locale === "vi"
+        ? `Dưới đây là kế hoạch **${readyProposalTitle}** được thiết kế theo yêu cầu của bạn và đã đồng bộ vào bảng lịch trình bên phải:`
+        : `Here is your personalized **${readyProposalTitle}** itinerary, synced directly to your trip panel:`;
+    textParts.push(
+      <MessageContent
+        className="text-[15px] leading-[1.6]"
+        data-testid="message-content"
+        key={`fallback-intro-${message.id}`}
+      >
+        <MessageResponse components={richMarkdownComponents}>
+          {fallbackIntro}
+        </MessageResponse>
+      </MessageContent>
+    );
+  }
+
+  const hasText = textParts.length > 0;
 
   const actions = (
     <MessageActions
@@ -434,15 +586,45 @@ export const PreviewMessage = ({
     />
   );
 
+  const refinementChips =
+    !isLoading && showRefinementChips && readyProposalTitle && onQuickReply ? (
+      <div
+        className="flex flex-wrap items-center gap-2 pt-1 pb-1.5"
+        data-testid="itinerary-refinement-chips"
+      >
+        <span className="mr-0.5 text-xs font-medium text-muted-foreground">
+          {t("aiPlanner.refineSuggestionsTitle")}
+        </span>
+        {[
+          t("aiPlanner.refinePromptHotel"),
+          t("aiPlanner.refinePromptRelax"),
+          t("aiPlanner.refinePromptFood"),
+          t("aiPlanner.refinePromptCost"),
+        ].map((chipText) => (
+          <Suggestion
+            className="h-auto rounded-full border-border/60 bg-muted/30 px-3 py-1.5 text-xs font-normal text-foreground/90 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+            key={chipText}
+            onClick={onQuickReply}
+            suggestion={chipText}
+          >
+            {chipText}
+          </Suggestion>
+        ))}
+      </div>
+    ) : null;
+
   const content = isThinking ? (
     <WaitingText />
   ) : (
     <>
       {weatherParts}
-      {textAndProposalParts}
+      {textParts}
+      {isLoading && isAssistant && !hasText && <ActiveAgentStatus message={message} />}
+      {proposalParts}
+      {refinementChips}
       {intakeCardParts}
-      {isLoading && isAssistant && <ActiveAgentStatus message={message} />}
-      {placeCardsParts}
+      {isLoading && isAssistant && hasText && <ActiveAgentStatus message={message} />}
+      {(!isLoading || hasText) && placeCardsParts}
       {actions}
     </>
   );
@@ -465,9 +647,10 @@ export const PreviewMessage = ({
       >
         {isAssistant && (
           <div className="flex h-8 shrink-0 items-center">
-            <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-border/50 shadow-2xs">
-              <SparklesIcon size={15} />
-            </div>
+            <AiResponseAvatar
+              isInitializing={Boolean(isLoading) && isThinking}
+              isRunning={Boolean(isLoading)}
+            />
           </div>
         )}
 
@@ -499,6 +682,19 @@ export const PreviewMessage = ({
   );
 };
 
+export const PreviewMessage = memo(
+  PurePreviewMessage,
+  (prevProps, nextProps) => {
+    if (prevProps.isLoading !== nextProps.isLoading) return false;
+    if (prevProps.chatId !== nextProps.chatId) return false;
+    if (prevProps.message !== nextProps.message) return false;
+    if (prevProps.onEdit !== nextProps.onEdit) return false;
+    if (prevProps.onQuickReply !== nextProps.onQuickReply) return false;
+    if (prevProps.showRefinementChips !== nextProps.showRefinementChips) return false;
+    return true;
+  }
+);
+
 export const ThinkingMessage = () => (
   <div
     className="group/message w-full"
@@ -507,9 +703,7 @@ export const ThinkingMessage = () => (
   >
     <div className="flex items-start gap-3 w-full">
       <div className="flex h-8 shrink-0 items-center">
-        <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-border/50 shadow-2xs">
-          <SparklesIcon size={15} />
-        </div>
+        <AiResponseAvatar isInitializing isRunning />
       </div>
 
       <WaitingText />

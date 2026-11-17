@@ -8,7 +8,16 @@ Track every feature that enters the multi-agent workflow.
 | `admin-user-management` | DONE | `services/user-service`, `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-user-management.md) |
 | `admin-deep-behavioral-analytics` | DONE | `services/recommendation-service`, `services/context-service`, `services/ai-service`, `services/trip-service`, `apps/web/tripsense` | [Docs](./admin-deep-behavioral-analytics.md) |
 | `admin-platform-analytics` | DONE | `services/trip-service`, `services/user-service`, `services/social-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-platform-analytics.md) |
-| `generic-travel-rental-and-services` | APPROVED | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
+| `ai-chat-streaming-ux-and-place-detail-drawer` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/api-gateway` | [Docs](./ai-chat-streaming-ux-and-place-detail-drawer.md) |
+| `ai-chat-response-spinner-and-ziomap-panel` | DONE | `apps/web/tripsense`, `services/ai-service` | [Docs](./ai-chat-response-spinner-and-ziomap-panel.md) |
+| `ai-chat-group3-refinement-and-golden-eval` | DONE | `apps/web/tripsense`, `services/ai-service` | [Docs](./ai-chat-group3-refinement-and-golden-eval.md) |
+| `ai-chat-group2-latency-and-prefetch` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-chat-group2-latency-and-prefetch.md) |
+| `ai-chat-group1-quality-and-grounding` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-chat-group1-quality-and-grounding.md) |
+| `service-rental-discovery-and-quick-booking` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/api-gateway` | [Docs](./service-rental-discovery-and-quick-booking.md) |
+| `booking-activity-badges-and-smart-focus` | DONE | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./booking-activity-badges-and-smart-focus.md) |
+| `generic-travel-rental-and-services` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./generic-travel-rental-and-services.md) |
+| `semantic-trip-candidates-and-batch-photo-pipeline` | DONE | `services/ai-service`, `services/place-service`, `services/recommendation-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./semantic-trip-candidates-and-batch-photo-pipeline.md) |
+| `mobile-user-app` | IMPLEMENTING (Phase 0–1 done) | `apps/mobile/tripsense` | [Docs](./mobile-user-app.md) |
 | `restaurant-reservation-flow-refactor` | DONE | `services/trip-service`, `services/social-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./restaurant-reservation-flow-refactor.md) |
 | `in-chat-reservation-offer` | DONE | `services/social-service`, `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./in-chat-reservation-offer.md) |
 | `admin-place-map-reverse-geocoding` | IMPLEMENTING; local CI regression suites pass, CI rerun and live provider acceptance pending | `apps/web/tripsense`, `services/api-gateway`, `services/place-service` | [Docs](./admin-place-map-reverse-geocoding.md) |

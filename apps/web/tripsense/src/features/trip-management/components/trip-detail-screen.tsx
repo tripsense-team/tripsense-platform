@@ -70,6 +70,9 @@ import {
   titleCaseDestination,
 } from "../utils/format";
 import { formatDisplayTimeRange } from "../utils/time";
+import { getDestinationCenter } from "../utils/map";
+
+export { getDestinationCenter };
 
 const MapVinaContainer = dynamic(
   () =>
@@ -87,42 +90,6 @@ const MapVinaContainer = dynamic(
 );
 
 type TripDetailPanel = "overview" | "itinerary";
-
-export function getDestinationCenter(destination: string): [number, number] {
-  const norm = (destination || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-
-  // Vietnam locations
-  if (norm.includes("my tho") || norm.includes("tien giang")) return [106.3667, 10.3667];
-  if (norm.includes("can tho")) return [105.7844, 10.0452];
-  if (norm.includes("ben tre")) return [106.3756, 10.2415];
-  if (norm.includes("da nang")) return [108.2022, 16.0544];
-  if (norm.includes("ha noi") || norm.includes("hanoi")) return [105.8342, 21.0278];
-  if (norm.includes("ho chi minh") || norm.includes("sai gon") || norm.includes("hcm")) return [106.6297, 10.8231];
-  if (norm.includes("hoi an")) return [108.3262, 15.8801];
-  if (norm.includes("hue")) return [107.5905, 16.4637];
-  if (norm.includes("nha trang")) return [109.1967, 12.2388];
-  if (norm.includes("da lat") || norm.includes("dalat")) return [108.4583, 11.9404];
-  if (norm.includes("phu quoc")) return [103.963, 10.2899];
-  if (norm.includes("quy nhon")) return [109.2197, 13.782];
-  if (norm.includes("vung tau")) return [107.0843, 10.346];
-  if (norm.includes("ha giang")) return [104.9833, 22.8233];
-  if (norm.includes("sapa")) return [103.8438, 22.3364];
-  if (norm.includes("ninh binh")) return [105.9745, 20.2506];
-  if (norm.includes("phan thiet") || norm.includes("mui ne")) return [108.1001, 10.9333];
-
-  // International locations
-  if (norm.includes("tokyo")) return [139.6917, 35.6895];
-  if (norm.includes("kyoto")) return [135.7681, 35.0116];
-  if (norm.includes("bangkok")) return [100.5018, 13.7563];
-  if (norm.includes("singapore")) return [103.8198, 1.3521];
-  if (norm.includes("seoul")) return [126.978, 37.5665];
-
-  return [108.2022, 16.0544];
-}
 
 function extractMessageText(msg: ChatMessage): string {
   if (!msg.parts) return "";

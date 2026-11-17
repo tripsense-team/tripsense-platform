@@ -343,4 +343,42 @@ class RestaurantServiceTest {
         .isInstanceOf(TripServiceException.class)
         .satisfies(ex -> assertThat(((TripServiceException) ex).status()).isEqualTo(HttpStatus.NOT_FOUND));
   }
+
+  @Test
+  @DisplayName("searchPublicRestaurants: matches diacritic-insensitive menu and destination fields and exposes acceptingNew")
+  void searchPublicRestaurants_matchesMenuAndDestination() {
+    PartnerBusiness business = createRestaurantBusiness(OperationState.ACTIVE, PublicationState.PUBLISHED, false);
+    when(businessRepository.findByDisplayNameContainingIgnoreCase("banh xeo"))
+        .thenReturn(List.of());
+    when(businessRepository.findByKindAndPublicationState(BusinessKind.RESTAURANT, PublicationState.PUBLISHED))
+        .thenReturn(List.of(business));
+    when(businessRepository.findById(businessId)).thenReturn(Optional.of(business));
+    PartnerBusinessCapability cap = PartnerBusinessCapability.builder()
+        .id(new PartnerBusinessCapabilityId(businessId, PartnerCapability.RESTAURANT_LISTING))
+        .build();
+    when(capabilityRepository.findByIdBusinessIdAndIdCapability(businessId, PartnerCapability.RESTAURANT_LISTING))
+        .thenReturn(Optional.of(cap));
+    PartnerApplication app = PartnerApplication.builder()
+        .id(approvedRevisionId)
+        .profileSnapshot(Map.of("address", "12 Tran Phu", "destination", "Đà Nẵng"))
+        .build();
+    when(applicationRepository.findById(approvedRevisionId)).thenReturn(Optional.of(app));
+    RestaurantMenuItem dish = RestaurantMenuItem.builder()
+        .id(UUID.randomUUID())
+        .businessId(businessId)
+        .name("Bánh xèo tôm nhảy")
+        .price(BigDecimal.valueOf(55000))
+        .currency("VND")
+        .available(true)
+        .build();
+    when(menuRepository.findByBusinessIdAndAvailableTrueOrderByDisplayOrderAscNameAsc(businessId))
+        .thenReturn(List.of(dish));
+    when(subscriptionRepository.findByBusinessId(businessId)).thenReturn(Optional.empty());
+
+    List<PublicRestaurantListingDto> results = restaurantService.searchPublicRestaurants("banh xeo");
+
+    assertThat(results).hasSize(1);
+    assertThat(results.getFirst().acceptingNew()).isTrue();
+    assertThat(results.getFirst().menu()).hasSize(1);
+  }
 }

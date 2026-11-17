@@ -12,16 +12,22 @@ import fu.tripsense.placeservice.service.PlaceCacheService;
 import fu.tripsense.placeservice.service.PlaceDetailsService;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
 import fu.tripsense.placeservice.service.PlaceCloudinaryStorageService;
+import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -31,6 +37,8 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
   private static final Duration PHOTO_URL_TTL = Duration.ofMinutes(5);
 
   private static final Duration REFRESH_AFTER = Duration.ofDays(14);
+  private static final int DEFAULT_LAZY_PHOTO_LIMIT = 3;
+  private static final int PHOTO_LOCK_STRIPES = 128;
 
   private final PlaceRepository repository;
   private final PlaceProvider provider;
@@ -39,6 +47,29 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
   private final PlacePersistenceService persistence;
   private final RecommendationIndexerClient recommendationIndexerClient;
   private final PlaceCloudinaryStorageService cloudinaryStorageService;
+  private final int lazyPhotoLimit;
+  private final Object[] photoHealLocks = createLockStripes();
+  private final ExecutorService snapshotPhotoExecutor =
+      Executors.newFixedThreadPool(
+          4,
+          runnable -> {
+            Thread thread = new Thread(runnable, "snapshot-photo-");
+            thread.setDaemon(true);
+            return thread;
+          });
+
+  @PreDestroy
+  public void shutdownSnapshotExecutor() {
+    snapshotPhotoExecutor.shutdown();
+    try {
+      if (!snapshotPhotoExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
+        snapshotPhotoExecutor.shutdownNow();
+      }
+    } catch (InterruptedException ex) {
+      snapshotPhotoExecutor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
+  }
 
   public PlaceDetailsServiceImpl(
       PlaceRepository repository,
@@ -59,6 +90,25 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
     this(repository, provider, enrichmentProvider, cache, persistence, recommendationIndexerClient, null);
   }
 
+  public PlaceDetailsServiceImpl(
+      PlaceRepository repository,
+      PlaceProvider provider,
+      PlaceEnrichmentProvider enrichmentProvider,
+      PlaceCacheService cache,
+      PlacePersistenceService persistence,
+      RecommendationIndexerClient recommendationIndexerClient,
+      PlaceCloudinaryStorageService cloudinaryStorageService) {
+    this(
+        repository,
+        provider,
+        enrichmentProvider,
+        cache,
+        persistence,
+        recommendationIndexerClient,
+        cloudinaryStorageService,
+        DEFAULT_LAZY_PHOTO_LIMIT);
+  }
+
   @Autowired
   public PlaceDetailsServiceImpl(
       PlaceRepository repository,
@@ -67,7 +117,8 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
       PlaceCacheService cache,
       PlacePersistenceService persistence,
       @Autowired(required = false) RecommendationIndexerClient recommendationIndexerClient,
-      @Autowired(required = false) PlaceCloudinaryStorageService cloudinaryStorageService) {
+      @Autowired(required = false) PlaceCloudinaryStorageService cloudinaryStorageService,
+      @Value("${tripsense.places.lazy-photo-limit:3}") int lazyPhotoLimit) {
     this.repository = repository;
     this.provider = provider;
     this.enrichmentProvider = enrichmentProvider;
@@ -75,6 +126,15 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
     this.persistence = persistence;
     this.recommendationIndexerClient = recommendationIndexerClient;
     this.cloudinaryStorageService = cloudinaryStorageService;
+    this.lazyPhotoLimit = Math.max(1, Math.min(lazyPhotoLimit, 5));
+  }
+
+  private static Object[] createLockStripes() {
+    Object[] stripes = new Object[PHOTO_LOCK_STRIPES];
+    for (int i = 0; i < stripes.length; i++) {
+      stripes[i] = new Object();
+    }
+    return stripes;
   }
 
   @Override
@@ -108,21 +168,17 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
                     base.getPhotos() != null
                         && !base.getPhotos().isEmpty()
                         && base.getPhotos().stream()
-                            .anyMatch(url -> url != null && url.contains("res.cloudinary.com"));
+                            .anyMatch(PlaceCloudinaryStorageService::isPermanentCloudinaryUrl);
 
                 if (hasPermanentPhotos && base.getPhotos() != null && !base.getPhotos().isEmpty()) {
                   List<PlacePhotoDto> existingGallery =
                       base.getPhotos().stream()
-                          .filter(StringUtils::hasText)
+                          .filter(PlaceCloudinaryStorageService::isPermanentCloudinaryUrl)
                           .map(
                               url ->
                                   new PlacePhotoDto(
                                       url,
-                                      url.contains("res.cloudinary.com")
-                                          ? "cloudinary"
-                                          : (StringUtils.hasText(place.getProvider())
-                                              ? place.getProvider()
-                                              : provider.getProviderName()),
+                                      "cloudinary",
                                       List.of(),
                                       base.getFetchedAt() != null
                                           ? base.getFetchedAt()
@@ -130,6 +186,7 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
                                       true))
                           .toList();
                   if (!existingGallery.isEmpty()) {
+                    place.setPhotos(existingGallery.stream().map(PlacePhotoDto::url).toList());
                     place.setPhotoGallery(existingGallery);
                     place.setPrimaryPhoto(existingGallery.get(0));
                     return place;
@@ -154,41 +211,7 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
                 if (StringUtils.hasText(place.getProvider())
                     && place.getProvider().equalsIgnoreCase(provider.getProviderName())
                     && StringUtils.hasText(place.getProviderPlaceId())) {
-                  var rawGallery = provider.getPhotoGallery(place.getProviderPlaceId(), 5);
-                  if (!rawGallery.isEmpty()) {
-                    List<PlacePhotoDto> permanentGallery = new ArrayList<>();
-                    List<String> permanentUrls = new ArrayList<>();
-
-                    for (int i = 0; i < rawGallery.size(); i++) {
-                      PlacePhotoDto rawPhoto = rawGallery.get(i);
-                      String rawUrl = rawPhoto.url();
-                      String finalUrl = rawUrl;
-                      String finalSource = rawPhoto.source();
-
-                      if (cloudinaryStorageService != null && StringUtils.hasText(rawUrl)) {
-                        Optional<String> permanentOpt =
-                            cloudinaryStorageService.uploadRemotePhoto(
-                                rawUrl, place.getProviderPlaceId(), i);
-                        if (permanentOpt.isPresent()) {
-                          finalUrl = permanentOpt.get();
-                          finalSource = "cloudinary";
-                        }
-                      }
-                      permanentUrls.add(finalUrl);
-                      permanentGallery.add(
-                          new PlacePhotoDto(
-                              finalUrl,
-                              finalSource,
-                              rawPhoto.attribution(),
-                              rawPhoto.fetchedAt(),
-                              rawPhoto.displayApproved()));
-                    }
-
-                    place.setPhotoGallery(permanentGallery);
-                    place.setPrimaryPhoto(permanentGallery.get(0));
-                    place.setPhotos(new ArrayList<>(permanentUrls));
-                    persistPhotoUrls(place, permanentUrls);
-                  }
+                  healPhotosWithSingleFlight(place, base.getFetchedAt());
                 }
                 return place;
               });
@@ -196,6 +219,113 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
 
     finalResult.ifPresent(this::triggerRecommendationIndexing);
     return finalResult;
+  }
+
+  private void healPhotosWithSingleFlight(PlaceDto place, Instant fallbackFetchedAt) {
+    String lockKey =
+        StringUtils.hasText(place.getProviderPlaceId()) ? place.getProviderPlaceId() : place.getId();
+    Object lock =
+        photoHealLocks[Math.floorMod(lockKey != null ? lockKey.hashCode() : 0, PHOTO_LOCK_STRIPES)];
+
+    synchronized (lock) {
+      // Re-check persisted Cloudinary URLs so concurrent callers reuse a just-completed upload.
+      List<String> storedCloudinaryUrls = loadStoredCloudinaryUrls(place);
+      if (!storedCloudinaryUrls.isEmpty()) {
+        applyCloudinaryGallery(place, storedCloudinaryUrls, fallbackFetchedAt);
+        cacheDetails(place.getId(), place);
+        if (StringUtils.hasText(place.getProviderPlaceId())) {
+          cacheDetails(place.getProviderPlaceId(), place);
+        }
+        return;
+      }
+
+      var rawGallery = provider.getPhotoGallery(place.getProviderPlaceId(), lazyPhotoLimit);
+      if (rawGallery.isEmpty()) {
+        return;
+      }
+
+      List<PlacePhotoDto> permanentGallery = new ArrayList<>();
+      List<String> permanentUrls = new ArrayList<>();
+
+      for (int i = 0; i < rawGallery.size(); i++) {
+        PlacePhotoDto rawPhoto = rawGallery.get(i);
+        String rawUrl = rawPhoto.url();
+        if (!StringUtils.hasText(rawUrl)) {
+          continue;
+        }
+        if (cloudinaryStorageService != null) {
+          Optional<String> permanentOpt =
+              cloudinaryStorageService.uploadRemotePhoto(rawUrl, place.getProviderPlaceId(), i);
+          if (permanentOpt.isPresent()) {
+            String finalUrl = permanentOpt.get();
+            permanentUrls.add(finalUrl);
+            permanentGallery.add(
+                new PlacePhotoDto(
+                    finalUrl,
+                    "cloudinary",
+                    rawPhoto.attribution(),
+                    rawPhoto.fetchedAt(),
+                    rawPhoto.displayApproved()));
+          }
+        } else {
+          permanentUrls.add(rawUrl);
+          permanentGallery.add(
+              new PlacePhotoDto(
+                  rawUrl,
+                  rawPhoto.source(),
+                  rawPhoto.attribution(),
+                  rawPhoto.fetchedAt(),
+                  rawPhoto.displayApproved()));
+        }
+      }
+
+      if (!permanentGallery.isEmpty()) {
+        place.setPhotoGallery(permanentGallery);
+        place.setPrimaryPhoto(permanentGallery.get(0));
+        place.setPhotos(new ArrayList<>(permanentUrls));
+        persistPhotoUrls(place, permanentUrls);
+      }
+    }
+  }
+
+  private List<String> loadStoredCloudinaryUrls(PlaceDto place) {
+    Optional<Place> stored = findStoredPlace(place);
+    if (stored.isEmpty() || stored.get().getPhotos() == null) {
+      return List.of();
+    }
+    return stored.get().getPhotos().stream()
+        .filter(PlaceCloudinaryStorageService::isPermanentCloudinaryUrl)
+        .toList();
+  }
+
+  private Optional<Place> findStoredPlace(PlaceDto place) {
+    if (place == null) {
+      return Optional.empty();
+    }
+    Optional<Place> stored = Optional.empty();
+    if (StringUtils.hasText(place.getId())) {
+      stored = repository.findById(place.getId());
+    }
+    if (stored.isEmpty()
+        && StringUtils.hasText(place.getProvider())
+        && StringUtils.hasText(place.getProviderPlaceId())) {
+      stored =
+          repository.findByProviderAndProviderPlaceId(
+              place.getProvider(), place.getProviderPlaceId());
+    }
+    return stored;
+  }
+
+  private void applyCloudinaryGallery(
+      PlaceDto place, List<String> cloudinaryUrls, Instant fetchedAt) {
+    Instant effectiveFetchedAt = fetchedAt != null ? fetchedAt : Instant.now();
+    List<PlacePhotoDto> gallery =
+        cloudinaryUrls.stream()
+            .map(url -> new PlacePhotoDto(url, "cloudinary", List.of(), effectiveFetchedAt, true))
+            .toList();
+    place.setPhotos(new ArrayList<>(cloudinaryUrls));
+    place.setPhotoGallery(gallery);
+    place.setPrimaryPhoto(gallery.get(0));
   }
 
   private List<PlacePhotoDto> freshPhotoGallery(PlaceDto place, Instant now) {
@@ -222,17 +352,7 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
 
   private void persistPhotoUrls(PlaceDto place, List<String> photoUrls) {
     try {
-      Optional<Place> stored = Optional.empty();
-      if (StringUtils.hasText(place.getId())) {
-        stored = repository.findById(place.getId());
-      }
-      if (stored.isEmpty()
-          && StringUtils.hasText(place.getProvider())
-          && StringUtils.hasText(place.getProviderPlaceId())) {
-        stored =
-            repository.findByProviderAndProviderPlaceId(
-                place.getProvider(), place.getProviderPlaceId());
-      }
+      Optional<Place> stored = findStoredPlace(place);
       if (stored.isPresent()) {
         Place entity = stored.get();
         entity.setPhotos(new ArrayList<>(photoUrls));
@@ -330,6 +450,11 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
 
   @Override
   public List<PlaceDto> getSnapshots(List<String> ids) {
+    return getSnapshots(ids, false);
+  }
+
+  @Override
+  public List<PlaceDto> getSnapshots(List<String> ids, boolean includePhoto) {
     if (ids == null || ids.isEmpty()) {
       return List.of();
     }
@@ -344,10 +469,64 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
     if (!missing.isEmpty()) {
       stored.addAll(repository.findByProviderPlaceIdIn(missing));
     }
-    return stored.stream()
-        .filter(place -> place.getLifecycleStatus()
-            != fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED)
-        .map(persistence::toDto).toList();
+    List<PlaceDto> baseSnapshots =
+        stored.stream()
+            .filter(
+                place ->
+                    place.getLifecycleStatus()
+                        != fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus.ARCHIVED)
+            .map(persistence::toDto)
+            .toList();
+    if (!includePhoto || baseSnapshots.isEmpty()) {
+      return baseSnapshots;
+    }
+
+    int maxHydrate = 12;
+    List<CompletableFuture<PlaceDto>> futures = new ArrayList<>(baseSnapshots.size());
+    int hydratedRequests = 0;
+    for (PlaceDto snapshot : baseSnapshots) {
+      if (hasUsablePhoto(snapshot) || hydratedRequests >= maxHydrate) {
+        futures.add(CompletableFuture.completedFuture(snapshot));
+        continue;
+      }
+      hydratedRequests++;
+      futures.add(
+          CompletableFuture.supplyAsync(
+                  () -> {
+                    Double lat =
+                        snapshot.getLocation() != null ? snapshot.getLocation().getLat() : null;
+                    Double lng =
+                        snapshot.getLocation() != null ? snapshot.getLocation().getLng() : null;
+                    return getDetails(snapshot.getId(), snapshot.getName(), lat, lng, true)
+                        .orElse(snapshot);
+                  },
+                  snapshotPhotoExecutor)
+              .orTimeout(4, TimeUnit.SECONDS)
+              .exceptionally(ex -> snapshot));
+    }
+
+    return futures.stream().map(CompletableFuture::join).toList();
+  }
+
+  private boolean hasUsablePhoto(PlaceDto place) {
+    if (place == null) {
+      return false;
+    }
+    if (place.getMedia() != null
+        && "READY".equals(place.getMedia().state())
+        && place.getMedia().primary() != null
+        && StringUtils.hasText(place.getMedia().primary().url())) {
+      return true;
+    }
+    if (place.getPrimaryPhoto() != null && StringUtils.hasText(place.getPrimaryPhoto().url())) {
+      return true;
+    }
+    if (place.getPhotos() != null
+        && place.getPhotos().stream()
+            .anyMatch(PlaceCloudinaryStorageService::isPermanentCloudinaryUrl)) {
+      return true;
+    }
+    return !freshPhotoGallery(place, Instant.now()).isEmpty();
   }
 
   private PlaceDto refreshIfNeeded(Place place, Double fallbackLat, Double fallbackLng) {

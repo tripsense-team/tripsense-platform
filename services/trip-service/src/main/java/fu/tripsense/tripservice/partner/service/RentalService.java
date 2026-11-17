@@ -3,9 +3,13 @@ package fu.tripsense.tripservice.partner.service;
 import fu.tripsense.tripservice.exception.TripServiceException;
 import fu.tripsense.tripservice.partner.dto.*;
 import fu.tripsense.tripservice.partner.entity.PartnerBusiness;
+import fu.tripsense.tripservice.partner.entity.PartnerBusinessMember;
+import fu.tripsense.tripservice.partner.entity.PartnerNotification;
 import fu.tripsense.tripservice.partner.entity.PartnerRentalItem;
 import fu.tripsense.tripservice.partner.entity.RentalBookingOrder;
+import fu.tripsense.tripservice.partner.enums.MembershipRole;
 import fu.tripsense.tripservice.partner.enums.MembershipState;
+import fu.tripsense.tripservice.partner.enums.OperationState;
 import fu.tripsense.tripservice.partner.enums.PickupOption;
 import fu.tripsense.tripservice.partner.enums.RentalBookingStatus;
 import fu.tripsense.tripservice.partner.enums.RentalCategory;
@@ -28,16 +32,23 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RentalService {
 
+  private static final String RENTAL_IMAGE_SECTION = "rental-items";
+
   private final PartnerRentalItemRepository rentalItemRepo;
   private final RentalBookingOrderRepository rentalBookingRepo;
   private final PartnerBusinessRepository businessRepo;
   private final PartnerBusinessMemberRepository memberRepo;
+  private final RestaurantMenuImageStorage imageStorage;
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private PartnerNotificationOutboxService outboxService;
 
   // =========================================================================
   // Authorization Helper
@@ -68,6 +79,45 @@ public class RentalService {
   // Partner Catalog Operations
   // =========================================================================
 
+  @Transactional(readOnly = true)
+  public RestaurantMenuImageUploadDto uploadRentalItemImage(
+      AuthenticatedUser user, UUID businessId, MultipartFile file) {
+    assertUserCanManageBusiness(user, businessId);
+    PartnerBusiness business = requireBusiness(businessId);
+    if (business.getOperationState() == OperationState.SUSPENDED) {
+      throw new TripServiceException("BUSINESS_SUSPENDED", "Business is suspended", HttpStatus.FORBIDDEN);
+    }
+    try {
+      return imageStorage.upload(businessId, RENTAL_IMAGE_SECTION, file);
+    } catch (IllegalArgumentException exception) {
+      throw new TripServiceException("INVALID_RENTAL_IMAGE", "Image is not valid", HttpStatus.BAD_REQUEST);
+    } catch (IllegalStateException exception) {
+      throw new TripServiceException("RENTAL_IMAGE_UPLOAD_FAILED", "Image upload is unavailable", HttpStatus.BAD_GATEWAY);
+    }
+  }
+
+  @Transactional(readOnly = true)
+  public void deleteUnreferencedRentalItemImage(
+      AuthenticatedUser user, UUID businessId, String imagePublicId) {
+    assertUserCanManageBusiness(user, businessId);
+    if (imagePublicId == null
+        || imagePublicId.isBlank()
+        || !imageStorage.isValidReference(businessId, RENTAL_IMAGE_SECTION, imagePublicId)) {
+      throw new TripServiceException("INVALID_RENTAL_IMAGE", "Image reference is not valid", HttpStatus.BAD_REQUEST);
+    }
+    boolean stillReferenced = rentalItemRepo.findByBusinessIdOrderByCreatedAtDesc(businessId).stream()
+        .anyMatch(item -> item.getImages() != null
+            && item.getImages().stream().anyMatch(url -> url != null && url.contains(imagePublicId)));
+    if (stillReferenced) {
+      throw new TripServiceException("RENTAL_IMAGE_IN_USE", "Image is still used by a rental item", HttpStatus.CONFLICT);
+    }
+    try {
+      imageStorage.delete(businessId, RENTAL_IMAGE_SECTION, imagePublicId);
+    } catch (Exception exception) {
+      throw new TripServiceException("RENTAL_IMAGE_DELETE_FAILED", "Image could not be removed", HttpStatus.BAD_GATEWAY);
+    }
+  }
+
   @Transactional
   public RentalItemDto createRentalItem(
       AuthenticatedUser user, UUID businessId, CreateRentalItemRequest req) {
@@ -79,10 +129,7 @@ public class RentalService {
       images.add(req.thumbnailUrl().trim());
     }
 
-    boolean deliveryAvailable =
-        Boolean.TRUE.equals(req.deliveryAvailable())
-            || req.pickupOption() == PickupOption.DELIVERY_TO_LOCATION
-            || req.pickupOption() == PickupOption.DOOR_DELIVERY;
+    boolean deliveryAvailable = resolveDeliveryAvailable(req.deliveryAvailable(), req.pickupOption());
 
     PartnerRentalItem item =
         PartnerRentalItem.builder()
@@ -134,12 +181,8 @@ public class RentalService {
     item.setDepositPolicy(req.depositPolicy());
     if (req.totalInventory() != null) item.setTotalInventory(req.totalInventory());
 
-    if (req.deliveryAvailable() != null) {
-      item.setDeliveryAvailable(req.deliveryAvailable());
-    } else if (req.pickupOption() != null) {
-      item.setDeliveryAvailable(
-          req.pickupOption() == PickupOption.DELIVERY_TO_LOCATION
-              || req.pickupOption() == PickupOption.DOOR_DELIVERY);
+    if (req.deliveryAvailable() != null || req.pickupOption() != null) {
+      item.setDeliveryAvailable(resolveDeliveryAvailable(req.deliveryAvailable(), req.pickupOption()));
     }
 
     if (req.deliveryFee() != null) item.setDeliveryFee(req.deliveryFee());
@@ -148,6 +191,15 @@ public class RentalService {
 
     PartnerRentalItem saved = rentalItemRepo.save(item);
     return toDto(saved);
+  }
+
+  private static boolean resolveDeliveryAvailable(Boolean deliveryAvailable, PickupOption pickupOption) {
+    if (deliveryAvailable != null) {
+      return deliveryAvailable;
+    }
+    return pickupOption == PickupOption.BOTH
+        || pickupOption == PickupOption.DELIVERY_TO_LOCATION
+        || pickupOption == PickupOption.DOOR_DELIVERY;
   }
 
   @Transactional
@@ -327,6 +379,20 @@ public class RentalService {
             .build();
 
     RentalBookingOrder saved = rentalBookingRepo.save(order);
+    notifyRentalManagers(
+        biz.getId(),
+        biz.getOwnerUserId(),
+        "RENTAL_BOOKING_REQUESTED",
+        String.format(
+            "Đơn thuê mới %s: %s (x%d) từ khách %s.",
+            saved.getBookingCode(), item.getName(), requestedQty, saved.getCustomerName()));
+    notifyRentalUser(
+        customerId,
+        biz.getId(),
+        "RENTAL_BOOKING_PLACED",
+        String.format(
+            "Đã gửi yêu cầu thuê %s tại %s (%s). Vui lòng chờ đối tác xác nhận.",
+            item.getName(), biz.getDisplayName(), saved.getBookingCode()));
     return toBookingDto(saved, biz.getDisplayName(), item.getName(), item.getCategory().name());
   }
 
@@ -349,7 +415,13 @@ public class RentalService {
 
     order.setStatus(RentalBookingStatus.CONFIRMED);
     RentalBookingOrder saved = rentalBookingRepo.save(order);
-    return enrichBookingDto(saved);
+    RentalBookingOrderDto dto = enrichBookingDto(saved);
+    notifyRentalUser(
+        saved.getCustomerId(),
+        saved.getBusinessId(),
+        "RENTAL_BOOKING_CONFIRMED",
+        String.format("Đơn thuê %s tại %s đã được xác nhận.", saved.getBookingCode(), dto.businessName()));
+    return dto;
   }
 
   @Transactional
@@ -367,7 +439,13 @@ public class RentalService {
     order.setStatus(RentalBookingStatus.IN_USE);
     order.setHandoverAt(Instant.now());
     RentalBookingOrder saved = rentalBookingRepo.save(order);
-    return enrichBookingDto(saved);
+    RentalBookingOrderDto dto = enrichBookingDto(saved);
+    notifyRentalUser(
+        saved.getCustomerId(),
+        saved.getBusinessId(),
+        "RENTAL_BOOKING_HANDED_OVER",
+        String.format("Đơn thuê %s tại %s đã được bàn giao cho bạn.", saved.getBookingCode(), dto.businessName()));
+    return dto;
   }
 
   @Transactional
@@ -395,7 +473,13 @@ public class RentalService {
     if (partnerNote != null) order.setPartnerNote(partnerNote.trim());
 
     RentalBookingOrder saved = rentalBookingRepo.save(order);
-    return enrichBookingDto(saved);
+    RentalBookingOrderDto dto = enrichBookingDto(saved);
+    notifyRentalUser(
+        saved.getCustomerId(),
+        saved.getBusinessId(),
+        "RENTAL_BOOKING_RETURNED",
+        String.format("Đơn thuê %s tại %s đã hoàn tất trả xe/thiết bị.", saved.getBookingCode(), dto.businessName()));
+    return dto;
   }
 
   @Transactional
@@ -413,7 +497,13 @@ public class RentalService {
     order.setStatus(RentalBookingStatus.REJECTED);
     order.setRejectionReason(reason);
     RentalBookingOrder saved = rentalBookingRepo.save(order);
-    return enrichBookingDto(saved);
+    RentalBookingOrderDto dto = enrichBookingDto(saved);
+    notifyRentalUser(
+        saved.getCustomerId(),
+        saved.getBusinessId(),
+        "RENTAL_BOOKING_REJECTED",
+        String.format("Đơn thuê %s tại %s đã bị từ chối.", saved.getBookingCode(), dto.businessName()));
+    return dto;
   }
 
   @Transactional
@@ -429,7 +519,13 @@ public class RentalService {
     order.setStatus(RentalBookingStatus.CANCELLED);
     order.setRejectionReason(reason);
     RentalBookingOrder saved = rentalBookingRepo.save(order);
-    return enrichBookingDto(saved);
+    RentalBookingOrderDto dto = enrichBookingDto(saved);
+    notifyRentalManagers(
+        saved.getBusinessId(),
+        null,
+        "RENTAL_BOOKING_CANCELLED",
+        String.format("Khách đã hủy đơn thuê %s (%s).", saved.getBookingCode(), dto.rentalItemName()));
+    return dto;
   }
 
   @Transactional(readOnly = true)
@@ -450,6 +546,53 @@ public class RentalService {
   // =========================================================================
   // Private Helpers
   // =========================================================================
+
+  private void notifyRentalManagers(
+      UUID businessId, UUID fallbackOwnerId, String eventType, String message) {
+    if (outboxService == null || businessId == null) {
+      return;
+    }
+    java.util.Set<UUID> recipientIds = new java.util.LinkedHashSet<>();
+    for (PartnerBusinessMember member :
+        memberRepo.findByIdBusinessIdAndState(businessId, MembershipState.ACTIVE)) {
+      if (member.getRole() == MembershipRole.OWNER || member.getRole() == MembershipRole.MANAGER) {
+        recipientIds.add(member.getId().getUserId());
+      }
+    }
+    if (recipientIds.isEmpty() && fallbackOwnerId != null) {
+      recipientIds.add(fallbackOwnerId);
+    }
+    Instant now = Instant.now();
+    for (UUID recipientId : recipientIds) {
+      outboxService.saveNotificationWithOutbox(
+          PartnerNotification.builder()
+              .id(UUID.randomUUID())
+              .eventId(UUID.randomUUID())
+              .recipientId(recipientId)
+              .eventType(eventType)
+              .businessId(businessId)
+              .message(message)
+              .createdAt(now)
+              .build());
+    }
+  }
+
+  private void notifyRentalUser(
+      UUID recipientId, UUID businessId, String eventType, String message) {
+    if (outboxService == null || recipientId == null) {
+      return;
+    }
+    outboxService.saveNotificationWithOutbox(
+        PartnerNotification.builder()
+            .id(UUID.randomUUID())
+            .eventId(UUID.randomUUID())
+            .recipientId(recipientId)
+            .eventType(eventType)
+            .businessId(businessId)
+            .message(message)
+            .createdAt(Instant.now())
+            .build());
+  }
 
   private PartnerBusiness requireBusiness(UUID businessId) {
     return businessRepo
@@ -475,7 +618,8 @@ public class RentalService {
     }
   }
 
-  private RentalItemDto toDto(PartnerRentalItem item) {
+  /** Converts a persisted rental item entity to its public/partner DTO representation. */
+  public RentalItemDto toDto(PartnerRentalItem item) {
     String thumb =
         (item.getImages() != null && !item.getImages().isEmpty())
             ? item.getImages().get(0)

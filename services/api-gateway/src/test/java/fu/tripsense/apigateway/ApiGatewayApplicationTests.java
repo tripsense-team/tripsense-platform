@@ -117,4 +117,19 @@ class ApiGatewayApplicationTests {
         .hasSize(6)
         .allSatisfy(route -> assertThat(route.getFilters()).isNotEmpty());
   }
+
+  @Test
+  void aiServiceRouteSetsNoTransformStreamingHeaders() {
+    List<Route> routes = routeLocator.getRoutes().collectList().block();
+
+    assertThat(routes)
+        .isNotNull()
+        .anySatisfy(
+            route -> {
+              assertThat(route.getId()).isEqualTo(GatewayRoutesConfig.AI_SERVICE_ROUTE_ID);
+              String filterSummary = route.getFilters().toString();
+              assertThat(filterSummary).contains("no-transform");
+              assertThat(filterSummary).contains("X-Accel-Buffering");
+            });
+  }
 }

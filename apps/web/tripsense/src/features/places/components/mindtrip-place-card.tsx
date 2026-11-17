@@ -8,15 +8,8 @@ import {
   CheckCircle2,
   Info,
   Star,
-  Utensils,
-  Coffee,
-  Waves,
-  Landmark,
-  Compass,
-  ImageOff,
   ChevronLeft,
   ChevronRight,
-  Hotel,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -26,6 +19,10 @@ import {
   approvedPhotoGallery,
   freshApprovedPhotoGallery,
 } from "../utils/approved-photo";
+import {
+  PlaceCategoryIcon,
+  PlacePhotoFallback,
+} from "./place-photo-fallback";
 
 export interface MindtripPlaceCardProps {
   place: Place;
@@ -39,20 +36,6 @@ export interface MindtripPlaceCardProps {
   /** Optional override for the price/status row (row 4). When provided, replaces default price text. */
   priceLabel?: React.ReactNode;
   className?: string;
-}
-
-function CategoryIcon({ category = "" }: { category?: string }) {
-  const className = "h-3.5 w-3.5 text-muted-foreground/80 shrink-0";
-  const text = category.toLowerCase();
-  if (/cà phê|cafe|coffee/i.test(text)) return <Coffee className={className} />;
-  if (/ăn|quán|bún|phở|mì|cơm|bánh|lẩu|restaurant|food|ẩm thực|nướng|pizza|vietnamese/i.test(text))
-    return <Utensils className={className} />;
-  if (/biển|bãi|beach|sea|đảo|ocean/i.test(text)) return <Waves className={className} />;
-  if (/chùa|temple|pagoda|linh ứng|tháp|nhà thờ|di tích|lăng|heritage|museum/i.test(text))
-    return <Landmark className={className} />;
-  if (/stay|hotel|resort|khách sạn|khu nghỉ|bungalow|villa|lodging/i.test(text))
-    return <Hotel className={className} />;
-  return <Compass className={className} />;
 }
 
 function formatRating(rating?: number, locale: string = "en"): string {
@@ -275,12 +258,11 @@ function MindtripPlaceCardComponent({
             }}
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-muted/80 via-muted to-muted/60 text-muted-foreground select-none p-4 text-center">
-            <ImageOff className="h-6 w-6" aria-hidden="true" />
-            <span className="text-xs">
-              {t("places.noLicensedPhotos", { defaultValue: "No photos available" })}
-            </span>
-          </div>
+          <PlacePhotoFallback
+            primaryType={place.primaryType}
+            categories={place.categories}
+            variant="card"
+          />
         )}
 
         {/* Carousel Left / Right Navigation Arrows */}
@@ -400,7 +382,12 @@ function MindtripPlaceCardComponent({
 
         {/* Row 2: Category with Icon */}
         <div className="flex items-center gap-1.5 text-xs sm:text-[13px] text-muted-foreground">
-          <CategoryIcon category={primaryCategory} />
+          <PlaceCategoryIcon
+            primaryType={place.primaryType}
+            category={primaryCategory}
+            categories={place.categories}
+            className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0"
+          />
           <span className="capitalize line-clamp-1">
             {primaryCategory.replace(/_/g, " ")}
           </span>

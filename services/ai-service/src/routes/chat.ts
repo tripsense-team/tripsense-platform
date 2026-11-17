@@ -2,10 +2,9 @@ import { Hono } from "hono";
 import {
   isStepCount,
   streamText,
-  smoothStream,
   generateText,
 } from "ai";
-import { eq, desc, asc, and, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import crypto from "node:crypto";
 import { db } from "../db/index.js";
@@ -14,13 +13,36 @@ import { getLanguageModel, resolveLanguageModel } from "../ai/providers.js";
 import { geminiKeyManager } from "../ai/gemini-key-manager.js";
 import { DEFAULT_MODEL_ID, SUPPORTED_MODELS } from "../ai/models.js";
 import { getSystemPrompt } from "../ai/prompts.js";
+import {
+  briefFromClientPreferences,
+  briefFromTripRecord,
+  buildConversationHistory,
+  evaluateSpeculativePrefetchPlan,
+  formatBudgetTierHint,
+  formatClientPreferencesSummary,
+  formatPrefetchedCandidatesSummary,
+  formatTripSummary,
+  mergeEffectiveBrief,
+  postChatTripPreferencesSchema,
+} from "../ai/trip-context.js";
+import { createChatLatencyTracker } from "../ai/latency-diagnostics.js";
 import { getWeather } from "../ai/tools/get-weather.js";
-import { searchPlaces } from "../ai/tools/search-places.js";
-import { recommendPlaces } from "../ai/tools/recommend-places.js";
+import { getSearchPlacesTool } from "../ai/tools/search-places.js";
+import { getPrepareTripCandidatesTool } from "../ai/tools/prepare-trip-candidates.js";
+import { getRecommendPlacesTool } from "../ai/tools/recommend-places.js";
+import {
+  normalizePlaceKey,
+  PlaceGroundingStore,
+  prepareTripCandidates,
+  type PrepareTripCandidatesGroup,
+} from "../ai/place-grounding.js";
 import { getCreateTripProposalTool } from "../ai/tools/create-trip-proposal.js";
 import { getItineraryManagementTools } from "../ai/tools/itinerary-management.js";
 import {
+  extractLatestTripBriefFromMessages,
   getUpdateTripPlanningBriefTool,
+  hasCancellationIntent,
+  hasExplicitPlanningIntent,
   loadLatestTripBrief,
   shouldStopAfterBriefStep,
   type PlanningRuntimeState,
@@ -51,6 +73,8 @@ const postChatSchema = z.object({
   messages: z.array(z.any()).optional(),
   selectedModel: z.string().optional(),
   selectedChatModel: z.string().optional(),
+  tripId: z.string().uuid().optional(),
+  tripPreferences: postChatTripPreferencesSchema.optional(),
 });
 
 const linkChatTripSchema = z.object({
@@ -152,15 +176,17 @@ async function ownedChat(chatId: string, userId: string) {
   return chat;
 }
 
-async function fetchTripResource(path: string, authorization?: string) {
+async function fetchTripResource(path: string, authorization?: string, timeoutMs = 2000) {
   return fetch(`${config.tripServiceUrl}${path}`, {
     headers: authorization ? { Authorization: authorization } : {},
+    signal: AbortSignal.timeout(timeoutMs),
   });
 }
 
 async function fetchTripSummary(
   tripId?: string,
   authorization?: string,
+  clientBudgetTierHint?: string,
 ): Promise<{ summary?: string; trip?: any } | undefined> {
   if (!tripId || !authorization) return undefined;
   try {
@@ -169,33 +195,30 @@ async function fetchTripSummary(
       fetchTripResource(`/api/trips/${tripId}/itinerary`, authorization),
     ]);
 
-    if (tripRes.status !== "fulfilled" || !tripRes.value.ok) return undefined;
+    if (tripRes.status !== "fulfilled") {
+      console.warn(`[ai-service] fetchTripSummary failed for trip ${tripId}:`, tripRes.reason);
+      return undefined;
+    }
+    if (!tripRes.value.ok) {
+      console.warn(`[ai-service] fetchTripSummary returned HTTP ${tripRes.value.status} for trip ${tripId}`);
+      return undefined;
+    }
     const tripPayload: any = await tripRes.value.json();
     const trip = tripPayload?.data;
     if (!trip) return undefined;
 
-    const flexibleMatch = trip.notes?.match(/Travel preference:\s*(\d+)\s*days\s*flexible(?:\s*\(([^)]+)\))?/i);
-    const timeSummary = flexibleMatch
-      ? `${flexibleMatch[1]} ngày linh hoạt${flexibleMatch[2] ? ` (${flexibleMatch[2]})` : ""} (tạm tính mốc ${trip.startDate} đến ${trip.endDate})`
-      : `${trip.startDate} đến ${trip.endDate}`;
-
-    const travelerText = trip.travelerCount ? ` | Số người: ${trip.travelerCount}` : "";
-    let summary = `- Tên chuyến đi: "${trip.name}" | Điểm đến: ${trip.destinationName} | Thời gian: ${timeSummary}${travelerText}`;
-
+    let days: any[] | undefined;
     if (itinRes.status === "fulfilled" && itinRes.value.ok) {
       const itinPayload: any = await itinRes.value.json();
-      const days = itinPayload?.data?.days;
-      if (Array.isArray(days) && days.length > 0) {
-        const lines = days.map((d: any) => {
-          const names = (d.items || [])
-            .map((it: any) => it.title || it.placeName)
-            .filter(Boolean);
-          return `  + Ngày ${d.dayNumber || 1}: ${names.length > 0 ? names.join(", ") : "Chưa có địa điểm"}`;
-        });
-        summary += `\n- Các địa điểm đã lưu trong lịch trình:\n${lines.join("\n")}`;
+      if (Array.isArray(itinPayload?.data?.days)) {
+        days = itinPayload.data.days;
       }
     }
-    return { summary, trip };
+
+    return {
+      summary: formatTripSummary(trip, days, clientBudgetTierHint),
+      trip,
+    };
   } catch {
     return undefined;
   }
@@ -911,6 +934,82 @@ chatRouter.post("/proposals/:id/apply", async (c) => {
   return c.json({ ...result, chatId: chat.id });
 });
 
+interface BoundedPrefetchResult {
+  ran: boolean;
+  durationMs: number;
+  timedOut: boolean;
+  destination: string;
+  groups: PrepareTripCandidatesGroup[];
+  total: number;
+  recommendationCount: number;
+  fallbackTriggered: boolean;
+}
+
+async function runBoundedCandidatePrefetch(params: {
+  destination: string;
+  tripId?: string;
+  authorization?: string;
+  userPreferences?: Awaited<ReturnType<typeof fetchUserContext>>["preferences"];
+  store: PlaceGroundingStore;
+  timeoutMs: number;
+}): Promise<BoundedPrefetchResult> {
+  const started = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutSentinel = Symbol("prefetch-timeout");
+
+  try {
+    const task = prepareTripCandidates({
+      destination: params.destination,
+      userPreferences: params.userPreferences,
+      tripId: params.tripId,
+      authorization: params.authorization,
+      store: params.store,
+    });
+    const timeoutPromise = new Promise<typeof timeoutSentinel>((resolve) => {
+      timer = setTimeout(() => resolve(timeoutSentinel), params.timeoutMs);
+    });
+
+    const outcome = await Promise.race([task, timeoutPromise]);
+    const durationMs = Date.now() - started;
+    if (outcome === timeoutSentinel) {
+      return {
+        ran: true,
+        durationMs,
+        timedOut: true,
+        destination: params.destination,
+        groups: [],
+        total: 0,
+        recommendationCount: 0,
+        fallbackTriggered: false,
+      };
+    }
+
+    return {
+      ran: true,
+      durationMs,
+      timedOut: false,
+      destination: outcome.destination,
+      groups: outcome.groups,
+      total: outcome.places.length,
+      recommendationCount: outcome.recommendationCount,
+      fallbackTriggered: outcome.fallbackTriggered,
+    };
+  } catch {
+    return {
+      ran: true,
+      durationMs: Date.now() - started,
+      timedOut: false,
+      destination: params.destination,
+      groups: [],
+      total: 0,
+      recommendationCount: 0,
+      fallbackTriggered: false,
+    };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /**
  * POST /api/chat
  * Core chat endpoint with Vercel AI SDK v7 createUIMessageStreamResponse (SSE protocol)
@@ -928,6 +1027,10 @@ chatRouter.post("/chat", async (c) => {
     typeof str === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
 
+  const authorization = authorizationFrom(c);
+  if (authorization?.startsWith("Bearer ") && !subjectFromAuthorization(authorization)) {
+    return safeError(c, 401, "AUTH_REQUIRED", "Authentication token expired or invalid");
+  }
   const userId = userIdFrom(c);
   let activeChatId = isUUID(body.id) ? body.id : (isUUID(body.chatId) ? body.chatId : undefined);
 
@@ -954,6 +1057,8 @@ chatRouter.post("/chat", async (c) => {
 
   let shouldGenerateTitle = false;
   let currentChatTitle: string | undefined;
+  let isNewChat = false;
+  let existingChatTripId: string | undefined;
 
   // 1. Resolve or create chat
   if (activeChatId) {
@@ -993,10 +1098,12 @@ chatRouter.post("/chat", async (c) => {
         userId,
         title: initialTitle,
       });
+      isNewChat = true;
       currentChatTitle = initialTitle;
       shouldGenerateTitle = isGenericChatTitle(initialTitle);
     } else {
       currentChatTitle = existing[0].title;
+      existingChatTripId = existing[0].tripId ?? undefined;
       shouldGenerateTitle = isGenericChatTitle(existing[0].title);
     }
   } else {
@@ -1010,6 +1117,7 @@ chatRouter.post("/chat", async (c) => {
       .returning();
 
     activeChatId = newChat.id;
+    isNewChat = true;
     currentChatTitle = initialTitle;
     shouldGenerateTitle = isGenericChatTitle(initialTitle);
   }
@@ -1024,107 +1132,246 @@ chatRouter.post("/chat", async (c) => {
       parts: [{ type: "text", text: userText }],
     });
 
-    await db
-      .update(chats)
-      .set({ updatedAt: new Date() })
-      .where(and(eq(chats.id, activeChatId), eq(chats.userId, userId)));
+    if (!isNewChat) {
+      await db
+        .update(chats)
+        .set({ updatedAt: new Date() })
+        .where(and(eq(chats.id, activeChatId), eq(chats.userId, userId)));
+    }
   }
 
-  // 3. Assemble message history from DB for AI context
-  const dbHistory = await db
-    .select()
-    .from(messages)
-    .where(
-      and(
-        eq(messages.chatId, activeChatId),
-        inArray(messages.role, ["user", "assistant"]),
-      ),
-    )
-    .orderBy(asc(messages.createdAt))
-    .limit(20);
+  // 3. Assemble recent history & persisted planning state without duplicate DB queries
+  let modelMessages: Array<{ role: "user" | "assistant"; content: string }>;
+  let priorPlanningState: Awaited<ReturnType<typeof loadLatestTripBrief>> = null;
+  let hasExistingProposal = false;
 
-  const modelMessages = dbHistory
-    .map((m) => {
-      let textContent = "";
-      if (Array.isArray(m.parts)) {
-        textContent = m.parts
-          .filter((p: any) => p && p.type === "text" && typeof p.text === "string")
-          .map((p: any) => p.text.trim())
-          .filter(Boolean)
-          .join("\n");
-      }
-      return {
-        role: m.role as "user" | "assistant",
-        content: textContent || "",
-      };
-    })
-    .filter((m) => m.content.length > 0);
+  if (isNewChat) {
+    modelMessages = userText ? [{ role: "user", content: userText }] : [];
+  } else {
+    const [dbHistoryDesc, planningStateRows] = await Promise.all([
+      db
+        .select()
+        .from(messages)
+        .where(
+          and(
+            eq(messages.chatId, activeChatId),
+            inArray(messages.role, ["user", "assistant"]),
+          ),
+        )
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(20),
+      db
+        .select({
+          id: messages.id,
+          createdAt: messages.createdAt,
+          parts: messages.parts,
+        })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.chatId, activeChatId),
+            eq(messages.role, "planning_state"),
+          ),
+        )
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(1),
+    ]);
+
+    modelMessages = buildConversationHistory([...dbHistoryDesc].reverse());
+    hasExistingProposal = dbHistoryDesc.some(
+      (row) =>
+        row.role === "assistant" &&
+        Array.isArray(row.parts) &&
+        row.parts.some(
+          (p: any) =>
+            p &&
+            typeof p === "object" &&
+            (p.type === "tool-createTripProposal" ||
+              p.toolInvocation?.toolName === "createTripProposal"),
+        ),
+    );
+    const briefCandidateRows = [
+      ...dbHistoryDesc
+        .filter((row) => row.role === "assistant")
+        .map((row) => ({ id: row.id, createdAt: row.createdAt, parts: row.parts })),
+      ...planningStateRows,
+    ].sort(
+      (a, b) =>
+        b.createdAt.getTime() - a.createdAt.getTime() ||
+        String(b.id).localeCompare(String(a.id)),
+    );
+    priorPlanningState = extractLatestTripBriefFromMessages(briefCandidateRows);
+  }
 
   const selectedModelId =
     body.selectedChatModel || body.selectedModel || DEFAULT_MODEL_ID;
+  const latency = createChatLatencyTracker({
+    chatId: activeChatId,
+    modelId: selectedModelId,
+    enabled: config.aiLatencyDiagnosticsEnabled,
+  });
 
-  const authorization = authorizationFrom(c);
-  const priorPlanningState = await loadLatestTripBrief(activeChatId);
-  const [chatRecord] = await db
-    .select({ tripId: chats.tripId })
-    .from(chats)
-    .where(and(eq(chats.id, activeChatId), eq(chats.userId, userId)))
-    .limit(1);
+  const persistedTripId = priorPlanningState?.tripId ?? existingChatTripId ?? undefined;
+  const candidateTripId = persistedTripId ?? body.tripId ?? undefined;
+  const clientBudgetTierHint = formatBudgetTierHint(body.tripPreferences?.budget);
+  const shouldCheckEditAccess = Boolean(
+    !persistedTripId && body.tripId && userId !== "guest" && authorization,
+  );
+  const placeStore = new PlaceGroundingStore();
+  const clientBrief = briefFromClientPreferences(body.tripPreferences);
+  const explicitPlanIntent = hasExplicitPlanningIntent(userText);
+  const cancelIntent = hasCancellationIntent(userText);
 
-  const resolvedTripId = priorPlanningState?.tripId ?? chatRecord?.tripId ?? undefined;
+  const earlyPrefetchPlan = evaluateSpeculativePrefetchPlan({
+    destinationHint:
+      priorPlanningState?.brief?.where?.destinationText || clientBrief?.where?.destinationText,
+    hasWhen: Boolean(priorPlanningState?.brief?.when || clientBrief?.when),
+    isTripLinked: Boolean(persistedTripId),
+    hasExistingProposal,
+    hasExplicitIntent: explicitPlanIntent,
+    hasCancelIntent: cancelIntent,
+  });
 
-  // Fetch real-time temporal, trip context and user personalization context in parallel
-  const [userProfile, tripData] = await Promise.all([
-    fetchUserContext(config, authorization),
-    fetchTripSummary(resolvedTripId, authorization),
-  ]);
-
-  const currentTripSummary = tripData?.summary;
-  let effectiveBrief = priorPlanningState?.brief;
-  if (!effectiveBrief && tripData?.trip) {
-    const t = tripData.trip;
-    let duration = 3;
-    if (t.startDate && t.endDate) {
-      const s = Date.parse(`${t.startDate}T00:00:00Z`);
-      const e = Date.parse(`${t.endDate}T00:00:00Z`);
-      if (!Number.isNaN(s) && !Number.isNaN(e)) {
-        duration = Math.max(1, Math.floor((e - s) / 86_400_000) + 1);
-      }
-    }
-    const flexibleMatch = t.notes?.match(/Travel preference:\s*(\d+)\s*days\s*flexible(?:\s*\(([^)]+)\))?/i);
-    const isFlexible = Boolean(flexibleMatch);
-    const flexDuration = flexibleMatch ? parseInt(flexibleMatch[1], 10) : duration;
-    const flexMonths = flexibleMatch && flexibleMatch[2]
-      ? flexibleMatch[2].split(",").map((s: string) => s.trim()).filter(Boolean)
+  const userProfilePromise = fetchUserContext(config, authorization);
+  const earlyPrefetchPromise =
+    earlyPrefetchPlan.shouldPrefetch && earlyPrefetchPlan.destination
+      ? userProfilePromise.then((profile) =>
+          runBoundedCandidatePrefetch({
+            destination: earlyPrefetchPlan.destination!,
+            tripId: candidateTripId,
+            authorization,
+            userPreferences: profile.preferences,
+            store: placeStore,
+            timeoutMs: config.aiPrefetchTimeoutMs,
+          }),
+        )
       : undefined;
 
-    effectiveBrief = {
-      where: { destinationText: t.destinationName },
-      when: isFlexible
-        ? {
-            type: "flexible",
-            durationDays: flexDuration,
-            flexibleMonths: flexMonths,
-            startDate: t.startDate,
-            endDate: t.endDate,
-          }
-        : {
-            type: "dates",
-            startDate: t.startDate,
-            endDate: t.endDate,
-            durationDays: duration,
-          },
-      who: t.travelerCount
-        ? { adults: t.travelerCount, children: 0, infants: 0, pets: 0 }
-        : undefined,
-    };
+  // Fetch user personalization, trip summary, edit-access, active AI model key, and optional early candidate prefetch concurrently
+  const [userProfile, tripData, editAccessRes, modelResolution, earlyPrefetchResult] =
+    await Promise.all([
+      userProfilePromise,
+      fetchTripSummary(candidateTripId, authorization, clientBudgetTierHint),
+      shouldCheckEditAccess
+        ? fetchTripResource(`/api/trips/${body.tripId}/edit-access`, authorization).catch((err) => {
+            console.warn(`[ai-service] Could not verify edit access for trip ${body.tripId}:`, err);
+            return undefined;
+          })
+        : Promise.resolve(undefined),
+      resolveLanguageModel(selectedModelId)
+        .then((value) => ({ ok: true as const, value }))
+        .catch((error: unknown) => ({ ok: false as const, error })),
+      earlyPrefetchPromise ?? Promise.resolve(undefined),
+    ]);
+
+  if (!modelResolution.ok) {
+    console.error("Failed to resolve AI language model:", modelResolution.error);
+    latency.markError();
+    latency.emit();
+    return c.json({ error: "AI model invocation failed" }, 500);
   }
+
+  let resolvedTripId = persistedTripId;
+  let linkedFromClientHint = false;
+  if (shouldCheckEditAccess && body.tripId && tripData?.trip && editAccessRes?.ok) {
+    try {
+      const linkedRows = await db
+        .update(chats)
+        .set({
+          tripId: body.tripId,
+          tripLinkedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(chats.id, activeChatId),
+            eq(chats.userId, userId),
+            isNull(chats.tripId),
+          ),
+        )
+        .returning({ tripId: chats.tripId });
+      if (linkedRows.length > 0) {
+        resolvedTripId = body.tripId;
+        linkedFromClientHint = true;
+      }
+    } catch (err) {
+      console.warn(`[ai-service] Could not link chat to trip ${body.tripId}:`, err);
+    }
+  }
+
+  const tripRecordBrief = briefFromTripRecord(tripData?.trip);
+  const effectiveBrief = mergeEffectiveBrief({
+    tripRecordBrief,
+    persistedBrief: priorPlanningState?.brief,
+    clientBrief,
+  });
+
+  const currentTripSummary = tripData?.summary;
+  const clientPreferencesSummary = !currentTripSummary
+    ? formatClientPreferencesSummary(effectiveBrief, body.tripPreferences?.budget)
+    : undefined;
 
   const isTripLinked =
     Boolean(resolvedTripId) &&
     (priorPlanningState?.status === "TRIP_LINKED" ||
       priorPlanningState?.status === "COMPLETED" ||
-      Boolean(chatRecord?.tripId));
+      Boolean(existingChatTripId) ||
+      linkedFromClientHint);
+
+  const destinationHint = tripData?.trip?.destinationName || effectiveBrief?.where?.destinationText;
+  const hasTripItems = Boolean(Array.isArray(tripData?.trip?.items) && tripData.trip.items.length > 0);
+  const latePrefetchPlan = evaluateSpeculativePrefetchPlan({
+    destinationHint,
+    hasWhen: Boolean(effectiveBrief?.when),
+    isTripLinked,
+    hasExistingProposal: hasExistingProposal || hasTripItems,
+    hasExplicitIntent: explicitPlanIntent,
+    hasCancelIntent: cancelIntent,
+  });
+
+  const destinationMatchesEarly =
+    Boolean(
+      earlyPrefetchResult &&
+        destinationHint &&
+        normalizePlaceKey(earlyPrefetchResult.destination) === normalizePlaceKey(destinationHint),
+    );
+
+  let prefetchResult = earlyPrefetchResult;
+  if (
+    latePrefetchPlan.shouldPrefetch &&
+    latePrefetchPlan.destination &&
+    (!earlyPrefetchResult || !destinationMatchesEarly)
+  ) {
+    prefetchResult = await runBoundedCandidatePrefetch({
+      destination: latePrefetchPlan.destination,
+      tripId: resolvedTripId,
+      authorization,
+      userPreferences: userProfile.preferences,
+      store: placeStore,
+      timeoutMs: config.aiPrefetchTimeoutMs,
+    });
+  }
+
+  if (prefetchResult?.ran) {
+    latency.recordPrefetch({
+      ran: true,
+      durationMs: prefetchResult.durationMs,
+      timedOut: prefetchResult.timedOut,
+      count: prefetchResult.total,
+      recommendationCount: prefetchResult.recommendationCount,
+      fallbackTriggered: prefetchResult.fallbackTriggered,
+    });
+  }
+  latency.markPreflightComplete();
+
+  const prefetchedCandidatesSummary =
+    prefetchResult &&
+    prefetchResult.groups.length > 0 &&
+    !hasTripItems &&
+    (!destinationHint ||
+      normalizePlaceKey(prefetchResult.destination) === normalizePlaceKey(destinationHint))
+      ? formatPrefetchedCandidatesSummary(prefetchResult.destination, prefetchResult.groups)
+      : undefined;
 
   const planningRuntime: PlanningRuntimeState = {
     runId: priorPlanningState?.runId ?? crypto.randomUUID(),
@@ -1136,9 +1383,9 @@ chatRouter.post("/chat", async (c) => {
     state: priorPlanningState ?? undefined,
     stateMessageId: priorPlanningState?.intentMessageId,
     userText,
+    destinationHint,
+    placeStore,
   };
-
-  const destinationHint = tripData?.trip?.destinationName || effectiveBrief?.where?.destinationText;
 
   if (shouldGenerateTitle && userText) {
     const smartTitle = generateSmartTitle(userText, destinationHint);
@@ -1161,7 +1408,7 @@ chatRouter.post("/chat", async (c) => {
 
   // 4. Stream response using Vercel AI SDK streamText.toUIMessageStreamResponse
   try {
-    const { model, activeKey } = await resolveLanguageModel(selectedModelId);
+    const { model, activeKey } = modelResolution.value;
 
     const itineraryTools = getItineraryManagementTools({
       chatId: activeChatId!,
@@ -1177,16 +1424,38 @@ chatRouter.post("/chat", async (c) => {
         userName: userProfile.displayName,
         userPreferences: userProfile.preferences,
         currentTripSummary,
+        clientPreferencesSummary,
+        prefetchedCandidatesSummary,
         currentDate,
         planningBrief: effectiveBrief,
         planningStatus: isTripLinked ? "TRIP_LINKED" : priorPlanningState?.status,
       }),
       messages: modelMessages,
-      experimental_transform: smoothStream({ chunking: "word" }),
       tools: {
         getWeather,
-        searchPlaces,
-        recommendPlaces,
+        prepareTripCandidates: getPrepareTripCandidatesTool({
+          destinationHint: () =>
+            planningRuntime.brief?.where?.destinationText || destinationHint,
+          tripId: () => planningRuntime.tripId,
+          authorization,
+          userPreferences: userProfile.preferences,
+          store: placeStore,
+        }),
+        searchPlaces: getSearchPlacesTool({
+          destinationHint: () =>
+            planningRuntime.brief?.where?.destinationText || destinationHint,
+          tripId: () => planningRuntime.tripId,
+          authorization,
+          userPreferences: userProfile.preferences,
+          store: placeStore,
+        }),
+        recommendPlaces: getRecommendPlacesTool({
+          destinationHint: () =>
+            planningRuntime.brief?.where?.destinationText || destinationHint,
+          tripId: () => planningRuntime.tripId,
+          authorization,
+          store: placeStore,
+        }),
         updateTripPlanningBrief: getUpdateTripPlanningBriefTool({
           chatId: activeChatId!,
           userId,
@@ -1209,7 +1478,30 @@ chatRouter.post("/chat", async (c) => {
         ({ steps }: { steps: any[] }) =>
           shouldStopAfterBriefStep(steps, planningRuntime.state?.status),
       ],
+      onChunk: ({ chunk }) => {
+        latency.onChunk(chunk.type);
+      },
+      onStepStart: ({ stepNumber }) => {
+        latency.onStepStart(stepNumber);
+      },
+      onStepEnd: ({ stepNumber, toolCalls, usage }) => {
+        latency.onStepEnd({
+          stepNumber,
+          toolNames: (toolCalls ?? []).map((tc) => tc.toolName),
+          inputTokens: usage?.inputTokens,
+          outputTokens: usage?.outputTokens,
+        });
+      },
+      onToolExecutionEnd: ({ toolCall, toolExecutionMs, toolOutput }) => {
+        latency.onToolExecutionEnd({
+          toolName: toolCall.toolName,
+          durationMs: toolExecutionMs,
+          ok: toolOutput.type === "tool-result",
+        });
+      },
       onError: async ({ error }) => {
+        latency.markError();
+        latency.emit();
         console.error(">>> streamText ERROR:", error);
         if (activeKey) {
           const errStr = String((error as any)?.message || error);
@@ -1221,34 +1513,61 @@ chatRouter.post("/chat", async (c) => {
         }
       },
       onFinish: async ({ text, steps }) => {
+        latency.emit();
         if (activeKey) {
           geminiKeyManager.reportSuccess(activeKey);
         }
         try {
-          const parts: any[] = [];
+          const toolParts: any[] = [];
+          const stepTexts: string[] = [];
+          let proposalOutput: any = null;
+          let addedItemsOutput: any = null;
+
           if (steps && steps.length > 0) {
             for (const step of steps) {
+              if (typeof (step as any).text === "string" && (step as any).text.trim()) {
+                stepTexts.push((step as any).text.trim());
+              }
               if (step.toolCalls && step.toolCalls.length > 0) {
                 for (const tc of step.toolCalls) {
                   const resultObj = step.toolResults?.find(
                     (tr: any) => tr.toolCallId === tc.toolCallId
                   );
-                  parts.push({
+                  const output =
+                    (resultObj as any)?.result ||
+                    (resultObj as any)?.output;
+                  if (tc.toolName === "createTripProposal" && output?.proposalId) {
+                    proposalOutput = output;
+                  } else if (tc.toolName === "addItineraryItems" && output?.success) {
+                    addedItemsOutput = output;
+                  }
+                  toolParts.push({
                     type: `tool-${tc.toolName}`,
                     toolCallId: tc.toolCallId,
                     state: "output-available",
                     input: (tc as any).args || (tc as any).input,
-                    output:
-                      (resultObj as any)?.result ||
-                      (resultObj as any)?.output,
+                    output,
                   });
                 }
               }
             }
           }
-          if (text) {
-            parts.push({ type: "text", text });
+
+          let resolvedText = text?.trim() || stepTexts.join("\n\n").trim();
+          if (!resolvedText) {
+            if (proposalOutput) {
+              const title = proposalOutput.title || proposalOutput.destination || "chuyến đi";
+              resolvedText = `Dưới đây là kế hoạch **${title}** được thiết kế theo yêu cầu của bạn và đã tự động đồng bộ vào bảng lịch trình bên phải.`;
+            } else if (addedItemsOutput) {
+              resolvedText = "Mình đã thêm các hoạt động mới vào lịch trình chuyến đi của bạn!";
+            }
           }
+
+          const parts: any[] = [];
+          if (resolvedText) {
+            parts.push({ type: "text", text: resolvedText });
+          }
+          parts.push(...toolParts);
 
           await db.insert(messages).values({
             chatId: activeChatId!,
@@ -1256,7 +1575,7 @@ chatRouter.post("/chat", async (c) => {
             parts:
               parts.length > 0
                 ? parts
-                : [{ type: "text", text: text || "" }],
+                : [{ type: "text", text: "" }],
           });
         } catch (dbErr) {
           console.error("Failed to persist assistant message to DB:", dbErr);
@@ -1266,16 +1585,23 @@ chatRouter.post("/chat", async (c) => {
 
     return result.toUIMessageStreamResponse({
       headers: {
+        "Cache-Control": "no-cache, no-transform",
+        "Content-Encoding": "identity",
+        "X-Accel-Buffering": "no",
         "X-Chat-Id": activeChatId,
         ...(currentChatTitle ? { "X-Chat-Title": encodeURIComponent(currentChatTitle) } : {}),
         "Access-Control-Expose-Headers": "X-Chat-Id, X-Chat-Title",
       },
       onError: (err) => {
+        latency.markError();
+        latency.emit();
         console.error(">>> toUIMessageStream ERROR:", err);
         return String((err as any)?.message || err || "AI stream error");
       },
     });
   } catch (err: any) {
+    latency.markError();
+    latency.emit();
     console.error("streamText execution error:", err);
     return c.json({ error: "AI model invocation failed" }, 500);
   }

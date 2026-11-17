@@ -44,6 +44,7 @@ import {
   getStoredReview,
   type ReservationReview,
 } from "@/features/reservations";
+import { notifyBookingActivityChanged } from "@/features/reservations/services/reservations-activity-api";
 import type { ReservationOfferPreview } from "@/features/chat/types/chat.types";
 import {
   getMyRestaurantReservations,
@@ -133,6 +134,7 @@ export function CustomerReservationsView({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [activeFilter, setActiveFilter] = React.useState<FilterTabKey>("ALL");
+  const hasUserPickedFilterRef = React.useRef(false);
   const [channelFilter, setChannelFilter] = React.useState<"ALL" | "CHAT" | "DIRECT">("ALL");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [actionSuccess, setActionSuccess] = React.useState<string | null>(null);
@@ -378,9 +380,7 @@ export function CustomerReservationsView({
       setCancellingItem(null);
       setActionSuccess(t("partner.restaurant.cancelSuccess", { defaultValue: "Đã hủy yêu cầu đặt bàn thành công." }));
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("app:notifications-refresh"));
-      }
+      notifyBookingActivityChanged();
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("common.unexpectedError", { defaultValue: "Không thể hủy yêu cầu đặt bàn." })));
     } finally {
@@ -395,6 +395,15 @@ export function CustomerReservationsView({
     { key: "REQUESTED", label: t("partner.restaurant.filterRequested", { defaultValue: "Chờ xác nhận" }), count: counts.requested },
     { key: "HISTORY", label: t("reservations.filterHistory", { defaultValue: "Đã hủy / Hết hạn" }), count: counts.history },
   ];
+
+  React.useEffect(() => {
+    if (loading || hasUserPickedFilterRef.current || targetBookingId) return;
+    if (counts.requested > 0) {
+      setActiveFilter("REQUESTED");
+    } else if (counts.upcoming > 0) {
+      setActiveFilter("UPCOMING");
+    }
+  }, [counts.requested, counts.upcoming, loading, targetBookingId]);
 
   const renderBadge = (status: DiningStatus) => {
     switch (status) {
@@ -493,7 +502,10 @@ export function CustomerReservationsView({
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setActiveFilter(tab.key)}
+                  onClick={() => {
+                    hasUserPickedFilterRef.current = true;
+                    setActiveFilter(tab.key);
+                  }}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                     isActive
                       ? "bg-foreground text-background shadow-xs font-bold"

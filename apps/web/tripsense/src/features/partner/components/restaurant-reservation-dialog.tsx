@@ -146,7 +146,7 @@ export function RestaurantReservationDialog({
 
       // Automatically dispatch consultation message to the restaurant owner
       if (ownerUserId && user?.id && ownerUserId !== user.id) {
-        const bookingSummaryMsg = `[Yêu cầu đặt bàn mới] Chào quán, mình đã gửi yêu cầu đặt bàn tại ${restaurantName}:\n- Thời gian: ${new Date(startInstant).toLocaleString("vi-VN")}\n- Số khách: ${numAdults} người lớn${numChildren > 0 ? `, ${numChildren} trẻ em` : ""}\n- Người đặt: ${trimmedName} (SĐT: ${cleanPhone})${notes.trim() ? `\n- Ghi chú: ${notes.trim()}` : ""}\nMã yêu cầu: #${res.id.slice(0, 8)}...\nNhờ quán kiểm tra và xác nhận giúp mình nhé!`;
+        const bookingSummaryMsg = `[Yêu cầu đặt bàn mới] Chào quán, mình đã gửi yêu cầu đặt bàn tại ${restaurantName}:\n- Thời gian: ${new Date(startInstant).toLocaleString("vi-VN")}\n- Số khách: ${numAdults} người lớn${numChildren > 0 ? `, ${numChildren} trẻ em` : ""}\n- Người đặt: ${trimmedName} (SĐT: ${cleanPhone})${notes.trim() ? `\n- Ghi chú: ${notes.trim()}` : ""}\nMã yêu cầu: #TS-RES-${res.id.slice(-8).toUpperCase()}\nNhờ quán kiểm tra và xác nhận giúp mình nhé!`;
         void chatApi.sendDirectMessage(ownerUserId, bookingSummaryMsg).catch(() => undefined);
       }
 
@@ -217,7 +217,7 @@ export function RestaurantReservationDialog({
             <div className="rounded-xl bg-muted/40 p-3.5 text-xs text-left space-y-2 border border-border/50">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("partner.restaurant.requestId", { defaultValue: "Mã yêu cầu" })}:</span>
-                <span className="font-mono font-bold">{createdReservation.id.slice(0, 8)}...</span>
+                <span className="font-mono font-bold text-primary">#TS-RES-{createdReservation.id.slice(-8).toUpperCase()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("partner.restaurant.fullNameLabel", { defaultValue: "Người đặt" })}:</span>

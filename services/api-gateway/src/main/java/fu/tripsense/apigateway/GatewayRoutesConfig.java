@@ -332,9 +332,11 @@ class GatewayRoutesConfig {
                         "/api/partner-listings/**",
                         "/api/public/restaurants/**",
                         "/api/public/hotels/**",
+                        "/api/public/rentals/**",
                         "/api/restaurants/**",
                         "/api/restaurant-reservation-requests/**",
                         "/api/me/restaurant-reservation-requests",
+                        "/api/me/reservations/**",
                         "/api/partner-support-cases/**",
                         "/api/subscription-plans",
                         "/api/subscription-plans/**",
@@ -383,7 +385,7 @@ class GatewayRoutesConfig {
                           return filters
                               .rewritePath("/api/v2/ai/(?<segment>.*)", "/api/ai/${segment}")
                               .rewritePath("/api/ai/v2/(?<segment>.*)", "/api/ai/${segment}")
-                              .setResponseHeader("Cache-Control", "no-store")
+                              .setResponseHeader("Cache-Control", "no-store, no-cache, no-transform")
                               .setResponseHeader("X-Accel-Buffering", "no");
                         })
                     .uri(aiServiceUrl))
