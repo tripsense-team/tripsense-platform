@@ -46,6 +46,7 @@ class AdminRecommendationStatsServiceTest {
     assertThat(res.totalImpressions()).isEqualTo(325L);
     assertThat(res.totalRecommendedItems()).isEqualTo(7578L);
     assertThat(res.positionBuckets()).hasSize(3);
+    assertThat(res.funnel().conversionRatePercent()).isEqualTo(0.0);
   }
 
   static class StubJdbcTemplate extends JdbcTemplate {

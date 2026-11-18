@@ -81,7 +81,7 @@ public class AdminRecommendationStatsService {
 
     double ctrPercent = round2(impressionsEvents > 0 ? (clicks * 100.0) / impressionsEvents : 0.0);
     double conversionRatePercent =
-        round2(impressionsEvents > 0 ? ((saves + addToTrip) * 100.0) / impressionsEvents : 0.0);
+        round2(clicks > 0 ? (addToTrip * 100.0) / clicks : 0.0);
 
     FunnelStats funnel =
         new FunnelStats(
