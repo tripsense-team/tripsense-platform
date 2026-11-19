@@ -4,6 +4,10 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `admin-reviews-and-trips-management` | DONE | `services/social-service`, `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-reviews-and-trips-management.md) |
+| `admin-user-management` | DONE | `services/user-service`, `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-user-management.md) |
+| `admin-deep-behavioral-analytics` | DONE | `services/recommendation-service`, `services/context-service`, `services/ai-service`, `services/trip-service`, `apps/web/tripsense` | [Docs](./admin-deep-behavioral-analytics.md) |
+| `admin-platform-analytics` | DONE | `services/trip-service`, `services/user-service`, `services/social-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-platform-analytics.md) |
 | `ai-chat-streaming-ux-and-place-detail-drawer` | DONE | `apps/web/tripsense`, `services/ai-service`, `services/api-gateway` | [Docs](./ai-chat-streaming-ux-and-place-detail-drawer.md) |
 | `ai-chat-response-spinner-and-ziomap-panel` | DONE | `apps/web/tripsense`, `services/ai-service` | [Docs](./ai-chat-response-spinner-and-ziomap-panel.md) |
 | `ai-chat-group3-refinement-and-golden-eval` | DONE | `apps/web/tripsense`, `services/ai-service` | [Docs](./ai-chat-group3-refinement-and-golden-eval.md) |

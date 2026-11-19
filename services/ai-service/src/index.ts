@@ -5,6 +5,7 @@ import { logger } from "hono/logger";
 import { healthRouter } from "./routes/health.js";
 import { chatRouter } from "./routes/chat.js";
 import { menuExtractRouter } from "./routes/menu-extract.js";
+import { adminStatsRouter } from "./routes/admin-stats.js";
 import { config } from "./config.js";
 import { runMigrations } from "./db/migrate.js";
 
@@ -54,6 +55,11 @@ app.route("/api", menuExtractRouter);
 app.route("/api/ai", menuExtractRouter);
 app.route("/api/ai/v2", menuExtractRouter);
 app.route("/api/v2/ai", menuExtractRouter);
+
+app.route("/api", adminStatsRouter);
+app.route("/api/ai", adminStatsRouter);
+app.route("/api/ai/v2", adminStatsRouter);
+app.route("/api/v2/ai", adminStatsRouter);
 
 // Root information route
 app.get("/", (c) => {

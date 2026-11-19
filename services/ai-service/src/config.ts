@@ -39,13 +39,21 @@ export function normalizePostgresUrl(raw: string): string {
         parsed.searchParams.delete("password");
       }
       parsed.searchParams.delete("channelBinding");
+      parsed.searchParams.delete("channel_binding");
       return parsed.toString();
     } catch {
       return stripped;
     }
   }
 
-  return url;
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete("channelBinding");
+    parsed.searchParams.delete("channel_binding");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 function getDatabaseUrl(): string {

@@ -36,4 +36,8 @@ public interface TripRepository extends JpaRepository<Trip, UUID>, JpaSpecificat
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select t from Trip t where t.id = :id and t.archivedAt is null")
   Optional<Trip> findActiveByIdForUpdate(@Param("id") UUID id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select t from Trip t where t.id = :id and t.deletedAt is null")
+  Optional<Trip> findNonDeletedByIdForUpdate(@Param("id") UUID id);
 }

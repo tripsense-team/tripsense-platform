@@ -29,6 +29,8 @@ public interface ItineraryItemRepository extends JpaRepository<ItineraryItem, UU
 
   boolean existsByTripIdAndDayIdIn(UUID tripId, Collection<UUID> dayIds);
 
+  boolean existsByTripId(UUID tripId);
+
   @Query(
       "select coalesce(max(i.sortOrder), 0) from ItineraryItem i where i.tripId = :tripId and i.dayId = :dayId")
   int maxSortOrderByTripIdAndDayId(@Param("tripId") UUID tripId, @Param("dayId") UUID dayId);
