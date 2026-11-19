@@ -231,5 +231,36 @@
   "placeReviews": "Reviews",
   "placeAddress": "Address",
   "placeNoPhoto": "No photo yet",
-  "placeBack": "Back"
+  "placeBack": "Back",
+  "commonSave": "Save",
+  "commonCreate": "Create",
+  "commonDelete": "Delete",
+  "commonEdit": "Edit",
+  "savedTitle": "Saved places",
+  "savedDescription": "All the places you saved for later.",
+  "savedEmptyTitle": "No saved places yet",
+  "savedEmptyHint": "Save places from Explore to find them here.",
+  "savedAll": "All",
+  "savedManageCollections": "Manage collections",
+  "savedLoadMoreFailed": "Could not load more places.",
+  "saveButtonSave": "Save place",
+  "saveButtonSaved": "Saved. Edit collections",
+  "saveToCollection": "Save to collection",
+  "collectionsTitle": "Collections",
+  "collectionsDescription": "Organize saved places into collections.",
+  "collectionCreate": "Create collection",
+  "collectionRename": "Rename collection",
+  "collectionDelete": "Delete collection",
+  "collectionDeleteHint": "The collection will be deleted. Saved places remain available in other collections.",
+  "collectionNameHint": "New collection name",
+  "collectionsEmptyTitle": "No collections yet",
+  "collectionsEmptyHint": "Create a collection to organize places you want to remember.",
+  "collectionPlacesCount": "{count, plural, =1{1 place} other{{count} places}}",
+  "@collectionPlacesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

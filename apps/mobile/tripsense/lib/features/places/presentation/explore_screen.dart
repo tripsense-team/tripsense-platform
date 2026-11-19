@@ -6,6 +6,7 @@ import '../../../app/design/app_tokens.dart';
 import '../../../app/routes.dart';
 import '../../../core/ui/state_views.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../collections/presentation/widgets/save_button.dart';
 import '../domain/destinations.dart';
 import '../domain/place.dart';
 import 'explore_controller.dart';
@@ -168,10 +169,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: showSuggestions
-              ? _Suggestions(suggestions: suggestions, onPick: (s) {
-                  _controller.text = s.title;
-                  _submit(s.title);
-                })
+              ? _Suggestions(
+                  suggestions: suggestions,
+                  onPick: (s) {
+                    _controller.text = s.title;
+                    _submit(s.title);
+                  },
+                )
               : _Results(state: state),
         ),
       ],
@@ -243,6 +247,7 @@ class _Results extends ConsumerWidget {
               final place = places[i - (header == null ? 0 : 1)];
               return PlaceCard(
                 place: place,
+                trailing: SaveButton(place: place),
                 onTap: () => context.push(Routes.place(place.id), extra: place),
               );
             },
