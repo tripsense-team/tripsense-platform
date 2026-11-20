@@ -56,6 +56,30 @@ export async function fetchAiChatsQueryFn(): Promise<ChatSession[]> {
 }
 
 /**
+ * Fetch chat sessions strictly linked to a specific tripId.
+ * Always filters client-side by `c.tripId === tripId` as defense-in-depth so unrelated
+ * trips sharing the same destination title are never merged.
+ */
+export async function fetchTripAiChatsQueryFn(
+  tripId: string,
+): Promise<ChatSession[]> {
+  if (!tripId) return [];
+  try {
+    const res = await authenticatedFetch(
+      aiApiUrl(`/chats?tripId=${encodeURIComponent(tripId)}`),
+    );
+    if (!res.ok) {
+      return [];
+    }
+    const data = await res.json();
+    const list = (data.chats as ChatSession[]) || [];
+    return list.filter((chat) => chat.tripId === tripId);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Proactively prefetch AI chat sessions into TanStack React Query cache.
  * Enables 0ms instantaneous opening of the Mindtrip Sidebar Drawer.
  */
@@ -110,6 +134,22 @@ export function useAiChatSessions() {
   return useQuery({
     queryKey: aiChatQueryKeys.all,
     queryFn: fetchAiChatsQueryFn,
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
+/**
+ * React hook to retrieve chat sessions strictly linked to a specific tripId.
+ */
+export function useTripAiChatSessions(tripId: string | null | undefined) {
+  return useQuery({
+    queryKey: tripId
+      ? aiChatQueryKeys.byTrip(tripId)
+      : ["ai-v2", "chats", "trip", "empty"],
+    queryFn: () =>
+      tripId ? fetchTripAiChatsQueryFn(tripId) : Promise.resolve([]),
+    enabled: Boolean(tripId),
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

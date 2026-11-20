@@ -347,8 +347,11 @@ public class TripServiceImpl implements TripService {
     validateVersion(
         request.version(), item.getVersion(), "Itinerary item was modified concurrently");
 
-    LocalTime nextStart = request.startTime() != null ? request.startTime() : item.getStartTime();
-    LocalTime nextEnd = request.endTime() != null ? request.endTime() : item.getEndTime();
+    boolean clearTimes = Boolean.TRUE.equals(request.clearTimes());
+    LocalTime nextStart =
+        clearTimes ? null : (request.startTime() != null ? request.startTime() : item.getStartTime());
+    LocalTime nextEnd =
+        clearTimes ? null : (request.endTime() != null ? request.endTime() : item.getEndTime());
     validateTimeRange(nextStart, nextEnd);
 
     String nextPlaceRef = request.effectivePlaceRef();
@@ -371,7 +374,8 @@ public class TripServiceImpl implements TripService {
     }
     item.setStartTime(nextStart);
     item.setEndTime(nextEnd);
-    item.setDurationMinutes(resolveDurationMinutes(nextStart, nextEnd, request.durationMinutes()));
+    item.setDurationMinutes(
+        clearTimes ? null : resolveDurationMinutes(nextStart, nextEnd, request.durationMinutes()));
     if (request.status() != null) {
       item.setStatus(request.status());
     }
@@ -466,15 +470,18 @@ public class TripServiceImpl implements TripService {
     }
     itemRepository.saveAllAndFlush(items);
 
+    boolean preserveTimes = Boolean.TRUE.equals(request.preserveTimes());
     LocalTime previousEnd = null;
     for (int i = 0; i < request.orderedItemIds().size(); i++) {
       ItineraryItem item = byId.get(request.orderedItemIds().get(i));
-      if (i == 0) {
-        previousEnd = resolveItemEndTime(item);
-      } else if (previousEnd != null) {
-        previousEnd = applyStartKeepingDuration(item, previousEnd);
-      } else {
-        previousEnd = resolveItemEndTime(item);
+      if (!preserveTimes) {
+        if (i == 0) {
+          previousEnd = resolveItemEndTime(item);
+        } else if (previousEnd != null) {
+          previousEnd = applyStartKeepingDuration(item, previousEnd);
+        } else {
+          previousEnd = resolveItemEndTime(item);
+        }
       }
       item.setSortOrder((i + 1) * SORT_ORDER_STEP);
     }

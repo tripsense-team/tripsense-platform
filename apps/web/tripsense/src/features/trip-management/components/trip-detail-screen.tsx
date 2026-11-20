@@ -5,15 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  ArrowLeft,
   Briefcase,
   Calendar,
   Check,
+  ChevronLeft,
   ChevronRight,
   Compass,
   Copy,
   Edit3,
-  ExternalLink,
   FileDown,
   FileText,
   Info,
@@ -21,7 +20,7 @@ import {
   Link2,
   Loader2,
   Luggage,
-  MapPin,
+  Map as MapIcon,
   MessageSquare,
   Mic,
   MoreHorizontal,
@@ -45,14 +44,19 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { toast } from "sonner";
-import { useAiChatSessions, fetchChatMessagesQueryFn, type ChatSession } from "@/hooks/use-ai-chats";
-import type { ChatMessage } from "@/lib/types";
+import { useTripAiChatSessions } from "@/hooks/use-ai-chats";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { TripMembersDialog } from "./trip-members-dialog";
 import { PrintItineraryDialog } from "./print-itinerary-dialog";
 import { TripChecklistModal } from "./trip-checklist-modal";
 import { TripActivityPollModal } from "./trip-activity-poll-modal";
 import { TripSafetyGuideModal } from "./trip-safety-guide-modal";
 import { TripReminderModal } from "./trip-reminder-modal";
+import {
+  MindtripItineraryView,
+  type UpdateItemTimePayload,
+} from "./mindtrip-itinerary-view";
+import { useItineraryPlacePhotos } from "../hooks/use-itinerary-place-photos";
 import { cloneTrip } from "../utils/clone-trip";
 import type {
   ItineraryDayResponse,
@@ -63,13 +67,15 @@ import type {
 import type { Place } from "@/features/places/types";
 import {
   countTripDays,
+  coverImageForTrip,
   displayTripTitle,
-  formatDate,
   formatShortRange,
-  itemTypeLabel,
   titleCaseDestination,
 } from "../utils/format";
-import { formatDisplayTimeRange } from "../utils/time";
+import {
+  formatWhenSelection,
+  parseFlexiblePreferenceFromNotes,
+} from "../utils/date";
 import { getDestinationCenter } from "../utils/map";
 
 export { getDestinationCenter };
@@ -82,25 +88,27 @@ const MapVinaContainer = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full w-full items-center justify-center rounded-2xl border border-border bg-muted/40 text-muted-foreground text-sm font-medium animate-pulse">
+      <div className="flex h-full w-full items-center justify-center rounded-3xl border border-border bg-muted/40 text-muted-foreground text-sm font-medium animate-pulse">
         <span>Loading map...</span>
       </div>
     ),
   },
 );
 
-type TripDetailPanel = "overview" | "itinerary";
+type TripDetailRightPanel = "overview" | "itinerary";
 
-function extractMessageText(msg: ChatMessage): string {
-  if (!msg.parts) return "";
-  if (Array.isArray(msg.parts)) {
-    return msg.parts
-      .filter((p: any) => p && (p.type === "text" || typeof p.text === "string"))
-      .map((p: any) => p.text || "")
-      .join("\n")
-      .trim();
+function formatChatDate(dateStr?: string | null, locale: string = "vi"): string {
+  if (!dateStr) return "";
+  const parsed = new Date(dateStr);
+  if (Number.isNaN(parsed.getTime())) return "";
+  if (locale === "vi") {
+    return `${parsed.getDate()} thg ${parsed.getMonth() + 1}, ${parsed.getFullYear()}`;
   }
-  return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parsed);
 }
 
 export function TripDetailScreen({
@@ -114,7 +122,10 @@ export function TripDetailScreen({
   onEditTrip,
   onAddItem,
   onEditItem,
+  onUpdateItemTime,
   onDeleteItem,
+  onReorderItems,
+  onSortAllDaysByTime,
   onCreateTrip,
   onRequestDeleteTrip,
 }: {
@@ -130,6 +141,11 @@ export function TripDetailScreen({
   onEditTrip: (trip: TripResponse) => void;
   onAddItem: (day: ItineraryDayResponse) => void;
   onEditItem: (item: ItineraryItemResponse) => void;
+  onUpdateItemTime?: (
+    day: ItineraryDayResponse,
+    item: ItineraryItemResponse,
+    payload: UpdateItemTimePayload,
+  ) => Promise<void> | void;
   onDeleteItem: (item: ItineraryItemResponse) => void;
   onMoveItem: (
     day: ItineraryDayResponse,
@@ -139,19 +155,26 @@ export function TripDetailScreen({
   onReorderItems: (
     day: ItineraryDayResponse,
     orderedItemIds: string[],
+    options?: { preserveTimes?: boolean },
   ) => Promise<void>;
+  onSortAllDaysByTime?: () => Promise<void> | void;
   onCreateTrip: () => void;
   onRequestDeleteTrip?: (trip: TripResponse) => void;
 }) {
   const { t, locale } = useTranslation();
   const router = useRouter();
 
-  const [activePanel, setActivePanel] = React.useState<TripDetailPanel>("overview");
-  const [selectedDayNumber, setSelectedDayNumber] = React.useState<number | null>(null);
-  const [selectedPlaceId, setSelectedPlaceId] = React.useState<string | null>(null);
+  const [activePanel, setActivePanel] =
+    React.useState<TripDetailRightPanel>("overview");
+  const [selectedPlaceId, setSelectedPlaceId] = React.useState<string | null>(
+    null,
+  );
   const [fitBoundsTrigger, setFitBoundsTrigger] = React.useState<number>(0);
 
   const [bannerDismissed, setBannerDismissed] = React.useState(false);
+  const [coachIndex, setCoachIndex] = React.useState(0);
+  const [showAllChats, setShowAllChats] = React.useState(false);
+
   const [copiedInviteLink, setCopiedInviteLink] = React.useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = React.useState(false);
   const [printDialogOpen, setPrintDialogOpen] = React.useState(false);
@@ -161,58 +184,26 @@ export function TripDetailScreen({
   const [reminderOpen, setReminderOpen] = React.useState(false);
   const [cloning, setCloning] = React.useState(false);
 
-  // Real Chat Sessions from AI Service
-  const { data: allAiChats = [], isLoading: loadingAiChats } = useAiChatSessions();
+  // Shared batched place photos across left AI coach preview & right Mindtrip itinerary view
+  const resolvedPhotoUrls = useItineraryPlacePhotos({
+    tripId: trip?.id ?? null,
+    destinationName: trip?.destinationName,
+    itinerary,
+  });
+
+  // Strictly fetch AI Chat sessions linked to THIS tripId (never fuzzy-match other trips by destination name)
+  const { data: linkedTripChats = [], isLoading: loadingAiChats } =
+    useTripAiChatSessions(trip?.id);
 
   const tripChatSessions = React.useMemo(() => {
     if (!trip) return [];
-    // 1. Direct match by tripId
-    const directMatches = allAiChats.filter((c) => c.tripId === trip.id);
-    if (directMatches.length > 0) return directMatches;
+    return linkedTripChats.filter((c) => c.tripId === trip.id);
+  }, [linkedTripChats, trip]);
 
-    // 2. Soft match by destination or trip title
-    const dest = trip.destinationName.toLowerCase();
-    const tripName = trip.name.toLowerCase();
-    return allAiChats.filter(
-      (c) =>
-        (c.title && c.title.toLowerCase().includes(dest)) ||
-        (c.title && c.title.toLowerCase().includes(tripName)),
-    );
-  }, [allAiChats, trip]);
-
-  const [selectedChatSessionId, setSelectedChatSessionId] = React.useState<string | null>(null);
-  const [sessionMessages, setSessionMessages] = React.useState<ChatMessage[]>([]);
-  const [loadingMessages, setLoadingMessages] = React.useState(false);
-
-  // Auto-select first chat session if available
-  React.useEffect(() => {
-    if (tripChatSessions.length > 0 && !selectedChatSessionId) {
-      setSelectedChatSessionId(tripChatSessions[0].id);
-    }
-  }, [tripChatSessions, selectedChatSessionId]);
-
-  // Load real messages on chat selection
-  React.useEffect(() => {
-    if (!selectedChatSessionId) {
-      setSessionMessages([]);
-      return;
-    }
-    let isMounted = true;
-    setLoadingMessages(true);
-    fetchChatMessagesQueryFn(selectedChatSessionId)
-      .then((msgs) => {
-        if (isMounted) setSessionMessages(msgs);
-      })
-      .catch((err) => {
-        console.warn("Failed to load chat messages:", err);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingMessages(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedChatSessionId]);
+  const visibleChatSessions = React.useMemo(
+    () => (showAllChats ? tripChatSessions : tripChatSessions.slice(0, 5)),
+    [tripChatSessions, showAllChats],
+  );
 
   const handleSendPromptToAi = (promptText: string) => {
     const text = promptText.trim();
@@ -223,8 +214,9 @@ export function TripDetailScreen({
     }
     onChatTextChange("");
 
-    if (selectedChatSessionId) {
-      router.push(`/ai-planner/${selectedChatSessionId}?tripId=${trip.id}`);
+    const latestChat = tripChatSessions[0];
+    if (latestChat) {
+      router.push(`/ai-planner/${latestChat.id}?tripId=${trip.id}`);
     } else {
       router.push(`/ai-planner?tripId=${trip.id}`);
     }
@@ -242,18 +234,10 @@ export function TripDetailScreen({
         },
         itinerary,
       );
-      toast.success(
-        t("trip.cloneSuccess", {
-          defaultValue: locale === "vi" ? "Đã sao chép chuyến đi thành công!" : "Trip cloned successfully!",
-        }),
-      );
+      toast.success(t("trip.cloneSuccess"));
       router.push(`/trips/${cloned.id}`);
-    } catch {
-      toast.error(
-        t("trip.cloneFailed", {
-          defaultValue: locale === "vi" ? "Không thể sao chép chuyến đi. Vui lòng thử lại." : "Could not clone trip. Please try again.",
-        }),
-      );
+    } catch (err) {
+      toast.error(getSafeErrorMessage(err, t("trip.cloneFailed")));
     } finally {
       setCloning(false);
     }
@@ -262,6 +246,112 @@ export function TripDetailScreen({
   const destination = trip ? titleCaseDestination(trip.destinationName) : "";
   const title = trip ? displayTripTitle(trip) : "";
 
+  const allItineraryItems = React.useMemo(
+    () => itinerary?.days?.flatMap((day) => day.items || []) ?? [],
+    [itinerary],
+  );
+
+  const itineraryPlacesCount = allItineraryItems.length;
+
+  const daysCount = trip
+    ? itinerary?.days?.length || countTripDays(trip)
+    : 1;
+
+  // Cohesive duration / date range label for metadata segmented pill
+  const durationBadgeLabel = React.useMemo(() => {
+    if (!trip) return "";
+    const flexInfo = parseFlexiblePreferenceFromNotes(trip.notes);
+    if (flexInfo) {
+      return formatWhenSelection({
+        type: "flexible",
+        durationDays: flexInfo.durationDays,
+        flexibleMonths: flexInfo.flexibleMonths,
+        locale,
+      });
+    }
+    if (trip.startDate && trip.endDate) {
+      return formatShortRange(trip.startDate, trip.endDate);
+    }
+    return `${daysCount} ${t("trip.daysCount")}`;
+  }, [trip, locale, daysCount, t]);
+
+  // Preview thumbnails for the borderless Mindtrip AI coach section
+  const coachPreviewThumbs = React.useMemo(() => {
+    const thumbs: Array<{ id: string; url: string; title: string }> = [];
+    for (const item of allItineraryItems) {
+      const url = resolvedPhotoUrls[item.id];
+      if (url && !thumbs.some((entry) => entry.url === url)) {
+        thumbs.push({ id: item.id, url, title: item.title });
+      }
+      if (thumbs.length >= 3) break;
+    }
+    if (thumbs.length === 0 && trip) {
+      thumbs.push({
+        id: "trip-cover",
+        url: coverImageForTrip(trip),
+        title: destination || title,
+      });
+    }
+    return thumbs;
+  }, [allItineraryItems, resolvedPhotoUrls, trip, destination, title]);
+
+  // 3 editorial AI coach cards matching Reference Image 2 (< 1 of 3 >)
+  const coachSlides = React.useMemo(() => {
+    const topNames = allItineraryItems
+      .slice(0, 3)
+      .map((item) => item.title)
+      .filter(Boolean);
+
+    const summaryHeadline =
+      topNames.length >= 2
+        ? t("trip.aiCoachSummaryWithPlaces", {
+            destination,
+            places: topNames.join(", "),
+          })
+        : t("trip.aiCoachSummaryEmpty", { destination });
+
+    return [
+      {
+        headline: summaryHeadline,
+        ctaLabel: t("trip.shapeTheDays"),
+        onCta: () => {
+          if (itineraryPlacesCount > 0) {
+            setActivePanel("itinerary");
+          } else {
+            handleSendPromptToAi(
+              locale === "vi"
+                ? `Lên lịch trình chi tiết ${daysCount} ngày tại ${destination} kèm khung giờ gợi ý`
+                : `Build a detailed ${daysCount}-day itinerary for ${destination} with suggested times`,
+            );
+          }
+        },
+      },
+      {
+        headline: t("trip.aiCoachFoodHeadline", { destination }),
+        ctaLabel: t("trip.showFoodIdeas"),
+        onCta: () =>
+          handleSendPromptToAi(
+            locale === "vi"
+              ? `Gợi ý các quán ăn ngon, cà phê đẹp và món đặc sản nổi bật ở ${destination}`
+              : `Suggest top local restaurants, cafés, and must-try dishes in ${destination}`,
+          ),
+      },
+      {
+        headline: t("trip.aiCoachOptimizeHeadline", { destination }),
+        ctaLabel: t("trip.optimizeSchedule"),
+        onCta: () =>
+          handleSendPromptToAi(
+            locale === "vi"
+              ? `Tối ưu thứ tự thời gian và cung đường di chuyển cho lịch trình ${destination} của tôi`
+              : `Optimize the timing and route order for my ${destination} itinerary`,
+          ),
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allItineraryItems, destination, itineraryPlacesCount, daysCount, locale, t]);
+
+  const activeCoachSlide = coachSlides[coachIndex % coachSlides.length];
+
   const mapPlaces: Place[] = React.useMemo(() => {
     if (!trip) return [];
     const places: Place[] = [];
@@ -269,15 +359,11 @@ export function TripDetailScreen({
 
     if (itinerary?.days) {
       for (const day of itinerary.days) {
-        if (selectedDayNumber != null && day.dayNumber !== selectedDayNumber) {
-          continue;
-        }
-
         for (const item of day.items) {
           const lat = item.latSnapshot;
           const lng = item.lngSnapshot;
 
-          // Only add places with verified coordinates to avoid fake pins
+          // Only add places with verified coordinates; never fabricate fake ratings
           if (lat != null && lng != null) {
             places.push({
               id: item.id,
@@ -285,16 +371,15 @@ export function TripDetailScreen({
               address: item.placeNameSnapshot || destination,
               location: { lat, lng },
               categories: [item.type],
-              rating: 4.8,
-              userRatingCount: 120,
-              photos: [],
+              photos: resolvedPhotoUrls[item.id]
+                ? [resolvedPhotoUrls[item.id]]
+                : [],
             });
           }
         }
       }
     }
 
-    // Fallback marker for destination if no itinerary item has coordinates yet
     if (places.length === 0) {
       places.push({
         id: "destination-center",
@@ -302,20 +387,12 @@ export function TripDetailScreen({
         address: destination,
         location: { lat: destCenter[1], lng: destCenter[0] },
         categories: ["ATTRACTION"],
-        rating: 5.0,
-        userRatingCount: 1,
         photos: [],
       });
     }
 
     return places;
-  }, [trip, itinerary, selectedDayNumber, destination]);
-
-  const itineraryPlacesCount = React.useMemo(() => {
-    return (
-      itinerary?.days.reduce((total, d) => total + (d.items?.length || 0), 0) || 0
-    );
-  }, [itinerary]);
+  }, [trip, itinerary, destination, resolvedPhotoUrls]);
 
   const copyInviteLink = async () => {
     const inviteLink =
@@ -326,16 +403,12 @@ export function TripDetailScreen({
       await navigator.clipboard.writeText(inviteLink);
     }
     setCopiedInviteLink(true);
+    toast.success(t("trip.copiedInviteLink"));
     window.setTimeout(() => setCopiedInviteLink(false), 2000);
   };
 
   if (loading) {
-    return (
-      <LoadingState
-        className="min-h-screen"
-        text={t("common.loading", { defaultValue: "Loading..." })}
-      />
-    );
+    return <LoadingState className="min-h-screen" text={t("common.loading")} />;
   }
 
   if (!trip) {
@@ -343,18 +416,9 @@ export function TripDetailScreen({
       <div className="flex min-h-screen items-center justify-center p-8">
         <EmptyState
           icon={Briefcase}
-          title={t("trip.tripNotFound", { defaultValue: "Trip not found" })}
-          description={
-            error ||
-            t("trip.tripNotFoundDesc", {
-              defaultValue: "Create or select a trip to continue.",
-            })
-          }
-          action={
-            <Button onClick={onCreateTrip}>
-              {t("trip.newTrip", { defaultValue: "New trip" })}
-            </Button>
-          }
+          title={t("trip.tripNotFound")}
+          description={error || t("trip.tripNotFoundDesc")}
+          action={<Button onClick={onCreateTrip}>{t("trip.newTrip")}</Button>}
         />
       </div>
     );
@@ -364,55 +428,52 @@ export function TripDetailScreen({
 
   return (
     <div className="h-full bg-background flex flex-col overflow-hidden">
-      {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur-md px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Minimal Mindtrip Top Header (no duplicated trip title) */}
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between bg-background/95 backdrop-blur-md px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2">
           <Button
             asChild
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full border border-border/80 hover:bg-muted"
+            className="size-9 rounded-full border border-border/80 bg-background hover:bg-muted text-foreground"
           >
-            <Link href="/trips" aria-label={t("trip.back", { defaultValue: "Back to trips" })}>
-              <ArrowLeft className="h-4 w-4" />
+            <Link href="/trips" aria-label={t("trip.back")}>
+              <ChevronLeft className="size-4" />
             </Link>
           </Button>
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground truncate">
-              {title}
-            </h1>
-          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="h-8 rounded-full px-3 text-xs font-semibold gap-1.5 border-border shadow-2xs hover:bg-accent cursor-pointer"
+            className="h-9 rounded-full px-3.5 text-xs font-semibold gap-1.5 border-border/80 bg-background hover:bg-muted cursor-pointer"
             onClick={() => setMembersDialogOpen(true)}
           >
-            <Users className="h-3.5 w-3.5 text-primary" />
-            <span>{t("trip.invite", { defaultValue: "Invite" })}</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 rounded-full px-3 text-xs font-semibold gap-1.5 border-border shadow-2xs hover:bg-accent cursor-pointer hidden sm:flex"
-            onClick={() => setPrintDialogOpen(true)}
-          >
-            <FileDown className="h-3.5 w-3.5 text-primary" />
-            <span>{t("trip.export", { defaultValue: "Export" })}</span>
+            <Users className="size-3.5 text-primary" />
+            <span>{t("trip.invite")}</span>
           </Button>
 
           <Button
             variant="outline"
             size="icon"
-            className="h-8 w-8 rounded-full border-border hover:bg-accent cursor-pointer"
-            aria-label="Edit trip"
+            className="size-9 rounded-full border-border/80 bg-background hover:bg-muted cursor-pointer hidden sm:inline-flex"
+            onClick={() => setPrintDialogOpen(true)}
+            title={t("trip.export")}
+            aria-label={t("trip.export")}
+          >
+            <FileDown className="size-4" />
+          </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-full border-border/80 bg-background hover:bg-muted cursor-pointer"
+            title={t("trip.editTrip")}
+            aria-label={t("trip.editTrip")}
             onClick={() => onEditTrip(trip)}
           >
-            <Edit3 className="h-3.5 w-3.5" />
+            <Edit3 className="size-3.5" />
           </Button>
 
           <DropdownMenu>
@@ -420,10 +481,10 @@ export function TripDetailScreen({
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-full border-border hover:bg-accent cursor-pointer"
-                aria-label="More actions"
+                className="size-9 rounded-full border-border/80 bg-background hover:bg-muted cursor-pointer"
+                aria-label={t("common.actions")}
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -432,33 +493,41 @@ export function TripDetailScreen({
               sideOffset={8}
             >
               <DropdownMenuItem
+                className="gap-2.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer sm:hidden"
+                onSelect={() => setPrintDialogOpen(true)}
+              >
+                <FileDown className="size-4" />
+                {t("trip.export")}
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
                 className="gap-2.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
                 onSelect={copyInviteLink}
               >
                 {copiedInviteLink ? (
-                  <Check className="h-4 w-4 text-primary" />
+                  <Check className="size-4 text-primary" />
                 ) : (
-                  <Link2 className="h-4 w-4" />
+                  <Link2 className="size-4" />
                 )}
                 {copiedInviteLink
-                  ? t("trip.copiedInviteLink", { defaultValue: "Copied invite link" })
-                  : t("trip.copyInviteLink", { defaultValue: "Copy invite link" })}
+                  ? t("trip.copiedInviteLink")
+                  : t("trip.copyInviteLink")}
               </DropdownMenuItem>
 
               <DropdownMenuItem
                 className="gap-2.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
                 onSelect={() => setSafetyOpen(true)}
               >
-                <Shield className="h-4 w-4 text-emerald-600" />
-                {t("trip.safetyGuide", { defaultValue: "Safety & Emergency Guide" })}
+                <Shield className="size-4 text-emerald-600" />
+                {t("trip.safetyGuide")}
               </DropdownMenuItem>
 
               <DropdownMenuItem
                 className="gap-2.5 rounded-xl px-3 py-2 text-xs font-medium cursor-pointer"
                 onSelect={() => setReminderOpen(true)}
               >
-                <TripReminderIcon className="h-4 w-4 text-amber-600" />
-                {t("trip.tripReminders", { defaultValue: "Trip Reminders" })}
+                <TripReminderIcon className="size-4 text-amber-600" />
+                {t("trip.tripReminders")}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -466,10 +535,8 @@ export function TripDetailScreen({
                 onSelect={handleCloneTrip}
                 disabled={cloning}
               >
-                <Copy className="h-4 w-4" />
-                {cloning
-                  ? t("trip.cloning", { defaultValue: "Cloning..." })
-                  : t("trip.cloneTrip", { defaultValue: "Clone this trip" })}
+                <Copy className="size-4" />
+                {cloning ? t("trip.cloning") : t("trip.cloneTrip")}
               </DropdownMenuItem>
 
               {onRequestDeleteTrip && (
@@ -480,8 +547,8 @@ export function TripDetailScreen({
                     onSelect={() => onRequestDeleteTrip(trip)}
                     disabled={submitting}
                   >
-                    <Trash2 className="h-4 w-4" />
-                    {t("trip.deleteTrip", { defaultValue: "Delete trip" })}
+                    <Trash2 className="size-4" />
+                    {t("trip.deleteTrip")}
                   </DropdownMenuItem>
                 </>
               )}
@@ -490,238 +557,228 @@ export function TripDetailScreen({
         </div>
       </header>
 
-      {error && <ErrorState className="mx-6 mt-3" message={error} />}
+      {error && <ErrorState className="mx-6 mb-2" message={error} />}
 
-      {/* Main 2-Column Split Workspace */}
+      {/* Main 2-Column Mindtrip Workspace */}
       <main className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-hidden">
-        {/* Left Column: Title, Metadata Tags, AI Greeting Card, Chats List & Bottom Dock Input */}
-        <section className="lg:col-span-5 xl:col-span-5 flex flex-col h-full border-r border-border/60 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6 space-y-4">
+        {/* Left Column: Editorial Overview, Segmented Metadata Bar, Borderless AI Coach, Clean Chats & Spacious Composer */}
+        <section
+          className={cn(
+            "lg:col-span-5 xl:col-span-5 flex flex-col h-full min-h-0 overflow-hidden",
+            activePanel === "itinerary" && "lg:border-r lg:border-border/60",
+          )}
+        >
+          <div className="flex-1 overflow-y-auto px-5 sm:px-7 lg:px-8 pt-2 pb-6 space-y-7">
+            {/* Title & Cohesive Segmented Metadata Bar */}
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                 {title}
-              </h2>
+              </h1>
 
-              <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-border/80 bg-background px-2.5 py-0.5 text-xs font-semibold text-foreground shadow-2xs">
+              <div
+                role="group"
+                aria-label={t("trip.tripOverviewMetadata")}
+                className="mt-3 inline-flex flex-wrap items-center rounded-full border border-border/80 bg-card divide-x divide-border/70 text-xs shadow-2xs overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => onEditTrip(trip)}
+                  className="px-3 py-1.5 font-semibold text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+                >
                   {destination}
-                </span>
-                <span className="rounded-full border border-border/80 bg-background px-2.5 py-0.5 text-xs font-semibold text-foreground shadow-2xs">
-                  {formatShortRange(trip.startDate, trip.endDate)}
-                </span>
-                <span className="rounded-full border border-border/80 bg-background px-2.5 py-0.5 text-xs font-semibold text-foreground shadow-2xs">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEditTrip(trip)}
+                  className="px-3 py-1.5 font-semibold text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+                >
+                  {durationBadgeLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEditTrip(trip)}
+                  className={cn(
+                    "px-3 py-1.5 hover:bg-muted/60 transition-colors cursor-pointer",
+                    trip.travelerCount
+                      ? "font-semibold text-foreground"
+                      : "font-medium text-muted-foreground",
+                  )}
+                >
                   {trip.travelerCount
-                    ? `${trip.travelerCount} ${t("trip.travelers", { defaultValue: "travelers" })}`
-                    : `1 ${t("trip.travelers", { defaultValue: "travelers" })}`}
-                </span>
-                <span className="rounded-full border border-border/80 bg-background px-2.5 py-0.5 text-xs font-semibold text-foreground shadow-2xs">
+                    ? `${trip.travelerCount} ${t("trip.travelers")}`
+                    : t("trip.whoPlaceholder")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onEditTrip(trip)}
+                  className={cn(
+                    "px-3 py-1.5 hover:bg-muted/60 transition-colors cursor-pointer",
+                    trip.budgetAmount
+                      ? "font-semibold text-foreground"
+                      : "font-medium text-muted-foreground",
+                  )}
+                >
                   {trip.budgetAmount
                     ? `${trip.budgetAmount.toLocaleString()} ${trip.budgetCurrency || "VND"}`
-                    : t("trip.budget", { defaultValue: "Budget" })}
-                </span>
+                    : t("trip.budget")}
+                </button>
               </div>
             </div>
 
+            {/* Borderless Editorial Mindtrip AI Coach */}
             {!bannerDismissed && (
-              <div className="relative rounded-2xl border border-border/80 bg-card p-4 shadow-xs transition-all animate-in fade-in duration-300">
-                <button
-                  type="button"
-                  onClick={() => setBannerDismissed(true)}
-                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground p-1 rounded-full cursor-pointer"
-                  aria-label="Dismiss banner"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-foreground text-background shadow-xs">
-                  <Sparkles className="h-3.5 w-3.5 fill-background stroke-background" />
+              <div className="space-y-3.5 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex size-7 items-center justify-center rounded-full bg-foreground text-background">
+                    <Sparkles className="size-3.5" />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground tabular-nums">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCoachIndex(
+                          (prev) =>
+                            (prev - 1 + coachSlides.length) %
+                            coachSlides.length,
+                        )
+                      }
+                      aria-label={t("common.previous")}
+                      className="size-6 rounded-full flex items-center justify-center hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft className="size-3.5" />
+                    </button>
+                    <span>
+                      {t("trip.coachStepCounter", {
+                        current: (coachIndex % coachSlides.length) + 1,
+                        total: coachSlides.length,
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCoachIndex((prev) => (prev + 1) % coachSlides.length)
+                      }
+                      aria-label={t("common.next")}
+                      className="size-6 rounded-full flex items-center justify-center hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      <ChevronRight className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <h3 className="mt-2 text-sm sm:text-base font-bold leading-snug tracking-tight text-foreground">
-                  {destination}{" "}
-                  {t("trip.openForPlanning", {
-                    defaultValue: "is open for planning. Want ideas for what to do there?",
-                  })}
-                </h3>
-                <div className="mt-3 flex flex-wrap gap-2">
+
+                <h2 className="text-base sm:text-lg font-bold leading-snug tracking-tight text-foreground">
+                  {activeCoachSlide.headline}
+                </h2>
+
+                {coachPreviewThumbs.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {coachPreviewThumbs.map((thumb) => (
+                      <button
+                        key={thumb.id}
+                        type="button"
+                        onClick={() => setActivePanel("itinerary")}
+                        className="size-14 rounded-2xl overflow-hidden border border-border/60 bg-muted shrink-0 cursor-pointer group"
+                        title={thumb.title}
+                      >
+                        <img
+                          src={thumb.url}
+                          alt={thumb.title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
                   <button
                     type="button"
-                    onClick={() =>
-                      handleSendPromptToAi(`Gợi ý các món ăn và nhà hàng đặc sản ngon nhất ở ${destination}`)
-                    }
-                    className="rounded-full bg-secondary hover:bg-secondary/80 px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors cursor-pointer"
+                    onClick={activeCoachSlide.onCta}
+                    className="rounded-full bg-secondary hover:bg-secondary/80 px-4 py-2 text-xs font-semibold text-secondary-foreground transition-colors cursor-pointer"
                   >
-                    {t("trip.showFoodIdeas", { defaultValue: "Show food ideas" })}
+                    {activeCoachSlide.ctaLabel}
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      handleSendPromptToAi(`Lên kế hoạch các hoạt động ngày đầu tiên tại ${destination}`)
-                    }
-                    className="rounded-full bg-secondary hover:bg-secondary/80 px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors cursor-pointer"
+                    onClick={() => setBannerDismissed(true)}
+                    className="rounded-full border border-border/80 bg-background hover:bg-muted px-4 py-2 text-xs font-semibold text-foreground transition-colors cursor-pointer"
                   >
-                    {t("trip.planFirstActivities", {
-                      defaultValue: "Plan first activities",
-                    })}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleSendPromptToAi(`Gợi ý các khu vực và địa điểm nổi tiếng nhất tại ${destination}`)
-                    }
-                    className="rounded-full bg-secondary hover:bg-secondary/80 px-3 py-1 text-xs font-semibold text-secondary-foreground transition-colors cursor-pointer"
-                  >
-                    {t("trip.suggestNeighborhoods", {
-                      defaultValue: "Suggest neighborhoods",
-                    })}
+                    {t("trip.dismiss")}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Real Chats Section */}
-            <div className="space-y-2.5">
+            {/* Clean Clickable Chats Section (opens AI Planner directly, no raw markdown preview clutter) */}
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                  {t("trip.chats", { defaultValue: "Chats" })}{" "}
-                  <span className="font-semibold text-muted-foreground ml-1">
+                <h3 className="text-sm font-bold text-foreground">
+                  {t("trip.chats")}
+                  <span className="font-normal text-muted-foreground ml-1.5">
                     {tripChatSessions.length}
                   </span>
                 </h3>
+                {tripChatSessions.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllChats((prev) => !prev)}
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    {showAllChats
+                      ? t("trip.showLessChats")
+                      : t("trip.showAllChats", {
+                          count: tripChatSessions.length,
+                        })}
+                  </button>
+                )}
               </div>
 
               {loadingAiChats ? (
-                <div className="flex items-center justify-center p-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
                 </div>
               ) : tripChatSessions.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-center space-y-1">
-                  <MessageSquare className="h-5 w-5 mx-auto text-muted-foreground" />
-                  <p className="text-xs font-bold text-foreground">
-                    {t("trip.noChatsYet", { defaultValue: "No chats for this trip yet." })}
+                <div className="rounded-2xl border border-dashed border-border/80 bg-card/40 p-5 text-center space-y-1.5">
+                  <MessageSquare className="size-5 mx-auto text-muted-foreground" />
+                  <p className="text-xs font-semibold text-foreground">
+                    {t("trip.noChatsYet")}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {t("trip.noChatsDesc", {
-                      defaultValue: "Ask AI below to get instant food, activities, or place ideas!",
-                    })}
+                  <p className="text-xs text-muted-foreground">
+                    {t("trip.noChatsDesc")}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {tripChatSessions.map((session) => {
-                    const isSelected = selectedChatSessionId === session.id;
-                    return (
-                      <div
-                        key={session.id}
-                        className={cn(
-                          "rounded-2xl border border-border bg-card p-3.5 shadow-xs transition-all hover:bg-accent/40 cursor-pointer",
-                          isSelected && "ring-1.5 ring-primary/40 bg-accent/20",
-                        )}
-                        onClick={() =>
-                          setSelectedChatSessionId(isSelected ? null : session.id)
-                        }
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0 pr-2">
-                            <h4 className="text-xs sm:text-sm font-bold text-foreground truncate">
-                              {session.title || t("trip.untitledChat", { defaultValue: "Conversation" })}
-                            </h4>
-                            <p className="mt-0.5 text-[11px] text-muted-foreground">
-                              {formatDate(session.updatedAt || session.createdAt)}
-                            </p>
-                          </div>
-                          <ChevronRight
-                            className={cn(
-                              "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                              isSelected && "rotate-90",
-                            )}
-                          />
-                        </div>
-
-                        {isSelected && (
-                          <div
-                            className="mt-3 pt-2.5 border-t border-border/60 space-y-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {loadingMessages ? (
-                              <div className="flex items-center justify-center py-3">
-                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                              </div>
-                            ) : sessionMessages.length === 0 ? (
-                              <p className="text-[11px] text-muted-foreground italic">
-                                {t("trip.noMessagesInChat", {
-                                  defaultValue: "No messages in this chat yet.",
-                                })}
-                              </p>
-                            ) : (
-                              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                                {sessionMessages.map((msg) => {
-                                  const text = extractMessageText(msg);
-                                  if (!text) return null;
-                                  const isUser = msg.role === "user";
-                                  return (
-                                    <div
-                                      key={msg.id}
-                                      className={cn(
-                                        "rounded-xl p-2.5 text-xs font-medium leading-relaxed",
-                                        isUser
-                                          ? "bg-muted/80 text-foreground"
-                                          : "bg-primary/10 border border-primary/20 text-foreground",
-                                      )}
-                                    >
-                                      <span
-                                        className={cn(
-                                          "font-bold mr-1.5",
-                                          isUser ? "text-primary" : "text-primary/90",
-                                        )}
-                                      >
-                                        {isUser ? "You:" : "TripSense AI:"}
-                                      </span>
-                                      {text}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            <div className="pt-1 flex justify-end">
-                              <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="h-6 rounded-full px-2.5 text-[11px] font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10 cursor-pointer"
-                              >
-                                <Link href={`/ai-planner/${session.id}?tripId=${trip.id}`}>
-                                  <span>
-                                    {t("trip.openInAiPlanner", {
-                                      defaultValue: "Open in AI Planner",
-                                    })}
-                                  </span>
-                                  <ExternalLink className="h-3 w-3" />
-                                </Link>
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                <div className="space-y-2.5">
+                  {visibleChatSessions.map((session) => (
+                    <Link
+                      key={session.id}
+                      href={`/ai-planner/${session.id}?tripId=${trip.id}`}
+                      className="group flex items-center justify-between gap-3 rounded-2xl border border-border/80 bg-card px-4 py-3.5 transition-all hover:bg-accent/40 hover:border-border cursor-pointer"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-foreground truncate">
+                          {session.title || t("trip.untitledChat")}
+                        </h4>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {formatChatDate(
+                            session.updatedAt || session.createdAt,
+                            locale,
+                          )}
+                        </p>
                       </div>
-                    );
-                  })}
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Docked Chat Input Bar - ALWAYS pinned and visible right at the bottom! */}
-          <div className="shrink-0 border-t border-border/70 bg-background/95 backdrop-blur-md p-3 sm:px-4">
-            <div className="flex items-center gap-2 rounded-full border border-border/90 bg-muted/30 p-1.5 pl-3 shadow-xs focus-within:border-primary/80 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => itinerary?.days[0] && onAddItem(itinerary.days[0])}
-                className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
-                title={t("trip.addSpot", { defaultValue: "Add to trip" })}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+          {/* Spacious Mindtrip 2-Row Bottom Composer */}
+          <div className="shrink-0 bg-background/95 backdrop-blur-md px-5 sm:px-7 lg:px-8 pb-5 pt-2">
+            <div className="rounded-2xl border border-border/90 bg-card px-4 py-3 shadow-xs focus-within:border-foreground/30 focus-within:ring-2 focus-within:ring-ring/20 transition-all">
               <input
                 type="text"
                 value={chatText}
@@ -732,83 +789,111 @@ export function TripDetailScreen({
                     handleSendPromptToAi(chatText);
                   }
                 }}
-                placeholder={t("trip.chatPlaceholder", {
-                  defaultValue: "Start a new chat for this trip",
-                })}
-                className="flex-1 bg-transparent px-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+                placeholder={t("trip.chatPlaceholder")}
+                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
-              <div className="flex items-center gap-1 shrink-0">
-                <Button
+
+              <div className="mt-3 flex items-center justify-between">
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Voice input"
+                  onClick={() => itinerary?.days[0] && onAddItem(itinerary.days[0])}
+                  disabled={!itinerary?.days[0]}
+                  className="size-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-40"
+                  title={t("trip.addSpot")}
+                  aria-label={t("trip.addSpot")}
                 >
-                  <Mic className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  onClick={() => handleSendPromptToAi(chatText)}
-                  disabled={!chatText.trim()}
-                  className={cn(
-                    "h-7 w-7 rounded-full transition-all cursor-pointer",
-                    chatText.trim()
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "bg-muted text-muted-foreground hover:bg-muted",
-                  )}
-                  aria-label="Send"
-                >
-                  <Send className="h-3 w-3" />
-                </Button>
+                  <Plus className="size-4" />
+                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleSendPromptToAi(
+                        chatText.trim() ||
+                          (locale === "vi"
+                            ? `Hỗ trợ tôi lên kế hoạch cho ${title}`
+                            : `Help me plan ${title}`),
+                      )
+                    }
+                    className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                    title={t("trip.voiceInput")}
+                    aria-label={t("trip.voiceInput")}
+                  >
+                    <Mic className="size-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSendPromptToAi(chatText)}
+                    disabled={!chatText.trim()}
+                    className={cn(
+                      "size-8 rounded-full flex items-center justify-center transition-all cursor-pointer",
+                      chatText.trim()
+                        ? "bg-foreground text-background hover:bg-foreground/90 shadow-xs"
+                        : "bg-muted text-muted-foreground cursor-not-allowed",
+                    )}
+                    aria-label={t("common.send")}
+                  >
+                    <Send className="size-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Right Column: 6 Feature Action Tiles + Large Interactive Map */}
-        <section className="lg:col-span-7 xl:col-span-7 flex flex-col h-full p-4 sm:p-5 gap-3 overflow-hidden">
+        {/* Right Column: Overview (2x3 Action Tiles + Clean Map) OR Full Mindtrip Itinerary Pane */}
+        <section className="lg:col-span-7 xl:col-span-7 flex flex-col h-full min-h-0 overflow-hidden">
           {activePanel === "overview" ? (
-            <>
-              {/* 6 Feature Action Tiles in 2 Columns */}
-              <div className="grid grid-cols-2 gap-2.5 shrink-0">
+            <div className="flex flex-col h-full min-h-0 px-5 sm:px-6 lg:pr-8 pt-2 pb-5 gap-4 overflow-hidden">
+              {/* 2x3 Mindtrip Action Tiles */}
+              <div className="grid grid-cols-2 gap-3 shrink-0">
                 <ActionTile
                   icon={Lightbulb}
-                  label={t("trip.ideas", { defaultValue: "Ideas" })}
+                  label={t("trip.ideas")}
                   onClick={() => setPollOpen(true)}
                 />
                 <ActionTile
                   icon={Compass}
-                  label={t("trip.itinerary", { defaultValue: "Itinerary" })}
-                  badge={itineraryPlacesCount > 0 ? `${itineraryPlacesCount}` : undefined}
+                  label={t("trip.itinerary")}
+                  badge={
+                    itineraryPlacesCount > 0
+                      ? `${itineraryPlacesCount}`
+                      : undefined
+                  }
                   onClick={() => setActivePanel("itinerary")}
                 />
                 <ActionTile
                   icon={Luggage}
-                  label={t("trip.bookings", { defaultValue: "Bookings" })}
+                  label={t("trip.bookings")}
                   onClick={() => setChecklistOpen(true)}
                 />
                 <ActionTile
                   icon={FileText}
-                  label={t("trip.media", { defaultValue: "Media" })}
+                  label={t("trip.media")}
                   onClick={() => onEditTrip(trip)}
                 />
                 <ActionTile
                   icon={Info}
-                  label={t("trip.preferences", { defaultValue: "Trip preferences" })}
+                  label={t("trip.preferences")}
                   badge="1"
                   onClick={() => onEditTrip(trip)}
                 />
                 <ActionTile
                   icon={Calendar}
-                  label={t("trip.calendar", { defaultValue: "Calendar" })}
+                  label={t("trip.calendar")}
+                  badge={
+                    itineraryPlacesCount > 0
+                      ? `${itineraryPlacesCount}`
+                      : undefined
+                  }
                   href="/calendar"
                 />
               </div>
 
-              {/* Large Interactive Map with Marked Points */}
-              <div className="relative flex-1 min-h-0 w-full overflow-hidden rounded-2xl border border-border bg-muted shadow-sm">
+              {/* Clean Interactive Map */}
+              <div className="relative flex-1 min-h-0 w-full overflow-hidden rounded-3xl border border-border/70 bg-muted shadow-xs">
                 <MapVinaContainer
                   places={mapPlaces}
                   selectedPlaceId={selectedPlaceId}
@@ -819,192 +904,88 @@ export function TripDetailScreen({
                   className="h-full w-full"
                 />
               </div>
-            </>
+            </div>
           ) : (
-            /* Itinerary Mode: Side-by-Side Day Inspection with Interactive Map */
-            <div className="flex flex-col flex-1 min-h-0 gap-3 overflow-hidden">
-              {/* Itinerary Header & Day Filter */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-border/80 shrink-0">
+            /* Full Right-Pane Mindtrip Itinerary View (matching Reference Image 3) */
+            <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
+              {/* Itinerary Pane Top Utility Bar */}
+              <div className="flex items-center justify-between px-5 sm:px-7 pt-2 pb-3 shrink-0">
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
+                    type="button"
                     onClick={() => setActivePanel("overview")}
-                    className="h-8 rounded-full px-2.5 text-xs font-semibold gap-1.5 hover:bg-muted cursor-pointer"
+                    aria-label={t("common.close")}
+                    title={t("common.close")}
+                    className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                   >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    <span>{t("trip.back", { defaultValue: "Back" })}</span>
-                  </Button>
-                  <h3 className="text-base font-bold tracking-tight text-foreground">
-                    {t("trip.itinerary", { defaultValue: "Itinerary" })}
-                  </h3>
-                  <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    {countTripDays(trip)} {t("trip.daysCount", { defaultValue: "days" })} · {itineraryPlacesCount} {t("trip.spotsCount", { defaultValue: "spots" })}
-                  </span>
+                    <X className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivePanel("overview");
+                      setFitBoundsTrigger((prev) => prev + 1);
+                    }}
+                    className="inline-flex items-center gap-1.5 h-8 rounded-full px-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                    title={t("aiPlanner.mapToggle")}
+                  >
+                    <MapIcon className="size-3.5" />
+                    <span>{t("trip.viewMap")}</span>
+                  </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {itinerary?.days[0] && (
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setFitBoundsTrigger((prev) => prev + 1)}
-                    className="h-7 rounded-full px-2.5 text-xs font-semibold gap-1 hover:bg-accent cursor-pointer"
+                    onClick={() => onAddItem(itinerary.days[0])}
+                    className="h-8 rounded-full px-3 text-xs font-semibold gap-1.5 border-border/80 cursor-pointer"
                   >
-                    <MapPin className="h-3.5 w-3.5 text-primary" />
-                    <span>{t("trip.fitMap", { defaultValue: "Fit Map" })}</span>
+                    <Plus className="size-3.5" />
+                    <span>{t("trip.addSpot")}</span>
                   </Button>
-                  {itinerary?.days[0] && (
-                    <Button
-                      size="sm"
-                      onClick={() => onAddItem(itinerary.days[0])}
-                      className="h-7 rounded-full px-3 text-xs font-bold gap-1 cursor-pointer"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>{t("trip.addSpot", { defaultValue: "Add Spot" })}</span>
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
 
-              {/* Day Selector Pills */}
-              {itinerary?.days && itinerary.days.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
-                  <Button
-                    variant={selectedDayNumber === null ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedDayNumber(null)}
-                    className="h-7 rounded-full px-3 text-xs font-semibold cursor-pointer shrink-0"
-                  >
-                    {t("trip.allDays", { defaultValue: "All Days" })}
-                  </Button>
-                  {itinerary.days.map((day) => (
-                    <Button
-                      key={day.id}
-                      variant={selectedDayNumber === day.dayNumber ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedDayNumber(day.dayNumber)}
-                      className="h-7 rounded-full px-3 text-xs font-semibold cursor-pointer shrink-0"
-                    >
-                      {t("trip.day", { number: day.dayNumber })} ({formatDate(day.date)})
-                    </Button>
-                  ))}
-                </div>
-              )}
+              {/* Scrollable Mindtrip Itinerary Content */}
+              <div className="flex-1 overflow-y-auto px-5 sm:px-7 pb-8">
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-5">
+                  {t("trip.itinerary")}
+                </h2>
 
-              {/* Itinerary Items & Map Split */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1 min-h-0 overflow-hidden">
-                <div className="space-y-3 overflow-y-auto pr-1">
-                  {itinerary?.days.map((day) => {
-                    if (selectedDayNumber != null && day.dayNumber !== selectedDayNumber) {
-                      return null;
+                <MindtripItineraryView
+                  trip={trip}
+                  itinerary={itinerary}
+                  loading={loading}
+                  submitting={submitting}
+                  photoUrls={resolvedPhotoUrls}
+                  selectedItemId={selectedPlaceId}
+                  showIdeasSection={true}
+                  showInspirationBanner={itineraryPlacesCount === 0}
+                  onAddItem={onAddItem}
+                  onAddIdea={() => setPollOpen(true)}
+                  onEditItem={onEditItem}
+                  onUpdateItemTime={onUpdateItemTime}
+                  onReorderItems={onReorderItems}
+                  onSortAllDaysByTime={onSortAllDaysByTime}
+                  onDeleteItem={(_day, item) => onDeleteItem(item)}
+                  onSelectItem={(item) => setSelectedPlaceId(item.id)}
+                  onOpenMap={(focusItemId) => {
+                    if (focusItemId) {
+                      setSelectedPlaceId(focusItemId);
                     }
-
-                    return (
-                      <div
-                        key={day.id}
-                        className="rounded-2xl border border-border bg-card p-3.5 space-y-2.5 shadow-xs"
-                      >
-                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-foreground">
-                              {t("trip.day", { number: day.dayNumber })}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground font-medium">
-                              · {formatDate(day.date)}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onAddItem(day)}
-                            className="h-6 rounded-full px-2 text-[11px] font-semibold text-primary hover:bg-primary/10 cursor-pointer"
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            {t("trip.addPlace", { defaultValue: "Add" })}
-                          </Button>
-                        </div>
-
-                        {day.items.length === 0 ? (
-                          <div className="rounded-xl bg-muted/40 p-3 text-center text-xs text-muted-foreground font-medium">
-                            {t("trip.noPlacesPlanned", {
-                              defaultValue: "No places planned for this day yet.",
-                            })}
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {day.items.map((item) => {
-                              const isSelected = selectedPlaceId === item.id;
-                              return (
-                                <div
-                                  key={item.id}
-                                  onClick={() => setSelectedPlaceId(item.id)}
-                                  className={cn(
-                                    "flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-background p-2.5 transition-all cursor-pointer hover:border-primary/50",
-                                    isSelected && "ring-2 ring-primary/40 border-primary bg-primary/5",
-                                  )}
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-bold text-foreground truncate">
-                                        {item.title}
-                                      </span>
-                                      <span className="text-micro font-semibold text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded">
-                                        {itemTypeLabel(item.type)}
-                                      </span>
-                                    </div>
-                                    {formatDisplayTimeRange(item.startTime, item.endTime) && (
-                                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                        {formatDisplayTimeRange(item.startTime, item.endTime)}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onEditItem(item);
-                                      }}
-                                    >
-                                      <Edit3 className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteItem(item);
-                                      }}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Right sub-column: Coordinated Map */}
-                <div className="relative h-full min-h-0 rounded-2xl overflow-hidden border border-border shadow-xs">
-                  <MapVinaContainer
-                    places={mapPlaces}
-                    selectedPlaceId={selectedPlaceId}
-                    onSelectPlace={setSelectedPlaceId}
-                    center={centerCoordinates}
-                    zoom={mapPlaces.length > 1 ? 13 : 14}
-                    fitBoundsTrigger={fitBoundsTrigger}
-                    className="h-full w-full"
-                  />
-                </div>
+                    setActivePanel("overview");
+                    setFitBoundsTrigger((prev) => prev + 1);
+                  }}
+                  onAskAiForDay={(day) =>
+                    handleSendPromptToAi(
+                      locale === "vi"
+                        ? `Gợi ý lịch trình chi tiết cho Ngày ${day.dayNumber} tại ${destination}`
+                        : `Suggest detailed places and schedule for Day ${day.dayNumber} in ${destination}`,
+                    )
+                  }
+                />
               </div>
             </div>
           )}
@@ -1095,13 +1076,13 @@ function ActionTile({
   onClick?: () => void;
 }) {
   const content = (
-    <div className="flex h-13 items-center justify-between rounded-2xl border border-border/80 bg-card px-4 py-2.5 text-sm font-bold shadow-xs transition-all duration-200 hover:bg-accent/60 cursor-pointer">
+    <div className="flex h-12 items-center justify-between rounded-2xl border border-border/80 bg-card px-4 text-sm font-semibold shadow-2xs transition-all duration-200 hover:bg-accent/50 hover:border-border cursor-pointer">
       <span className="flex items-center gap-3 text-foreground min-w-0">
-        <Icon className="h-4 w-4 text-foreground/80 shrink-0" />
+        <Icon className="size-4 text-foreground/80 shrink-0" />
         <span className="truncate">{label}</span>
       </span>
       {badge && (
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[11px] font-bold text-secondary-foreground shrink-0">
+        <span className="flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground shrink-0 tabular-nums">
           {badge}
         </span>
       )}
@@ -1113,7 +1094,11 @@ function ActionTile({
   }
 
   return (
-    <button type="button" className="text-left w-full cursor-pointer" onClick={onClick}>
+    <button
+      type="button"
+      className="text-left w-full cursor-pointer"
+      onClick={onClick}
+    >
       {content}
     </button>
   );

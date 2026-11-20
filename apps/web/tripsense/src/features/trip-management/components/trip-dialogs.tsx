@@ -52,6 +52,7 @@ import {
   titleCaseDestination,
   tripCoverOptions,
 } from "../utils/format";
+import { isUuid } from "../services/trip-management-api";
 import { todayIso } from "../utils/date";
 import {
   addMinutesToTime,
@@ -394,7 +395,7 @@ export function AddItemDialog({
     const type = mapPlaceToItineraryType(place, selectedCategory);
     const duration = type === "MEAL" ? 90 : type === "HOTEL" ? 120 : 60;
     const payload: CreateItineraryItemRequest = {
-      placeId: place.id,
+      placeId: isUuid(place.id) ? place.id : null,
       placeRef: place.id,
       type,
       title: place.name,

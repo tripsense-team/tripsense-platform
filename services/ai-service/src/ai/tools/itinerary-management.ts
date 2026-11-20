@@ -147,6 +147,61 @@ export const replaceItineraryItemSchema = z.object({
     .describe("ID chuyến đi"),
 });
 
+export const reorderItineraryItemsSchema = z.object({
+  dayNumber: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .describe("Số thứ tự ngày trong chuyến đi cần sắp xếp lại (ví dụ: 1 cho Ngày 1)"),
+  orderedItemIds: z
+    .array(z.string().trim().min(1))
+    .optional()
+    .describe("Danh sách đầy đủ itemId theo thứ tự mới mong muốn (nếu không dùng sortByTime)"),
+  sortByTime: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Đặt true để tự động sắp xếp tất cả mục trong ngày theo startTime tăng dần"),
+  preserveTimes: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Giữ nguyên khung giờ startTime/endTime hiện có thay vì nối giờ tự động"),
+  tripId: z
+    .string()
+    .optional()
+    .describe("ID chuyến đi (mặc định lấy chuyến đi đang liên kết)"),
+});
+
+function parseTimeToMinutes(timeStr?: string | null): number | null {
+  if (!timeStr) return null;
+  const parts = timeStr.trim().split(":");
+  if (parts.length < 2) return null;
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+    return null;
+  }
+  return h * 60 + m;
+}
+
+export function sortItineraryItemsByTime<
+  T extends { id: string; startTime?: string | null; sortOrder?: number | null },
+>(items: T[]): T[] {
+  return items
+    .map((item, idx) => ({ item, idx, startMin: parseTimeToMinutes(item.startTime) }))
+    .sort((a, b) => {
+      if (a.startMin !== null && b.startMin !== null && a.startMin !== b.startMin) {
+        return a.startMin - b.startMin;
+      }
+      if (a.startMin !== null && b.startMin === null) return -1;
+      if (a.startMin === null && b.startMin !== null) return 1;
+      return (a.item.sortOrder ?? a.idx) - (b.item.sortOrder ?? b.idx);
+    })
+    .map((entry) => entry.item);
+}
+
 export function getItineraryManagementTools(context: ItineraryToolContext) {
   const addItineraryItems = tool({
     description:
@@ -438,11 +493,119 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
     },
   });
 
+  const reorderItineraryItems = tool({
+    description:
+      "Sắp xếp lại thứ tự các hoạt động trong một ngày (theo khung giờ tăng dần với sortByTime=true hoặc theo danh sách orderedItemIds cụ thể). Dùng khi người dùng yêu cầu 'Sắp xếp lại Ngày 1 theo thời gian', 'Đưa địa điểm A lên trước B'.",
+    inputSchema: reorderItineraryItemsSchema,
+    execute: async (input) => {
+      const targetTripId = input.tripId || context.runtime.tripId;
+      if (!targetTripId) {
+        return { success: false, error: "Chưa có chuyến đi liên kết." };
+      }
+
+      if (!context.authorization) {
+        return { success: false, error: "Vui lòng đăng nhập để thao tác với chuyến đi." };
+      }
+
+      try {
+        const getRes = await fetch(`${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary`, {
+          headers: { Authorization: context.authorization },
+        });
+        if (!getRes.ok) {
+          return { success: false, error: `Không thể đọc lịch trình hiện tại (mã lỗi ${getRes.status}).` };
+        }
+        const getPayload: any = await getRes.json();
+        const itineraryData = getPayload?.data;
+        const targetDay = (itineraryData?.days || []).find(
+          (d: any) => Number(d.dayNumber) === Number(input.dayNumber),
+        );
+        if (!targetDay) {
+          return { success: false, error: `Không tìm thấy Ngày ${input.dayNumber} trong chuyến đi.` };
+        }
+        const currentItems: any[] = Array.isArray(targetDay.items) ? targetDay.items : [];
+        if (currentItems.length < 2) {
+          return {
+            success: true,
+            dayNumber: input.dayNumber,
+            message: `Ngày ${input.dayNumber} hiện có dưới 2 hoạt động nên không cần sắp xếp lại.`,
+          };
+        }
+
+        let nextIds: string[];
+        if (input.sortByTime) {
+          nextIds = sortItineraryItemsByTime(currentItems).map((it) => String(it.id));
+        } else if (Array.isArray(input.orderedItemIds) && input.orderedItemIds.length > 0) {
+          const existingSet = new Set(currentItems.map((it) => String(it.id)));
+          const requestedSet = new Set(input.orderedItemIds);
+          if (
+            requestedSet.size !== input.orderedItemIds.length ||
+            requestedSet.size !== existingSet.size ||
+            [...existingSet].some((id) => !requestedSet.has(id))
+          ) {
+            return {
+              success: false,
+              error: "Danh sách orderedItemIds không khớp đủ các hoạt động hiện có trong ngày. Hãy gọi getTripItinerary trước.",
+            };
+          }
+          nextIds = input.orderedItemIds;
+        } else {
+          return {
+            success: false,
+            error: "Cần truyền sortByTime=true hoặc danh sách orderedItemIds đầy đủ.",
+          };
+        }
+
+        const reorderRes = await fetch(
+          `${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary/days/${targetDay.id}/items/reorder`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: context.authorization,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              orderedItemIds: nextIds,
+              version: targetDay.version,
+              expectedTripRevision: itineraryData?.revision ?? context.runtime.tripRevision ?? null,
+              preserveTimes: input.preserveTimes ?? true,
+            }),
+          },
+        );
+        if (!reorderRes.ok) {
+          return {
+            success: false,
+            error: `Không thể sắp xếp lại lịch trình (mã lỗi ${reorderRes.status}).`,
+          };
+        }
+
+        const reorderPayload: any = await reorderRes.json();
+        if (context.runtime && typeof itineraryData?.revision === "number") {
+          context.runtime.tripRevision = itineraryData.revision + 1;
+        }
+        return {
+          success: true,
+          dayNumber: input.dayNumber,
+          orderedItemIds: nextIds,
+          day: reorderPayload?.data,
+          message: input.sortByTime
+            ? `Đã sắp xếp lại Ngày ${input.dayNumber} theo khung giờ tăng dần.`
+            : `Đã cập nhật thứ tự hoạt động cho Ngày ${input.dayNumber}.`,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err?.message || "Không thể kết nối trip-service để sắp xếp lịch trình.",
+        };
+      }
+    },
+  });
+
   return {
     addItineraryItems,
     getTripItinerary,
     removeItineraryItem,
     updateItineraryItem,
     replaceItineraryItem,
+    reorderItineraryItems,
   };
 }

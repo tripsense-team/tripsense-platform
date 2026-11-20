@@ -155,12 +155,14 @@ export interface UpdateItineraryItemRequest
   extends Partial<CreateItineraryItemRequest> {
   status?: ItineraryItemStatus;
   version?: number;
+  clearTimes?: boolean;
 }
 
 export interface ReorderItemsRequest {
   orderedItemIds: string[];
   version: number;
   expectedTripRevision?: number;
+  preserveTimes?: boolean;
 }
 
 export * from './collaboration';

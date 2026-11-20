@@ -253,10 +253,26 @@ chatRouter.get("/models", (c) => {
 
 /**
  * GET /api/chats
- * Returns list of chats for the current user
+ * Returns list of chats for the current user, optionally filtered by ?tripId=<uuid>
  */
 chatRouter.get("/chats", async (c) => {
   const userId = userIdFrom(c);
+  const rawTripId = c.req.query("tripId")?.trim();
+
+  if (rawTripId) {
+    const parsedTripId = z.string().uuid().safeParse(rawTripId);
+    if (!parsedTripId.success) {
+      return c.json({ chats: [] });
+    }
+    const tripChats = await db
+      .select()
+      .from(chats)
+      .where(and(eq(chats.userId, userId), eq(chats.tripId, parsedTripId.data)))
+      .orderBy(desc(chats.updatedAt))
+      .limit(50);
+
+    return c.json({ chats: tripChats });
+  }
 
   const userChats = await db
     .select()

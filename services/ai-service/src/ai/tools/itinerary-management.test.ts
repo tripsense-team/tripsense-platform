@@ -6,6 +6,8 @@ import {
   removeItineraryItemSchema,
   updateItineraryItemSchema,
   replaceItineraryItemSchema,
+  reorderItineraryItemsSchema,
+  sortItineraryItemsByTime,
   getItineraryManagementTools,
 } from "./itinerary-management.js";
 import { normalizeActivityPeriod } from "./create-trip-proposal.js";
@@ -111,6 +113,33 @@ test("tools return safe error when no linked trip is found", async () => {
     newTitle: "Replaced",
   });
   assert.equal(replaceResult.success, false);
+
+  const reorderResult = await (tools.reorderItineraryItems as any).execute({
+    dayNumber: 1,
+    sortByTime: true,
+  });
+  assert.equal(reorderResult.success, false);
+});
+
+test("reorderItineraryItemsSchema and sortItineraryItemsByTime sort chronologically with unscheduled items last", () => {
+  const parsed = reorderItineraryItemsSchema.safeParse({
+    dayNumber: 1,
+    sortByTime: true,
+    preserveTimes: true,
+  });
+  assert.equal(parsed.success, true);
+
+  const sorted = sortItineraryItemsByTime([
+    { id: "c", startTime: "13:00:00", sortOrder: 10 },
+    { id: "d", startTime: null, sortOrder: 20 },
+    { id: "a", startTime: "09:00", sortOrder: 30 },
+    { id: "b", startTime: "11:30", sortOrder: 40 },
+    { id: "e", startTime: null, sortOrder: 50 },
+  ]);
+  assert.deepEqual(
+    sorted.map((it) => it.id),
+    ["a", "b", "c", "d", "e"],
+  );
 });
 
 test("addItineraryItemsSchema accepts NOON period and normalizeActivityPeriod aligns lunch slots", () => {

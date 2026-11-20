@@ -170,3 +170,56 @@ export const TIME_OPTIONS_24H = Array.from({ length: 48 }, (_, i) => {
   return `${h}:${m}`;
 }).concat(["23:59"]);
 
+export function parseTimeToMinutes(timeStr?: string | null): number | null {
+  if (!timeStr) return null;
+  const parts = timeStr.trim().split(":");
+  if (parts.length < 2) return null;
+  const hour = Number(parts[0]);
+  const minute = Number(parts[1]);
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+  return hour * 60 + minute;
+}
+
+export function isValidHHMM(timeStr?: string | null): boolean {
+  if (!timeStr) return false;
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(timeStr.trim());
+}
+
+export function sortItineraryItemsByTime<
+  T extends {
+    id: string;
+    startTime?: string | null;
+    endTime?: string | null;
+    sortOrder?: number | null;
+  },
+>(items: T[]): T[] {
+  return items
+    .map((item, index) => ({
+      item,
+      index,
+      startMin: parseTimeToMinutes(item.startTime),
+      endMin: parseTimeToMinutes(item.endTime),
+    }))
+    .sort((a, b) => {
+      if (a.startMin !== null && b.startMin !== null && a.startMin !== b.startMin) {
+        return a.startMin - b.startMin;
+      }
+      if (a.startMin !== null && b.startMin === null) return -1;
+      if (a.startMin === null && b.startMin !== null) return 1;
+      if (a.endMin !== null && b.endMin !== null && a.endMin !== b.endMin) {
+        return a.endMin - b.endMin;
+      }
+      return (a.item.sortOrder ?? a.index) - (b.item.sortOrder ?? b.index);
+    })
+    .map((entry) => entry.item);
+}
+

@@ -76,6 +76,7 @@ const ITINERARY_MUTATING_TOOLS = new Set([
   "removeItineraryItem",
   "replaceItineraryItem",
   "updateItineraryItem",
+  "reorderItineraryItems",
 ]);
 
 function extractThemesFromText(text: string, map: Record<number, string>) {
