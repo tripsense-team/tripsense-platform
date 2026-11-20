@@ -10,6 +10,9 @@ import {
 import type { ItineraryResponse, TripResponse } from "@/features/trip-management/types";
 
 const mockGetItinerary = vi.fn();
+const mockReorderItineraryItems = vi.fn();
+const mockUpdateItineraryItem = vi.fn();
+const mockCreateItineraryItem = vi.fn();
 const mockGetPlaceBatchSnapshots = vi.fn();
 const mockSearchPlaces = vi.fn();
 
@@ -29,6 +32,9 @@ vi.mock("@/features/trip-management/services/trip-management-api", () => ({
   updateTrip: vi.fn(),
   deleteTrip: vi.fn(),
   deleteItineraryItem: vi.fn(),
+  createItineraryItem: (...args: unknown[]) => mockCreateItineraryItem(...args),
+  updateItineraryItem: (...args: unknown[]) => mockUpdateItineraryItem(...args),
+  reorderItineraryItems: (...args: unknown[]) => mockReorderItineraryItems(...args),
 }));
 
 vi.mock("@/features/places/services/places-api", () => ({
@@ -285,6 +291,77 @@ describe("TripDetailPanel canonical photo resolution", () => {
         title: "Cổng Chùa Linh Ứng",
       }),
       "https://res.cloudinary.com/demo/chat-linh-ung.jpg",
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("sorts day items chronologically with preserveTimes=true inside AI Chat TripDetailPanel", async () => {
+    const outOfOrderItinerary: ItineraryResponse = {
+      tripId: "trip-1",
+      revision: 3,
+      days: [
+        {
+          id: "day-1",
+          dayNumber: 1,
+          date: "2026-12-16",
+          version: 2,
+          items: [
+            sampleItinerary.days[0].items[1], // 14:00
+            sampleItinerary.days[0].items[0], // 08:30
+          ],
+        },
+      ],
+    };
+    mockGetItinerary.mockResolvedValue(outOfOrderItinerary);
+    mockReorderItineraryItems.mockResolvedValue({
+      ...outOfOrderItinerary.days[0],
+      version: 3,
+      items: [
+        sampleItinerary.days[0].items[0],
+        sampleItinerary.days[0].items[1],
+      ],
+    });
+
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <TripDetailPanel
+          trip={sampleTrip}
+          knownPlacePhotos={{
+            "place-linh-ung": "https://res.cloudinary.com/demo/chat-linh-ung.jpg",
+            "key-nhs": "https://res.cloudinary.com/demo/chat-nhs.jpg",
+          }}
+          onClose={vi.fn()}
+        />,
+      );
+    });
+    await flushEffects();
+
+    const sortBtn = container.querySelector(
+      '[data-testid="sort-day-by-time-day-1"]',
+    ) as HTMLButtonElement | null;
+    expect(sortBtn).not.toBeNull();
+
+    await act(async () => {
+      sortBtn?.click();
+    });
+    await flushEffects();
+
+    expect(mockReorderItineraryItems).toHaveBeenCalledTimes(1);
+    expect(mockReorderItineraryItems).toHaveBeenCalledWith(
+      "trip-1",
+      "day-1",
+      expect.objectContaining({
+        orderedItemIds: ["item-linh-ung", "item-ngu-hanh-son"],
+        preserveTimes: true,
+        version: 2,
+        expectedTripRevision: 3,
+      }),
     );
 
     await act(async () => {

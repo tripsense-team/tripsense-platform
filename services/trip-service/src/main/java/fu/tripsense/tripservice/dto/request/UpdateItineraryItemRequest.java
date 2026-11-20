@@ -17,7 +17,8 @@ public record UpdateItineraryItemRequest(
     ItineraryItemStatus status,
     @Size(max = 5000) String notes,
     Long version,
-    Long expectedTripRevision) {
+    Long expectedTripRevision,
+    Boolean clearTimes) {
   public UpdateItineraryItemRequest(
       UUID placeId,
       ItineraryItemType type,
@@ -28,7 +29,19 @@ public record UpdateItineraryItemRequest(
       ItineraryItemStatus status,
       String notes,
       Long version) {
-    this(placeId, null, type, title, startTime, endTime, durationMinutes, status, notes, version, null);
+    this(
+        placeId,
+        null,
+        type,
+        title,
+        startTime,
+        endTime,
+        durationMinutes,
+        status,
+        notes,
+        version,
+        null,
+        false);
   }
 
   public UpdateItineraryItemRequest(
@@ -42,7 +55,46 @@ public record UpdateItineraryItemRequest(
       ItineraryItemStatus status,
       String notes,
       Long version) {
-    this(placeId, placeRef, type, title, startTime, endTime, durationMinutes, status, notes, version, null);
+    this(
+        placeId,
+        placeRef,
+        type,
+        title,
+        startTime,
+        endTime,
+        durationMinutes,
+        status,
+        notes,
+        version,
+        null,
+        false);
+  }
+
+  public UpdateItineraryItemRequest(
+      UUID placeId,
+      String placeRef,
+      ItineraryItemType type,
+      String title,
+      LocalTime startTime,
+      LocalTime endTime,
+      Integer durationMinutes,
+      ItineraryItemStatus status,
+      String notes,
+      Long version,
+      Long expectedTripRevision) {
+    this(
+        placeId,
+        placeRef,
+        type,
+        title,
+        startTime,
+        endTime,
+        durationMinutes,
+        status,
+        notes,
+        version,
+        expectedTripRevision,
+        false);
   }
 
   public String effectivePlaceRef() {

@@ -125,6 +125,35 @@ export function getItineraryDay(
   );
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value?: string | null): boolean {
+  return typeof value === "string" && UUID_REGEX.test(value.trim());
+}
+
+function normalizePlaceIdentifiers<
+  T extends { placeId?: string | null; placeRef?: string | null },
+>(payload: T): T {
+  const rawPlaceId = payload.placeId?.trim() || null;
+  const rawPlaceRef = payload.placeRef?.trim() || null;
+  if (!rawPlaceId) {
+    return payload;
+  }
+  if (isUuid(rawPlaceId)) {
+    return {
+      ...payload,
+      placeId: rawPlaceId,
+      placeRef: rawPlaceRef ?? rawPlaceId,
+    };
+  }
+  return {
+    ...payload,
+    placeId: null,
+    placeRef: rawPlaceRef ?? rawPlaceId,
+  };
+}
+
 export function createItineraryItem(
   tripId: string,
   dayId: string,
@@ -135,7 +164,7 @@ export function createItineraryItem(
       `/api/trips/${tripId}/itinerary/days/${dayId}/items`,
       {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizePlaceIdentifiers(payload)),
       },
     ),
   );
@@ -151,7 +180,7 @@ export function updateItineraryItem(
       `/api/trips/${tripId}/itinerary/items/${itemId}`,
       {
         method: "PATCH",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizePlaceIdentifiers(payload)),
       },
     ),
   );

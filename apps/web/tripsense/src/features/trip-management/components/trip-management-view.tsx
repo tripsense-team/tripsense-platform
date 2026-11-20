@@ -3,14 +3,18 @@
 import * as React from "react";
 import { Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/shared";
 import { ApiError } from "@/services/api-client";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
+import { useTranslation } from "@/i18n";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { AuthModal } from "@/features/auth";
 import { useTripStore } from "../store/use-trip-store";
 import { useCollaborativeItinerarySync } from "../hooks";
 import { CreateTripDialog } from "./create-trip-dialog";
 import { CalendarScreen } from "./calendar-screen";
+import type { UpdateItemTimePayload } from "./mindtrip-itinerary-view";
 import {
   AddItemDialog,
   ChangeCoverPhotoDialog,
@@ -44,7 +48,11 @@ import type {
 } from "../types";
 import { titleCaseDestination } from "../utils/format";
 import { isoDateFromToday } from "../utils/date";
-import { chainItineraryItemsTimes, chainItineraryResponse, itemDurationMinutes } from "../utils/time";
+import {
+  chainItineraryItemsTimes,
+  itemDurationMinutes,
+  sortItineraryItemsByTime,
+} from "../utils/time";
 
 type TripScreen = "trips" | "calendar" | "detail";
 
@@ -84,6 +92,7 @@ export function TripManagementView({
   screen = initialTripId ? "detail" : "trips",
 }: TripManagementViewProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const authStatus = useAuthStore((state) => state.status);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const trips = useTripStore((state) => state.trips);
@@ -150,13 +159,12 @@ export function TripManagementView({
         getItinerary(tripId),
       ]);
       setTrip(nextTrip);
-      const chained = chainItineraryResponse(nextItinerary);
-      setItinerary(chained);
+      setItinerary(nextItinerary);
       if (typeof window !== "undefined") {
         try {
           localStorage.setItem(
             `tripsense:offline:trip:${tripId}`,
-            JSON.stringify({ trip: nextTrip, itinerary: chained, syncedAt: new Date().toISOString() }),
+            JSON.stringify({ trip: nextTrip, itinerary: nextItinerary, syncedAt: new Date().toISOString() }),
           );
         } catch {
           // Ignore
@@ -181,9 +189,7 @@ export function TripManagementView({
       }
 
       if (!recovered) {
-        setError(
-          err instanceof Error ? err.message : "Could not load trip detail",
-        );
+        setError(getSafeErrorMessage(err));
       }
     } finally {
       setLoadingDetail(false);
@@ -194,7 +200,7 @@ export function TripManagementView({
   const refreshCollaborativeItinerary = React.useCallback(async () => {
     if (!activeTripId) return;
     const nextItinerary = await getItinerary(activeTripId);
-    setItinerary(chainItineraryResponse(nextItinerary));
+    setItinerary(nextItinerary);
     return nextItinerary.revision ?? 0;
   }, [activeTripId]);
 
@@ -330,7 +336,7 @@ export function TripManagementView({
       setItemDraft(newItemDraft());
       await loadDetail(trip.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add item");
+      setError(getSafeErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -353,7 +359,7 @@ export function TripManagementView({
       setItemDraft(newItemDraft());
       await loadDetail(trip.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add item");
+      setError(getSafeErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -409,9 +415,7 @@ export function TripManagementView({
       setEditItemDraft(null);
       await loadDetail(trip.id);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not update itinerary item",
-      );
+      setError(getSafeErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -440,7 +444,7 @@ export function TripManagementView({
         }
         return;
       }
-      setError(err instanceof Error ? err.message : "Could not delete item");
+      setError(getSafeErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -510,9 +514,11 @@ export function TripManagementView({
           onEditTrip={handleStartEditTrip}
           onAddItem={setAddItemDay}
           onEditItem={handleStartEditItem}
+          onUpdateItemTime={handleUpdateItemTime}
           onDeleteItem={handleDeleteItem}
           onMoveItem={handleMoveItem}
           onReorderItems={handleReorderItems}
+          onSortAllDaysByTime={handleSortAllDaysByTime}
           onCreateTrip={() => setCreateOpen(true)}
           onRequestDeleteTrip={setDeleteTrip}
         />
@@ -606,22 +612,132 @@ export function TripManagementView({
     await handleReorderItems(day, orderedItemIds);
   }
 
-  async function handleReorderItems(
+  async function handleUpdateItemTime(
     day: ItineraryDayResponse,
-    orderedItemIds: string[],
+    item: ItineraryItemResponse,
+    payload: UpdateItemTimePayload,
     retryOnConflict = true,
   ) {
     if (!trip) return;
 
+    const clearTimes = Boolean(payload.clearTimes);
+    const nextStartTime = clearTimes ? null : payload.startTime || null;
+    const nextEndTime = clearTimes ? null : payload.endTime || null;
+    const nextDuration = clearTimes
+      ? null
+      : itemDurationMinutes({
+          startTime: nextStartTime,
+          endTime: nextEndTime,
+          durationMinutes: null,
+        });
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await updateItineraryItem(trip.id, item.id, {
+        startTime: nextStartTime,
+        endTime: nextEndTime,
+        durationMinutes: nextDuration,
+        clearTimes,
+        version: item.version,
+        expectedTripRevision: itinerary?.revision,
+      });
+
+      setItinerary((current) =>
+        current
+          ? {
+              ...current,
+              revision:
+                current.revision != null ? current.revision + 1 : current.revision,
+              days: current.days.map((candidate) =>
+                candidate.id === day.id
+                  ? {
+                      ...candidate,
+                      items: candidate.items.map((existing) =>
+                        existing.id === updated.id ? updated : existing,
+                      ),
+                    }
+                  : candidate,
+              ),
+            }
+          : current,
+      );
+      toast.success(t("trip.timeUpdated"));
+    } catch (err) {
+      if (retryOnConflict && err instanceof ApiError && err.status === 409) {
+        try {
+          const freshItinerary = await getItinerary(trip.id);
+          setItinerary(freshItinerary);
+          const freshDay = freshItinerary.days.find(
+            (candidate) => candidate.id === day.id,
+          );
+          const freshItem = freshDay?.items.find(
+            (candidate) => candidate.id === item.id,
+          );
+          if (freshDay && freshItem) {
+            const retried = await updateItineraryItem(trip.id, freshItem.id, {
+              startTime: nextStartTime,
+              endTime: nextEndTime,
+              durationMinutes: nextDuration,
+              clearTimes,
+              version: freshItem.version,
+              expectedTripRevision: freshItinerary.revision,
+            });
+            setItinerary({
+              ...freshItinerary,
+              revision:
+                freshItinerary.revision != null
+                  ? freshItinerary.revision + 1
+                  : freshItinerary.revision,
+              days: freshItinerary.days.map((candidate) =>
+                candidate.id === freshDay.id
+                  ? {
+                      ...candidate,
+                      items: candidate.items.map((existing) =>
+                        existing.id === retried.id ? retried : existing,
+                      ),
+                    }
+                  : candidate,
+              ),
+            });
+            toast.success(t("trip.timeUpdated"));
+            return;
+          }
+        } catch (retryErr) {
+          const msg = getSafeErrorMessage(retryErr);
+          setError(msg);
+          toast.error(msg);
+          return;
+        }
+      }
+      const msg = getSafeErrorMessage(err);
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleReorderItems(
+    day: ItineraryDayResponse,
+    orderedItemIds: string[],
+    options?: { preserveTimes?: boolean },
+    retryOnConflict = true,
+  ) {
+    if (!trip) return;
+
+    const preserveTimes = options?.preserveTimes ?? true;
     const currentOrder = day.items.map((candidate) => candidate.id).join("|");
     const nextOrder = orderedItemIds.join("|");
-    if (currentOrder === nextOrder) return;
+    if (preserveTimes && currentOrder === nextOrder) return;
 
     const itemMap = new Map(day.items.map((item) => [item.id, item]));
     const reorderedRaw = orderedItemIds
       .map((id) => itemMap.get(id))
       .filter((item): item is ItineraryItemResponse => Boolean(item));
-    const optimisticItems = chainItineraryItemsTimes(reorderedRaw);
+    const optimisticItems = preserveTimes
+      ? reorderedRaw
+      : chainItineraryItemsTimes(reorderedRaw);
 
     setItinerary((current) =>
       current
@@ -643,22 +759,22 @@ export function TripManagementView({
         orderedItemIds,
         version: day.version,
         expectedTripRevision: itinerary?.revision,
+        preserveTimes,
       });
-      const chainedDay = {
-        ...nextDay,
-        items: chainItineraryItemsTimes(nextDay.items),
-      };
 
       setItinerary((current) =>
         current
           ? {
               ...current,
+              revision:
+                current.revision != null ? current.revision + 1 : current.revision,
               days: current.days.map((candidate) =>
-                candidate.id === chainedDay.id ? chainedDay : candidate,
+                candidate.id === nextDay.id ? nextDay : candidate,
               ),
             }
           : current,
       );
+      toast.success(t("trip.orderUpdated"));
     } catch (err) {
       if (retryOnConflict && err instanceof ApiError && err.status === 409) {
         try {
@@ -668,23 +784,84 @@ export function TripManagementView({
             (candidate) => candidate.id === day.id,
           );
           if (freshDay) {
-            await handleReorderItems(freshDay, orderedItemIds, false);
+            const nextDay = await reorderItineraryItems(trip.id, freshDay.id, {
+              orderedItemIds,
+              version: freshDay.version,
+              expectedTripRevision: freshItinerary.revision,
+              preserveTimes,
+            });
+            setItinerary({
+              ...freshItinerary,
+              revision:
+                freshItinerary.revision != null
+                  ? freshItinerary.revision + 1
+                  : freshItinerary.revision,
+              days: freshItinerary.days.map((candidate) =>
+                candidate.id === nextDay.id ? nextDay : candidate,
+              ),
+            });
+            toast.success(t("trip.orderUpdated"));
             return;
           }
         } catch (retryErr) {
-          setError(
-            retryErr instanceof Error
-              ? retryErr.message
-              : "Could not reorder itinerary items",
-          );
+          const msg = getSafeErrorMessage(retryErr);
+          setError(msg);
+          toast.error(msg);
           return;
         }
       }
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not reorder itinerary items",
-      );
+      const msg = getSafeErrorMessage(err);
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSortAllDaysByTime() {
+    if (!trip || !itinerary?.days) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      let currentItinerary = itinerary;
+      let changedCount = 0;
+
+      for (const day of currentItinerary.days) {
+        if (!day.items || day.items.length < 2) continue;
+        const sortedIds = sortItineraryItemsByTime(day.items).map((it) => it.id);
+        const currentIds = day.items.map((it) => it.id);
+        if (sortedIds.every((id, idx) => id === currentIds[idx])) continue;
+
+        const nextDay = await reorderItineraryItems(trip.id, day.id, {
+          orderedItemIds: sortedIds,
+          version: day.version,
+          expectedTripRevision: currentItinerary.revision,
+          preserveTimes: true,
+        });
+        changedCount += 1;
+        currentItinerary = {
+          ...currentItinerary,
+          revision:
+            currentItinerary.revision != null
+              ? currentItinerary.revision + 1
+              : currentItinerary.revision,
+          days: currentItinerary.days.map((candidate) =>
+            candidate.id === nextDay.id ? nextDay : candidate,
+          ),
+        };
+      }
+
+      setItinerary(currentItinerary);
+      if (changedCount > 0) {
+        toast.success(t("trip.orderUpdated"));
+      } else {
+        toast.info(t("trip.alreadySortedByTime"));
+      }
+    } catch (err) {
+      const msg = getSafeErrorMessage(err);
+      setError(msg);
+      toast.error(msg);
+      await loadDetail(trip.id);
     } finally {
       setSubmitting(false);
     }

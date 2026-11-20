@@ -4,6 +4,7 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `mindtrip-trip-detail-itinerary-and-time-ordering` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/ai-service` | [Docs](./mindtrip-trip-detail-itinerary-and-time-ordering.md) |
 | `admin-reviews-and-trips-management` | DONE | `services/social-service`, `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-reviews-and-trips-management.md) |
 | `admin-user-management` | DONE | `services/user-service`, `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-user-management.md) |
 | `admin-deep-behavioral-analytics` | DONE | `services/recommendation-service`, `services/context-service`, `services/ai-service`, `services/trip-service`, `apps/web/tripsense` | [Docs](./admin-deep-behavioral-analytics.md) |

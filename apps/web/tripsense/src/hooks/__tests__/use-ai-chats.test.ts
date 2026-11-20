@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   fetchAiChatsQueryFn,
   fetchChatMessagesQueryFn,
+  fetchTripAiChatsQueryFn,
 } from "../use-ai-chats";
 
 describe("use-ai-chats", () => {
@@ -60,5 +61,48 @@ describe("use-ai-chats", () => {
     expect(result).toHaveLength(2);
     expect((result[0].parts[0] as { type: "text"; text: string }).text).toBe("Lên lịch trình Huế");
     expect(result[1].role).toBe("assistant");
+  });
+
+  it("fetchTripAiChatsQueryFn queries by tripId and strictly filters out chats belonging to other trips", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        chats: [
+          {
+            id: "chat-linked",
+            userId: "user-1",
+            title: "Lịch trình Đà Nẵng",
+            tripId: "trip-target",
+            createdAt: "2026-11-15T00:00:00.000Z",
+            updatedAt: "2026-11-15T00:00:00.000Z",
+          },
+          {
+            id: "chat-other-trip",
+            userId: "user-1",
+            title: "Lịch trình Đà Nẵng",
+            tripId: "trip-other",
+            createdAt: "2026-11-14T00:00:00.000Z",
+            updatedAt: "2026-11-14T00:00:00.000Z",
+          },
+          {
+            id: "chat-unlinked",
+            userId: "user-1",
+            title: "Lịch trình Đà Nẵng",
+            tripId: null,
+            createdAt: "2026-11-14T00:00:00.000Z",
+            updatedAt: "2026-11-14T00:00:00.000Z",
+          },
+        ],
+      }),
+    } as unknown as Response);
+    global.fetch = fetchMock;
+
+    const result = await fetchTripAiChatsQueryFn("trip-target");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/chats?tripId=trip-target"),
+      expect.anything(),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("chat-linked");
   });
 });

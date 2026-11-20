@@ -196,10 +196,66 @@ describe("AddItemDialog Component (Zero-Mock Integration)", () => {
 
     expect(onQuickSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        placeId: "real-place-123",
+        placeId: null,
         placeRef: "real-place-123",
         title: "Cầu Vàng Bà Nà Hills",
         notes: "Hòa Phú, Hòa Vang, Đà Nẵng",
+      }),
+    );
+  });
+
+  it("sends placeId=null and preserves placeRef for 24-char MongoDB ObjectIds", async () => {
+    const mongoObjectId = "6ab7874de8e0eb488c68f6e3";
+    vi.mocked(searchPlaces).mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: mongoObjectId,
+          name: "Wind Garden Coffee",
+          address: "72 Lê Mạnh Trinh, An Hải, Đà Nẵng",
+          categories: ["CAFE"],
+          rating: 4.6,
+          photos: [],
+        },
+      ] as any,
+    });
+
+    const onQuickSubmit = vi.fn().mockResolvedValue(undefined);
+
+    await act(async () => {
+      root.render(
+        <AddItemDialog
+          trip={mockTrip}
+          day={mockDay}
+          draft={mockDraft}
+          error={null}
+          submitting={false}
+          onOpenChange={() => {}}
+          onDraftChange={() => {}}
+          onSubmit={() => {}}
+          onQuickSubmit={onQuickSubmit}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const addButton = [...document.querySelectorAll("button")].find(
+      (btn) => btn.textContent?.includes("Add"),
+    );
+    expect(addButton).toBeDefined();
+
+    await act(async () => {
+      addButton?.click();
+    });
+
+    expect(onQuickSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        placeId: null,
+        placeRef: mongoObjectId,
+        title: "Wind Garden Coffee",
       }),
     );
   });

@@ -1110,4 +1110,13 @@ class SocialPostServiceImplTest {
     assertThat(SocialPostServiceImpl.class.getConstructors()).hasSize(1);
     assertThat(SocialPostServiceImpl.class.getConstructors()[0].getParameterCount()).isEqualTo(16);
   }
+
+  @Test
+  void socialPostMetadataFieldDeclaresJsonJdbcTypeCodeForPostgresJsonb() throws Exception {
+    var metadataField = SocialPost.class.getDeclaredField("metadata");
+    var jdbcTypeCode =
+        metadataField.getAnnotation(org.hibernate.annotations.JdbcTypeCode.class);
+    assertThat(jdbcTypeCode).isNotNull();
+    assertThat(jdbcTypeCode.value()).isEqualTo(org.hibernate.type.SqlTypes.JSON);
+  }
 }

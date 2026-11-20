@@ -443,6 +443,93 @@ class TripServiceTest extends RealInfrastructureTest {
         .isInstanceOf(fu.tripsense.tripservice.exception.NotFoundException.class);
   }
 
+  @Test
+  void reorderWithPreserveTimesKeepsExplicitStartAndEndTimes() {
+    TripResponse trip =
+        tripService.createTrip(
+            USER_ID,
+            createTripRequest("Da Nang", LocalDate.of(2026, 10, 14), LocalDate.of(2026, 10, 15)));
+    ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
+    ItineraryItemResponse afternoon =
+        tripService.createItem(
+            USER_ID,
+            trip.id(),
+            day.id(),
+            createItemRequest("Marble Mountains", LocalTime.of(13, 0), LocalTime.of(15, 0)));
+    ItineraryItemResponse morning =
+        tripService.createItem(
+            USER_ID,
+            trip.id(),
+            day.id(),
+            createItemRequest("My Khe Beach", LocalTime.of(9, 0), LocalTime.of(11, 0)));
+    ItineraryItemResponse coffee =
+        tripService.createItem(
+            USER_ID,
+            trip.id(),
+            day.id(),
+            createItemRequest("The Cups Coffee", LocalTime.of(11, 30), LocalTime.of(12, 30)));
+    ItineraryDayResponse currentDay = tripService.getItineraryDay(USER_ID, trip.id(), day.id());
+
+    ItineraryDayResponse sorted =
+        tripService.reorderItems(
+            USER_ID,
+            trip.id(),
+            day.id(),
+            new ReorderItemsRequest(
+                List.of(morning.id(), coffee.id(), afternoon.id()),
+                currentDay.version(),
+                null,
+                true));
+
+    assertThat(sorted.items())
+        .extracting(ItineraryItemResponse::id)
+        .containsExactly(morning.id(), coffee.id(), afternoon.id());
+    assertThat(sorted.items())
+        .extracting(ItineraryItemResponse::startTime)
+        .containsExactly(LocalTime.of(9, 0), LocalTime.of(11, 30), LocalTime.of(13, 0));
+    assertThat(sorted.items())
+        .extracting(ItineraryItemResponse::endTime)
+        .containsExactly(LocalTime.of(11, 0), LocalTime.of(12, 30), LocalTime.of(15, 0));
+  }
+
+  @Test
+  void updateItemWithClearTimesClearsScheduledTimeRange() {
+    TripResponse trip =
+        tripService.createTrip(
+            USER_ID,
+            createTripRequest("Da Nang", LocalDate.of(2026, 10, 16), LocalDate.of(2026, 10, 17)));
+    ItineraryDayResponse day = tripService.getItinerary(USER_ID, trip.id()).days().getFirst();
+    ItineraryItemResponse item =
+        tripService.createItem(
+            USER_ID,
+            trip.id(),
+            day.id(),
+            createItemRequest("Dragon Bridge", LocalTime.of(19, 0), LocalTime.of(20, 30)));
+
+    ItineraryItemResponse cleared =
+        tripService.updateItem(
+            USER_ID,
+            trip.id(),
+            item.id(),
+            new UpdateItineraryItemRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                item.version(),
+                null,
+                true));
+
+    assertThat(cleared.startTime()).isNull();
+    assertThat(cleared.endTime()).isNull();
+    assertThat(cleared.durationMinutes()).isNull();
+  }
+
   private CreateTripRequest createTripRequest(
       String destination, LocalDate startDate, LocalDate endDate) {
     return new CreateTripRequest(
