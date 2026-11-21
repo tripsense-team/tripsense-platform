@@ -8,6 +8,9 @@ import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/auth/presentation/verify_email_screen.dart';
+import '../features/collections/domain/collections.dart';
+import '../features/collections/presentation/collections_screen.dart';
+import '../features/collections/presentation/saved_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/places/domain/place.dart';
 import '../features/places/presentation/explore_screen.dart';
@@ -83,7 +86,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           _tab(Routes.chat, (l10n) => l10n.navChat),
           _tab(Routes.trips, (l10n) => l10n.navTrips),
           _tab(Routes.aiPlanner, (l10n) => l10n.navAiPlanner),
-          _tab(Routes.saved, (l10n) => l10n.navSaved),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.saved,
+                builder: (_, _) => const SavedScreen(),
+              ),
+            ],
+          ),
         ],
       ),
       // Opened from the avatar menu (web header user menu).
@@ -93,6 +103,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ComingSoonScreen(title: AppLocalizations.of(context).navCommunity),
       ),
       GoRoute(path: Routes.profile, builder: (_, _) => const ProfileScreen()),
+      GoRoute(
+        path: Routes.collections,
+        builder: (_, _) => const CollectionsScreen(),
+      ),
+      GoRoute(
+        path: Routes.collectionDetailPattern,
+        builder: (_, state) {
+          final extra = state.extra;
+          return CollectionDetailScreen(
+            collection: extra is PlaceCollection
+                ? extra
+                : PlaceCollection(
+                    id: state.pathParameters['id'] ?? '',
+                    name: '',
+                  ),
+          );
+        },
+      ),
       GoRoute(
         path: Routes.placePattern,
         builder: (_, state) {

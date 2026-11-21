@@ -497,4 +497,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get placeBack => 'Back';
+
+  @override
+  String get commonSave => 'Save';
+
+  @override
+  String get commonCreate => 'Create';
+
+  @override
+  String get commonDelete => 'Delete';
+
+  @override
+  String get commonEdit => 'Edit';
+
+  @override
+  String get savedTitle => 'Saved places';
+
+  @override
+  String get savedDescription => 'All the places you saved for later.';
+
+  @override
+  String get savedEmptyTitle => 'No saved places yet';
+
+  @override
+  String get savedEmptyHint => 'Save places from Explore to find them here.';
+
+  @override
+  String get savedAll => 'All';
+
+  @override
+  String get savedManageCollections => 'Manage collections';
+
+  @override
+  String get savedLoadMoreFailed => 'Could not load more places.';
+
+  @override
+  String get saveButtonSave => 'Save place';
+
+  @override
+  String get saveButtonSaved => 'Saved. Edit collections';
+
+  @override
+  String get saveToCollection => 'Save to collection';
+
+  @override
+  String get collectionsTitle => 'Collections';
+
+  @override
+  String get collectionsDescription =>
+      'Organize saved places into collections.';
+
+  @override
+  String get collectionCreate => 'Create collection';
+
+  @override
+  String get collectionRename => 'Rename collection';
+
+  @override
+  String get collectionDelete => 'Delete collection';
+
+  @override
+  String get collectionDeleteHint =>
+      'The collection will be deleted. Saved places remain available in other collections.';
+
+  @override
+  String get collectionNameHint => 'New collection name';
+
+  @override
+  String get collectionsEmptyTitle => 'No collections yet';
+
+  @override
+  String get collectionsEmptyHint =>
+      'Create a collection to organize places you want to remember.';
+
+  @override
+  String collectionPlacesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count places',
+      one: '1 place',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exploreShowMap => 'Map';
+
+  @override
+  String get exploreShowList => 'List';
+
+  @override
+  String get placeLocation => 'Location';
 }
