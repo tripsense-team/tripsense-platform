@@ -8,6 +8,7 @@ import fu.tripsense.tripservice.dto.request.CreateTripRequest;
 import fu.tripsense.tripservice.dto.response.AiItineraryCommitResponse;
 import fu.tripsense.tripservice.dto.response.TripResponse;
 import fu.tripsense.tripservice.entity.*;
+import fu.tripsense.tripservice.enums.CollaborationChangeType;
 import fu.tripsense.tripservice.enums.ItineraryItemStatus;
 import fu.tripsense.tripservice.enums.TripMemberRole;
 import fu.tripsense.tripservice.exception.ConflictException;
@@ -16,10 +17,12 @@ import fu.tripsense.tripservice.exception.NotFoundException;
 import fu.tripsense.tripservice.exception.ValidationException;
 import fu.tripsense.tripservice.repository.*;
 import fu.tripsense.tripservice.service.AiItineraryCommitService;
+import fu.tripsense.tripservice.service.CollaborationChangeService;
 import fu.tripsense.tripservice.service.TripService;
 import java.time.Instant;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,9 +37,13 @@ public class AiItineraryCommitServiceImpl implements AiItineraryCommitService {
   private final ItineraryCommitReceiptRepository receiptRepository;
   private final PlaceClient placeClient;
   private final ObjectMapper objectMapper;
+  private final CollaborationChangeService collaborationChangeService;
 
   @Override
   @Transactional
+  @CacheEvict(
+      cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
+      allEntries = true)
   public AiItineraryCommitResponse commit(
       UUID userId, String idempotencyKey, String requestHash, AiItineraryCommitRequest request) {
     validateActionPayload(request);
@@ -75,25 +82,32 @@ public class AiItineraryCommitServiceImpl implements AiItineraryCommitService {
       days.put(day.getDayNumber(), day);
     }
 
-    List<AiItineraryCommitResponse.ItemResult> itemResults = new ArrayList<>();
-    int appliedCount = 0;
-    int skippedCount = 0;
-    for (AiItineraryCommitRequest.Item requestedItem : request.items()) {
-      Optional<ItineraryItem> duplicate =
-          itemRepository.findByTripIdAndSourceProposalIdAndSourceItemKey(
-              trip.getId(), request.proposalId(), requestedItem.sourceItemKey());
-      if (duplicate.isPresent()) {
-        skippedCount++;
-        itemResults.add(
-            new AiItineraryCommitResponse.ItemResult(
-                requestedItem.sourceItemKey(), duplicate.get().getId(), "SKIPPED_DUPLICATE"));
-        continue;
+    Set<Integer> replaceDayNumberSet =
+        request.replaceDayNumbers() == null
+            ? Set.of()
+            : new LinkedHashSet<>(request.replaceDayNumbers());
+    if (request.action() == AiItineraryCommitRequest.Action.REPLACE_DAYS) {
+      for (Integer dayNum : replaceDayNumberSet) {
+        if (!days.containsKey(dayNum)) {
+          throw new ValidationException(
+              "INVALID_AI_COMMIT_DAY", "Replace day " + dayNum + " is outside the trip date range");
+        }
       }
+    }
 
+    // Pre-validate every item and resolve canonical places before performing destructive deletes
+    List<PlaceSnapshot> preResolvedSnapshots = new ArrayList<>(request.items().size());
+    for (AiItineraryCommitRequest.Item requestedItem : request.items()) {
       ItineraryDay day = days.get(requestedItem.dayNumber());
       if (day == null) {
         throw new ValidationException(
             "INVALID_AI_COMMIT_DAY", "Proposal day is outside the trip date range");
+      }
+      if (request.action() == AiItineraryCommitRequest.Action.REPLACE_DAYS
+          && !replaceDayNumberSet.contains(requestedItem.dayNumber())) {
+        throw new ValidationException(
+            "INVALID_AI_COMMIT_DAY",
+            "Item day " + requestedItem.dayNumber() + " is not in replaceDayNumbers");
       }
       if (requestedItem.startTime() != null
           && requestedItem.endTime() != null
@@ -101,12 +115,73 @@ public class AiItineraryCommitServiceImpl implements AiItineraryCommitService {
         throw new ValidationException(
             "INVALID_ITEM_TIME_RANGE", "startTime must be before endTime");
       }
-
-      PlaceSnapshot snapshot =
+      preResolvedSnapshots.add(
           requestedItem.placeRef() == null
               ? null
-              : placeClient.requireCanonicalPlace(requestedItem.placeRef());
-      int sortOrder = itemRepository.maxSortOrderByTripIdAndDayId(trip.getId(), day.getId()) + 100;
+              : placeClient.requireCanonicalPlace(requestedItem.placeRef()));
+    }
+
+    boolean isReplaceMode =
+        request.action() == AiItineraryCommitRequest.Action.REPLACE_TRIP_ITEMS
+            || request.action() == AiItineraryCommitRequest.Action.REPLACE_DAYS;
+
+    if (request.action() == AiItineraryCommitRequest.Action.REPLACE_TRIP_ITEMS) {
+      itemRepository.deleteByTripId(trip.getId());
+      itemRepository.flush();
+    } else if (request.action() == AiItineraryCommitRequest.Action.REPLACE_DAYS) {
+      List<UUID> targetDayIds =
+          replaceDayNumberSet.stream().map(dayNum -> days.get(dayNum).getId()).toList();
+      itemRepository.deleteByTripIdAndDayIdIn(trip.getId(), targetDayIds);
+      itemRepository.flush();
+    }
+
+    Map<UUID, Integer> sortOrderByDayId = new HashMap<>();
+    List<AiItineraryCommitResponse.ItemResult> itemResults = new ArrayList<>();
+    int appliedCount = 0;
+    int skippedCount = 0;
+    for (int i = 0; i < request.items().size(); i++) {
+      AiItineraryCommitRequest.Item requestedItem = request.items().get(i);
+      ItineraryDay day = days.get(requestedItem.dayNumber());
+
+      if (!isReplaceMode) {
+        Optional<ItineraryItem> duplicate =
+            itemRepository.findByTripIdAndSourceProposalIdAndSourceItemKey(
+                trip.getId(), request.proposalId(), requestedItem.sourceItemKey());
+        if (duplicate.isPresent()) {
+          skippedCount++;
+          itemResults.add(
+              new AiItineraryCommitResponse.ItemResult(
+                  requestedItem.sourceItemKey(), duplicate.get().getId(), "SKIPPED_DUPLICATE"));
+          continue;
+        }
+        if (request.action() == AiItineraryCommitRequest.Action.ADD_TO_TRIP
+            && requestedItem.placeRef() != null) {
+          Optional<ItineraryItem> existingSamePlace =
+              itemRepository.findFirstByTripIdAndDayIdAndPlaceRef(
+                  trip.getId(), day.getId(), requestedItem.placeRef());
+          if (existingSamePlace.isPresent()) {
+            skippedCount++;
+            itemResults.add(
+                new AiItineraryCommitResponse.ItemResult(
+                    requestedItem.sourceItemKey(),
+                    existingSamePlace.get().getId(),
+                    "SKIPPED_DUPLICATE"));
+            continue;
+          }
+        }
+      }
+
+      PlaceSnapshot snapshot = preResolvedSnapshots.get(i);
+      int nextSortOrder =
+          sortOrderByDayId.compute(
+              day.getId(),
+              (k, current) -> {
+                if (current != null) return current + 100;
+                return isReplaceMode
+                    ? 100
+                    : itemRepository.maxSortOrderByTripIdAndDayId(trip.getId(), day.getId()) + 100;
+              });
+
       ItineraryItem saved =
           itemRepository.save(
               ItineraryItem.builder()
@@ -120,7 +195,7 @@ public class AiItineraryCommitServiceImpl implements AiItineraryCommitService {
                   .type(requestedItem.itemType())
                   .startTime(requestedItem.startTime())
                   .endTime(requestedItem.endTime())
-                  .sortOrder(sortOrder)
+                  .sortOrder(nextSortOrder)
                   .status(ItineraryItemStatus.PLANNED)
                   .notes(requestedItem.notes())
                   .placeNameSnapshot(snapshot == null ? null : snapshot.name())
@@ -135,10 +210,29 @@ public class AiItineraryCommitServiceImpl implements AiItineraryCommitService {
     }
 
     long nextRevision = currentRevision;
-    if (appliedCount > 0) {
-      nextRevision = currentRevision + 1;
-      trip.setAggregateRevision(nextRevision);
+    if (appliedCount > 0 || isReplaceMode) {
+      trip.setPublicationRevision(
+          Optional.ofNullable(trip.getPublicationRevision()).orElse(0L) + 1);
       tripRepository.save(trip);
+      if (collaborationChangeService != null) {
+        CollaborationChangeEvent event =
+            collaborationChangeService.record(
+                trip,
+                userId,
+                CollaborationChangeType.ITEM_UPDATED,
+                Map.of(
+                    "action", request.action().name(),
+                    "proposalId", request.proposalId().toString(),
+                    "appliedCount", appliedCount));
+        nextRevision =
+            event != null && event.getRevision() != null
+                ? event.getRevision()
+                : currentRevision + 1;
+      } else {
+        nextRevision = currentRevision + 1;
+        trip.setAggregateRevision(nextRevision);
+        tripRepository.save(trip);
+      }
     }
 
     UUID operationId = UUID.randomUUID();
@@ -183,11 +277,19 @@ public class AiItineraryCommitServiceImpl implements AiItineraryCommitService {
 
     if (request.targetTripId() == null || request.tripDraft() != null) {
       throw new ValidationException(
-          "INVALID_AI_COMMIT", "ADD_TO_TRIP requires targetTripId and no tripDraft");
+          "INVALID_AI_COMMIT", request.action().name() + " requires targetTripId and no tripDraft");
+    }
+    if (request.action() == AiItineraryCommitRequest.Action.REPLACE_DAYS) {
+      if (request.replaceDayNumbers() == null || request.replaceDayNumbers().isEmpty()) {
+        throw new ValidationException(
+            "INVALID_AI_COMMIT_DAYS", "REPLACE_DAYS requires non-empty replaceDayNumbers");
+      }
+      return;
     }
     if (request.items().isEmpty()) {
       throw new ValidationException(
-          "INVALID_AI_COMMIT_ITEMS", "ADD_TO_TRIP requires at least one itinerary item");
+          "INVALID_AI_COMMIT_ITEMS",
+          request.action().name() + " requires at least one itinerary item");
     }
   }
 
@@ -219,7 +321,7 @@ public class AiItineraryCommitServiceImpl implements AiItineraryCommitService {
 
     if (request.targetTripId() == null || request.tripDraft() != null) {
       throw new ValidationException(
-          "INVALID_AI_COMMIT", "ADD_TO_TRIP requires targetTripId and no tripDraft");
+          "INVALID_AI_COMMIT", request.action().name() + " requires targetTripId and no tripDraft");
     }
     Trip trip =
         tripRepository

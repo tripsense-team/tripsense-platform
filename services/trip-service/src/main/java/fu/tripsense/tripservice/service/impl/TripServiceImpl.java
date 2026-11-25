@@ -110,10 +110,17 @@ public class TripServiceImpl implements TripService {
   @Transactional(readOnly = true)
   @Cacheable(
       cacheNames = "trip-list",
-      key = "#userId + ':' + #status + ':' + #from + ':' + #to + ':' + #sort + ':' + #page + ':' + #size")
+      key =
+          "#userId + ':' + #status + ':' + #from + ':' + #to + ':' + #sort + ':' + #page + ':' + #size")
   @Override
   public TripListResponse listTrips(
-      UUID userId, TripStatus status, LocalDate from, LocalDate to, String sort, int page, int size) {
+      UUID userId,
+      TripStatus status,
+      LocalDate from,
+      LocalDate to,
+      String sort,
+      int page,
+      int size) {
     if (from != null && to != null && from.isAfter(to)) {
       throw new ValidationException("INVALID_TRIP_DATE_RANGE", "from must be on or before to");
     }
@@ -128,8 +135,7 @@ public class TripServiceImpl implements TripService {
       sortOrder = Sort.by(Sort.Direction.DESC, "updatedAt", "createdAt");
     }
 
-    PageRequest pageRequest =
-        PageRequest.of(page, Math.min(size, 100), sortOrder);
+    PageRequest pageRequest = PageRequest.of(page, Math.min(size, 100), sortOrder);
 
     Specification<Trip> specification =
         (root, query, criteriaBuilder) -> {
@@ -287,8 +293,7 @@ public class TripServiceImpl implements TripService {
     validateTimeRange(request.startTime(), request.endTime());
 
     String placeRef = request.effectivePlaceRef();
-    PlaceSnapshot snapshot =
-        placeRef == null ? null : placeClient.validatePlace(placeRef);
+    PlaceSnapshot snapshot = placeRef == null ? null : placeClient.validatePlace(placeRef);
     int sortOrder =
         itemRepository.maxSortOrderByTripIdAndDayId(trip.getId(), day.getId()) + SORT_ORDER_STEP;
 
@@ -349,7 +354,9 @@ public class TripServiceImpl implements TripService {
 
     boolean clearTimes = Boolean.TRUE.equals(request.clearTimes());
     LocalTime nextStart =
-        clearTimes ? null : (request.startTime() != null ? request.startTime() : item.getStartTime());
+        clearTimes
+            ? null
+            : (request.startTime() != null ? request.startTime() : item.getStartTime());
     LocalTime nextEnd =
         clearTimes ? null : (request.endTime() != null ? request.endTime() : item.getEndTime());
     validateTimeRange(nextStart, nextEnd);
@@ -365,6 +372,21 @@ public class TripServiceImpl implements TripService {
       item.setPlaceAddressSnapshot(snapshot == null ? null : snapshot.address());
       item.setLatSnapshot(snapshot == null ? null : snapshot.latitude());
       item.setLngSnapshot(snapshot == null ? null : snapshot.longitude());
+    } else if (nextPlaceRef == null && Boolean.TRUE.equals(request.clearPlaceRef())) {
+      item.setPlaceId(null);
+      item.setPlaceRef(null);
+      item.setPlaceNameSnapshot(null);
+      item.setPlaceAddressSnapshot(null);
+      item.setLatSnapshot(null);
+      item.setLngSnapshot(null);
+    }
+    if (request.targetDayId() != null && !request.targetDayId().equals(item.getDayId())) {
+      ItineraryDay targetDay = getTripDay(trip.getId(), request.targetDayId());
+      int targetSortOrder =
+          itemRepository.maxSortOrderByTripIdAndDayId(trip.getId(), targetDay.getId())
+              + SORT_ORDER_STEP;
+      item.setDayId(targetDay.getId());
+      item.setSortOrder(targetSortOrder);
     }
     if (request.type() != null) {
       item.setType(request.type());
@@ -499,6 +521,208 @@ public class TripServiceImpl implements TripService {
         CollaborationChangeType.ITEM_REORDERED,
         Map.of("day", responsePayload(response)));
     return response;
+  }
+
+  @Transactional
+  @CacheEvict(
+      cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
+      allEntries = true)
+  @Override
+  public ItineraryDayResponse replaceDayItems(
+      UUID userId, UUID tripId, UUID dayId, ReplaceDayItemsRequest request) {
+    Trip trip = getEditableTrip(userId, tripId);
+    ensureNotArchived(trip);
+    validateAggregateRevision(request.expectedTripRevision(), trip);
+    ItineraryDay day =
+        dayRepository
+            .findByIdAndTripIdForUpdate(dayId, trip.getId())
+            .orElseThrow(
+                () -> new NotFoundException("ITINERARY_DAY_NOT_FOUND", "Itinerary day not found"));
+    validateVersion(request.version(), day.getVersion(), "Itinerary day was modified concurrently");
+
+    List<CreateItineraryItemRequest> incoming =
+        request.items() == null ? List.of() : request.items();
+    List<PlaceSnapshot> snapshots = new ArrayList<>(incoming.size());
+    for (CreateItineraryItemRequest reqItem : incoming) {
+      validateTimeRange(reqItem.startTime(), reqItem.endTime());
+      String placeRef = reqItem.effectivePlaceRef();
+      snapshots.add(placeRef == null ? null : placeClient.validatePlace(placeRef));
+    }
+
+    itemRepository.deleteByTripIdAndDayIdIn(trip.getId(), List.of(day.getId()));
+    itemRepository.flush();
+
+    List<ItineraryItem> toSave = new ArrayList<>(incoming.size());
+    for (int i = 0; i < incoming.size(); i++) {
+      CreateItineraryItemRequest reqItem = incoming.get(i);
+      PlaceSnapshot snapshot = snapshots.get(i);
+      String placeRef = reqItem.effectivePlaceRef();
+      toSave.add(
+          ItineraryItem.builder()
+              .tripId(trip.getId())
+              .dayId(day.getId())
+              .placeId(reqItem.placeId())
+              .placeRef(placeRef)
+              .type(reqItem.type())
+              .title(reqItem.title().trim())
+              .startTime(reqItem.startTime())
+              .endTime(reqItem.endTime())
+              .durationMinutes(
+                  resolveDurationMinutes(
+                      reqItem.startTime(), reqItem.endTime(), reqItem.durationMinutes()))
+              .sortOrder((i + 1) * SORT_ORDER_STEP)
+              .status(ItineraryItemStatus.PLANNED)
+              .notes(normalize(reqItem.notes()))
+              .placeNameSnapshot(snapshot == null ? null : snapshot.name())
+              .placeAddressSnapshot(snapshot == null ? null : snapshot.address())
+              .latSnapshot(snapshot == null ? null : snapshot.latitude())
+              .lngSnapshot(snapshot == null ? null : snapshot.longitude())
+              .build());
+    }
+    List<ItineraryItem> saved = toSave.isEmpty() ? List.of() : itemRepository.saveAll(toSave);
+
+    day.setUpdatedAt(Instant.now(clock));
+    dayRepository.save(day);
+    incrementPublicationRevision(trip);
+    tripRepository.save(trip);
+    ItineraryDayResponse response = toDayResponse(day, saved);
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.ITEM_UPDATED,
+        Map.of("day", responsePayload(response), "replacedCount", saved.size()));
+    return response;
+  }
+
+  @Transactional
+  @CacheEvict(
+      cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
+      allEntries = true)
+  @Override
+  public ItineraryDayResponse clearDayItems(
+      UUID userId, UUID tripId, UUID dayId, Long expectedTripRevision, Long expectedDayVersion) {
+    Trip trip = getEditableTrip(userId, tripId);
+    ensureNotArchived(trip);
+    validateAggregateRevision(expectedTripRevision, trip);
+    ItineraryDay day =
+        dayRepository
+            .findByIdAndTripIdForUpdate(dayId, trip.getId())
+            .orElseThrow(
+                () -> new NotFoundException("ITINERARY_DAY_NOT_FOUND", "Itinerary day not found"));
+    validateVersion(
+        expectedDayVersion, day.getVersion(), "Itinerary day was modified concurrently");
+
+    itemRepository.deleteByTripIdAndDayIdIn(trip.getId(), List.of(day.getId()));
+    itemRepository.flush();
+    day.setUpdatedAt(Instant.now(clock));
+    dayRepository.save(day);
+    incrementPublicationRevision(trip);
+    tripRepository.save(trip);
+    ItineraryDayResponse response = toDayResponse(day, List.of());
+    collaborationChangeService.record(
+        trip,
+        userId,
+        CollaborationChangeType.ITEM_DELETED,
+        Map.of("dayId", day.getId().toString(), "cleared", true));
+    return response;
+  }
+
+  @Transactional
+  @CacheEvict(
+      cacheNames = {"trip-detail", "trip-list", "trip-itinerary"},
+      allEntries = true)
+  @Override
+  public ItineraryResponse swapDays(UUID userId, UUID tripId, SwapDaysRequest request) {
+    if (Objects.equals(request.firstDayNumber(), request.secondDayNumber())) {
+      throw new ValidationException(
+          "INVALID_SWAP_DAYS", "firstDayNumber and secondDayNumber must be different");
+    }
+    Trip trip = getEditableTrip(userId, tripId);
+    ensureNotArchived(trip);
+    validateAggregateRevision(request.expectedTripRevision(), trip);
+
+    List<ItineraryDay> allDays = dayRepository.findByTripIdOrderByDayNumberAsc(trip.getId());
+    ItineraryDay firstDay =
+        allDays.stream()
+            .filter(d -> Objects.equals(d.getDayNumber(), request.firstDayNumber()))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new NotFoundException(
+                        "ITINERARY_DAY_NOT_FOUND",
+                        "Day " + request.firstDayNumber() + " not found"));
+    ItineraryDay secondDay =
+        allDays.stream()
+            .filter(d -> Objects.equals(d.getDayNumber(), request.secondDayNumber()))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new NotFoundException(
+                        "ITINERARY_DAY_NOT_FOUND",
+                        "Day " + request.secondDayNumber() + " not found"));
+
+    // Lock in deterministic UUID order to prevent deadlocks
+    UUID lowId =
+        firstDay.getId().compareTo(secondDay.getId()) < 0 ? firstDay.getId() : secondDay.getId();
+    UUID highId = lowId.equals(firstDay.getId()) ? secondDay.getId() : firstDay.getId();
+    dayRepository.findByIdAndTripIdForUpdate(lowId, trip.getId());
+    dayRepository.findByIdAndTripIdForUpdate(highId, trip.getId());
+
+    List<ItineraryItem> firstItems =
+        itemRepository.findByTripIdAndDayIdForUpdate(trip.getId(), firstDay.getId());
+    List<ItineraryItem> secondItems =
+        itemRepository.findByTripIdAndDayIdForUpdate(trip.getId(), secondDay.getId());
+
+    int tempOrder = -1;
+    for (ItineraryItem item : firstItems) {
+      item.setSortOrder(tempOrder--);
+    }
+    for (ItineraryItem item : secondItems) {
+      item.setSortOrder(tempOrder--);
+    }
+    List<ItineraryItem> combined = new ArrayList<>(firstItems.size() + secondItems.size());
+    combined.addAll(firstItems);
+    combined.addAll(secondItems);
+    if (!combined.isEmpty()) {
+      itemRepository.saveAllAndFlush(combined);
+      for (int i = 0; i < firstItems.size(); i++) {
+        ItineraryItem item = firstItems.get(i);
+        item.setDayId(secondDay.getId());
+        item.setSortOrder((i + 1) * SORT_ORDER_STEP);
+      }
+      for (int i = 0; i < secondItems.size(); i++) {
+        ItineraryItem item = secondItems.get(i);
+        item.setDayId(firstDay.getId());
+        item.setSortOrder((i + 1) * SORT_ORDER_STEP);
+      }
+      itemRepository.saveAllAndFlush(combined);
+    }
+
+    Instant now = Instant.now(clock);
+    firstDay.setUpdatedAt(now);
+    secondDay.setUpdatedAt(now);
+    dayRepository.saveAll(List.of(firstDay, secondDay));
+    incrementPublicationRevision(trip);
+    tripRepository.save(trip);
+    var event =
+        collaborationChangeService.record(
+            trip,
+            userId,
+            CollaborationChangeType.ITEM_REORDERED,
+            Map.of("swappedDays", List.of(request.firstDayNumber(), request.secondDayNumber())));
+
+    return new ItineraryResponse(
+        trip.getId(),
+        event.getRevision(),
+        itineraryCapabilities(userId, trip),
+        allDays.stream()
+            .map(
+                day ->
+                    toDayResponse(
+                        day,
+                        itemRepository.findByTripIdAndDayIdOrderBySortOrderAsc(
+                            trip.getId(), day.getId())))
+            .toList());
   }
 
   @Transactional(readOnly = true)

@@ -86,10 +86,12 @@ export interface TripProposal {
   estimatedBudget?: string;
   summary: string;
   days: TripDayPlan[];
+  suggestedPlaces?: PlaceSearchResult[];
   status?: "PENDING" | "PARTIALLY_APPLIED" | "APPLIED";
   autoCommit?:
     | {
         status: "APPLIED";
+        action?: "ADD_TO_TRIP" | "REPLACE_DAYS" | "REPLACE_TRIP_ITEMS";
         operationId: string;
         tripId: string;
         appliedCount: number;

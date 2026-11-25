@@ -17,6 +17,7 @@ import { PlaceDetailActionProvider } from "./place-detail-action-context";
 
 type MessagesProps = {
   chatId?: string;
+  activeTrip?: { id: string; name: string } | null;
   status: UseChatHelpers<ChatMessage>["status"];
   messages: ChatMessage[];
   setMessages?: (messages: ChatMessage[] | ((messages: ChatMessage[]) => ChatMessage[])) => void;
@@ -31,6 +32,7 @@ type MessagesProps = {
 
 export function Messages({
   chatId,
+  activeTrip,
   status,
   messages,
   setMessages,
@@ -97,6 +99,7 @@ export function Messages({
         <div className="mx-auto flex min-h-full min-w-0 max-w-4xl flex-col gap-5 px-2 py-6 md:gap-7 md:px-4">
           {messages.map((message, index) => (
             <PreviewMessage
+              activeTrip={activeTrip}
               chatId={chatId}
               isLoading={
                 (status === "streaming" || status === "submitted") &&

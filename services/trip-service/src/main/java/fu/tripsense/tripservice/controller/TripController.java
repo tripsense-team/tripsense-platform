@@ -4,10 +4,10 @@ import fu.tripsense.tripservice.dto.request.*;
 import fu.tripsense.tripservice.dto.response.*;
 import fu.tripsense.tripservice.enums.TripStatus;
 import fu.tripsense.tripservice.security.CurrentUserProvider;
+import fu.tripsense.tripservice.service.CommunityTripImportService;
 import fu.tripsense.tripservice.service.ItineraryBatchService;
 import fu.tripsense.tripservice.service.TripCollaborationService;
 import fu.tripsense.tripservice.service.TripService;
-import fu.tripsense.tripservice.service.CommunityTripImportService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -155,6 +155,36 @@ public class TripController {
     return ApiResponse.success(
         "Itinerary items reordered",
         tripService.reorderItems(currentUserProvider.userId(), tripId, dayId, request));
+  }
+
+  @PutMapping("/{tripId}/itinerary/days/{dayId}/items")
+  public ApiResponse<ItineraryDayResponse> replaceDayItems(
+      @PathVariable UUID tripId,
+      @PathVariable UUID dayId,
+      @Valid @RequestBody ReplaceDayItemsRequest request) {
+    return ApiResponse.success(
+        "Itinerary day replaced",
+        tripService.replaceDayItems(currentUserProvider.userId(), tripId, dayId, request));
+  }
+
+  @DeleteMapping("/{tripId}/itinerary/days/{dayId}/items")
+  public ApiResponse<ItineraryDayResponse> clearDayItems(
+      @PathVariable UUID tripId,
+      @PathVariable UUID dayId,
+      @RequestParam(required = false) Long expectedTripRevision,
+      @RequestParam(required = false) Long expectedDayVersion) {
+    return ApiResponse.success(
+        "Itinerary day cleared",
+        tripService.clearDayItems(
+            currentUserProvider.userId(), tripId, dayId, expectedTripRevision, expectedDayVersion));
+  }
+
+  @PostMapping("/{tripId}/itinerary/days/swap")
+  public ApiResponse<ItineraryResponse> swapDays(
+      @PathVariable UUID tripId, @Valid @RequestBody SwapDaysRequest request) {
+    return ApiResponse.success(
+        "Itinerary days swapped",
+        tripService.swapDays(currentUserProvider.userId(), tripId, request));
   }
 
   @PostMapping("/{tripId}/itinerary/batch")

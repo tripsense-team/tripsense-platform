@@ -13,7 +13,7 @@ import { PlaceCards } from "./place-cards";
 import { ItineraryPreview } from "./itinerary-preview";
 import { TripIntakeCard } from "./trip-intake-card";
 import { Suggestion } from "../ai-elements/suggestion";
-import { Clock, User as UserIcon } from "lucide-react";
+import { CheckCircle2, Clock, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/features/auth";
 import { useTranslation } from "@/i18n";
@@ -125,6 +125,11 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
     message.parts?.some((p) => p.type === "text" && p.text?.trim().length > 0)
   );
 
+  // Once text is actively streaming and no tool call is running, avoid rendering a bouncing status box underneath it.
+  if (hasText && !activeToolPart) {
+    return null;
+  }
+
   let statusText = t("aiPlanner.thinkingAndPreparing");
   if (activeToolPart) {
     const toolName =
@@ -152,14 +157,19 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
           : "Curating personalized places for your trip...";
     } else if (
       toolName === "addItineraryItems" ||
+      toolName === "replaceDayItinerary" ||
+      toolName === "manageItineraryDays" ||
       toolName === "replaceItineraryItem" ||
       toolName === "updateItineraryItem" ||
-      toolName === "removeItineraryItem"
+      toolName === "removeItineraryItem" ||
+      toolName === "reorderItineraryItems"
     ) {
       statusText =
         locale === "vi"
           ? "Đang cập nhật lịch trình vào chuyến đi..."
           : "Updating your trip itinerary...";
+    } else if (toolName === "updateTripDetails") {
+      statusText = t("aiPlanner.updatingTripInfo");
     } else if (toolName === "recommendPlaces") {
       const dest =
         activeToolPart.input?.destination ||
@@ -208,8 +218,8 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
     if (hasProposal) {
       statusText = !hasText
         ? locale === "vi"
-          ? "Đã lưu lịch trình — đang hoàn thiện lời dẫn & lưu ý cho bạn..."
-          : "Itinerary saved — writing personalized summary & tips..."
+          ? "Đã lưu lịch trình — đang viết lưu ý thực tế cho bạn..."
+          : "Itinerary saved — writing practical tips for your trip..."
         : t("aiPlanner.optimizingItinerary");
     } else if (hasCandidates || hasRecommend) {
       statusText =
@@ -242,6 +252,7 @@ function ActiveAgentStatus({ message }: { message: ChatMessage }) {
 
 const PurePreviewMessage = ({
   chatId,
+  activeTrip,
   message,
   isLoading,
   onEdit,
@@ -249,6 +260,7 @@ const PurePreviewMessage = ({
   showRefinementChips,
 }: {
   chatId?: string;
+  activeTrip?: { id: string; name: string } | null;
   message: ChatMessage;
   isLoading?: boolean;
   setMessages?: UseChatHelpers<ChatMessage>["setMessages"];
@@ -281,14 +293,27 @@ const PurePreviewMessage = ({
     : "TS";
 
   // Group parts into deterministic slots:
-  // 1) weather -> 2) AI text intro & tips -> 3) itinerary proposal -> 4) intake card -> 5) suggested place carousel
+  // 1) weather -> 2) AI text intro & tips -> 3) itinerary proposal -> 4) mutation confirmations -> 5) intake card -> 6) suggested place carousel
   const weatherParts: React.ReactNode[] = [];
   const textParts: React.ReactNode[] = [];
   const proposalParts: React.ReactNode[] = [];
+  const mutationConfirmationParts: React.ReactNode[] = [];
   const intakeCardParts: React.ReactNode[] = [];
   const placeCardsParts: React.ReactNode[] = [];
 
+  const GRANULAR_MUTATION_TOOLS = new Set([
+    "addItineraryItems",
+    "replaceDayItinerary",
+    "manageItineraryDays",
+    "updateItineraryItem",
+    "replaceItineraryItem",
+    "removeItineraryItem",
+    "reorderItineraryItems",
+    "updateTripDetails",
+  ]);
+
   const curatedPlaces: PlaceSearchResult[] = [];
+  const proposalSuggestedPlaces: PlaceSearchResult[] = [];
   const fallbackSearchPlaces: PlaceSearchResult[] = [];
   const seenPlaceIds = new Set<string>();
   let customPlaceTitle: string | undefined;
@@ -469,6 +494,14 @@ const PurePreviewMessage = ({
             : typeof proposal.destination === "string" && proposal.destination.trim()
               ? proposal.destination.trim()
               : undefined;
+        if (Array.isArray(proposal.suggestedPlaces)) {
+          for (const place of proposal.suggestedPlaces) {
+            if (place && place.id && !seenPlaceIds.has(place.id)) {
+              seenPlaceIds.add(place.id);
+              proposalSuggestedPlaces.push(place);
+            }
+          }
+        }
         proposalParts.push(
           <div className="w-full my-1.5" key={key}>
             <ItineraryPreview
@@ -524,10 +557,47 @@ const PurePreviewMessage = ({
       }
       return;
     }
+
+    // 5. Granular Itinerary & Trip Mutation Tool Confirmations
+    const resolvedToolName =
+      (typeof type === "string" && type.startsWith("tool-")
+        ? type.slice(5)
+        : undefined) || (part as any).toolInvocation?.toolName;
+    if (resolvedToolName && GRANULAR_MUTATION_TOOLS.has(resolvedToolName)) {
+      const toolPart = part as any;
+      const result =
+        toolPart.output || toolPart.result || toolPart.toolInvocation?.result;
+      if (result?.success === true && typeof result?.message === "string" && result.message.trim()) {
+        mutationConfirmationParts.push(
+          <div
+            key={key}
+            data-testid={`itinerary-mutation-pill-${resolvedToolName}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground w-fit"
+          >
+            <CheckCircle2 className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+            <span>{result.message}</span>
+          </div>
+        );
+      }
+      return;
+    }
   });
 
   const displayPlaces =
-    curatedPlaces.length > 0 ? curatedPlaces : fallbackSearchPlaces;
+    curatedPlaces.length > 0
+      ? curatedPlaces
+      : proposalSuggestedPlaces.length > 0
+        ? proposalSuggestedPlaces
+        : hasProposalInMessage
+          ? []
+          : fallbackSearchPlaces;
+
+  const resolvedCarouselTitle =
+    curatedPlaces.length > 0
+      ? customPlaceTitle
+      : proposalSuggestedPlaces.length > 0
+        ? t("aiPlanner.suggestedIdeasTitle")
+        : customPlaceTitle;
 
   // Render single carousel of suggested places (if any)
   if (displayPlaces.length > 0) {
@@ -536,7 +606,8 @@ const PurePreviewMessage = ({
         <PlaceCards
           places={displayPlaces}
           total={displayPlaces.length}
-          title={customPlaceTitle}
+          title={resolvedCarouselTitle}
+          activeTrip={activeTrip}
         />
       </div>
     );
@@ -557,10 +628,10 @@ const PurePreviewMessage = ({
   }
 
   if (!isLoading && isAssistant && textParts.length === 0 && readyProposalTitle) {
-    const fallbackIntro =
+    const fallbackNote =
       locale === "vi"
-        ? `Dưới đây là kế hoạch **${readyProposalTitle}** được thiết kế theo yêu cầu của bạn và đã đồng bộ vào bảng lịch trình bên phải:`
-        : `Here is your personalized **${readyProposalTitle}** itinerary, synced directly to your trip panel:`;
+        ? `Lịch trình **${readyProposalTitle}** đã được đồng bộ sang bảng Chuyến đi bên phải — bạn có thể bấm vào từng địa điểm để xem chi tiết hoặc nhắn mình điều chỉnh bất kỳ mục nào.`
+        : `Your **${readyProposalTitle}** itinerary is synced to your trip panel — click any stop for details or let me know if you'd like any adjustments.`;
     textParts.push(
       <MessageContent
         className="text-[15px] leading-[1.6]"
@@ -568,13 +639,14 @@ const PurePreviewMessage = ({
         key={`fallback-intro-${message.id}`}
       >
         <MessageResponse components={richMarkdownComponents}>
-          {fallbackIntro}
+          {fallbackNote}
         </MessageResponse>
       </MessageContent>
     );
   }
 
   const hasText = textParts.length > 0;
+  const hasProposalRendered = proposalParts.length > 0;
 
   const actions = (
     <MessageActions
@@ -613,17 +685,34 @@ const PurePreviewMessage = ({
       </div>
     ) : null;
 
+  const mutationChips =
+    mutationConfirmationParts.length > 0 ? (
+      <div className="flex flex-wrap items-center gap-1.5 py-0.5">
+        {mutationConfirmationParts}
+      </div>
+    ) : null;
+
   const content = isThinking ? (
     <WaitingText />
+  ) : hasProposalRendered ? (
+    <>
+      {weatherParts}
+      {proposalParts}
+      {mutationChips}
+      {textParts}
+      {isLoading && isAssistant && <ActiveAgentStatus message={message} />}
+      {refinementChips}
+      {intakeCardParts}
+      {(!isLoading || hasText) && placeCardsParts}
+      {actions}
+    </>
   ) : (
     <>
       {weatherParts}
       {textParts}
-      {isLoading && isAssistant && !hasText && <ActiveAgentStatus message={message} />}
-      {proposalParts}
-      {refinementChips}
+      {mutationChips}
       {intakeCardParts}
-      {isLoading && isAssistant && hasText && <ActiveAgentStatus message={message} />}
+      {isLoading && isAssistant && <ActiveAgentStatus message={message} />}
       {(!isLoading || hasText) && placeCardsParts}
       {actions}
     </>
@@ -687,6 +776,8 @@ export const PreviewMessage = memo(
   (prevProps, nextProps) => {
     if (prevProps.isLoading !== nextProps.isLoading) return false;
     if (prevProps.chatId !== nextProps.chatId) return false;
+    if (prevProps.activeTrip?.id !== nextProps.activeTrip?.id) return false;
+    if (prevProps.activeTrip?.name !== nextProps.activeTrip?.name) return false;
     if (prevProps.message !== nextProps.message) return false;
     if (prevProps.onEdit !== nextProps.onEdit) return false;
     if (prevProps.onQuickReply !== nextProps.onQuickReply) return false;

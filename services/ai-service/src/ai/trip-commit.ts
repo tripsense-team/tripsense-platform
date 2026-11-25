@@ -23,20 +23,27 @@ export type TripDraft = {
   notes: string | null;
 };
 
+export type TripCommitAction =
+  | "CREATE_TRIP"
+  | "ADD_TO_TRIP"
+  | "REPLACE_DAYS"
+  | "REPLACE_TRIP_ITEMS";
+
 export type TripCommitRequest = {
-  action: "CREATE_TRIP" | "ADD_TO_TRIP";
+  action: TripCommitAction;
   targetTripId: string | null;
   proposalId: string;
   proposalHash: string;
   expectedTripRevision: number | null;
   tripDraft: TripDraft | null;
   items: TripCommitItem[];
+  replaceDayNumbers?: number[] | null;
 };
 
 export type TripCommitResult = {
   operationId: string;
   status: string;
-  action: "CREATE_TRIP" | "ADD_TO_TRIP";
+  action: TripCommitAction;
   tripId: string;
   tripName: string;
   tripRevision: number;

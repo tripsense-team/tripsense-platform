@@ -101,7 +101,18 @@ export const updateItineraryItemSchema = z.object({
     .string()
     .max(80)
     .optional()
-    .describe("Khung giờ mới (ví dụ '12:30 - 14:00')"),
+    .describe("Khung giờ mới (ví dụ '12:30 - 14:00' hoặc '12:30')"),
+  clearTimes: z
+    .boolean()
+    .optional()
+    .describe("Đặt true để xóa khung giờ hiện tại (chuyển về chưa xếp giờ)"),
+  targetDayNumber: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe("Chuyển mục hoạt động này sang một ngày khác trong chuyến đi (ví dụ: 2 để chuyển sang Ngày 2)"),
   notes: z
     .string()
     .max(5000)
@@ -112,6 +123,149 @@ export const updateItineraryItemSchema = z.object({
     .optional()
     .describe("ID chuyến đi"),
 });
+
+export const replaceDayItinerarySchema = z.object({
+  dayNumber: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .describe("Số thứ tự ngày cần thay thế toàn bộ hoạt động (ví dụ: 1 cho Ngày 1, 2 cho Ngày 2)"),
+  items: z
+    .array(
+      z.object({
+        period: z
+          .enum(["MORNING", "NOON", "AFTERNOON", "EVENING", "FLEXIBLE"])
+          .describe("Buổi trong ngày"),
+        timeSlot: z
+          .string()
+          .max(80)
+          .optional()
+          .describe("Khung giờ gợi ý (ví dụ: '08:00 - 10:30')"),
+        title: z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          .describe("Tên địa điểm hoặc hoạt động cụ thể"),
+        description: z
+          .string()
+          .max(5000)
+          .optional()
+          .describe("Mô tả hoặc lưu ý cho hoạt động"),
+        placeId: z
+          .string()
+          .optional()
+          .describe("ID canonical của địa điểm từ prepareTripCandidates / searchPlaces"),
+        category: z
+          .enum(["ATTRACTION", "FOOD", "CAFE", "STAY", "BEACH", "ACTIVITY"])
+          .describe("Loại hoạt động"),
+      }),
+    )
+    .min(1)
+    .max(50)
+    .describe("Danh sách hoạt động mới sẽ THAY THẾ toàn bộ hoạt động cũ trong ngày này"),
+  tripId: z
+    .string()
+    .optional()
+    .describe("ID chuyến đi (mặc định lấy chuyến đi đang liên kết)"),
+});
+
+export const manageItineraryDaysSchema = z.object({
+  action: z
+    .enum(["CLEAR_DAY", "SWAP_DAYS"])
+    .describe("CLEAR_DAY: xóa toàn bộ hoạt động trong 1 ngày; SWAP_DAYS: hoán đổi toàn bộ hoạt động giữa 2 ngày"),
+  dayNumber: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe("Số thứ tự ngày cần xóa trắng (bắt buộc khi action='CLEAR_DAY')"),
+  firstDayNumber: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe("Ngày thứ nhất cần hoán đổi (bắt buộc khi action='SWAP_DAYS')"),
+  secondDayNumber: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe("Ngày thứ hai cần hoán đổi (bắt buộc khi action='SWAP_DAYS')"),
+  tripId: z
+    .string()
+    .optional()
+    .describe("ID chuyến đi (mặc định lấy chuyến đi đang liên kết)"),
+});
+
+export const updateTripDetailsSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(160)
+    .optional()
+    .describe("Tên chuyến đi mới"),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe("Ngày bắt đầu mới (YYYY-MM-DD)"),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe("Ngày kết thúc mới (YYYY-MM-DD)"),
+  durationDays: z
+    .number()
+    .int()
+    .min(1)
+    .max(60)
+    .optional()
+    .describe("Tổng số ngày mới (tự tính endDate từ startDate hiện tại nếu không truyền endDate)"),
+  travelerCount: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Số lượng người đi mới"),
+  budgetAmount: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("Tổng ngân sách mới"),
+  budgetCurrency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .optional()
+    .describe("Đơn vị tiền tệ 3 ký tự (VND, USD...)"),
+  notes: z
+    .string()
+    .max(5000)
+    .optional()
+    .describe("Ghi chú chung cho chuyến đi"),
+  tripId: z
+    .string()
+    .optional()
+    .describe("ID chuyến đi (mặc định lấy chuyến đi đang liên kết)"),
+});
+
+function addDaysToIsoDate(isoDate: string, daysToAdd: number): string | null {
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const dt = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (Number.isNaN(dt.getTime())) return null;
+  dt.setUTCDate(dt.getUTCDate() + daysToAdd);
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 export const replaceItineraryItemSchema = z.object({
   itemId: z
@@ -271,12 +425,14 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
 
         if (context.runtime) {
           context.runtime.tripRevision = result.tripRevision;
+          context.runtime.hasTripItems = true;
         }
 
         return {
           success: true,
           dayNumber: input.dayNumber,
           appliedCount: result.appliedCount,
+          skippedCount: result.skippedCount,
           message: `Đã thêm thành công ${result.appliedCount} hoạt động vào Ngày ${input.dayNumber} của chuyến đi.`,
           items: result.items,
         };
@@ -317,11 +473,22 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
         const data = payload?.data;
         if (!data) return { success: false, error: "Không tìm thấy dữ liệu lịch trình." };
 
+        const daysList = Array.isArray(data.days) ? data.days : [];
+        if (context.runtime) {
+          if (typeof data.revision === "number") {
+            context.runtime.tripRevision = data.revision;
+          }
+          context.runtime.tripDaysCount = daysList.length;
+          context.runtime.hasTripItems = daysList.some(
+            (d: any) => Array.isArray(d?.items) && d.items.length > 0,
+          );
+        }
+
         return {
           success: true,
           tripId: targetTripId,
           destinationName: data.destinationName,
-          days: (data.days || []).map((d: any) => ({
+          days: daysList.map((d: any) => ({
             dayId: d.id,
             dayNumber: d.dayNumber,
             date: d.date,
@@ -370,6 +537,9 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
         if (!res.ok && res.status !== 204) {
           return { success: false, error: `Không thể xóa mục lịch trình (mã lỗi ${res.status}).` };
         }
+        if (context.runtime && typeof context.runtime.tripRevision === "number") {
+          context.runtime.tripRevision += 1;
+        }
         return {
           success: true,
           removedItemId: input.itemId,
@@ -383,7 +553,7 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
 
   const updateItineraryItem = tool({
     description:
-      "Chỉnh sửa tiêu đề, khung giờ hoặc ghi chú của một hoạt động đã có trong lịch trình. Dùng khi người dùng nói 'Đổi giờ ăn trưa sang 12:30', 'Sửa ghi chú Ngày X'.",
+      "Chỉnh sửa tiêu đề, khung giờ, xóa giờ, chuyển sang ngày khác (targetDayNumber) hoặc sửa ghi chú của một hoạt động đã có trong lịch trình.",
     inputSchema: updateItineraryItemSchema,
     execute: async (input) => {
       const targetTripId = input.tripId || context.runtime.tripId;
@@ -395,9 +565,36 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
         return { success: false, error: "Vui lòng đăng nhập để thao tác với chuyến đi." };
       }
 
-      const times = input.timeSlot ? parseTimes(input.timeSlot) : { startTime: undefined, endTime: undefined };
+      const times =
+        !input.clearTimes && input.timeSlot
+          ? parseTimes(input.timeSlot)
+          : { startTime: undefined, endTime: undefined };
 
       try {
+        let targetDayId: string | undefined;
+        if (input.targetDayNumber !== undefined) {
+          const itinRes = await fetch(`${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary`, {
+            headers: { Authorization: context.authorization },
+          });
+          if (!itinRes.ok) {
+            return {
+              success: false,
+              error: `Không thể đọc danh sách ngày để chuyển hoạt động (mã lỗi ${itinRes.status}).`,
+            };
+          }
+          const itinPayload: any = await itinRes.json();
+          const targetDay = (itinPayload?.data?.days || []).find(
+            (d: any) => Number(d.dayNumber) === Number(input.targetDayNumber),
+          );
+          if (!targetDay) {
+            return {
+              success: false,
+              error: `Không tìm thấy Ngày ${input.targetDayNumber} trong chuyến đi.`,
+            };
+          }
+          targetDayId = String(targetDay.id);
+        }
+
         const res = await fetch(
           `${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary/items/${input.itemId}`,
           {
@@ -408,8 +605,10 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
             },
             body: JSON.stringify({
               title: input.title?.trim() || undefined,
-              startTime: times.startTime || undefined,
-              endTime: times.endTime || undefined,
+              startTime: input.clearTimes ? undefined : times.startTime || undefined,
+              endTime: input.clearTimes ? undefined : times.endTime || undefined,
+              clearTimes: input.clearTimes ? true : undefined,
+              targetDayId,
               notes: input.notes?.trim() || undefined,
             }),
           }
@@ -418,10 +617,16 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
           return { success: false, error: `Không thể cập nhật mục lịch trình (mã lỗi ${res.status}).` };
         }
         const payload: any = await res.json();
+        if (context.runtime && typeof context.runtime.tripRevision === "number") {
+          context.runtime.tripRevision += 1;
+        }
         return {
           success: true,
+          targetDayNumber: input.targetDayNumber,
           updatedItem: payload?.data,
-          message: "Đã cập nhật mục hoạt động thành công.",
+          message: input.targetDayNumber
+            ? `Đã chuyển và cập nhật hoạt động sang Ngày ${input.targetDayNumber}.`
+            : "Đã cập nhật mục hoạt động thành công.",
         };
       } catch (err: any) {
         return { success: false, error: err?.message || "Không thể kết nối trip-service để cập nhật." };
@@ -458,6 +663,7 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
         store: context.runtime?.placeStore,
       });
       const canonical = resolved.get(0);
+      const effectiveTitle = canonical?.name || input.newTitle.trim();
 
       try {
         const res = await fetch(
@@ -469,8 +675,9 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              title: canonical?.name || input.newTitle.trim(),
+              title: effectiveTitle,
               placeRef: canonical?.id || null,
+              clearPlaceRef: !canonical?.id ? true : undefined,
               type: input.newCategory ? itemType(input.newCategory) : undefined,
               startTime: times.startTime || undefined,
               endTime: times.endTime || undefined,
@@ -481,14 +688,349 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
         if (!res.ok) {
           return { success: false, error: `Không thể thay thế mục lịch trình (mã lỗi ${res.status}).` };
         }
+        if (context.runtime && typeof context.runtime.tripRevision === "number") {
+          context.runtime.tripRevision += 1;
+        }
         return {
           success: true,
           replacedItemId: input.itemId,
-          newTitle: input.newTitle,
-          message: `Đã thay thế thành công hoạt động bằng "${input.newTitle}".`,
+          newTitle: effectiveTitle,
+          message: `Đã thay thế thành công hoạt động bằng "${effectiveTitle}".`,
         };
       } catch (err: any) {
         return { success: false, error: err?.message || "Không thể kết nối trip-service để thay thế." };
+      }
+    },
+  });
+
+  const replaceDayItinerary = tool({
+    description:
+      "Thay thế TOÀN BỘ hoạt động của một ngày cụ thể (ví dụ Ngày 1 hoặc Ngày 2) bằng danh sách hoạt động mới (atomic replace, KHÔNG cộng dồn/trùng lặp). BẮT BUỘC gọi khi người dùng muốn 'Làm lại Ngày X', 'Đổi toàn bộ lịch trình Ngày X'.",
+    inputSchema: replaceDayItinerarySchema,
+    execute: async (input) => {
+      const targetTripId = input.tripId || context.runtime.tripId;
+      if (!targetTripId) {
+        return { success: false, error: "Chưa có chuyến đi liên kết." };
+      }
+      if (!context.authorization) {
+        return { success: false, error: "Vui lòng đăng nhập để thao tác với chuyến đi." };
+      }
+
+      try {
+        const getRes = await fetch(`${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary`, {
+          headers: { Authorization: context.authorization },
+        });
+        if (!getRes.ok) {
+          return {
+            success: false,
+            error: `Không thể đọc lịch trình hiện tại (mã lỗi ${getRes.status}).`,
+          };
+        }
+        const getPayload: any = await getRes.json();
+        const itineraryData = getPayload?.data;
+        const targetDay = (itineraryData?.days || []).find(
+          (d: any) => Number(d.dayNumber) === Number(input.dayNumber),
+        );
+        if (!targetDay) {
+          return { success: false, error: `Không tìm thấy Ngày ${input.dayNumber} trong chuyến đi.` };
+        }
+
+        const resolvedPlaces = await resolveCanonicalActivityPlaces({
+          items: input.items.map((it) => ({
+            placeId: it.placeId,
+            title: it.title.trim(),
+            category: it.category,
+          })),
+          destinationHint:
+            context.runtime?.destinationHint || context.runtime?.brief?.where?.destinationText,
+          authorization: context.authorization,
+          tripId: targetTripId,
+          store: context.runtime?.placeStore,
+        });
+
+        const payloadItems = input.items.map((it, idx) => {
+          const canonical = resolvedPlaces.get(idx);
+          const parsedTimes = parseTimes(it.timeSlot);
+          return {
+            placeRef: canonical?.id || null,
+            type: itemType(it.category),
+            title: canonical?.name || it.title.trim(),
+            startTime: parsedTimes.startTime,
+            endTime: parsedTimes.endTime,
+            notes: it.description?.trim() || null,
+          };
+        });
+
+        const replaceRes = await fetch(
+          `${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary/days/${targetDay.id}/items`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: context.authorization,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              items: payloadItems,
+              version: targetDay.version,
+              expectedTripRevision: itineraryData?.revision ?? context.runtime.tripRevision ?? null,
+            }),
+          },
+        );
+        if (!replaceRes.ok) {
+          return {
+            success: false,
+            error: `Không thể thay thế lịch trình Ngày ${input.dayNumber} (mã lỗi ${replaceRes.status}).`,
+          };
+        }
+        const replacePayload: any = await replaceRes.json();
+        if (context.runtime) {
+          if (typeof itineraryData?.revision === "number") {
+            context.runtime.tripRevision = itineraryData.revision + 1;
+          }
+          context.runtime.hasTripItems = true;
+        }
+        return {
+          success: true,
+          dayNumber: input.dayNumber,
+          replacedCount: payloadItems.length,
+          day: replacePayload?.data,
+          message: `Đã cập nhật và thay thế sạch toàn bộ ${payloadItems.length} hoạt động cho Ngày ${input.dayNumber}.`,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err?.message || "Không thể kết nối trip-service để thay thế lịch trình ngày.",
+        };
+      }
+    },
+  });
+
+  const manageItineraryDays = tool({
+    description:
+      "Quản lý cấp độ ngày: xóa sạch toàn bộ hoạt động trong một ngày (action='CLEAR_DAY') hoặc hoán đổi toàn bộ lịch trình giữa hai ngày (action='SWAP_DAYS').",
+    inputSchema: manageItineraryDaysSchema,
+    execute: async (input) => {
+      const targetTripId = input.tripId || context.runtime.tripId;
+      if (!targetTripId) {
+        return { success: false, error: "Chưa có chuyến đi liên kết." };
+      }
+      if (!context.authorization) {
+        return { success: false, error: "Vui lòng đăng nhập để thao tác với chuyến đi." };
+      }
+
+      try {
+        const getRes = await fetch(`${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary`, {
+          headers: { Authorization: context.authorization },
+        });
+        if (!getRes.ok) {
+          return {
+            success: false,
+            error: `Không thể đọc lịch trình hiện tại (mã lỗi ${getRes.status}).`,
+          };
+        }
+        const getPayload: any = await getRes.json();
+        const itineraryData = getPayload?.data;
+        const currentRevision = itineraryData?.revision ?? context.runtime.tripRevision ?? null;
+
+        if (input.action === "CLEAR_DAY") {
+          if (!input.dayNumber) {
+            return { success: false, error: "Cần truyền dayNumber khi action là CLEAR_DAY." };
+          }
+          const targetDay = (itineraryData?.days || []).find(
+            (d: any) => Number(d.dayNumber) === Number(input.dayNumber),
+          );
+          if (!targetDay) {
+            return { success: false, error: `Không tìm thấy Ngày ${input.dayNumber} trong chuyến đi.` };
+          }
+          const query = new URLSearchParams();
+          if (typeof targetDay.version === "number") query.set("version", String(targetDay.version));
+          if (typeof currentRevision === "number") {
+            query.set("expectedTripRevision", String(currentRevision));
+          }
+          const qs = query.toString() ? `?${query.toString()}` : "";
+          const clearRes = await fetch(
+            `${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary/days/${targetDay.id}/items${qs}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: context.authorization },
+            },
+          );
+          if (!clearRes.ok) {
+            return {
+              success: false,
+              error: `Không thể xóa hoạt động của Ngày ${input.dayNumber} (mã lỗi ${clearRes.status}).`,
+            };
+          }
+          const clearPayload: any = await clearRes.json();
+          if (context.runtime && typeof currentRevision === "number") {
+            context.runtime.tripRevision = currentRevision + 1;
+          }
+          return {
+            success: true,
+            action: "CLEAR_DAY",
+            dayNumber: input.dayNumber,
+            day: clearPayload?.data,
+            message: `Đã xóa sạch toàn bộ hoạt động trong Ngày ${input.dayNumber}.`,
+          };
+        }
+
+        if (!input.firstDayNumber || !input.secondDayNumber) {
+          return {
+            success: false,
+            error: "Cần truyền firstDayNumber và secondDayNumber khi action là SWAP_DAYS.",
+          };
+        }
+        if (input.firstDayNumber === input.secondDayNumber) {
+          return { success: false, error: "Hai ngày cần hoán đổi phải khác nhau." };
+        }
+        const swapRes = await fetch(
+          `${config.tripServiceUrl}/api/trips/${targetTripId}/itinerary/days/swap`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: context.authorization,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              firstDayNumber: input.firstDayNumber,
+              secondDayNumber: input.secondDayNumber,
+              expectedTripRevision: currentRevision,
+            }),
+          },
+        );
+        if (!swapRes.ok) {
+          return {
+            success: false,
+            error: `Không thể hoán đổi Ngày ${input.firstDayNumber} và Ngày ${input.secondDayNumber} (mã lỗi ${swapRes.status}).`,
+          };
+        }
+        const swapPayload: any = await swapRes.json();
+        if (context.runtime && typeof currentRevision === "number") {
+          context.runtime.tripRevision = currentRevision + 1;
+        }
+        return {
+          success: true,
+          action: "SWAP_DAYS",
+          firstDayNumber: input.firstDayNumber,
+          secondDayNumber: input.secondDayNumber,
+          itinerary: swapPayload?.data,
+          message: `Đã hoán đổi lịch trình giữa Ngày ${input.firstDayNumber} và Ngày ${input.secondDayNumber}.`,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err?.message || "Không thể kết nối trip-service để thao tác với ngày lịch trình.",
+        };
+      }
+    },
+  });
+
+  const updateTripDetails = tool({
+    description:
+      "Cập nhật thông tin tổng quan của chuyến đi hiện tại: số ngày (durationDays), ngày bắt đầu/kết thúc (startDate/endDate), số người (travelerCount), ngân sách (budgetAmount/budgetCurrency), tên hoặc ghi chú chuyến đi.",
+    inputSchema: updateTripDetailsSchema,
+    execute: async (input) => {
+      const targetTripId = input.tripId || context.runtime.tripId;
+      if (!targetTripId) {
+        return { success: false, error: "Chưa có chuyến đi liên kết." };
+      }
+      if (!context.authorization) {
+        return { success: false, error: "Vui lòng đăng nhập để thao tác với chuyến đi." };
+      }
+
+      try {
+        let startDate = input.startDate;
+        let endDate = input.endDate;
+
+        if (input.durationDays !== undefined && !endDate) {
+          if (!startDate) {
+            const tripRes = await fetch(`${config.tripServiceUrl}/api/trips/${targetTripId}`, {
+              headers: { Authorization: context.authorization },
+            });
+            if (!tripRes.ok) {
+              return {
+                success: false,
+                error: `Không thể đọc thông tin chuyến đi hiện tại (mã lỗi ${tripRes.status}).`,
+              };
+            }
+            const tripPayload: any = await tripRes.json();
+            startDate = tripPayload?.data?.startDate;
+          }
+          if (startDate) {
+            const computed = addDaysToIsoDate(startDate, input.durationDays - 1);
+            if (!computed) {
+              return { success: false, error: "Ngày bắt đầu hiện tại không hợp lệ để tính số ngày." };
+            }
+            endDate = computed;
+          }
+        }
+
+        const patchBody: Record<string, unknown> = {};
+        if (input.name !== undefined) patchBody.name = input.name.trim();
+        if (startDate !== undefined) patchBody.startDate = startDate;
+        if (endDate !== undefined) patchBody.endDate = endDate;
+        if (input.travelerCount !== undefined) patchBody.travelerCount = input.travelerCount;
+        if (input.budgetAmount !== undefined) patchBody.budgetAmount = input.budgetAmount;
+        if (input.budgetCurrency !== undefined) patchBody.budgetCurrency = input.budgetCurrency;
+        if (input.notes !== undefined) patchBody.notes = input.notes.trim();
+
+        const res = await fetch(`${config.tripServiceUrl}/api/trips/${targetTripId}`, {
+          method: "PATCH",
+          headers: {
+            Authorization: context.authorization,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(patchBody),
+        });
+        if (!res.ok) {
+          const errPayload: any = await res.json().catch(() => null);
+          const errCode = errPayload?.error?.code || errPayload?.code;
+          if (errCode === "DATE_CHANGE_BLOCKED") {
+            return {
+              success: false,
+              errorCode: "DATE_CHANGE_BLOCKED",
+              error:
+                "Không thể rút ngắn số ngày vì các ngày bị cắt vẫn còn hoạt động. Hãy dùng manageItineraryDays(CLEAR_DAY) xóa hoặc chuyển hoạt động sang ngày trước đó rồi đổi lại số ngày.",
+            };
+          }
+          return {
+            success: false,
+            error: `Không thể cập nhật thông tin chuyến đi (mã lỗi ${res.status}).`,
+          };
+        }
+
+        const payload: any = await res.json();
+        const updated = payload?.data;
+        if (context.runtime && updated) {
+          if (updated.startDate && updated.endDate) {
+            const s = Date.parse(`${updated.startDate}T00:00:00Z`);
+            const e = Date.parse(`${updated.endDate}T00:00:00Z`);
+            const computedDays =
+              !Number.isNaN(s) && !Number.isNaN(e) ? Math.floor((e - s) / 86_400_000) + 1 : undefined;
+            if (computedDays && computedDays > 0) {
+              context.runtime.tripDaysCount = computedDays;
+            }
+            context.runtime.brief = {
+              ...context.runtime.brief,
+              when: {
+                ...context.runtime.brief?.when,
+                startDate: updated.startDate,
+                endDate: updated.endDate,
+                durationDays: computedDays ?? context.runtime.brief?.when?.durationDays,
+              },
+            };
+          }
+        }
+        return {
+          success: true,
+          trip: updated,
+          message: "Đã cập nhật thông tin chuyến đi thành công.",
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err?.message || "Không thể kết nối trip-service để cập nhật chuyến đi.",
+        };
       }
     },
   });
@@ -602,6 +1144,9 @@ export function getItineraryManagementTools(context: ItineraryToolContext) {
 
   return {
     addItineraryItems,
+    replaceDayItinerary,
+    manageItineraryDays,
+    updateTripDetails,
     getTripItinerary,
     removeItineraryItem,
     updateItineraryItem,

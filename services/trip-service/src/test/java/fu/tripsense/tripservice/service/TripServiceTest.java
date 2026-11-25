@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import fu.tripsense.tripservice.dto.request.CreateItineraryItemRequest;
 import fu.tripsense.tripservice.dto.request.CreateTripRequest;
 import fu.tripsense.tripservice.dto.request.ReorderItemsRequest;
+import fu.tripsense.tripservice.dto.request.ReplaceDayItemsRequest;
+import fu.tripsense.tripservice.dto.request.SwapDaysRequest;
 import fu.tripsense.tripservice.dto.request.UpdateItineraryItemRequest;
 import fu.tripsense.tripservice.dto.request.UpdateTripRequest;
 import fu.tripsense.tripservice.dto.response.ItineraryDayResponse;
@@ -512,22 +514,141 @@ class TripServiceTest extends RealInfrastructureTest {
             trip.id(),
             item.id(),
             new UpdateItineraryItemRequest(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                item.version(),
-                null,
-                true));
+                null, null, null, null, null, null, null, null, null, item.version(), null, true));
 
     assertThat(cleared.startTime()).isNull();
     assertThat(cleared.endTime()).isNull();
     assertThat(cleared.durationMinutes()).isNull();
+  }
+
+  @Test
+  void updateItemMovesAcrossDaysAndClearsPlaceRefWhenRequested() {
+    TripResponse trip =
+        tripService.createTrip(
+            USER_ID,
+            createTripRequest("Da Nang", LocalDate.of(2026, 10, 18), LocalDate.of(2026, 10, 19)));
+    ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
+    ItineraryDayResponse day1 = itinerary.days().get(0);
+    ItineraryDayResponse day2 = itinerary.days().get(1);
+
+    ItineraryItemResponse item =
+        tripService.createItem(
+            USER_ID,
+            trip.id(),
+            day1.id(),
+            createItemRequest("Dragon Bridge", LocalTime.of(19, 0), LocalTime.of(20, 30)));
+
+    ItineraryItemResponse moved =
+        tripService.updateItem(
+            USER_ID,
+            trip.id(),
+            item.id(),
+            new UpdateItineraryItemRequest(
+                null,
+                null,
+                null,
+                "Dragon Bridge (Day 2)",
+                LocalTime.of(18, 0),
+                LocalTime.of(19, 30),
+                90,
+                null,
+                null,
+                item.version(),
+                null,
+                null,
+                day2.id(),
+                true));
+
+    assertThat(moved.dayId()).isEqualTo(day2.id());
+    assertThat(moved.title()).isEqualTo("Dragon Bridge (Day 2)");
+    assertThat(moved.placeRef()).isNull();
+    assertThat(tripService.getItineraryDay(USER_ID, trip.id(), day1.id()).items()).isEmpty();
+    assertThat(tripService.getItineraryDay(USER_ID, trip.id(), day2.id()).items())
+        .extracting(ItineraryItemResponse::id)
+        .containsExactly(item.id());
+  }
+
+  @Test
+  void replaceDayItemsReplacesOnlyTargetDayAtomically() {
+    TripResponse trip =
+        tripService.createTrip(
+            USER_ID,
+            createTripRequest("Da Nang", LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 21)));
+    ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
+    ItineraryDayResponse day1 = itinerary.days().get(0);
+    ItineraryDayResponse day2 = itinerary.days().get(1);
+
+    tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("Old Stop A"));
+    tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("Old Stop B"));
+    ItineraryItemResponse day2Item =
+        tripService.createItem(USER_ID, trip.id(), day2.id(), createItemRequest("Keep Day 2 Stop"));
+
+    ItineraryDayResponse replaced =
+        tripService.replaceDayItems(
+            USER_ID,
+            trip.id(),
+            day1.id(),
+            new ReplaceDayItemsRequest(
+                List.of(
+                    createItemRequest("New Morning Stop", LocalTime.of(8, 30), LocalTime.of(10, 0)),
+                    createItemRequest("New Lunch", LocalTime.of(12, 0), LocalTime.of(13, 30)))));
+
+    assertThat(replaced.items())
+        .extracting(ItineraryItemResponse::title)
+        .containsExactly("New Morning Stop", "New Lunch");
+    assertThat(tripService.getItineraryDay(USER_ID, trip.id(), day2.id()).items())
+        .extracting(ItineraryItemResponse::id)
+        .containsExactly(day2Item.id());
+  }
+
+  @Test
+  void clearDayItemsRemovesAllItemsFromTargetDayOnly() {
+    TripResponse trip =
+        tripService.createTrip(
+            USER_ID,
+            createTripRequest("Da Nang", LocalDate.of(2026, 10, 22), LocalDate.of(2026, 10, 23)));
+    ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
+    ItineraryDayResponse day1 = itinerary.days().get(0);
+    ItineraryDayResponse day2 = itinerary.days().get(1);
+
+    tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("Stop 1"));
+    tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("Stop 2"));
+    ItineraryItemResponse day2Item =
+        tripService.createItem(USER_ID, trip.id(), day2.id(), createItemRequest("Day 2 Stop"));
+
+    ItineraryDayResponse cleared =
+        tripService.clearDayItems(USER_ID, trip.id(), day1.id(), null, null);
+
+    assertThat(cleared.items()).isEmpty();
+    assertThat(tripService.getItineraryDay(USER_ID, trip.id(), day2.id()).items())
+        .extracting(ItineraryItemResponse::id)
+        .containsExactly(day2Item.id());
+  }
+
+  @Test
+  void swapDaysExchangesItemsBetweenTwoDays() {
+    TripResponse trip =
+        tripService.createTrip(
+            USER_ID,
+            createTripRequest("Da Nang", LocalDate.of(2026, 10, 24), LocalDate.of(2026, 10, 25)));
+    ItineraryResponse itinerary = tripService.getItinerary(USER_ID, trip.id());
+    ItineraryDayResponse day1 = itinerary.days().get(0);
+    ItineraryDayResponse day2 = itinerary.days().get(1);
+
+    ItineraryItemResponse day1Item =
+        tripService.createItem(USER_ID, trip.id(), day1.id(), createItemRequest("Day 1 Beach"));
+    ItineraryItemResponse day2Item =
+        tripService.createItem(USER_ID, trip.id(), day2.id(), createItemRequest("Day 2 Mountains"));
+
+    ItineraryResponse swapped =
+        tripService.swapDays(USER_ID, trip.id(), new SwapDaysRequest(1, 2, null));
+
+    assertThat(swapped.days().get(0).items())
+        .extracting(ItineraryItemResponse::id)
+        .containsExactly(day2Item.id());
+    assertThat(swapped.days().get(1).items())
+        .extracting(ItineraryItemResponse::id)
+        .containsExactly(day1Item.id());
   }
 
   private CreateTripRequest createTripRequest(

@@ -730,6 +730,146 @@ export async function executeHybridPlaceSearch(params: {
   };
 }
 
+const STAY_CATEGORY_PATTERNS = [
+  /\b(hotel|lodging|resort|homestay|hostel|villa|motel|inn|guesthouse|guest[_ -]?house|apartment|aparthotel|accommodation|bed[_ -]?and[_ -]?breakfast|boutique[_ -]?hotel|lodge|bungalow|retreat)\b/i,
+];
+
+const STAY_NAME_PATTERNS = [
+  /\b(hotel|resort|homestay|hostel|villa|suites?|motel|inn|guesthouse|aparthotel|retreat|lodge|bungalow|khach san|nha nghi|khu nghi duong|luu tru)\b/i,
+];
+
+function stripDiacriticsForCategory(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase();
+}
+
+export function isStayCandidate(place: Pick<PlaceSearchResult, "name" | "categories">): boolean {
+  const categories = Array.isArray(place.categories) ? place.categories : [];
+  if (
+    categories.some((cat) => {
+      const normalized = stripDiacriticsForCategory(String(cat || ""));
+      return STAY_CATEGORY_PATTERNS.some((pattern) => pattern.test(normalized));
+    })
+  ) {
+    return true;
+  }
+  const normalizedName = stripDiacriticsForCategory(place.name || "");
+  return STAY_NAME_PATTERNS.some((pattern) => pattern.test(normalizedName));
+}
+
+export function filterPlacesForBrowseCategory(
+  places: PlaceSearchResult[],
+  category: BrowseCategory
+): PlaceSearchResult[] {
+  if (category !== "STAY") return places;
+  return places.filter((place) => isStayCandidate(place));
+}
+
+function classifySuggestionBucket(place: PlaceSearchResult): BrowseCategory {
+  if (isStayCandidate(place)) return "STAY";
+  const combined = stripDiacriticsForCategory(
+    `${(place.categories ?? []).join(" ")} ${place.name ?? ""}`
+  );
+  if (/\b(cafe|coffee|ca phe|bakery|tea|tra sua)\b/.test(combined)) return "CAFE";
+  if (/\b(restaurant|food|nha hang|quan an|bistro|seafood|hai san|mi quang|bun|pho|banh)\b/.test(combined)) {
+    return "FOOD";
+  }
+  if (/\b(beach|bai bien|coast|island)\b/.test(combined)) return "BEACH";
+  return "ATTRACTION";
+}
+
+function photoRank(photoUrl?: string): number {
+  if (!photoUrl || !isHttpUrl(photoUrl)) return 0;
+  return photoUrl.includes("res.cloudinary.com") ? 2 : 1;
+}
+
+/**
+ * Picks up to `maxCount` grounded complementary places already cached in PlaceGroundingStore
+ * (from prefetch / prepareTripCandidates / searchPlaces) that are NOT already in the itinerary,
+ * balanced across STAY, FOOD, CAFE, ATTRACTION, and BEACH so users can save backup ideas with 0ms extra latency.
+ */
+export function selectComplementarySuggestedPlaces(params: {
+  store?: PlaceGroundingStore;
+  usedPlaceIds?: Iterable<string>;
+  usedNames?: Iterable<string>;
+  maxCount?: number;
+}): PlaceSearchResult[] {
+  if (!params.store) return [];
+  const maxCount = Math.min(Math.max(params.maxCount ?? 8, 1), 12);
+  const usedIds = new Set<string>();
+  if (params.usedPlaceIds) {
+    for (const id of params.usedPlaceIds) {
+      if (id?.trim()) usedIds.add(id.trim());
+    }
+  }
+  const usedNameKeys = new Set<string>();
+  if (params.usedNames) {
+    for (const name of params.usedNames) {
+      const key = normalizePlaceKey(name || "");
+      if (key) usedNameKeys.add(key);
+    }
+  }
+
+  const buckets: Record<BrowseCategory, PlaceSearchResult[]> = {
+    STAY: [],
+    FOOD: [],
+    CAFE: [],
+    ATTRACTION: [],
+    BEACH: [],
+    ACTIVITY: [],
+  };
+
+  for (const candidate of params.store.list()) {
+    if (!candidate?.id || isSyntheticPlaceId(candidate.id)) continue;
+    if (usedIds.has(candidate.id.trim())) continue;
+    const nameKey = normalizePlaceKey(candidate.name || "");
+    if (!nameKey || usedNameKeys.has(nameKey)) continue;
+    buckets[classifySuggestionBucket(candidate)].push(candidate);
+  }
+
+  const bucketOrder: BrowseCategory[] = ["STAY", "FOOD", "CAFE", "ATTRACTION", "BEACH", "ACTIVITY"];
+  for (const cat of bucketOrder) {
+    buckets[cat].sort((a, b) => {
+      const photoDiff = photoRank(b.photoUrl) - photoRank(a.photoUrl);
+      if (photoDiff !== 0) return photoDiff;
+      const ratingDiff = (b.rating ?? 0) - (a.rating ?? 0);
+      if (ratingDiff !== 0) return ratingDiff;
+      return (b.userRatingCount ?? 0) - (a.userRatingCount ?? 0);
+    });
+  }
+
+  const picked: PlaceSearchResult[] = [];
+  const pickedIds = new Set<string>();
+  let progress = true;
+  while (picked.length < maxCount && progress) {
+    progress = false;
+    for (const cat of bucketOrder) {
+      if (picked.length >= maxCount) break;
+      const next = buckets[cat].shift();
+      if (!next || pickedIds.has(next.id)) continue;
+      pickedIds.add(next.id);
+      picked.push({
+        id: next.id,
+        name: next.name,
+        address: next.address,
+        city: next.city,
+        categories: next.categories ?? [],
+        location: next.location,
+        photoUrl: next.photoUrl,
+        rating: next.rating,
+        phone: next.phone,
+        reason: next.reason,
+      });
+      progress = true;
+    }
+  }
+
+  return picked;
+}
+
 export interface PrepareTripCandidatesGroup {
   category: BrowseCategory;
   places: PlaceSearchResult[];
@@ -816,10 +956,11 @@ export async function prepareTripCandidates(params: {
   let fallbackTriggered = false;
   const rawGroups = await Promise.all(
     recPayloads.map(async ({ category, query, res }) => {
-      if (res.ok && res.places.length >= minThreshold) {
+      const filteredRecPlaces = filterPlacesForBrowseCategory(res.places, category);
+      if (res.ok && filteredRecPlaces.length >= minThreshold) {
         return {
           category,
-          places: res.places.slice(0, limitPerCategory),
+          places: filteredRecPlaces.slice(0, limitPerCategory),
           source: "recommendation" as const,
           ok: true,
         };
@@ -834,8 +975,12 @@ export async function prepareTripCandidates(params: {
         lng: params.lng,
       });
 
+      const filteredCatalogPlaces = filterPlacesForBrowseCategory(catalogRes.places, category);
+      const effectiveCatalogPlaces =
+        filteredCatalogPlaces.length > 0 ? filteredCatalogPlaces : catalogRes.places;
+
       const merged = new Map<string, PlaceSearchResult>();
-      for (const item of [...res.places, ...catalogRes.places]) {
+      for (const item of [...filteredRecPlaces, ...effectiveCatalogPlaces]) {
         const existing = merged.get(item.id);
         merged.set(item.id, existing ? mergePlaceRecords(existing, item) : item);
       }
@@ -850,7 +995,10 @@ export async function prepareTripCandidates(params: {
       return {
         category,
         places: ranked,
-        source: res.places.length > 0 ? ("hybrid-fallback" as const) : ("place-service" as const),
+        source:
+          filteredRecPlaces.length > 0
+            ? ("hybrid-fallback" as const)
+            : ("place-service" as const),
         ok: res.ok || catalogRes.ok,
       };
     })

@@ -18,7 +18,9 @@ public record UpdateItineraryItemRequest(
     @Size(max = 5000) String notes,
     Long version,
     Long expectedTripRevision,
-    Boolean clearTimes) {
+    Boolean clearTimes,
+    UUID targetDayId,
+    Boolean clearPlaceRef) {
   public UpdateItineraryItemRequest(
       UUID placeId,
       ItineraryItemType type,
@@ -40,6 +42,8 @@ public record UpdateItineraryItemRequest(
         status,
         notes,
         version,
+        null,
+        false,
         null,
         false);
   }
@@ -66,6 +70,8 @@ public record UpdateItineraryItemRequest(
         status,
         notes,
         version,
+        null,
+        false,
         null,
         false);
   }
@@ -94,6 +100,38 @@ public record UpdateItineraryItemRequest(
         notes,
         version,
         expectedTripRevision,
+        false,
+        null,
+        false);
+  }
+
+  public UpdateItineraryItemRequest(
+      UUID placeId,
+      String placeRef,
+      ItineraryItemType type,
+      String title,
+      LocalTime startTime,
+      LocalTime endTime,
+      Integer durationMinutes,
+      ItineraryItemStatus status,
+      String notes,
+      Long version,
+      Long expectedTripRevision,
+      Boolean clearTimes) {
+    this(
+        placeId,
+        placeRef,
+        type,
+        title,
+        startTime,
+        endTime,
+        durationMinutes,
+        status,
+        notes,
+        version,
+        expectedTripRevision,
+        clearTimes,
+        null,
         false);
   }
 
