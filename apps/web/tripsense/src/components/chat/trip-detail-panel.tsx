@@ -880,7 +880,7 @@ export function TripDetailPanel({
                     >
                       {tab.label}
                       {tab.id === "ideas" && tripIdeas.length > 0 && (
-                        <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                        <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
                           {tripIdeas.length}
                         </span>
                       )}

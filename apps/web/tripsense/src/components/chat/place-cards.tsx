@@ -425,7 +425,7 @@ export function PlaceCards({
                             <Lightbulb className="size-3.5 text-primary shrink-0" />
                             <span>Lưu vào Ý tưởng chuyến đi</span>
                           </p>
-                          <p className="text-[10.5px] text-muted-foreground mt-0.5">
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
                             Lưu làm ý tưởng dự phòng, chưa thêm vào ngày lịch trình
                           </p>
                         </div>
@@ -460,7 +460,7 @@ export function PlaceCards({
                                   <span className="min-w-0 flex-1 flex items-center gap-1.5">
                                     <span className="truncate">{trip.name}</span>
                                     {trip.isActive && (
-                                      <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.2 text-[9.5px] font-semibold text-primary">
+                                      <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
                                         Đang mở
                                       </span>
                                     )}

@@ -187,8 +187,8 @@ function ActivityRow({
             <span
               className={
                 categoryBadge.highlight
-                  ? "inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10.5px] font-medium text-primary shrink-0"
-                  : "inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/50 px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground shrink-0"
+                  ? "inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary shrink-0"
+                  : "inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground shrink-0"
               }
             >
               <CategoryBadgeIcon className="size-3 shrink-0" aria-hidden="true" />
