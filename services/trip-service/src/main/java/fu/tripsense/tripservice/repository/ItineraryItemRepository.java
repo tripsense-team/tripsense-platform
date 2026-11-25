@@ -40,4 +40,11 @@ public interface ItineraryItemRepository extends JpaRepository<ItineraryItem, UU
       "select i from ItineraryItem i where i.tripId = :tripId and i.dayId = :dayId order by i.sortOrder asc")
   List<ItineraryItem> findByTripIdAndDayIdForUpdate(
       @Param("tripId") UUID tripId, @Param("dayId") UUID dayId);
+
+  Optional<ItineraryItem> findFirstByTripIdAndDayIdAndPlaceRef(
+      UUID tripId, UUID dayId, String placeRef);
+
+  void deleteByTripId(UUID tripId);
+
+  void deleteByTripIdAndDayIdIn(UUID tripId, Collection<UUID> dayIds);
 }

@@ -187,7 +187,7 @@ async function fetchTripSummary(
   tripId?: string,
   authorization?: string,
   clientBudgetTierHint?: string,
-): Promise<{ summary?: string; trip?: any } | undefined> {
+): Promise<{ summary?: string; trip?: any; days?: any[]; revision?: number } | undefined> {
   if (!tripId || !authorization) return undefined;
   try {
     const [tripRes, itinRes] = await Promise.allSettled([
@@ -208,16 +208,22 @@ async function fetchTripSummary(
     if (!trip) return undefined;
 
     let days: any[] | undefined;
+    let revision: number | undefined;
     if (itinRes.status === "fulfilled" && itinRes.value.ok) {
       const itinPayload: any = await itinRes.value.json();
       if (Array.isArray(itinPayload?.data?.days)) {
         days = itinPayload.data.days;
+      }
+      if (typeof itinPayload?.data?.revision === "number") {
+        revision = itinPayload.data.revision;
       }
     }
 
     return {
       summary: formatTripSummary(trip, days, clientBudgetTierHint),
       trip,
+      days,
+      revision,
     };
   } catch {
     return undefined;
@@ -1335,7 +1341,10 @@ chatRouter.post("/chat", async (c) => {
       linkedFromClientHint);
 
   const destinationHint = tripData?.trip?.destinationName || effectiveBrief?.where?.destinationText;
-  const hasTripItems = Boolean(Array.isArray(tripData?.trip?.items) && tripData.trip.items.length > 0);
+  const hasTripItems = Boolean(
+    Array.isArray(tripData?.days) &&
+      tripData.days.some((d: any) => Array.isArray(d?.items) && d.items.length > 0),
+  );
   const latePrefetchPlan = evaluateSpeculativePrefetchPlan({
     destinationHint,
     hasWhen: Boolean(effectiveBrief?.when),
@@ -1392,6 +1401,9 @@ chatRouter.post("/chat", async (c) => {
   const planningRuntime: PlanningRuntimeState = {
     runId: priorPlanningState?.runId ?? crypto.randomUUID(),
     tripId: resolvedTripId,
+    tripRevision: typeof tripData?.revision === "number" ? tripData.revision : undefined,
+    hasTripItems,
+    tripDaysCount: Array.isArray(tripData?.days) ? tripData.days.length : undefined,
     brief: effectiveBrief,
     // Auto-commit is authorized if the trip was already linked during the intake phase or via trip creation,
     // or when updateTripPlanningBrief transitions to TRIP_LINKED in this turn.

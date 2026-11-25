@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   Star,
   Heart,
@@ -14,6 +14,7 @@ import {
   Landmark,
   Sparkles,
   Compass,
+  Lightbulb,
 } from "lucide-react";
 import type { PlaceSearchResult } from "@/lib/types";
 import { placeSearchResultToPlace } from "./chat-place-resolver";
@@ -22,9 +23,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTripStore } from "@/features/trip-management/store/use-trip-store";
 import {
-  getItinerary,
-  createItineraryItem,
-} from "@/features/trip-management/services/trip-management-api";
+  addPlaceToTrip,
+  getTripMemberships,
+  removePlaceFromTrip,
+} from "@/features/place-actions/services/place-actions-api";
+import { dispatchTripIdeasUpdated } from "@/features/trip-management/hooks/use-trip-ideas";
+import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import {
   Popover,
   PopoverContent,
@@ -37,7 +41,12 @@ interface PlaceCardsProps {
   query?: string;
   total?: number;
   title?: string;
+  activeTrip?: { id: string; name: string } | null;
   onSelectPlace?: (place: PlaceSearchResult) => void;
+}
+
+function isCatalogPlaceId(id?: string): boolean {
+  return Boolean(id && id.trim() && !id.startsWith("ai-rec-"));
 }
 
 function getCategoryMeta(categories?: string[]) {
@@ -60,7 +69,13 @@ function getCategoryMeta(categories?: string[]) {
   return { icon: Compass, label: categories?.[0] || "Địa điểm" };
 }
 
-export function PlaceCards({ places, total, title, onSelectPlace }: PlaceCardsProps) {
+export function PlaceCards({
+  places,
+  total,
+  title,
+  activeTrip,
+  onSelectPlace,
+}: PlaceCardsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { openPlaceDetail } = usePlaceDetailAction();
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -68,13 +83,61 @@ export function PlaceCards({ places, total, title, onSelectPlace }: PlaceCardsPr
 
   // Favorites state persisted in localStorage
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  // Added to trip state
-  const [addedPlaces, setAddedPlaces] = useState<Set<string>>(new Set());
-  const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null);
+  // Trip Ideas memberships per placeRef -> Set<tripId>
+  const [tripMemberships, setTripMemberships] = useState<Record<string, string[]>>({});
+  const [mutatingKey, setMutatingKey] = useState<string | null>(null);
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const trips = useTripStore((state) => state.trips);
   const fetchTrips = useTripStore((state) => state.fetchTrips);
+
+  const tripOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: Array<{ id: string; name: string; isActive?: boolean }> = [];
+    if (activeTrip?.id) {
+      seen.add(activeTrip.id);
+      list.push({ id: activeTrip.id, name: activeTrip.name, isActive: true });
+    }
+    for (const trip of trips) {
+      if (!trip?.id || seen.has(trip.id)) continue;
+      if (trip.status === "ARCHIVED" || trip.status === "CANCELLED") continue;
+      if (currentUserId && trip.ownerId && trip.ownerId !== currentUserId) continue;
+      seen.add(trip.id);
+      list.push({ id: trip.id, name: trip.name });
+    }
+    return list;
+  }, [activeTrip, trips, currentUserId]);
+
+  // Hydrate existing Trip Ideas memberships for catalog places when authenticated
+  const catalogPlaceIdsKey = useMemo(
+    () =>
+      Array.from(
+        new Set(places.map((p) => p.id).filter((id) => isCatalogPlaceId(id))),
+      ).join(","),
+    [places],
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated || !catalogPlaceIdsKey) return;
+    const refs = catalogPlaceIdsKey.split(",").filter(Boolean);
+    let active = true;
+    void getTripMemberships(refs)
+      .then((items) => {
+        if (!active) return;
+        const map: Record<string, string[]> = {};
+        for (const item of items) {
+          map[item.placeRef] = item.tripIds ?? [];
+        }
+        setTripMemberships((prev) => ({ ...prev, ...map }));
+      })
+      .catch(() => {
+        // Non-critical hydration failure; users can still add ideas directly.
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, catalogPlaceIdsKey]);
 
   // Initialize favorites from localStorage
   useEffect(() => {
@@ -139,30 +202,51 @@ export function PlaceCards({ places, total, title, onSelectPlace }: PlaceCardsPr
     });
   };
 
-  const handleAddToTrip = async (place: PlaceSearchResult, tripId: string, tripName: string) => {
-    setAddingPlaceId(place.id);
+  const handleToggleTripIdea = async (
+    place: PlaceSearchResult,
+    tripId: string,
+    tripName: string,
+  ) => {
+    if (!isCatalogPlaceId(place.id)) {
+      toast.error("Thông tin địa điểm này chưa được đồng bộ với danh mục để lưu vào Ý tưởng.");
+      return;
+    }
+
+    const currentIds = tripMemberships[place.id] ?? [];
+    const alreadyInTrip = currentIds.includes(tripId);
+    const key = `${place.id}:${tripId}`;
+    setMutatingKey(key);
+
     try {
-      const itinerary = await getItinerary(tripId);
-      const targetDay = itinerary.days?.[0];
-      if (!targetDay) {
-        toast.error("Chuyến đi này chưa có ngày nào trong lịch trình.");
-        return;
+      if (alreadyInTrip) {
+        await removePlaceFromTrip(tripId, place.id);
+        setTripMemberships((prev) => ({
+          ...prev,
+          [place.id]: (prev[place.id] ?? []).filter((id) => id !== tripId),
+        }));
+        dispatchTripIdeasUpdated(tripId, place.id);
+        toast.info(`Đã gỡ ${place.name} khỏi Ý tưởng của "${tripName}"`);
+      } else {
+        await addPlaceToTrip(tripId, place.id);
+        setTripMemberships((prev) => {
+          const existing = prev[place.id] ?? [];
+          return {
+            ...prev,
+            [place.id]: existing.includes(tripId) ? existing : [...existing, tripId],
+          };
+        });
+        dispatchTripIdeasUpdated(tripId, place.id);
+        toast.success(`Đã lưu ${place.name} vào Ý tưởng của "${tripName}"!`);
       }
-
-      await createItineraryItem(tripId, targetDay.id, {
-        title: place.name,
-        notes: place.reason
-          ? `${place.reason}${place.address ? ` • ${place.address}` : ""}`
-          : place.address || "Địa điểm gợi ý từ TripSense AI",
-        type: "PLACE",
-      });
-
-      setAddedPlaces((prev) => new Set(prev).add(place.id));
-      toast.success(`Đã thêm ${place.name} vào chuyến đi "${tripName}"!`);
-    } catch {
-      toast.error("Không thể thêm địa điểm vào chuyến đi. Vui lòng thử lại!");
+    } catch (error) {
+      toast.error(
+        getSafeErrorMessage(
+          error,
+          "Không thể cập nhật Ý tưởng chuyến đi. Vui lòng thử lại!",
+        ),
+      );
     } finally {
-      setAddingPlaceId(null);
+      setMutatingKey(null);
     }
   };
 
@@ -237,7 +321,8 @@ export function PlaceCards({ places, total, title, onSelectPlace }: PlaceCardsPr
         >
           {places.map((place) => {
             const isFav = favorites.has(place.id);
-            const isAdded = addedPlaces.has(place.id);
+            const savedTripIds = tripMemberships[place.id] ?? [];
+            const isSavedAsIdea = savedTripIds.length > 0;
             const meta = getCategoryMeta(place.categories);
             const CategoryIcon = meta.icon;
 
@@ -299,67 +384,99 @@ export function PlaceCards({ places, total, title, onSelectPlace }: PlaceCardsPr
                       />
                     </button>
 
-                    {/* Add to Trip Ideas / Plus Button or Verified Badge */}
-                    {isAdded ? (
-                      <div
-                        title="Đã thêm vào chuyến đi"
-                        className="size-7 flex items-center justify-center rounded-full bg-blue-500 text-white shadow-xs backdrop-blur-md"
-                      >
-                        <Check className="size-3.5 stroke-[3]" />
-                      </div>
-                    ) : (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            title="Thêm vào ý tưởng chuyến đi"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (isAuthenticated && trips.length === 0) {
-                                await fetchTrips();
-                              }
-                            }}
-                            disabled={addingPlaceId === place.id}
-                            className="size-7 flex items-center justify-center rounded-full bg-black/45 backdrop-blur-md text-white/90 hover:text-white hover:bg-black/60 transition-transform active:scale-90 cursor-pointer shadow-xs"
-                          >
-                            <Plus className="size-3.5 stroke-[2.5]" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="w-56 p-2 text-xs"
-                          align="end"
-                          side="bottom"
-                          onClick={(e) => e.stopPropagation()}
+                    {/* Add to Trip Ideas / Plus Button or Saved Idea Badge */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          title={
+                            isSavedAsIdea
+                              ? "Đã lưu vào ý tưởng chuyến đi"
+                              : "Thêm vào ý tưởng chuyến đi"
+                          }
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (isAuthenticated && trips.length === 0) {
+                              await fetchTrips();
+                            }
+                          }}
+                          className={cn(
+                            "size-7 flex items-center justify-center rounded-full backdrop-blur-md transition-transform active:scale-90 cursor-pointer shadow-xs",
+                            isSavedAsIdea
+                              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                              : "bg-black/45 text-white/90 hover:text-white hover:bg-black/60",
+                          )}
                         >
-                          <p className="font-semibold text-foreground px-2 py-1 border-b border-border/40">
-                            Thêm vào chuyến đi
+                          {isSavedAsIdea ? (
+                            <Check className="size-3.5 stroke-[3]" />
+                          ) : (
+                            <Plus className="size-3.5 stroke-[2.5]" />
+                          )}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-60 p-2 text-xs"
+                        align="end"
+                        side="bottom"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="px-2 py-1 border-b border-border/40">
+                          <p className="font-semibold text-foreground flex items-center gap-1.5">
+                            <Lightbulb className="size-3.5 text-primary shrink-0" />
+                            <span>Lưu vào Ý tưởng chuyến đi</span>
                           </p>
-                          <div className="mt-1 max-h-40 overflow-y-auto space-y-0.5">
-                            {!isAuthenticated ? (
-                              <p className="text-muted-foreground p-2 text-center text-[11px]">
-                                Vui lòng đăng nhập để lưu vào chuyến đi.
-                              </p>
-                            ) : trips.length === 0 ? (
-                              <p className="text-muted-foreground p-2 text-center text-[11px]">
-                                Chưa có chuyến đi nào. Hãy tạo chuyến đi mới trước!
-                              </p>
-                            ) : (
-                              trips.map((trip) => (
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Lưu làm ý tưởng dự phòng, chưa thêm vào ngày lịch trình
+                          </p>
+                        </div>
+                        <div className="mt-1 max-h-44 overflow-y-auto space-y-0.5">
+                          {!isAuthenticated ? (
+                            <p className="text-muted-foreground p-2 text-center text-[11px]">
+                              Vui lòng đăng nhập để lưu vào Ý tưởng chuyến đi.
+                            </p>
+                          ) : tripOptions.length === 0 ? (
+                            <p className="text-muted-foreground p-2 text-center text-[11px]">
+                              Chưa có chuyến đi nào. Hãy tạo chuyến đi mới trước!
+                            </p>
+                          ) : (
+                            tripOptions.map((trip) => {
+                              const isInThisTrip = savedTripIds.includes(trip.id);
+                              const isBusy = mutatingKey === `${place.id}:${trip.id}`;
+                              return (
                                 <button
                                   key={trip.id}
                                   type="button"
-                                  onClick={() => handleAddToTrip(place, trip.id, trip.name)}
-                                  className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted font-medium text-foreground transition-colors flex items-center justify-between text-xs"
+                                  disabled={isBusy}
+                                  onClick={() =>
+                                    handleToggleTripIdea(place, trip.id, trip.name)
+                                  }
+                                  className={cn(
+                                    "w-full text-left px-2 py-1.5 rounded-md font-medium transition-colors flex items-center justify-between gap-2 text-xs cursor-pointer",
+                                    isInThisTrip
+                                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                                      : "text-foreground hover:bg-muted",
+                                  )}
                                 >
-                                  <span className="truncate">{trip.name}</span>
-                                  <Plus className="size-3 text-muted-foreground shrink-0" />
+                                  <span className="min-w-0 flex-1 flex items-center gap-1.5">
+                                    <span className="truncate">{trip.name}</span>
+                                    {trip.isActive && (
+                                      <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                                        Đang mở
+                                      </span>
+                                    )}
+                                  </span>
+                                  {isInThisTrip ? (
+                                    <Check className="size-3.5 text-primary shrink-0" />
+                                  ) : (
+                                    <Plus className="size-3 text-muted-foreground shrink-0" />
+                                  )}
                                 </button>
-                              ))
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    )}
+                              );
+                            })
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   {/* Rating Tag (Bottom Left of photo) */}

@@ -45,6 +45,7 @@ import type {
   ItineraryResponse,
   TripResponse,
 } from "../types";
+import type { TripPlace } from "@/features/place-actions/types";
 import { countTripDays } from "../utils/format";
 import {
   addMinutesToTime,
@@ -75,8 +76,16 @@ export interface MindtripItineraryViewProps {
   selectedItemId?: string | null;
   showIdeasSection?: boolean;
   showInspirationBanner?: boolean;
+  ideas?: TripPlace[];
+  ideaPhotoUrls?: Record<string, string>;
   onAddItem?: (day: ItineraryDayResponse) => void;
   onAddIdea?: () => void;
+  onPromoteIdeaToDay?: (
+    idea: TripPlace,
+    day: ItineraryDayResponse,
+  ) => Promise<void> | void;
+  onRemoveIdea?: (idea: TripPlace) => Promise<void> | void;
+  onOpenIdeaDetail?: (idea: TripPlace, knownPhotoUrl?: string) => void;
   onEditItem?: (item: ItineraryItemResponse) => void;
   onUpdateItemTime?: (
     day: ItineraryDayResponse,
@@ -465,8 +474,13 @@ export function MindtripItineraryView({
   selectedItemId,
   showIdeasSection = true,
   showInspirationBanner: showInspirationBannerProp = false,
+  ideas = [],
+  ideaPhotoUrls,
   onAddItem,
   onAddIdea,
+  onPromoteIdeaToDay,
+  onRemoveIdea,
+  onOpenIdeaDetail,
   onEditItem,
   onUpdateItemTime,
   onReorderItems,
@@ -585,7 +599,7 @@ export function MindtripItineraryView({
     <div className={cn("space-y-6", className)}>
       {/* 1. Collapsible Ideas Strip (matches Mindtrip Reference Image 3) */}
       {showIdeasSection && (
-        <div className="space-y-3">
+        <div className="space-y-3" data-testid="trip-ideas-strip">
           <button
             type="button"
             onClick={() => setIsIdeasSectionOpen((prev) => !prev)}
@@ -599,12 +613,129 @@ export function MindtripItineraryView({
             />
             <span>{t("trip.ideas")}</span>
             <span className="text-xs font-normal text-muted-foreground">
-              {t("trip.ideasItemCount", { count: 0 })}
+              {t("trip.ideasItemCount", { count: ideas.length })}
             </span>
           </button>
 
           {isIdeasSectionOpen && (
-            <div className="flex items-center gap-3 overflow-x-auto pb-1">
+            <div className="flex items-stretch gap-3 overflow-x-auto pb-1.5">
+              {ideas.map((idea) => {
+                const ideaPhoto =
+                  ideaPhotoUrls?.[idea.placeRef] ||
+                  knownPlacePhotos?.[idea.placeRef] ||
+                  null;
+                const availableDays = itinerary?.days ?? [];
+                return (
+                  <div
+                    key={idea.id}
+                    data-testid={`trip-idea-card-${idea.placeRef}`}
+                    className="group relative w-32 shrink-0 flex flex-col rounded-2xl border border-border/60 bg-card overflow-hidden shadow-2xs transition hover:border-primary/40 hover:shadow-sm"
+                  >
+                    <div
+                      role={onOpenIdeaDetail ? "button" : undefined}
+                      tabIndex={onOpenIdeaDetail ? 0 : undefined}
+                      onClick={() => onOpenIdeaDetail?.(idea, ideaPhoto || undefined)}
+                      onKeyDown={(e) => {
+                        if (onOpenIdeaDetail && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          onOpenIdeaDetail(idea, ideaPhoto || undefined);
+                        }
+                      }}
+                      className={cn(
+                        "relative h-22 w-full bg-muted overflow-hidden",
+                        onOpenIdeaDetail && "cursor-pointer",
+                      )}
+                    >
+                      {ideaPhoto ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={ideaPhoto}
+                          alt={idea.placeNameSnapshot}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-muted/60 text-muted-foreground/60">
+                          <MapPin className="size-5" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Top-right quick actions: Schedule to Day & Remove */}
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
+                      {canEdit && onPromoteIdeaToDay && availableDays.length > 0 && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={submitting}
+                              title={t("trip.addToDay")}
+                              aria-label={t("trip.addToDay")}
+                              onClick={(e) => e.stopPropagation()}
+                              className="size-6 rounded-full bg-background/90 text-foreground border border-border/60 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer shadow-xs"
+                            >
+                              <Plus className="size-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="end"
+                            side="bottom"
+                            className="w-44 p-1.5 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <p className="px-2 py-1 text-[11px] font-semibold text-muted-foreground border-b border-border/40">
+                              {t("trip.addToDay")}
+                            </p>
+                            <div className="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
+                              {availableDays.map((day) => (
+                                <button
+                                  key={day.id}
+                                  type="button"
+                                  disabled={submitting}
+                                  onClick={() => void onPromoteIdeaToDay(idea, day)}
+                                  className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted font-medium text-foreground flex items-center justify-between cursor-pointer"
+                                >
+                                  <span>
+                                    {locale === "vi"
+                                      ? `Ngày ${day.dayNumber}`
+                                      : `Day ${day.dayNumber}`}
+                                  </span>
+                                  <Plus className="size-3 text-muted-foreground" />
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                      {canEdit && onRemoveIdea && (
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          title={t("trip.removeIdea")}
+                          aria-label={t("trip.removeIdea")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onRemoveIdea(idea);
+                          }}
+                          className="size-6 rounded-full bg-background/90 text-muted-foreground border border-border/60 flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors cursor-pointer shadow-xs"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="p-2 min-w-0">
+                      <p
+                        className="text-xs font-semibold text-foreground line-clamp-2 leading-snug"
+                        title={idea.placeNameSnapshot}
+                      >
+                        {idea.placeNameSnapshot}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
               <button
                 type="button"
                 onClick={() => {
@@ -615,7 +746,7 @@ export function MindtripItineraryView({
                   }
                 }}
                 disabled={!canEdit && !onAddIdea}
-                className="w-28 h-28 rounded-2xl bg-muted/60 hover:bg-muted border border-border/50 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer group shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-28 min-h-28 rounded-2xl bg-muted/60 hover:bg-muted border border-border/50 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer group shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="size-5 text-foreground/80 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-medium text-foreground/80">

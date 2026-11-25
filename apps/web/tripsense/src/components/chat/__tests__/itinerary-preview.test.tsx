@@ -225,5 +225,83 @@ describe("ItineraryPreview Component", () => {
       root.unmount();
     });
   });
+
+  it("renders accommodation highlight block for STAY stops and opens place detail when clicked", async () => {
+    const openPlaceDetail = vi.fn();
+    const proposal: TripProposal = {
+      proposalId: "prop-stay",
+      title: "Đà Nẵng 2N1Đ Nghỉ Dưỡng",
+      destination: "Đà Nẵng",
+      durationDays: 2,
+      summary: "1 khách sạn trung tâm cho cả hành trình",
+      days: [
+        {
+          dayNumber: 1,
+          theme: "Biển Mỹ Khê & Nhận phòng",
+          activities: [
+            {
+              itemKey: "act-stay-1",
+              period: "AFTERNOON",
+              timeSlot: "14:00 - 15:00",
+              title: "Sala Danang Beach Hotel",
+              description: "Check-in khách sạn gần biển Mỹ Khê.",
+              placeId: "6ab7874de8e0eb488c68f6e3",
+              address: "36-38 Lâm Hoành, Sơn Trà, Đà Nẵng",
+              photoUrl: "https://res.cloudinary.com/demo/sala-hotel.jpg",
+              category: "STAY",
+            },
+            {
+              itemKey: "act-food-1",
+              period: "EVENING",
+              timeSlot: "19:00 - 20:30",
+              title: "Hải sản Bé Mặn",
+              description: "Ăn tối hải sản tươi sống.",
+              placeId: "place-beman",
+              category: "FOOD",
+            },
+          ],
+        },
+      ],
+    };
+
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <PlaceDetailActionProvider openPlaceDetail={openPlaceDetail}>
+          <ItineraryPreview proposal={proposal} variant="chat" />
+        </PlaceDetailActionProvider>,
+      );
+    });
+
+    const staySummary = container.querySelector('[data-testid="itinerary-stay-summary"]');
+    expect(staySummary).not.toBeNull();
+    expect(staySummary?.textContent).toContain("aiPlanner.staySummaryTitle");
+    expect(staySummary?.textContent).toContain("Sala Danang Beach Hotel");
+    expect(staySummary?.textContent).toContain("36-38 Lâm Hoành, Sơn Trà, Đà Nẵng");
+    expect(container.textContent).toContain("Khách sạn");
+    expect(container.textContent).toContain("Ẩm thực");
+
+    const stayButton = container.querySelector(
+      '[data-testid="itinerary-stay-link-act-stay-1"]',
+    ) as HTMLButtonElement | null;
+    expect(stayButton).not.toBeNull();
+
+    await act(async () => {
+      stayButton?.click();
+    });
+
+    expect(openPlaceDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        placeIdHint: "6ab7874de8e0eb488c68f6e3",
+        nameHint: "Sala Danang Beach Hotel",
+      }),
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
 

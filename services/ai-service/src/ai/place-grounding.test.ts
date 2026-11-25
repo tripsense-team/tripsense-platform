@@ -6,10 +6,12 @@ import {
   extractCorePlaceQuery,
   extractPhotoUrl,
   groundRecommendations,
+  isStayCandidate,
   mapUserPreferencesToCategories,
   PlaceGroundingStore,
   prepareTripCandidates,
   resolveCanonicalActivityPlaces,
+  selectComplementarySuggestedPlaces,
 } from "./place-grounding.js";
 import { getPrepareTripCandidatesTool } from "./tools/prepare-trip-candidates.js";
 
@@ -709,6 +711,151 @@ test("getPrepareTripCandidatesTool returns compact groups without duplicate plac
   assert.equal(output.groups[0].places[0].id, "compact-place-1");
   assert.equal("photoUrl" in output.groups[0].places[0], false);
   assert.equal(store.getById("compact-place-1")?.photoUrl, "https://res.cloudinary.com/demo/my-khe-compact.jpg");
+});
+
+test("isStayCandidate filters non-hotel Qdrant hits and triggers place-service STAY fallback", async (t) => {
+  assert.equal(isStayCandidate({ name: "Sala Danang Beach Hotel", categories: ["hotel"] }), true);
+  assert.equal(isStayCandidate({ name: "Khách sạn Hải An", categories: [] }), true);
+  assert.equal(isStayCandidate({ name: "Wind Garden Coffee", categories: ["cafe"] }), false);
+  assert.equal(isStayCandidate({ name: "Roots Plant-Based Cafe", categories: ["restaurant", "vegan"] }), false);
+  assert.equal(isStayCandidate({ name: "Bảo tàng Chăm", categories: ["museum"] }), false);
+
+  const originalFetch = globalThis.fetch;
+  let placeServiceStayCalls = 0;
+
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (urlStr.includes("/api/recommendations")) {
+      // Simulate noisy Qdrant results for STAY (cafes & restaurants instead of hotels)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            items: [
+              {
+                score: 0.89,
+                place: { id: "noise-1", name: "Wind Garden Coffee", categories: ["cafe"] },
+              },
+              {
+                score: 0.85,
+                place: { id: "noise-2", name: "Roots Vegan Restaurant", categories: ["restaurant"] },
+              },
+              {
+                score: 0.84,
+                place: { id: "noise-3", name: "Da Nang Walking Tour", categories: ["tour"] },
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (urlStr.includes("/api/places/search")) {
+      placeServiceStayCalls += 1;
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "real-hotel-1",
+              name: "Novotel Danang Premier Han River",
+              address: "36 Bach Dang, Da Nang",
+              categories: ["hotel"],
+              photos: ["https://res.cloudinary.com/demo/novotel.jpg"],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return new Response(JSON.stringify({ success: true, data: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const result = await prepareTripCandidates({
+    destination: "Đà Nẵng",
+    categories: ["STAY"],
+    limitPerCategory: 3,
+    authorization: "Bearer test-token",
+  });
+
+  assert.equal(placeServiceStayCalls, 1);
+  assert.equal(result.fallbackTriggered, true);
+  assert.equal(result.groups[0].places.length, 1);
+  assert.equal(result.groups[0].places[0].id, "real-hotel-1");
+});
+
+test("selectComplementarySuggestedPlaces excludes itinerary venues and balances categories with photos first", () => {
+  const store = new PlaceGroundingStore();
+  store.add([
+    {
+      id: "used-hotel",
+      name: "Ocean Garden Boutique Da Nang",
+      categories: ["hotel"],
+      rating: 4.9,
+      photoUrl: "https://res.cloudinary.com/demo/used.jpg",
+    },
+    {
+      id: "extra-hotel",
+      name: "Sala Danang Beach Hotel",
+      categories: ["hotel"],
+      rating: 4.8,
+      photoUrl: "https://res.cloudinary.com/demo/sala.jpg",
+    },
+    {
+      id: "extra-food",
+      name: "Hải sản Bé Mặn",
+      categories: ["restaurant"],
+      rating: 4.7,
+      photoUrl: "https://res.cloudinary.com/demo/beman.jpg",
+    },
+    {
+      id: "extra-cafe-nophoto",
+      name: "Cafe Không Ảnh",
+      categories: ["cafe"],
+      rating: 4.9,
+    },
+    {
+      id: "extra-cafe-photo",
+      name: "Sơn Trà Marina Cafe",
+      categories: ["cafe"],
+      rating: 4.6,
+      photoUrl: "https://res.cloudinary.com/demo/marina.jpg",
+    },
+    {
+      id: "extra-attr",
+      name: "Bảo tàng Điêu khắc Chăm",
+      categories: ["museum"],
+      rating: 4.6,
+      photoUrl: "https://res.cloudinary.com/demo/cham.jpg",
+    },
+    {
+      id: "used-by-name-only",
+      name: "Bãi biển Mỹ Khê",
+      categories: ["beach"],
+      rating: 4.9,
+      photoUrl: "https://res.cloudinary.com/demo/mykhe.jpg",
+    },
+  ]);
+
+  const picked = selectComplementarySuggestedPlaces({
+    store,
+    usedPlaceIds: ["used-hotel"],
+    usedNames: ["Bãi biển Mỹ Khê"],
+    maxCount: 4,
+  });
+
+  assert.equal(picked.length, 4);
+  assert.deepEqual(
+    picked.map((p) => p.id),
+    ["extra-hotel", "extra-food", "extra-cafe-photo", "extra-attr"],
+  );
 });
 
 

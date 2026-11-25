@@ -3,6 +3,8 @@ package fu.tripsense.tripservice.service;
 import fu.tripsense.tripservice.dto.request.CreateItineraryItemRequest;
 import fu.tripsense.tripservice.dto.request.CreateTripRequest;
 import fu.tripsense.tripservice.dto.request.ReorderItemsRequest;
+import fu.tripsense.tripservice.dto.request.ReplaceDayItemsRequest;
+import fu.tripsense.tripservice.dto.request.SwapDaysRequest;
 import fu.tripsense.tripservice.dto.request.UpdateItineraryItemRequest;
 import fu.tripsense.tripservice.dto.request.UpdateTripRequest;
 import fu.tripsense.tripservice.dto.response.ItineraryDayResponse;
@@ -21,7 +23,13 @@ public interface TripService {
   TripResponse createTrip(UUID userId, CreateTripRequest request);
 
   TripListResponse listTrips(
-      UUID userId, TripStatus status, LocalDate from, LocalDate to, String sort, int page, int size);
+      UUID userId,
+      TripStatus status,
+      LocalDate from,
+      LocalDate to,
+      String sort,
+      int page,
+      int size);
 
   default TripListResponse listTrips(
       UUID userId, TripStatus status, LocalDate from, LocalDate to, int page, int size) {
@@ -51,6 +59,14 @@ public interface TripService {
 
   ItineraryDayResponse reorderItems(
       UUID userId, UUID tripId, UUID dayId, ReorderItemsRequest request);
+
+  ItineraryDayResponse replaceDayItems(
+      UUID userId, UUID tripId, UUID dayId, ReplaceDayItemsRequest request);
+
+  ItineraryDayResponse clearDayItems(
+      UUID userId, UUID tripId, UUID dayId, Long expectedTripRevision, Long expectedDayVersion);
+
+  ItineraryResponse swapDays(UUID userId, UUID tripId, SwapDaysRequest request);
 
   TripShareSnapshotResponse getShareSnapshot(UUID userId, UUID tripId);
 

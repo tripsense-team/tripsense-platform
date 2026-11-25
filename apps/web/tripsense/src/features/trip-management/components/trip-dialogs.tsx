@@ -30,9 +30,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { searchPlaces } from "@/features/places/services/places-api";
+import {
+  getPlaceBatchSnapshots,
+  searchPlaces,
+} from "@/features/places/services/places-api";
 import { getPlacePhotoUrl } from "@/features/places/utils/place-photo";
-import { listSavedPlaces } from "@/features/place-actions/services/place-actions-api";
+import {
+  listSavedPlaces,
+  listTripPlaces,
+} from "@/features/place-actions/services/place-actions-api";
 import type { Place } from "@/features/places/types";
 import type {
   CreateItineraryItemRequest,
@@ -368,8 +374,51 @@ export function AddItemDialog({
           limit: 12,
           signal: controller.signal,
         });
-        if (active) {
-          setPlaces(res.data || []);
+        const searchedPlaces = res.data || [];
+
+        if (tab === "ideas" && trip?.id && !searchQuery.trim()) {
+          try {
+            const ideasPage = await listTripPlaces(trip.id);
+            const tripIdeas = ideasPage.content ?? [];
+            const ideaRefs = tripIdeas
+              .map((it) => it.placeRef?.trim())
+              .filter((ref): ref is string => Boolean(ref));
+            const snapshots =
+              ideaRefs.length > 0
+                ? await getPlaceBatchSnapshots(ideaRefs, true, controller.signal).catch(
+                    () => ({} as Record<string, Place>),
+                  )
+                : ({} as Record<string, Place>);
+
+            const ideaPlaces: Place[] = tripIdeas.map((idea) => {
+              const snap = snapshots[idea.placeRef];
+              if (snap) return snap;
+              return {
+                id: idea.placeRef,
+                name: idea.placeNameSnapshot,
+                address: idea.placeAddressSnapshot || undefined,
+                categories: [],
+                photos: [],
+                location:
+                  idea.latSnapshot != null && idea.lngSnapshot != null
+                    ? { lat: idea.latSnapshot, lng: idea.lngSnapshot }
+                    : undefined,
+              };
+            });
+            const ideaIds = new Set(ideaPlaces.map((p) => p.id));
+            if (active) {
+              setPlaces([
+                ...ideaPlaces,
+                ...searchedPlaces.filter((p) => !ideaIds.has(p.id)),
+              ]);
+            }
+          } catch {
+            if (active) {
+              setPlaces(searchedPlaces);
+            }
+          }
+        } else if (active) {
+          setPlaces(searchedPlaces);
         }
       } catch {
         if (active) {
@@ -387,7 +436,7 @@ export function AddItemDialog({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [day, tab, selectedCategory, searchQuery, trip?.destinationName]);
+  }, [day, tab, selectedCategory, searchQuery, trip?.id, trip?.destinationName]);
 
   async function handleAddPlace(place: Place) {
     if (!day || submitting || addingPlaceId) return;

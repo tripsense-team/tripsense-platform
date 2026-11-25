@@ -16,11 +16,33 @@ public record AiItineraryCommitRequest(
     @NotBlank @Pattern(regexp = "^[a-f0-9]{64}$") String proposalHash,
     @PositiveOrZero Long expectedTripRevision,
     @Valid TripDraft tripDraft,
-    @NotNull @Size(max = 200) List<@Valid Item> items) {
+    @NotNull @Size(max = 200) List<@Valid Item> items,
+    @Size(max = 60) List<@Min(1) @Max(365) Integer> replaceDayNumbers) {
+
+  public AiItineraryCommitRequest(
+      Action action,
+      UUID targetTripId,
+      UUID proposalId,
+      String proposalHash,
+      Long expectedTripRevision,
+      TripDraft tripDraft,
+      List<Item> items) {
+    this(
+        action,
+        targetTripId,
+        proposalId,
+        proposalHash,
+        expectedTripRevision,
+        tripDraft,
+        items,
+        null);
+  }
 
   public enum Action {
     CREATE_TRIP,
-    ADD_TO_TRIP
+    ADD_TO_TRIP,
+    REPLACE_DAYS,
+    REPLACE_TRIP_ITEMS
   }
 
   public record TripDraft(

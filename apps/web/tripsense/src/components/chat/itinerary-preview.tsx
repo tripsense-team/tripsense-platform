@@ -4,15 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
+  BedDouble,
   CalendarDays,
   CheckCircle2,
   CloudSun,
+  Coffee,
+  Landmark,
   Loader2,
   MapPin,
   Moon,
   Sparkles,
   Sun,
   SunMedium,
+  Utensils,
+  Waves,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -81,6 +86,23 @@ function resolveDisplayPeriod(
 
 const shownToastOperations = new Set<string>();
 
+const categoryBadgeConfig: Record<
+  string,
+  { icon: typeof BedDouble; vi: string; en: string; highlight?: boolean }
+> = {
+  STAY: { icon: BedDouble, vi: "Khách sạn", en: "Stay", highlight: true },
+  HOTEL: { icon: BedDouble, vi: "Khách sạn", en: "Stay", highlight: true },
+  FOOD: { icon: Utensils, vi: "Ẩm thực", en: "Food" },
+  CAFE: { icon: Coffee, vi: "Cà phê", en: "Cafe" },
+  ATTRACTION: { icon: Landmark, vi: "Tham quan", en: "Attraction" },
+  BEACH: { icon: Waves, vi: "Biển", en: "Beach" },
+};
+
+function isStayActivity(activity: TripActivity): boolean {
+  const cat = activity.category?.toUpperCase().trim();
+  return cat === "STAY" || cat === "HOTEL";
+}
+
 function isPlaceActivity(activity: TripActivity): boolean {
   if (activity.placeId?.trim()) return true;
   if (activity.address?.trim()) return true;
@@ -129,6 +151,10 @@ function ActivityRow({
     />
   ) : null;
 
+  const catKey = activity.category?.toUpperCase().trim() || "";
+  const categoryBadge = categoryBadgeConfig[catKey];
+  const CategoryBadgeIcon = categoryBadge?.icon;
+
   return (
     <div className="relative flex items-start gap-3 text-sm leading-relaxed">
       {photoContent && (
@@ -149,7 +175,7 @@ function ActivityRow({
       )}
 
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-        <div className="flex items-baseline gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1 font-medium text-xs text-muted-foreground shrink-0">
             <Icon className="size-3.5 text-amber-500" aria-hidden="true" />
             <span>{locale === "vi" ? config.vi : config.en}</span>
@@ -157,6 +183,18 @@ function ActivityRow({
               <span className="text-muted-foreground/70">· {activity.timeSlot}</span>
             )}
           </span>
+          {categoryBadge && CategoryBadgeIcon && (
+            <span
+              className={
+                categoryBadge.highlight
+                  ? "inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary shrink-0"
+                  : "inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground shrink-0"
+              }
+            >
+              <CategoryBadgeIcon className="size-3 shrink-0" aria-hidden="true" />
+              <span>{locale === "vi" ? categoryBadge.vi : categoryBadge.en}</span>
+            </span>
+          )}
           {canOpenPlace ? (
             <button
               type="button"
@@ -275,8 +313,10 @@ export function ItineraryPreview({
         detail: { tripId: result.tripId },
       }),
     );
+    const isReplaced =
+      result.action === "REPLACE_TRIP_ITEMS" || result.action === "REPLACE_DAYS";
     toast.success(
-      t("aiPlanner.toastAdded", {
+      t(isReplaced ? "aiPlanner.toastReplaced" : "aiPlanner.toastAdded", {
         count: result.appliedCount,
         tripName: proposal.title,
       }),
@@ -289,6 +329,95 @@ export function ItineraryPreview({
       },
     );
   }, [chatId, proposal.autoCommit, proposal.title, router, t]);
+
+  const stayStops = (() => {
+    const seen = new Set<string>();
+    const stops: Array<{ dayNumber: number; activity: TripActivity }> = [];
+    for (const day of proposal.days) {
+      for (const activity of day.activities) {
+        if (!isStayActivity(activity)) continue;
+        const dedupeKey = (activity.placeId || activity.title).trim().toLowerCase();
+        if (!dedupeKey || seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        stops.push({ dayNumber: day.dayNumber, activity });
+      }
+    }
+    return stops;
+  })();
+
+  const staySummarySection =
+    stayStops.length > 0 ? (
+      <div
+        data-testid="itinerary-stay-summary"
+        className="rounded-2xl border border-border/60 bg-card/80 p-3.5 shadow-2xs space-y-2.5"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+            <BedDouble className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>{t("aiPlanner.staySummaryTitle")}</span>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {t("aiPlanner.staySummaryCount", { count: stayStops.length })}
+          </span>
+        </div>
+        <div className="space-y-2">
+          {stayStops.map(({ dayNumber, activity }) => {
+            const hasPhoto =
+              typeof activity.photoUrl === "string" &&
+              /^https?:\/\//i.test(activity.photoUrl.trim());
+            const clickable = Boolean(activityClickHandler && isPlaceActivity(activity));
+            return (
+              <div
+                key={`stay-${activity.itemKey}`}
+                className="flex items-center gap-3 rounded-xl border border-border/40 bg-muted/25 p-2"
+              >
+                {hasPhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={activity.photoUrl}
+                    alt={activity.title}
+                    loading="lazy"
+                    className="size-12 shrink-0 rounded-lg object-cover border border-border/50 bg-muted"
+                  />
+                ) : (
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <BedDouble className="size-5" aria-hidden="true" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  {clickable ? (
+                    <button
+                      type="button"
+                      data-testid={`itinerary-stay-link-${activity.itemKey}`}
+                      onClick={() => activityClickHandler?.(activity)}
+                      className="text-left text-sm font-semibold text-foreground underline decoration-primary/40 decoration-[1.5px] underline-offset-[3px] hover:text-primary hover:decoration-primary transition-colors cursor-pointer line-clamp-1"
+                    >
+                      {activity.title}
+                    </button>
+                  ) : (
+                    <p className="text-sm font-semibold text-foreground line-clamp-1">
+                      {activity.title}
+                    </p>
+                  )}
+                  <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                    <span>
+                      {locale === "vi" ? `Nhận phòng Ngày ${dayNumber}` : `Check-in Day ${dayNumber}`}
+                      {activity.timeSlot ? ` · ${activity.timeSlot}` : ""}
+                    </span>
+                    {activity.address && (
+                      <span className="inline-flex items-center gap-1 truncate max-w-full">
+                        <MapPin className="size-3 shrink-0 text-primary/70" aria-hidden="true" />
+                        <span className="truncate">{activity.address}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ) : null;
 
   const committedKeys = new Set([
     ...(context?.committedSourceRefs ?? [])
@@ -369,6 +498,9 @@ export function ItineraryPreview({
           )}
         </div>
 
+        {/* Accommodation Highlight */}
+        {staySummarySection}
+
         {/* Day-by-Day Timeline */}
         <div className="space-y-5 pt-1">
           {proposal.days.map((day) => (
@@ -401,11 +533,21 @@ export function ItineraryPreview({
         {/* Subtle Trip Sync Confirmation Link - NO "Add to trip" buttons */}
         {context?.trip && (() => {
           const trip = context.trip;
+          const wasReplaced =
+            proposal.autoCommit?.status === "APPLIED" &&
+            (proposal.autoCommit.action === "REPLACE_TRIP_ITEMS" ||
+              proposal.autoCommit.action === "REPLACE_DAYS");
           return (
             <div className="pt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-flex size-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>
-                {locale === "vi" ? "Đã tự động lưu vào chuyến đi" : "Saved to trip"}{" "}
+                {wasReplaced
+                  ? locale === "vi"
+                    ? "Đã cập nhật lại lịch trình cho chuyến đi"
+                    : "Updated itinerary for trip"
+                  : locale === "vi"
+                    ? "Đã tự động lưu vào chuyến đi"
+                    : "Saved to trip"}{" "}
                 <button
                   type="button"
                   onClick={() => router.push(`/trips/${trip.id}`)}
@@ -436,6 +578,8 @@ export function ItineraryPreview({
           </div>
         </div>
       </header>
+
+      {staySummarySection && <div className="px-5 pt-4">{staySummarySection}</div>}
 
       <div className="divide-y divide-border/60 px-5">
         {proposal.days.map((day) => (

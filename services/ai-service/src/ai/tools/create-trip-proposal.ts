@@ -10,7 +10,10 @@ import {
   deterministicCommitKey,
   type TripCommitItem,
 } from "../trip-commit.js";
-import { resolveCanonicalActivityPlaces } from "../place-grounding.js";
+import {
+  resolveCanonicalActivityPlaces,
+  selectComplementarySuggestedPlaces,
+} from "../place-grounding.js";
 import type { PlanningRuntimeState } from "./update-trip-planning-brief.js";
 
 export type ActivityPeriod = "MORNING" | "NOON" | "AFTERNOON" | "EVENING" | "FLEXIBLE";
@@ -77,11 +80,42 @@ export const createTripProposalSchema = z.object({
   summary: z
     .string().max(5000)
     .describe("Tóm tắt ngắn gọn phong cách và điểm nổi bật của lịch trình"),
+  commitMode: z
+    .enum(["ADD_TO_TRIP", "REPLACE_DAYS", "REPLACE_TRIP_ITEMS"])
+    .optional()
+    .describe(
+      "Chế độ đồng bộ vào chuyến đi: dùng 'REPLACE_TRIP_ITEMS' khi cập nhật/làm lại toàn bộ lịch trình đã có, 'REPLACE_DAYS' khi thay thế các ngày cụ thể, hoặc 'ADD_TO_TRIP' chỉ khi thêm vào chuyến đi còn trống.",
+    ),
   days: z
     .array(dayPlanSchema)
     .min(1)
     .describe("Kế hoạch chi tiết theo từng ngày"),
 });
+
+export function resolveProposalCommitAction(params: {
+  explicitMode?: "ADD_TO_TRIP" | "REPLACE_DAYS" | "REPLACE_TRIP_ITEMS";
+  dayNumbers: number[];
+  hasTripItems?: boolean;
+  tripDaysCount?: number;
+}): {
+  action: "ADD_TO_TRIP" | "REPLACE_DAYS" | "REPLACE_TRIP_ITEMS";
+  replaceDayNumbers?: number[];
+} {
+  if (params.explicitMode === "REPLACE_TRIP_ITEMS") {
+    return { action: "REPLACE_TRIP_ITEMS" };
+  }
+  if (params.explicitMode === "REPLACE_DAYS") {
+    return { action: "REPLACE_DAYS", replaceDayNumbers: params.dayNumbers };
+  }
+  if (params.hasTripItems) {
+    const existingDaysCount = params.tripDaysCount ?? params.dayNumbers.length;
+    if (params.dayNumbers.length >= existingDaysCount) {
+      return { action: "REPLACE_TRIP_ITEMS" };
+    }
+    return { action: "REPLACE_DAYS", replaceDayNumbers: params.dayNumbers };
+  }
+  return { action: "ADD_TO_TRIP" };
+}
 
 export const itemType = (category?: string): TripCommitItem["itemType"] => {
   if (category === "FOOD" || category === "CAFE") return "MEAL";
@@ -129,27 +163,41 @@ export const normalizeActivityPeriod = (
 };
 
 export const parseTimes = (timeSlot?: string) => {
-  const matches = timeSlot?.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
-  if (!matches) return { startTime: null, endTime: null };
-  const startHour = Number(matches[1]);
-  const startMinute = Number(matches[2]);
-  const endHour = Number(matches[3]);
-  const endMinute = Number(matches[4]);
-  if (
-    startHour > 23 ||
-    endHour > 23 ||
-    startMinute > 59 ||
-    endMinute > 59 ||
-    startHour * 60 + startMinute >= endHour * 60 + endMinute
-  ) {
-    return { startTime: null, endTime: null };
-  }
+  if (!timeSlot) return { startTime: null, endTime: null };
   const normalize = (hour: string, minute: string) =>
     `${hour.padStart(2, "0")}:${minute}:00`;
-  return {
-    startTime: normalize(matches[1], matches[2]),
-    endTime: normalize(matches[3], matches[4]),
-  };
+  const rangeMatch = timeSlot.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+  if (rangeMatch) {
+    const startHour = Number(rangeMatch[1]);
+    const startMinute = Number(rangeMatch[2]);
+    const endHour = Number(rangeMatch[3]);
+    const endMinute = Number(rangeMatch[4]);
+    if (
+      startHour > 23 ||
+      endHour > 23 ||
+      startMinute > 59 ||
+      endMinute > 59 ||
+      startHour * 60 + startMinute >= endHour * 60 + endMinute
+    ) {
+      return { startTime: null, endTime: null };
+    }
+    return {
+      startTime: normalize(rangeMatch[1], rangeMatch[2]),
+      endTime: normalize(rangeMatch[3], rangeMatch[4]),
+    };
+  }
+  const singleMatch = timeSlot.match(/(\d{1,2}):(\d{2})/);
+  if (singleMatch) {
+    const startHour = Number(singleMatch[1]);
+    const startMinute = Number(singleMatch[2]);
+    if (startHour <= 23 && startMinute <= 59) {
+      return {
+        startTime: normalize(singleMatch[1], singleMatch[2]),
+        endTime: null,
+      };
+    }
+  }
+  return { startTime: null, endTime: null };
 };
 
 export function getCreateTripProposalTool(context: {
@@ -160,7 +208,7 @@ export function getCreateTripProposalTool(context: {
 }) {
   return tool({
     description:
-      "BẮT BUỘC gọi khi người dùng yêu cầu tạo lịch trình, lên kế hoạch hoặc lên lộ trình chuyến đi (hoặc có directive yêu cầu tạo lịch trình). Tool này lưu toàn bộ các ngày và các hoạt động/địa điểm trực tiếp vào bảng Chuyến đi bên phải.",
+      "BẮT BUỘC gọi khi người dùng yêu cầu tạo mới HOẶC cập nhật/làm lại toàn bộ lịch trình nhiều ngày. Khi chuyến đi đã có hoạt động mà user muốn làm lại/cập nhật lại toàn bộ lịch trình, đặt commitMode='REPLACE_TRIP_ITEMS' để thay thế sạch thay vì thêm trùng.",
     inputSchema: createTripProposalSchema,
     execute: async (proposalData) => {
       try {
@@ -252,6 +300,21 @@ export function getCreateTripProposalTool(context: {
           }),
         }));
 
+        const usedPlaceIds = new Set<string>();
+        const usedNames = new Set<string>();
+        for (const day of normalizedDays) {
+          for (const act of day.activities) {
+            if (act.placeId) usedPlaceIds.add(act.placeId);
+            if (act.title) usedNames.add(act.title);
+          }
+        }
+        const suggestedPlaces = selectComplementarySuggestedPlaces({
+          store: context.runtime?.placeStore,
+          usedPlaceIds,
+          usedNames,
+          maxCount: 8,
+        });
+
         const itineraryPayload = {
           id: proposalId,
           title: proposalData.title,
@@ -260,6 +323,7 @@ export function getCreateTripProposalTool(context: {
           estimatedBudget: proposalData.estimatedBudget,
           summary: proposalData.summary,
           days: normalizedDays,
+          ...(suggestedPlaces.length > 0 ? { suggestedPlaces } : {}),
           createdAt: new Date().toISOString(),
         };
         const proposalHash = crypto
@@ -280,6 +344,7 @@ export function getCreateTripProposalTool(context: {
         let autoCommit:
           | {
               status: "APPLIED";
+              action: "ADD_TO_TRIP" | "REPLACE_DAYS" | "REPLACE_TRIP_ITEMS";
               operationId: string;
               tripId: string;
               appliedCount: number;
@@ -305,6 +370,12 @@ export function getCreateTripProposalTool(context: {
               notes: activity.description || null,
             })),
           );
+          const resolvedCommit = resolveProposalCommitAction({
+            explicitMode: proposalData.commitMode,
+            dayNumbers,
+            hasTripItems: context.runtime.hasTripItems,
+            tripDaysCount: context.runtime.tripDaysCount,
+          });
           try {
             const result = await commitTripMutation({
               authorization: context.authorization,
@@ -312,18 +383,23 @@ export function getCreateTripProposalTool(context: {
               idempotencyKey: deterministicCommitKey(
                 context.chatId,
                 proposalId,
-                "ADD_TO_TRIP",
+                resolvedCommit.action,
               ),
               request: {
-                action: "ADD_TO_TRIP",
+                action: resolvedCommit.action,
                 targetTripId: context.runtime.tripId,
                 proposalId,
                 proposalHash,
                 expectedTripRevision: context.runtime.tripRevision ?? null,
                 tripDraft: null,
                 items,
+                ...(resolvedCommit.replaceDayNumbers
+                  ? { replaceDayNumbers: resolvedCommit.replaceDayNumbers }
+                  : {}),
               },
             });
+            context.runtime.tripRevision = result.tripRevision;
+            context.runtime.hasTripItems = true;
             await db
               .update(proposals)
               .set({
@@ -335,6 +411,7 @@ export function getCreateTripProposalTool(context: {
               .where(eq(proposals.id, proposalId));
             autoCommit = {
               status: "APPLIED",
+              action: resolvedCommit.action,
               operationId: result.operationId,
               tripId: result.tripId,
               appliedCount: result.appliedCount,

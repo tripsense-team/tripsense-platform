@@ -73,10 +73,13 @@ const DRAWER_SLIDE_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const ITINERARY_MUTATING_TOOLS = new Set([
   "createTripProposal",
   "addItineraryItems",
+  "replaceDayItinerary",
+  "manageItineraryDays",
   "removeItineraryItem",
   "replaceItineraryItem",
   "updateItineraryItem",
   "reorderItineraryItems",
+  "updateTripDetails",
 ]);
 
 function extractThemesFromText(text: string, map: Record<number, string>) {
@@ -326,6 +329,11 @@ export function ChatShell() {
         }
         if (Array.isArray(res.places)) {
           for (const pl of res.places) {
+            recordPhoto(pl?.id, pl?.photoUrl);
+          }
+        }
+        if (Array.isArray(res.suggestedPlaces)) {
+          for (const pl of res.suggestedPlaces) {
             recordPhoto(pl?.id, pl?.photoUrl);
           }
         }
@@ -1310,15 +1318,29 @@ export function ChatShell() {
       if (!activeTrip?.id) return;
 
       const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
-      const didMutateItinerary = Boolean(
-        lastAssistantMsg?.parts?.some((part: any) => {
-          const toolName =
-            (typeof part?.type === "string" && part.type.startsWith("tool-")
-              ? part.type.slice(5)
-              : undefined) || part?.toolInvocation?.toolName;
-          return toolName ? ITINERARY_MUTATING_TOOLS.has(toolName) : false;
-        })
-      );
+      let didMutateItinerary = false;
+      let didUpdateTripDetails = false;
+      for (const part of (lastAssistantMsg?.parts ?? []) as any[]) {
+        const toolName =
+          (typeof part?.type === "string" && part.type.startsWith("tool-")
+            ? part.type.slice(5)
+            : undefined) || part?.toolInvocation?.toolName;
+        if (!toolName) continue;
+        if (ITINERARY_MUTATING_TOOLS.has(toolName)) {
+          didMutateItinerary = true;
+        }
+        if (toolName === "updateTripDetails") {
+          didUpdateTripDetails = true;
+        }
+      }
+
+      if (didUpdateTripDetails) {
+        void getTrip(activeTrip.id)
+          .then((fresh) => {
+            setActiveTrip(fresh);
+          })
+          .catch(() => {});
+      }
 
       if (didMutateItinerary) {
         window.dispatchEvent(
@@ -1595,6 +1617,9 @@ export function ChatShell() {
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background transition-all duration-300 ease-in-out">
           <Messages
             chatId={chatId}
+            activeTrip={
+              activeTrip ? { id: activeTrip.id, name: activeTrip.name } : null
+            }
             messages={messages}
             setMessages={setMessages}
             regenerate={regenerate}
@@ -1725,6 +1750,13 @@ export function ChatShell() {
               }
               onOpenPlaceDetail={(item, knownPhotoUrl) => {
                 void handleOpenPlaceDetail({ item, knownPhotoUrl });
+              }}
+              onOpenIdeaDetail={(idea, knownPhotoUrl) => {
+                void handleOpenPlaceDetail({
+                  placeIdHint: idea.placeRef,
+                  nameHint: idea.placeNameSnapshot,
+                  knownPhotoUrl,
+                });
               }}
               onOpenMap={(focusItemId) => {
                 dismissedMapChatIdsRef.current.delete(chatId);

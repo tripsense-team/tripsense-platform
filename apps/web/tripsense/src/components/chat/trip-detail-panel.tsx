@@ -15,8 +15,11 @@ import {
   Check,
   Hotel,
   UserPlus,
+  MapPin,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SidebarCollapseButton } from "@/components/layout/shared/sidebar-collapse-button";
 import {
   DropdownMenu,
@@ -40,10 +43,13 @@ import {
   deleteItineraryItem,
   deleteTrip,
   getItinerary,
+  isUuid,
   reorderItineraryItems,
   updateItineraryItem,
   updateTrip,
 } from "@/features/trip-management/services/trip-management-api";
+import { useTripIdeas } from "@/features/trip-management/hooks/use-trip-ideas";
+import type { TripPlace } from "@/features/place-actions/types";
 import type {
   CreateItineraryItemRequest,
   ItineraryDayResponse,
@@ -80,6 +86,7 @@ export interface TripDetailPanelProps {
   onTripUpdated?: (updatedTrip: TripResponse) => void;
   onTripDeleted?: (tripId: string) => void;
   onOpenPlaceDetail?: (item: ItineraryItemResponse, knownPhotoUrl?: string) => void;
+  onOpenIdeaDetail?: (idea: TripPlace, knownPhotoUrl?: string) => void;
   onOpenMap?: (focusItemId?: string) => void;
   onOpenWhere?: () => void;
   onOpenWhen?: () => void;
@@ -111,6 +118,7 @@ export function TripDetailPanel({
   onTripUpdated,
   onTripDeleted,
   onOpenPlaceDetail,
+  onOpenIdeaDetail,
   onOpenMap,
   onOpenWhere,
   onOpenWhen,
@@ -127,6 +135,16 @@ export function TripDetailPanel({
   const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false);
   const [isEditingTitle, setIsEditingTitle] = React.useState(false);
   const [editedTitle, setEditedTitle] = React.useState(trip.name);
+
+  // Live Trip Ideas saved from AI Chat carousels or Explore
+  const {
+    ideas: tripIdeas,
+    photoUrls: ideaPhotoUrls,
+    removeIdea,
+  } = useTripIdeas({
+    tripId: trip.id,
+    knownPlacePhotos,
+  });
 
   // Add item dialog inside AI Chat TripDetailPanel
   const [addItemDay, setAddItemDay] = React.useState<ItineraryDayResponse | null>(null);
@@ -553,6 +571,48 @@ export function TripDetailPanel({
     }
   };
 
+  const handlePromoteIdeaToDay = async (
+    idea: TripPlace,
+    day: ItineraryDayResponse,
+  ) => {
+    setIsMutating(true);
+    try {
+      await createItineraryItem(trip.id, day.id, {
+        placeId: isUuid(idea.placeRef) ? idea.placeRef : null,
+        placeRef: idea.placeRef,
+        type: "PLACE",
+        title: idea.placeNameSnapshot,
+        notes: idea.placeAddressSnapshot || undefined,
+        expectedTripRevision: itinerary?.revision,
+      });
+      const fresh = await getItinerary(trip.id);
+      setItinerary(fresh);
+      notifyItineraryChanged();
+      toast.success(
+        t("trip.ideaAddedToDay", {
+          name: idea.placeNameSnapshot,
+          day: day.dayNumber,
+        }),
+      );
+    } catch (err) {
+      toast.error(getSafeErrorMessage(err));
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleRemoveIdea = async (idea: TripPlace) => {
+    setIsMutating(true);
+    try {
+      await removeIdea(idea.placeRef);
+      toast.info(t("trip.ideaRemoved", { name: idea.placeNameSnapshot }));
+    } catch (err) {
+      toast.error(getSafeErrorMessage(err));
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
   return (
     <aside
       className={cn(
@@ -819,6 +879,11 @@ export function TripDetailPanel({
                       )}
                     >
                       {tab.label}
+                      {tab.id === "ideas" && tripIdeas.length > 0 && (
+                        <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                          {tripIdeas.length}
+                        </span>
+                      )}
                       {isActive && (
                         <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-foreground rounded-full" />
                       )}
@@ -853,6 +918,11 @@ export function TripDetailPanel({
                   knownPlacePhotos={knownPlacePhotos}
                   showIdeasSection={true}
                   showInspirationBanner={true}
+                  ideas={tripIdeas}
+                  ideaPhotoUrls={ideaPhotoUrls}
+                  onPromoteIdeaToDay={handlePromoteIdeaToDay}
+                  onRemoveIdea={handleRemoveIdea}
+                  onOpenIdeaDetail={onOpenIdeaDetail}
                   onAddItem={(day) => {
                     setAddItemError(null);
                     setItemDraft(newItemDraft());
@@ -884,17 +954,135 @@ export function TripDetailPanel({
               )}
 
               {activeTab === "ideas" && (
-                <div className="py-8 text-center space-y-3">
-                  <div className="size-12 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
-                    <Sparkles className="size-6" />
+                tripIdeas.length === 0 ? (
+                  <div className="py-8 text-center space-y-3">
+                    <div className="size-12 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                      <Sparkles className="size-6" />
+                    </div>
+                    <h3 className="font-bold text-sm text-foreground">
+                      {t("trip.ideas")}
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      {t("trip.askAiIdeasHint")}
+                    </p>
                   </div>
-                  <h3 className="font-bold text-sm text-foreground">
-                    {t("trip.ideas")}
-                  </h3>
-                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                    {t("trip.askAiIdeasHint")}
-                  </p>
-                </div>
+                ) : (
+                  <div className="space-y-3" data-testid="trip-panel-ideas-list">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-foreground">
+                        {t("trip.savedTripIdeasTitle")}
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        {t("trip.ideasItemCount", { count: tripIdeas.length })}
+                      </span>
+                    </div>
+                    <div className="space-y-2.5">
+                      {tripIdeas.map((idea) => {
+                        const photoUrl = ideaPhotoUrls[idea.placeRef] || null;
+                        const days = itinerary?.days ?? [];
+                        return (
+                          <div
+                            key={idea.id}
+                            className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-2.5 shadow-2xs hover:border-primary/40 transition-colors"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onOpenIdeaDetail?.(idea, photoUrl || undefined)
+                              }
+                              className="size-14 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-muted flex items-center justify-center cursor-pointer"
+                            >
+                              {photoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={photoUrl}
+                                  alt={idea.placeNameSnapshot}
+                                  loading="lazy"
+                                  className="size-full object-cover"
+                                />
+                              ) : (
+                                <MapPin className="size-5 text-muted-foreground/60" />
+                              )}
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onOpenIdeaDetail?.(idea, photoUrl || undefined)
+                                }
+                                className="text-left text-sm font-semibold text-foreground hover:text-primary transition-colors line-clamp-1 cursor-pointer"
+                              >
+                                {idea.placeNameSnapshot}
+                              </button>
+                              {idea.placeAddressSnapshot && (
+                                <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                                  {idea.placeAddressSnapshot}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {days.length > 0 && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={isMutating}
+                                      className="h-8 rounded-full px-2.5 text-xs gap-1 cursor-pointer"
+                                    >
+                                      <Plus className="size-3.5" />
+                                      <span>{t("trip.addToDay")}</span>
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    align="end"
+                                    side="bottom"
+                                    className="w-44 p-1.5 text-xs"
+                                  >
+                                    <div className="space-y-0.5 max-h-44 overflow-y-auto">
+                                      {days.map((day) => (
+                                        <button
+                                          key={day.id}
+                                          type="button"
+                                          disabled={isMutating}
+                                          onClick={() =>
+                                            void handlePromoteIdeaToDay(idea, day)
+                                          }
+                                          className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-muted font-medium text-foreground flex items-center justify-between cursor-pointer"
+                                        >
+                                          <span>
+                                            {locale === "vi"
+                                              ? `Ngày ${day.dayNumber}`
+                                              : `Day ${day.dayNumber}`}
+                                          </span>
+                                          <Plus className="size-3 text-muted-foreground" />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+
+                              <button
+                                type="button"
+                                disabled={isMutating}
+                                title={t("trip.removeIdea")}
+                                aria-label={t("trip.removeIdea")}
+                                onClick={() => void handleRemoveIdea(idea)}
+                                className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )
               )}
 
               {activeTab === "bookings" && (

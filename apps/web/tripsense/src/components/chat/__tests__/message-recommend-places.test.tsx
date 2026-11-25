@@ -149,7 +149,7 @@ describe("PreviewMessage Component - recommendPlaces tool", () => {
     expect(html).not.toContain("Raw Duplicate Beach 2");
   });
 
-  it("renders text intro before ItineraryPreview and PlaceCards carousel even when tool parts arrive first", () => {
+  it("renders ItineraryPreview before post-proposal tips text and PlaceCards carousel in natural streaming order", () => {
     const message: ChatMessage = {
       id: "msg-ai-order",
       role: "assistant",
@@ -196,7 +196,7 @@ describe("PreviewMessage Component - recommendPlaces tool", () => {
         } as any,
         {
           type: "text",
-          text: "Chào bạn, dưới đây là kế hoạch tối ưu dành riêng cho chuyến đi sắp tới:",
+          text: "Một số lưu ý thực tế cho chuyến đi của bạn:",
         },
       ],
     };
@@ -205,16 +205,16 @@ describe("PreviewMessage Component - recommendPlaces tool", () => {
       <PreviewMessage chatId="chat-1" message={message} isLoading={false} />
     );
 
-    const textIdx = html.indexOf("Chào bạn, dưới đây là kế hoạch tối ưu dành riêng cho chuyến đi sắp tới:");
     const proposalIdx = html.indexOf("Khám phá Đà Nẵng 3N2Đ");
+    const textIdx = html.indexOf("Một số lưu ý thực tế cho chuyến đi của bạn:");
     const carouselIdx = html.indexOf("Điểm gợi ý thêm tại Đà Nẵng");
 
-    expect(textIdx).toBeGreaterThan(-1);
-    expect(proposalIdx).toBeGreaterThan(textIdx);
-    expect(carouselIdx).toBeGreaterThan(proposalIdx);
+    expect(proposalIdx).toBeGreaterThan(-1);
+    expect(textIdx).toBeGreaterThan(proposalIdx);
+    expect(carouselIdx).toBeGreaterThan(textIdx);
   });
 
-  it("defers PlaceCards carousel during streaming before text arrives and shows status above proposal", () => {
+  it("defers PlaceCards carousel during streaming before text arrives and shows status below proposal where text streams", () => {
     const message: ChatMessage = {
       id: "msg-ai-streaming",
       role: "assistant",
@@ -266,10 +266,10 @@ describe("PreviewMessage Component - recommendPlaces tool", () => {
       <PreviewMessage chatId="chat-1" message={message} isLoading={true} />
     );
 
-    expect(html).toContain("Đã lưu lịch trình — đang hoàn thiện lời dẫn");
+    expect(html).toContain("Đã lưu lịch trình — đang viết lưu ý thực tế");
     expect(html).toContain("Hành trình Đà Nẵng 2N1Đ");
     expect(html).not.toContain("Carousel không nên nhảy lên đầu");
-    expect(html.indexOf("Đã lưu lịch trình")).toBeLessThan(
+    expect(html.indexOf("Đã lưu lịch trình")).toBeGreaterThan(
       html.indexOf("Hành trình Đà Nẵng 2N1Đ")
     );
   });
@@ -404,5 +404,145 @@ describe("PreviewMessage Component - recommendPlaces tool", () => {
     const avatarIdleHtml = renderToString(<AiResponseAvatar isRunning={false} />);
     expect(avatarIdleHtml).toContain("size-8");
     expect(avatarIdleHtml).toContain('data-ai-running="false"');
+  });
+
+  it("suppresses raw searchPlaces fallback carousel when createTripProposal is rendered", () => {
+    const message: ChatMessage = {
+      id: "msg-ai-no-dup-carousel",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-searchPlaces" as any,
+          output: {
+            success: true,
+            places: [
+              {
+                id: "raw-search-1",
+                name: "Duplicate Raw Search Venue",
+                categories: ["cafe"],
+              },
+            ],
+          },
+        } as any,
+        {
+          type: "tool-createTripProposal" as any,
+          output: {
+            proposalId: "prop-nodup-1",
+            title: "Đà Nẵng 2N1Đ",
+            destination: "Đà Nẵng",
+            durationDays: 2,
+            summary: "Lịch trình gọn gàng",
+            days: [
+              {
+                dayNumber: 1,
+                theme: "Biển Mỹ Khê",
+                activities: [
+                  {
+                    itemKey: "act-1",
+                    period: "MORNING",
+                    timeSlot: "08:30 - 10:30",
+                    title: "Bãi biển Mỹ Khê",
+                    description: "Tắm biển.",
+                    category: "BEACH",
+                  },
+                ],
+              },
+            ],
+          },
+        } as any,
+        { type: "text", text: "Mình đã cập nhật lịch trình cho bạn." },
+      ],
+    };
+
+    const html = renderToString(
+      <PreviewMessage chatId="chat-1" message={message} isLoading={false} />,
+    );
+
+    expect(html).toContain("Đà Nẵng 2N1Đ");
+    expect(html).not.toContain("Duplicate Raw Search Venue");
+  });
+
+  it("renders confirmation pill for completed granular itinerary mutation tools", () => {
+    const message: ChatMessage = {
+      id: "msg-ai-mutation-pill",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-replaceDayItinerary" as any,
+          output: {
+            success: true,
+            dayNumber: 2,
+            replacedCount: 4,
+            message: "Đã cập nhật và thay thế sạch toàn bộ 4 hoạt động cho Ngày 2.",
+          },
+        } as any,
+        { type: "text", text: "Mình đã làm lại toàn bộ Ngày 2 nhẹ nhàng hơn cho bạn rồi nhé." },
+      ],
+    };
+
+    const html = renderToString(
+      <PreviewMessage chatId="chat-1" message={message} isLoading={false} />,
+    );
+
+    expect(html).toContain('data-testid="itinerary-mutation-pill-replaceDayItinerary"');
+    expect(html).toContain("Đã cập nhật và thay thế sạch toàn bộ 4 hoạt động cho Ngày 2.");
+  });
+
+  it("renders complementary suggestedPlaces carousel below ItineraryPreview and tips text", () => {
+    const message: ChatMessage = {
+      id: "msg-ai-suggested-ideas",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-createTripProposal" as any,
+          output: {
+            proposalId: "prop-ideas-1",
+            title: "Đà Nẵng 2N1Đ",
+            destination: "Đà Nẵng",
+            durationDays: 2,
+            summary: "Lịch trình chuẩn biển",
+            days: [
+              {
+                dayNumber: 1,
+                theme: "Biển Mỹ Khê",
+                activities: [
+                  {
+                    itemKey: "act-1",
+                    period: "MORNING",
+                    timeSlot: "08:30 - 10:30",
+                    title: "Bãi biển Mỹ Khê",
+                    description: "Tắm biển.",
+                    category: "BEACH",
+                  },
+                ],
+              },
+            ],
+            suggestedPlaces: [
+              {
+                id: "idea-place-1",
+                name: "Sơn Trà Marina Cafe",
+                categories: ["cafe"],
+                rating: 4.7,
+                photoUrl: "https://res.cloudinary.com/demo/marina.jpg",
+              },
+            ],
+          },
+        } as any,
+        { type: "text", text: "Một số lưu ý thực tế cho chuyến đi:" },
+      ],
+    };
+
+    const html = renderToString(
+      <PreviewMessage chatId="chat-1" message={message} isLoading={false} />,
+    );
+
+    const proposalIdx = html.indexOf("Đà Nẵng 2N1Đ");
+    const tipsIdx = html.indexOf("Một số lưu ý thực tế cho chuyến đi:");
+    const carouselIdx = html.indexOf("Sơn Trà Marina Cafe");
+
+    expect(html).toContain("aiPlanner.suggestedIdeasTitle");
+    expect(proposalIdx).toBeGreaterThan(-1);
+    expect(tipsIdx).toBeGreaterThan(proposalIdx);
+    expect(carouselIdx).toBeGreaterThan(tipsIdx);
   });
 });

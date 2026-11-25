@@ -57,6 +57,8 @@ export type PlanningRuntimeState = {
   runId?: string;
   tripId?: string;
   tripRevision?: number;
+  hasTripItems?: boolean;
+  tripDaysCount?: number;
   brief?: TripPlanningBrief;
   autoCommitAuthorized?: boolean;
   state?: TripBriefPart;

@@ -57,6 +57,12 @@ import {
   type UpdateItemTimePayload,
 } from "./mindtrip-itinerary-view";
 import { useItineraryPlacePhotos } from "../hooks/use-itinerary-place-photos";
+import { useTripIdeas } from "../hooks/use-trip-ideas";
+import {
+  createItineraryItem,
+  isUuid,
+} from "../services/trip-management-api";
+import type { TripPlace } from "@/features/place-actions/types";
 import { cloneTrip } from "../utils/clone-trip";
 import type {
   ItineraryDayResponse,
@@ -190,6 +196,57 @@ export function TripDetailScreen({
     destinationName: trip?.destinationName,
     itinerary,
   });
+
+  // Live Trip Ideas saved from AI Chat carousels or Explore
+  const {
+    ideas: tripIdeas,
+    photoUrls: ideaPhotoUrls,
+    removeIdea,
+  } = useTripIdeas({
+    tripId: trip?.id ?? null,
+  });
+
+  const handlePromoteIdeaToDay = async (
+    idea: TripPlace,
+    day: ItineraryDayResponse,
+  ) => {
+    if (!trip) return;
+    try {
+      await createItineraryItem(trip.id, day.id, {
+        placeId: isUuid(idea.placeRef) ? idea.placeRef : null,
+        placeRef: idea.placeRef,
+        type: "PLACE",
+        title: idea.placeNameSnapshot,
+        notes: idea.placeAddressSnapshot || undefined,
+        expectedTripRevision: itinerary?.revision,
+      });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("tripsense:itinerary-updated", {
+            detail: { tripId: trip.id },
+          }),
+        );
+      }
+      toast.success(
+        t("trip.ideaAddedToDay", {
+          name: idea.placeNameSnapshot,
+          day: day.dayNumber,
+        }),
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(getSafeErrorMessage(err));
+    }
+  };
+
+  const handleRemoveIdea = async (idea: TripPlace) => {
+    try {
+      await removeIdea(idea.placeRef);
+      toast.info(t("trip.ideaRemoved", { name: idea.placeNameSnapshot }));
+    } catch (err) {
+      toast.error(getSafeErrorMessage(err));
+    }
+  };
 
   // Strictly fetch AI Chat sessions linked to THIS tripId (never fuzzy-match other trips by destination name)
   const { data: linkedTripChats = [], isLoading: loadingAiChats } =
@@ -852,7 +909,14 @@ export function TripDetailScreen({
                 <ActionTile
                   icon={Lightbulb}
                   label={t("trip.ideas")}
-                  onClick={() => setPollOpen(true)}
+                  badge={tripIdeas.length > 0 ? `${tripIdeas.length}` : undefined}
+                  onClick={() => {
+                    if (tripIdeas.length > 0) {
+                      setActivePanel("itinerary");
+                    } else {
+                      setPollOpen(true);
+                    }
+                  }}
                 />
                 <ActionTile
                   icon={Compass}
@@ -963,6 +1027,10 @@ export function TripDetailScreen({
                   selectedItemId={selectedPlaceId}
                   showIdeasSection={true}
                   showInspirationBanner={itineraryPlacesCount === 0}
+                  ideas={tripIdeas}
+                  ideaPhotoUrls={ideaPhotoUrls}
+                  onPromoteIdeaToDay={handlePromoteIdeaToDay}
+                  onRemoveIdea={handleRemoveIdea}
                   onAddItem={onAddItem}
                   onAddIdea={() => setPollOpen(true)}
                   onEditItem={onEditItem}
