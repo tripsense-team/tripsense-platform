@@ -11,6 +11,7 @@ import {
 } from "../services/trip-management-api";
 import { useTripStore } from "../store/use-trip-store";
 import { tripQueryKeys, getQueryClient } from "@/lib/react-query";
+import { trackEvent } from "@/lib/analytics";
 import type {
   CreateTripRequest,
   TripResponse,
@@ -69,6 +70,7 @@ export function useUserTrips() {
     mutationFn: (payload: CreateTripRequest) => createTrip(payload),
     onSuccess: (newTrip) => {
       useTripStore.getState().addTrip(newTrip);
+      trackEvent("create_trip", { source: "manual" });
       void queryClient.invalidateQueries({
         queryKey: tripQueryKeys.userTrips(),
       });

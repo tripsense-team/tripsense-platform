@@ -120,6 +120,8 @@ Track every feature that enters the multi-agent workflow.
 | `place-permanent-photo-storage` | DONE | `services/place-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./place-permanent-photo-storage.md) |
 | `partner-service-first-onboarding-and-subscription-flow` | DONE | `apps/web/tripsense`, `services/trip-service`, `services/api-gateway` | [Docs](./partner-service-first-onboarding-and-subscription-flow.md) |
 | `unified-hotel-restaurant-reservation-experience` | DONE | `services/trip-service`, `apps/web/tripsense`, `services/api-gateway` | [Docs](./unified-hotel-restaurant-reservation-experience.md) |
+| `google-analytics-integration` | DONE | `apps/web/tripsense`, `apps/mobile/tripsense` | [Docs](./google-analytics-integration.md) |
+| `admin-unified-finance-dashboard` | DONE | `services/trip-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./admin-unified-finance-dashboard.md) |
 
 ## Statuses
 

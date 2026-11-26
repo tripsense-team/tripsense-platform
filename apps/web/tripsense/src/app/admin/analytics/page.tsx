@@ -400,12 +400,12 @@ export default function AdminAnalyticsPage() {
         {/* Module 1: Recommendation Ranking Quality & Top-K Position Analysis */}
         <Card className="lg:col-span-6 border-border/50 shadow-sm">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0">
                   <Compass className="h-4 w-4" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <CardTitle className="text-base font-bold">
                     {t("admin.analytics.deep.recTitle")}
                   </CardTitle>
@@ -414,9 +414,14 @@ export default function AdminAnalyticsPage() {
                   </CardDescription>
                 </div>
               </div>
-              <Badge variant="outline" className="text-xs font-semibold">
-                CTR {recStats?.funnel?.ctrPercent ?? 0}%
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs font-semibold whitespace-nowrap rounded-lg px-2.5 py-1"
+                >
+                  CTR {recStats?.funnel?.ctrPercent ?? 0}%
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -567,12 +572,12 @@ export default function AdminAnalyticsPage() {
         {/* Module 2: AI Planner Funnel, Segment Comparison & Travel Lead Time */}
         <Card className="lg:col-span-6 border-border/50 shadow-sm">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 shrink-0">
                   <Sparkles className="h-4 w-4" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <CardTitle className="text-base font-bold">
                     {t("admin.analytics.deep.aiSegmentTitle")}
                   </CardTitle>
@@ -581,16 +586,21 @@ export default function AdminAnalyticsPage() {
                   </CardDescription>
                 </div>
               </div>
-              <Badge variant="outline" className="text-xs font-semibold">
-                {aiStats?.avgMessagesPerChat ??
-                  (tripStats?.totalAiCommits && tripStats?.aiAssistedTripsCount
-                    ? Math.round(
-                        (tripStats.totalAiCommits * 30) /
-                          Math.max(1, tripStats.aiAssistedTripsCount)
-                      ) / 10
-                    : 0)}{" "}
-                {t("admin.analytics.deep.avgMsgsPerChat")}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs font-semibold whitespace-nowrap rounded-lg px-2.5 py-1"
+                >
+                  {aiStats?.avgMessagesPerChat ??
+                    (tripStats?.totalAiCommits && tripStats?.aiAssistedTripsCount
+                      ? Math.round(
+                          (tripStats.totalAiCommits * 30) /
+                            Math.max(1, tripStats.aiAssistedTripsCount)
+                        ) / 10
+                      : 0)}{" "}
+                  {t("admin.analytics.deep.avgMsgsPerChat")}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -677,24 +687,26 @@ export default function AdminAnalyticsPage() {
               <p className="text-xs font-semibold">
                 {t("admin.analytics.deep.segmentComparisonTitle")}
               </p>
-              <div className="grid grid-cols-3 gap-2.5 text-xs">
-                <div className="rounded-lg border border-border/50 bg-muted/15 p-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="rounded-lg border border-border/50 bg-muted/15 p-3 min-w-0">
                   <p className="text-[11px] text-muted-foreground">
                     {t("admin.analytics.deep.metricAvgDuration")}
                   </p>
-                  <div className="mt-1.5 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-violet-600 dark:text-violet-400 font-medium">
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                      <span className="text-violet-600 dark:text-violet-400 font-medium whitespace-nowrap">
                         {t("admin.analytics.deep.segmentAi")}
                       </span>
-                      <span className="font-bold">
+                      <span className="font-bold whitespace-nowrap">
                         {deepTrip?.aiVsManual?.aiAvgDurationDays ?? 0}{" "}
                         {t("admin.analytics.deep.daysUnit")}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>{t("admin.analytics.deep.segmentManual")}</span>
-                      <span className="font-semibold text-foreground">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-muted-foreground">
+                      <span className="whitespace-nowrap">
+                        {t("admin.analytics.deep.segmentManual")}
+                      </span>
+                      <span className="font-semibold text-foreground whitespace-nowrap">
                         {deepTrip?.aiVsManual?.manualAvgDurationDays ?? 0}{" "}
                         {t("admin.analytics.deep.daysUnit")}
                       </span>
@@ -702,23 +714,25 @@ export default function AdminAnalyticsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border/50 bg-muted/15 p-2.5">
+                <div className="rounded-lg border border-border/50 bg-muted/15 p-3 min-w-0">
                   <p className="text-[11px] text-muted-foreground">
                     {t("admin.analytics.deep.metricAvgTravelers")}
                   </p>
-                  <div className="mt-1.5 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-violet-600 dark:text-violet-400 font-medium">
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                      <span className="text-violet-600 dark:text-violet-400 font-medium whitespace-nowrap">
                         {t("admin.analytics.deep.segmentAi")}
                       </span>
-                      <span className="font-bold">
+                      <span className="font-bold whitespace-nowrap">
                         {deepTrip?.aiVsManual?.aiAvgTravelers ?? 0}{" "}
                         {t("admin.analytics.deep.travelersUnit")}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>{t("admin.analytics.deep.segmentManual")}</span>
-                      <span className="font-semibold text-foreground">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-muted-foreground">
+                      <span className="whitespace-nowrap">
+                        {t("admin.analytics.deep.segmentManual")}
+                      </span>
+                      <span className="font-semibold text-foreground whitespace-nowrap">
                         {deepTrip?.aiVsManual?.manualAvgTravelers ?? 0}{" "}
                         {t("admin.analytics.deep.travelersUnit")}
                       </span>
@@ -726,22 +740,24 @@ export default function AdminAnalyticsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border/50 bg-muted/15 p-2.5">
+                <div className="rounded-lg border border-border/50 bg-muted/15 p-3 min-w-0">
                   <p className="text-[11px] text-muted-foreground">
                     {t("admin.analytics.deep.metricAvgBudget")}
                   </p>
-                  <div className="mt-1.5 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-violet-600 dark:text-violet-400 font-medium">
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                      <span className="text-violet-600 dark:text-violet-400 font-medium whitespace-nowrap">
                         {t("admin.analytics.deep.segmentAi")}
                       </span>
-                      <span className="font-bold">
+                      <span className="font-bold whitespace-nowrap">
                         {formatMoney(deepTrip?.aiVsManual?.aiAvgBudget ?? 0)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>{t("admin.analytics.deep.segmentManual")}</span>
-                      <span className="font-semibold text-foreground">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-muted-foreground">
+                      <span className="whitespace-nowrap">
+                        {t("admin.analytics.deep.segmentManual")}
+                      </span>
+                      <span className="font-semibold text-foreground whitespace-nowrap">
                         {formatMoney(deepTrip?.aiVsManual?.manualAvgBudget ?? 0)}
                       </span>
                     </div>
@@ -838,12 +854,12 @@ export default function AdminAnalyticsPage() {
         {/* Module 3: Traveler Persona & Preference Signals */}
         <Card className="lg:col-span-6 border-border/50 shadow-sm">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
                   <Heart className="h-4 w-4" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <CardTitle className="text-base font-bold">
                     {t("admin.analytics.deep.personaTitle")}
                   </CardTitle>
@@ -852,12 +868,18 @@ export default function AdminAnalyticsPage() {
                   </CardDescription>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Badge variant="secondary" className="text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="secondary"
+                  className="text-xs whitespace-nowrap rounded-lg px-2.5 py-1"
+                >
                   {formatNumber(contextStats?.completedOnboardingProfiles ?? 0)}{" "}
                   {t("admin.analytics.deep.onboardedProfiles")}
                 </Badge>
-                <Badge variant="outline" className="text-xs">
+                <Badge
+                  variant="outline"
+                  className="text-xs whitespace-nowrap rounded-lg px-2.5 py-1"
+                >
                   {formatNumber(contextStats?.totalPreferenceSignals ?? 0)}{" "}
                   {t("admin.analytics.deep.totalSignals")}
                 </Badge>
@@ -915,12 +937,12 @@ export default function AdminAnalyticsPage() {
         {/* Module 4: User Activation Funnel, Repeat Retention & Operational SLA */}
         <Card className="lg:col-span-6 border-border/50 shadow-sm">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
                   <Layers className="h-4 w-4" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <CardTitle className="text-base font-bold">
                     {t("admin.analytics.deep.retentionTitle")}
                   </CardTitle>
@@ -929,10 +951,15 @@ export default function AdminAnalyticsPage() {
                   </CardDescription>
                 </div>
               </div>
-              <Badge variant="outline" className="text-xs font-semibold">
-                {deepTrip?.retentionAndSla?.repeatTripUserRatePercent ?? 0}%{" "}
-                {t("admin.analytics.deep.repeatRateLabel")}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs font-semibold whitespace-nowrap rounded-lg px-2.5 py-1"
+                >
+                  {deepTrip?.retentionAndSla?.repeatTripUserRatePercent ?? 0}%{" "}
+                  {t("admin.analytics.deep.repeatRateLabel")}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1048,7 +1075,7 @@ export default function AdminAnalyticsPage() {
       {/* PILLAR 1: Trips, AI Adoption & Top Destinations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Interactive Time-Series Chart */}
-        <Card className="lg:col-span-2 bg-card border-border shadow-2xs">
+        <Card className="lg:col-span-2 bg-card border-border shadow-2xs min-w-0 overflow-hidden">
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
@@ -1087,8 +1114,8 @@ export default function AdminAnalyticsPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-end gap-2 sm:gap-3 pt-8 px-2 border-b border-border pb-4">
+          <CardContent className="min-w-0">
+            <div className="h-64 flex items-end gap-1.5 sm:gap-2 pt-8 px-1 border-b border-border pb-4 min-w-0">
               {chartBuckets.map((item) => {
                 const primaryHeightPct = Math.max(
                   6,
@@ -1101,9 +1128,9 @@ export default function AdminAnalyticsPage() {
                 return (
                   <div
                     key={item.tooltipLabel}
-                    className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group relative"
+                    className="flex-1 min-w-0 flex flex-col items-center gap-1.5 h-full justify-end group relative"
                   >
-                    <div className="text-micro font-mono text-foreground bg-popover border border-border px-1.5 py-0.5 rounded shadow-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                    <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 text-micro font-mono text-foreground bg-popover border border-border px-1.5 py-0.5 rounded shadow-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                       {chartMode === "revenue"
                         ? formatMoney(item.primaryValue)
                         : formatNumber(item.primaryValue)}
@@ -1129,7 +1156,7 @@ export default function AdminAnalyticsPage() {
                         />
                       )}
                     </div>
-                    <span className="text-micro font-mono text-muted-foreground truncate max-w-[44px]">
+                    <span className="text-micro font-mono text-muted-foreground truncate w-full text-center">
                       {item.label}
                     </span>
                   </div>
@@ -1139,29 +1166,29 @@ export default function AdminAnalyticsPage() {
 
             {/* Chart Legend & Trip Breakdown Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-2 text-xs">
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">
                   {t("admin.analytics.aiAssistedTrips")}
                 </span>
-                <span className="font-bold text-foreground">
+                <span className="font-bold text-foreground whitespace-nowrap">
                   {formatNumber(tripStats?.aiAssistedTripsCount)} /{" "}
                   {formatNumber(tripStats?.totalTrips)} ({tripStats?.aiAdoptionRatePercent ?? 0}%)
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">
                   {t("admin.analytics.avgCollaborators")}
                 </span>
-                <span className="font-bold text-foreground">
+                <span className="font-bold text-foreground whitespace-nowrap">
                   {tripStats?.avgCollaboratorsPerTrip ?? 1.0}{" "}
                   {t("admin.analytics.membersPerTrip")}
                 </span>
               </div>
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-muted-foreground">
                   {t("admin.analytics.tripVisibility")}
                 </span>
-                <span className="font-mono text-micro font-semibold text-foreground">
+                <span className="font-mono text-micro font-semibold text-foreground whitespace-nowrap">
                   P:{formatNumber(tripStats?.visibilityBreakdown.publicCount)} • S:
                   {formatNumber(tripStats?.visibilityBreakdown.sharedCount)} • Pr:
                   {formatNumber(tripStats?.visibilityBreakdown.privateCount)}
@@ -1172,7 +1199,7 @@ export default function AdminAnalyticsPage() {
         </Card>
 
         {/* Top Planned Destinations */}
-        <Card className="bg-card border-border shadow-2xs">
+        <Card className="bg-card border-border shadow-2xs min-w-0 overflow-hidden">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold text-foreground">
@@ -1192,20 +1219,20 @@ export default function AdminAnalyticsPage() {
             ) : (
               tripStats.topDestinations.map((dest, idx) => (
                 <div key={dest.destinationName} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-foreground flex items-center gap-2">
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary font-mono text-micro font-bold">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-medium text-foreground flex items-center gap-2 min-w-0 flex-1">
+                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-mono text-micro font-bold">
                         {idx + 1}
                       </span>
-                      <span className="truncate max-w-[150px]">{dest.destinationName}</span>
+                      <span className="truncate">{dest.destinationName}</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground font-mono">
-                        {formatNumber(dest.tripsCount)} trips
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-muted-foreground font-mono whitespace-nowrap">
+                        {formatNumber(dest.tripsCount)} {t("admin.analytics.tripsUnit")}
                       </span>
                       <Badge
                         variant="outline"
-                        className="text-micro font-mono text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+                        className="text-micro font-mono text-emerald-500 bg-emerald-500/10 border-emerald-500/20 whitespace-nowrap"
                       >
                         {formatGrowth(dest.growthPercent)}
                       </Badge>

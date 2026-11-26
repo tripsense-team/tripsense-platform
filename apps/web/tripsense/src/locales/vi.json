@@ -87,7 +87,7 @@
         "posTop7Plus": "Nhóm Top 7+",
         "recDesc": "Phễu chuyển đổi kiểu Google Analytics, kiểm chứng CTR theo vị trí xếp hạng và hiệu quả cá nhân hóa.",
         "recTitle": "Chất lượng Thuật toán Gợi ý & Phân tích Thứ hạng Top-K",
-        "repeatRateLabel": "Tỷ lệ quay lại (Repeat Rate)",
+        "repeatRateLabel": "Tỷ lệ quay lại",
         "retentionDesc": "Phễu chuyển đổi vòng đời người dùng từ lúc đăng ký đến khi quay lại tạo chuyến đi thứ 2+ và tốc độ duyệt đối tác.",
         "retentionTitle": "Phễu Kích hoạt, Giữ chân Người dùng (Retention) & SLA Vận hành",
         "segmentAi": "Dùng AI",
@@ -191,6 +191,7 @@
       "totalPaidGmv": "Tổng GMV Đặt phòng (Đã TT)",
       "totalServiceOrders": "Tổng đơn dịch vụ",
       "totalSubscriptionRevenue": "Doanh thu gói Hội viên",
+      "tripsUnit": "chuyến",
       "tripVisibility": "Chế độ (Công khai/Chia sẻ/Riêng tư)",
       "userDemographicsDesc": "Phân bổ vai trò người dùng, nguồn đăng ký OAuth vs Email và trạng thái tài khoản.",
       "userDemographicsTitle": "Tăng trưởng Người dùng & Xác thực",
@@ -262,6 +263,15 @@
         "pendingWithdrawals": "Có {{count}} yêu cầu rút tiền từ khách sạn",
         "pendingWithdrawalTotal": "Tổng số tiền cần chi trả: "
       },
+      "dashboard": {
+        "chartSubtitle": "Doanh thu thực nhận theo ngày (Gói Hội viên + Hoa hồng Khách sạn)",
+        "chartTitle": "Xu hướng Doanh thu Nền tảng 14 ngày",
+        "hotelCommission": "Hoa hồng Khách sạn (10%)",
+        "kindBreakdown": "Đơn Gói Hội viên đã trả theo Loại hình",
+        "noDailyData": "Chưa có dữ liệu doanh thu trong 14 ngày gần nhất.",
+        "revenueSplit": "Cơ cấu Nguồn thu",
+        "subscriptionShare": "Gói Hội viên Đối tác (100%)"
+      },
       "filters": {
         "all": "Tất cả",
         "approved": "Đã chuyển khoản",
@@ -272,12 +282,16 @@
         "rejected": "Đã từ chối"
       },
       "kpi": {
+        "activeSubscriptions": "Gói Hội viên Hoạt động",
+        "activeSubscriptionsDesc": "{{active}} Đang chạy • {{trial}} Dùng thử • {{expired}} Hết hạn",
         "escrowHolding": "Tạm giữ Escrow (Bảo chứng)",
         "escrowHoldingDesc": "Tiền phòng chưa check-out, an toàn trước rủi ro",
         "partnerPayable": "Nợ phải trả Đối tác",
         "partnerPayableDesc": "Số dư trong ví các chủ khách sạn",
-        "platformRevenue": "Doanh thu Nền tảng (10% Phí)",
-        "platformRevenueDesc": "Doanh thu thực nhận sau khi hoàn tất đơn",
+        "platformRevenue": "Tổng Doanh thu Nền tảng",
+        "platformRevenueDesc": "Hoa hồng Khách sạn 10% + Gói Hội viên 100%",
+        "subscriptionRevenue": "Doanh thu Gói Hội viên (100%)",
+        "subscriptionRevenueDesc": "{{count}} đơn PayOS đã thanh toán",
         "totalGmv": "Tổng GMV Khách Đã Trả",
         "totalGmvDesc": "Toàn bộ dòng tiền khách đã thanh toán"
       },
@@ -341,7 +355,23 @@
         "refunded": "Đã hoàn tiền",
         "rejected": "Đã từ chối"
       },
-      "subtitle": "Mô hình NAPAS 247 Dynamic VietQR Bán Tự Động: Tự động tính toán hoa hồng 10%, hiển thị mã QR kèm STK & số tiền chính xác để admin quét chuyển khoản từ ứng dụng ngân hàng cá nhân bất kỳ.",
+      "subscriptions": {
+        "amount": "Số tiền",
+        "business": "Cơ sở Đối tác",
+        "days": "{{count}} ngày",
+        "empty": "Không có đơn hàng gói hội viên nào theo bộ lọc.",
+        "kindAll": "Tất cả loại hình",
+        "orderCode": "Mã đơn PayOS",
+        "plan": "Gói cước",
+        "status": "Trạng thái",
+        "statusAll": "Tất cả trạng thái",
+        "statusCancelled": "Đã hủy",
+        "statusFailed": "Thất bại",
+        "statusPaid": "Đã thanh toán",
+        "statusPending": "Chờ thanh toán",
+        "time": "Thời gian"
+      },
+      "subtitle": "Trung tâm Doanh thu Hợp nhất: Theo dõi 100% doanh thu Gói Hội viên Đối tác (PayOS VietQR) cùng hoa hồng 10%, giải ngân & hoàn tiền Hotel Escrow.",
       "table": {
         "action": "Hành động duyệt",
         "booking": "Đơn: #{{id}}",
@@ -372,6 +402,7 @@
       "tabs": {
         "ledger": "Sổ cái Đối soát Toàn hệ thống",
         "refunds": "Hàng đợi Hoàn tiền Khách hàng",
+        "subscriptions": "Gói Hội viên Đối tác",
         "withdrawals": "Yêu cầu Rút tiền Đối tác"
       },
       "title": "Trung tâm Quản trị Tài chính & Đối soát Toàn hệ thống"

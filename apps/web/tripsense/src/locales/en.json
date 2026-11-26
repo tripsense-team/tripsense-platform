@@ -191,6 +191,7 @@
       "totalPaidGmv": "Total Paid Hotel GMV",
       "totalServiceOrders": "Total Service Orders",
       "totalSubscriptionRevenue": "Subscription Revenue",
+      "tripsUnit": "trips",
       "tripVisibility": "Visibility (Public/Shared/Private)",
       "userDemographicsDesc": "User role distribution, OAuth vs Local sign-ins, and account status.",
       "userDemographicsTitle": "User Growth & Authentication Breakdown",
@@ -262,6 +263,15 @@
         "pendingWithdrawals": "There are {{count}} withdrawal requests from hotels",
         "pendingWithdrawalTotal": "Total payout amount: "
       },
+      "dashboard": {
+        "chartSubtitle": "Daily realized platform revenue (Subscriptions + Hotel Commission)",
+        "chartTitle": "14-Day Platform Revenue Trend",
+        "hotelCommission": "Hotel Commission (10%)",
+        "kindBreakdown": "Paid Subscriptions by Partner Kind",
+        "noDailyData": "No revenue activity recorded in the last 14 days.",
+        "revenueSplit": "Revenue Mix",
+        "subscriptionShare": "Partner Subscriptions (100%)"
+      },
       "filters": {
         "all": "All",
         "approved": "Disbursed",
@@ -272,12 +282,16 @@
         "rejected": "Rejected"
       },
       "kpi": {
+        "activeSubscriptions": "Active Subscriptions",
+        "activeSubscriptionsDesc": "{{active}} Active • {{trial}} Trial • {{expired}} Expired",
         "escrowHolding": "Escrow Holding (Protected)",
         "escrowHoldingDesc": "Funds held until guest check-out, risk protected",
         "partnerPayable": "Partner Payable Liability",
         "partnerPayableDesc": "Total balance across partner wallets",
-        "platformRevenue": "Platform Revenue (10% Fee)",
-        "platformRevenueDesc": "Net platform commission realized on completed stays",
+        "platformRevenue": "Total Platform Revenue",
+        "platformRevenueDesc": "Hotel 10% commission + 100% Partner Subscriptions",
+        "subscriptionRevenue": "Subscription Revenue (100%)",
+        "subscriptionRevenueDesc": "{{count}} paid PayOS subscription orders",
         "totalGmv": "Total Customer GMV",
         "totalGmvDesc": "Total gross cash flow processed from bookings"
       },
@@ -341,7 +355,23 @@
         "refunded": "Refunded",
         "rejected": "Rejected"
       },
-      "subtitle": "Semi-Automated NAPAS 247 Dynamic VietQR: Automatically calculates 10% commission and renders QR with accurate account & amount for admin payouts via mobile banking.",
+      "subscriptions": {
+        "amount": "Amount",
+        "business": "Partner Business",
+        "days": "{{count}} days",
+        "empty": "No subscription orders found for the selected filters.",
+        "kindAll": "All Kinds",
+        "orderCode": "PayOS Order",
+        "plan": "Plan",
+        "status": "Status",
+        "statusAll": "All Statuses",
+        "statusCancelled": "Cancelled",
+        "statusFailed": "Failed",
+        "statusPaid": "Paid",
+        "statusPending": "Pending",
+        "time": "Timestamp"
+      },
+      "subtitle": "Unified Platform Revenue Center: Tracks 100% Partner Subscription revenue (PayOS VietQR) alongside Hotel Escrow 10% commission, payouts & refunds.",
       "table": {
         "action": "Action",
         "booking": "Booking: #{{id}}",
@@ -372,6 +402,7 @@
       "tabs": {
         "ledger": "Platform Settlement Ledger",
         "refunds": "Customer Refund Queue",
+        "subscriptions": "Partner Subscriptions",
         "withdrawals": "Partner Withdrawals"
       },
       "title": "System-wide Financial Management & Settlement Center"

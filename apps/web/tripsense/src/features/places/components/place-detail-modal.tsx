@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { getPlaceDetails } from "../services/places-api";
 import type { Place } from "../types";
 import { useTranslation } from "@/i18n";
+import { trackEvent } from "@/lib/analytics";
 import { PlacePhotoGallery } from "./place-photo-gallery";
 import { OpeningHoursDisplay } from "./opening-hours-display";
 import { approvedPhotoGallery } from "../utils/approved-photo";
@@ -46,6 +47,17 @@ export function PlaceDetailModal({
       || (Boolean(refreshedPlace.providerPlaceId) && refreshedPlace.providerPlaceId === initialPlace.providerPlaceId))
       ? refreshedPlace
       : initialPlace;
+
+  const placeCategory = initialPlace?.primaryType ?? initialPlace?.categories?.[0];
+
+  React.useEffect(() => {
+    if (!isOpen || !initialPlace?.id) return;
+    trackEvent("view_place", {
+      place_id: initialPlace.id,
+      category: placeCategory,
+      city: initialPlace.city,
+    });
+  }, [isOpen, initialPlace?.id, placeCategory, initialPlace?.city]);
 
   const handleRefreshDetails = React.useCallback(async () => {
     if (!currentPlace) return;
