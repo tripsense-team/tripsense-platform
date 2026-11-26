@@ -189,4 +189,34 @@ describe("required daily budget in the existing onboarding step", () => {
     expect(payload.selections.BUDGET_TIER).toEqual(["MID_RANGE"]);
     expect(payload.attributes?.PRESERVE_ME).toBe("{}");
   });
+
+  it("commits Vietnamese IME input on blur and exits stale composition on autofill/non-composing input", async () => {
+    const input = budgetInput();
+    await act(async () => {
+      input.focus();
+      input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "1000000");
+      input.dispatchEvent(new InputEvent("input", {
+        bubbles: true, data: "0", isComposing: true, inputType: "insertCompositionText",
+      }));
+    });
+    expect(button("auth.continue").disabled).toBe(true);
+
+    // Clicking a tier button blurs the input even if Windows IME never fires compositionend
+    await act(async () => input.blur());
+    expect(input.value).toBe("1.000.000");
+    expect(button("auth.continue").disabled).toBe(false);
+
+    // Chrome autofill / non-composing input while composition flag is set clears composition immediately
+    await act(async () => {
+      input.focus();
+      input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, " 1.000.000 ");
+      input.dispatchEvent(new InputEvent("input", {
+        bubbles: true, data: " 1.000.000 ", isComposing: false, inputType: "insertReplacementText",
+      }));
+    });
+    expect(input.value).toBe("1.000.000");
+    expect(button("auth.continue").disabled).toBe(false);
+  });
 });

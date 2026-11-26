@@ -15,6 +15,8 @@ public interface ItineraryItemRepository extends JpaRepository<ItineraryItem, UU
 
   List<ItineraryItem> findByTripIdAndDayIdOrderBySortOrderAsc(UUID tripId, UUID dayId);
 
+  List<ItineraryItem> findByTripIdInOrderByTripIdAscSortOrderAsc(Collection<UUID> tripIds);
+
   List<ItineraryItem> findByDayIdOrderBySortOrderAsc(UUID dayId);
 
   Optional<ItineraryItem> findByIdAndTripId(UUID id, UUID tripId);

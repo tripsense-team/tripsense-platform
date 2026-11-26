@@ -66,6 +66,16 @@ export function AuthModal({
   const [timer, setTimer] = React.useState(60);
   const [googleBtnWidth, setGoogleBtnWidth] = React.useState<number | undefined>(undefined);
   const googleBtnContainerRef = React.useRef<HTMLDivElement>(null);
+  const redirectTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!open || step !== "email") return;
@@ -145,7 +155,11 @@ export function AuthModal({
       const destination =
         safeReturn || (isAdmin ? "/admin" : isPartner ? "/partner" : "/explore");
 
-      setTimeout(() => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+      redirectTimerRef.current = setTimeout(() => {
+        redirectTimerRef.current = null;
         onOpenChange(false);
         router.replace(destination);
       }, 800);
@@ -195,7 +209,11 @@ export function AuthModal({
       const destination =
         safeReturn || (isAdmin ? "/admin" : isPartner ? "/partner" : "/explore");
 
-      setTimeout(() => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+      redirectTimerRef.current = setTimeout(() => {
+        redirectTimerRef.current = null;
         onOpenChange(false);
         router.replace(destination);
       }, 800);

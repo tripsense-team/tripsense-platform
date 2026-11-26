@@ -41,6 +41,7 @@ import {
   formatShortRange,
   titleCaseDestination,
 } from "../utils/format";
+import { useTripCoverPhotos } from "../hooks/use-trip-cover-photos";
 import { TripTabs } from "./trip-tabs";
 
 type TripListFilter = "all" | "recent" | "upcoming" | "unscheduled";
@@ -84,6 +85,7 @@ export function TripsScreen({
   const [filter, setFilter] = React.useState<TripListFilter>("all");
   const [bookedOnly, setBookedOnly] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const resolvedTripCovers = useTripCoverPhotos(trips);
 
   const now = React.useMemo(() => {
     const d = new Date();
@@ -489,10 +491,12 @@ export function TripsScreen({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {group.trips.map((trip) => (
+                  {group.trips.map((trip, index) => (
                     <TripPoster
                       key={trip.id}
                       trip={trip}
+                      resolvedCoverImage={resolvedTripCovers[trip.id]}
+                      priority={index < 3}
                       locale={locale}
                       deleting={submitting}
                       onRequestEdit={onRequestEditTrip}
@@ -560,6 +564,8 @@ export function TripsScreen({
 
 function TripPoster({
   trip,
+  resolvedCoverImage,
+  priority = false,
   locale,
   deleting,
   onRequestEdit,
@@ -569,6 +575,8 @@ function TripPoster({
   onRequestClone,
 }: {
   trip: TripResponse;
+  resolvedCoverImage?: string;
+  priority?: boolean;
   locale: string;
   deleting: boolean;
   onRequestEdit: (trip: TripResponse) => void;
@@ -578,7 +586,15 @@ function TripPoster({
   onRequestClone?: (trip: TripResponse) => void;
 }) {
   const destination = titleCaseDestination(trip.destinationName);
-  const coverImage = coverImageForTrip(trip);
+  const defaultCoverImage = coverImageForTrip({ ...trip, coverImageUrl: null });
+  const preferredCoverImage =
+    trip.coverImageUrl || resolvedCoverImage || defaultCoverImage;
+  const [failedUrl, setFailedUrl] = React.useState<string | null>(null);
+  const coverImage =
+    failedUrl === preferredCoverImage ? defaultCoverImage : preferredCoverImage;
+  const isUnoptimizedCover =
+    coverImage.startsWith("data:") ||
+    coverImage !== defaultCoverImage;
   const isUnscheduled = !trip.startDate || !trip.endDate;
   const days = countTripDays(trip);
 
@@ -605,9 +621,14 @@ function TripPoster({
         alt={trip.destinationName}
         fill
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        unoptimized={coverImage.startsWith("data:")}
+        unoptimized={isUnoptimizedCover}
+        onError={() => {
+          if (coverImage !== defaultCoverImage) {
+            setFailedUrl(preferredCoverImage);
+          }
+        }}
         className="object-cover transition-transform duration-500 group-hover:scale-105"
-        priority
+        priority={priority}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
 

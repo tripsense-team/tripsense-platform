@@ -59,7 +59,12 @@ public class TripServiceImpl implements TripService {
   private static final int MAX_PUBLIC_PLACE_LABEL_LENGTH = 255;
   private static final String PUBLIC_CONSENT_VERSION = "PUBLIC_TRIP_V1";
   private static final Set<String> APPROVED_PUBLIC_COVER_HOSTS =
-      Set.of("images.unsplash.com", "res.cloudinary.com");
+      Set.of(
+          "images.unsplash.com",
+          "res.cloudinary.com",
+          "lh3.googleusercontent.com",
+          "ziomap-api.socibi.com");
+  private static final int MAX_COVER_CANDIDATES_PER_TRIP = 4;
   private static final int SORT_ORDER_STEP = 1000;
 
   private final TripRepository tripRepository;
@@ -164,9 +169,13 @@ public class TripServiceImpl implements TripService {
                   : criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), to));
         };
     Page<Trip> trips = tripRepository.findAll(specification, pageRequest);
+    List<Trip> content = trips.getContent();
+    Map<UUID, String> resolvedCovers = resolveAutoCoverImagesForTrips(content);
 
     return new TripListResponse(
-        trips.getContent().stream().map(this::toTripResponse).toList(),
+        content.stream()
+            .map(trip -> toTripResponse(trip, resolvedCovers.get(trip.getId())))
+            .toList(),
         trips.getNumber(),
         trips.getSize(),
         trips.getTotalElements(),
@@ -177,7 +186,9 @@ public class TripServiceImpl implements TripService {
   @Cacheable(cacheNames = "trip-detail", key = "#userId + ':' + #tripId")
   @Override
   public TripResponse getTrip(UUID userId, UUID tripId) {
-    return toTripResponse(getReadableTrip(userId, tripId));
+    Trip trip = getReadableTrip(userId, tripId);
+    Map<UUID, String> resolvedCovers = resolveAutoCoverImagesForTrips(List.of(trip));
+    return toTripResponse(trip, resolvedCovers.get(trip.getId()));
   }
 
   @Transactional
@@ -765,6 +776,8 @@ public class TripServiceImpl implements TripService {
     }
 
     boolean ended = trip.getEndDate().isBefore(LocalDate.now(clock));
+    String coverImageUrl =
+        resolveCoverImageFromItems(trip.getCoverImageUrl(), publishableItems, false);
 
     return new TripShareSnapshotResponse(
         trip.getId(),
@@ -772,7 +785,7 @@ public class TripServiceImpl implements TripService {
         trip.getDestinationName(),
         ended ? trip.getStartDate() : null,
         ended ? trip.getEndDate() : null,
-        trip.getCoverImageUrl(),
+        coverImageUrl,
         dayCount,
         publishableItems.size(),
         highlights,
@@ -795,6 +808,7 @@ public class TripServiceImpl implements TripService {
     validatePublicCover(trip.getCoverImageUrl());
     List<PublicTripSnapshotResponse.Day> publicDays = new ArrayList<>();
     List<PublicTripSnapshotResponse.Highlight> highlights = new ArrayList<>();
+    List<ItineraryItem> coverCandidateItems = new ArrayList<>();
     int totalItems = 0;
     boolean privateDetailsRedacted = false;
 
@@ -813,6 +827,8 @@ public class TripServiceImpl implements TripService {
             || item.getType() == ItineraryItemType.FLIGHT
             || item.getType() == ItineraryItemType.TRANSFER) {
           privateDetailsRedacted = true;
+        } else {
+          coverCandidateItems.add(item);
         }
         publicItems.add(projected);
         if (highlights.size() < 3
@@ -838,6 +854,9 @@ public class TripServiceImpl implements TripService {
           "PUBLICATION_LIMIT_EXCEEDED", "A public trip can contain at most 300 items");
     }
 
+    String publicCoverUrl =
+        resolveCoverImageFromItems(trip.getCoverImageUrl(), coverCandidateItems, true);
+
     PublicTripSnapshotResponse snapshot =
         new PublicTripSnapshotResponse(
             1,
@@ -848,7 +867,7 @@ public class TripServiceImpl implements TripService {
             new PublicTripSnapshotResponse.Summary(
                 trip.getName(),
                 trip.getDestinationName(),
-                trip.getCoverImageUrl(),
+                publicCoverUrl,
                 publicDays.size(),
                 totalItems,
                 List.copyOf(highlights)),
@@ -1185,7 +1204,147 @@ public class TripServiceImpl implements TripService {
     dayRepository.saveAll(days);
   }
 
+  private boolean isApprovedPublicCoverUrl(String coverImageUrl) {
+    if (coverImageUrl == null || coverImageUrl.isBlank()) return false;
+    if (coverImageUrl.length() > MAX_PUBLIC_COVER_URL_LENGTH) return false;
+    try {
+      URI uri = URI.create(coverImageUrl);
+      return "https".equalsIgnoreCase(uri.getScheme())
+          && uri.getHost() != null
+          && APPROVED_PUBLIC_COVER_HOSTS.contains(uri.getHost().toLowerCase(Locale.ROOT));
+    } catch (IllegalArgumentException ex) {
+      return false;
+    }
+  }
+
+  private Map<UUID, String> resolveAutoCoverImagesForTrips(List<Trip> trips) {
+    if (trips == null || trips.isEmpty()) {
+      return Map.of();
+    }
+    List<UUID> missingCoverTripIds =
+        trips.stream()
+            .filter(t -> t.getId() != null && (t.getCoverImageUrl() == null || t.getCoverImageUrl().isBlank()))
+            .map(Trip::getId)
+            .toList();
+    if (missingCoverTripIds.isEmpty()) {
+      return Map.of();
+    }
+
+    List<ItineraryItem> allItems =
+        itemRepository.findByTripIdInOrderByTripIdAscSortOrderAsc(missingCoverTripIds);
+    if (allItems == null || allItems.isEmpty()) {
+      return Map.of();
+    }
+
+    Map<UUID, List<ItineraryItem>> itemsByTrip =
+        allItems.stream()
+            .collect(
+                Collectors.groupingBy(
+                    ItineraryItem::getTripId, LinkedHashMap::new, Collectors.toList()));
+
+    Map<UUID, List<String>> candidatesByTrip = new LinkedHashMap<>();
+    Set<String> allCandidatePlaceRefs = new LinkedHashSet<>();
+
+    for (UUID tripId : missingCoverTripIds) {
+      List<String> candidates =
+          extractOrderedCoverPlaceRefs(itemsByTrip.getOrDefault(tripId, List.of()));
+      if (!candidates.isEmpty()) {
+        candidatesByTrip.put(tripId, candidates);
+        allCandidatePlaceRefs.addAll(candidates);
+      }
+    }
+
+    if (allCandidatePlaceRefs.isEmpty()) {
+      return Map.of();
+    }
+
+    Map<String, String> photoUrlsByRef = placeClient.fetchPlacePhotoUrls(allCandidatePlaceRefs);
+    if (photoUrlsByRef == null || photoUrlsByRef.isEmpty()) {
+      return Map.of();
+    }
+
+    Map<UUID, String> resolved = new HashMap<>();
+    for (Map.Entry<UUID, List<String>> entry : candidatesByTrip.entrySet()) {
+      for (String ref : entry.getValue()) {
+        String url = photoUrlsByRef.get(ref);
+        if (url != null && !url.isBlank()) {
+          resolved.put(entry.getKey(), url);
+          break;
+        }
+      }
+    }
+    return resolved;
+  }
+
+  private String resolveCoverImageFromItems(
+      String explicitCoverUrl, List<ItineraryItem> items, boolean requireApprovedPublicHost) {
+    if (explicitCoverUrl != null && !explicitCoverUrl.isBlank()) {
+      return explicitCoverUrl;
+    }
+    List<String> candidates = extractOrderedCoverPlaceRefs(items);
+    if (candidates.isEmpty()) {
+      return null;
+    }
+    Map<String, String> photoUrls = placeClient.fetchPlacePhotoUrls(candidates);
+    if (photoUrls == null || photoUrls.isEmpty()) {
+      return null;
+    }
+    for (String ref : candidates) {
+      String url = photoUrls.get(ref);
+      if (url == null || url.isBlank()) continue;
+      if (!requireApprovedPublicHost || isApprovedPublicCoverUrl(url)) {
+        return url;
+      }
+    }
+    return null;
+  }
+
+  private List<String> extractOrderedCoverPlaceRefs(List<ItineraryItem> items) {
+    if (items == null || items.isEmpty()) {
+      return List.of();
+    }
+    List<ItineraryItem> ordered =
+        items.stream()
+            .sorted(Comparator.comparingInt(item -> coverPriority(item.getType())))
+            .toList();
+    LinkedHashSet<String> refs = new LinkedHashSet<>();
+    for (ItineraryItem item : ordered) {
+      String ref = item.getPlaceRef();
+      if (ref == null || ref.isBlank()) {
+        ref = item.getPlaceId() != null ? item.getPlaceId().toString() : null;
+      }
+      if (ref != null && !ref.isBlank()) {
+        refs.add(ref.trim());
+        if (refs.size() >= MAX_COVER_CANDIDATES_PER_TRIP) {
+          break;
+        }
+      }
+    }
+    return new ArrayList<>(refs);
+  }
+
+  private int coverPriority(ItineraryItemType type) {
+    if (type == null) return 5;
+    return switch (type) {
+      case PLACE -> 0;
+      case ACTIVITY -> 1;
+      case HOTEL -> 2;
+      case MEAL -> 3;
+      case TRANSFER -> 4;
+      case FLIGHT -> 5;
+      case NOTE -> 6;
+    };
+  }
+
   private TripResponse toTripResponse(Trip trip) {
+    return toTripResponse(trip, null);
+  }
+
+  private TripResponse toTripResponse(Trip trip, String autoCoverImageUrl) {
+    String effectiveCover =
+        (trip.getCoverImageUrl() != null && !trip.getCoverImageUrl().isBlank())
+            ? trip.getCoverImageUrl()
+            : autoCoverImageUrl;
     return new TripResponse(
         trip.getId(),
         trip.getName(),
@@ -1201,7 +1360,7 @@ public class TripServiceImpl implements TripService {
         trip.getBudgetAmount(),
         trip.getBudgetCurrency(),
         trip.getNotes(),
-        trip.getCoverImageUrl(),
+        effectiveCover,
         trip.getVisibility(),
         trip.getVersion(),
         trip.getAggregateRevision(),

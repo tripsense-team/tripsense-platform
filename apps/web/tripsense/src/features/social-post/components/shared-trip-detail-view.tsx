@@ -27,6 +27,10 @@ import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { useTranslation } from "@/i18n";
 import type { I18nContextValue } from "@/i18n/i18n-context";
 import { socialPostRepository } from "../services";
+import {
+  shouldUseUnoptimizedImage,
+  useSharedTripCoverPhoto,
+} from "../hooks/use-shared-trip-cover-photo";
 import type {
   SocialPost,
   TripShareDetailResponse,
@@ -116,10 +120,18 @@ export function SharedTripDetailView({
   const [previewing, setPreviewing] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
-  if (!trip) return null;
-  const owner = user?.id === post.author.id;
+  const [failedCoverUrl, setFailedCoverUrl] = React.useState<string | null>(null);
   const publication = detail?.publication;
   const publicSummary = publication?.summary;
+  const resolvedCover = useSharedTripCoverPhoto(
+    trip ?? { name: "", destinationName: "" },
+    publication,
+    Boolean(trip),
+  );
+  if (!trip) return null;
+  const owner = user?.id === post.author.id;
+  const heroCoverImage =
+    resolvedCover && failedCoverUrl !== resolvedCover ? resolvedCover : null;
 
   async function save() {
     setSaving(true);
@@ -254,12 +266,14 @@ export function SharedTripDetailView({
       </section>
 
       <section className="relative min-h-80 overflow-hidden bg-muted">
-        {publicSummary?.coverImageUrl || trip.coverImageUrl ? (
+        {heroCoverImage ? (
           <Image
-            src={publicSummary?.coverImageUrl || trip.coverImageUrl || ""}
+            src={heroCoverImage}
             alt={publicSummary?.name || trip.name}
             fill
             sizes="(max-width: 768px) 100vw, 1100px"
+            unoptimized={shouldUseUnoptimizedImage(heroCoverImage)}
+            onError={() => setFailedCoverUrl(heroCoverImage)}
             className="object-cover"
           />
         ) : (

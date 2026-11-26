@@ -21,6 +21,7 @@ export default function MainLayout({
   const isChecking =
     isLoading || status === "checking" || status === "initializing";
   const isAdmin = isUserAdmin(user);
+  const userId = user?.id;
   const isInvitationRoute = pathname === "/trips/join";
 
   // 1. Redirect unauthenticated users
@@ -54,7 +55,7 @@ export default function MainLayout({
     if (
       isChecking ||
       !isAuthenticated ||
-      !user ||
+      !userId ||
       isAdmin ||
       onboardingCompleted
     ) {
@@ -129,7 +130,7 @@ export default function MainLayout({
   }, [
     isChecking,
     isAuthenticated,
-    user,
+    userId,
     isAdmin,
     onboardingCompleted,
     isInvitationRoute,
@@ -138,8 +139,12 @@ export default function MainLayout({
     setOnboardingCompleted,
   ]);
 
-  // If navigating / rendering /onboarding, bypass UserLayout directly
+  // If navigating / rendering /onboarding, wait until auth session finishes checking
+  // so OnboardingWizard mounts with a valid access token and without 401 churn.
   if (pathname === "/onboarding") {
+    if (isChecking || !isAuthenticated) {
+      return <AuthLoadingScreen message="Đang kiểm tra quyền truy cập..." />;
+    }
     return <>{children}</>;
   }
 

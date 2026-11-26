@@ -151,8 +151,9 @@ export function OnboardingWizard() {
   const budgetCompositionRef = React.useRef(false);
   const budgetCaret = React.useRef<{ start: number; end: number } | null>(null);
   const [budgetTouched, setBudgetTouched] = React.useState(false);
-  const dailyBudgetAmount = /^(?:[1-9][0-9]{0,2}(?:\.[0-9]{3})+)$/.test(dailyBudget)
-    ? dailyBudget.replaceAll(".", "") : dailyBudget;
+  const trimmedDailyBudget = dailyBudget.trim();
+  const dailyBudgetAmount = /^(?:[1-9][0-9]{0,2}(?:\.[0-9]{3})+)$/.test(trimmedDailyBudget)
+    ? trimmedDailyBudget.replaceAll(".", "") : trimmedDailyBudget;
   const validDailyBudget = !budgetComposing && /^[1-9][0-9]{0,9}$/.test(dailyBudgetAmount)
     && Number(dailyBudgetAmount) <= 1_000_000_000;
   const composingDigits = dailyBudget.replaceAll(".", "");
@@ -186,20 +187,30 @@ export function OnboardingWizard() {
 
   const updateBudgetInput = (input: HTMLInputElement, edit?: InputEvent, compositionEnded = false) => {
     const value = input.value;
-    if (!compositionEnded && (budgetComposing || edit?.isComposing)) {
+    const isActivelyComposing =
+      !compositionEnded &&
+      (edit && typeof edit.isComposing === "boolean"
+        ? edit.isComposing
+        : budgetComposing);
+    if (isActivelyComposing) {
       setDailyBudget(value);
       setCompositionSelection({ start: input.selectionStart ?? value.length, end: input.selectionEnd ?? value.length });
       return;
     }
+    if (budgetComposing || budgetCompositionRef.current) {
+      budgetCompositionRef.current = false;
+      setBudgetComposing(false);
+    }
+    const normalizedValue = value.trim();
     const previousDisplay = validDailyBudget
       ? new Intl.NumberFormat("vi-VN").format(Number(dailyBudgetAmount)) : dailyBudget;
-    const grouped = /^[1-9][0-9]{0,2}(?:\.[0-9]{3})+$/.test(value);
+    const grouped = /^(?:[1-9][0-9]{0,2}(?:\.[0-9]{3})+)$/.test(normalizedValue);
     // A digit typed into an already-grouped value temporarily breaks its grouping.
     // Explicit decimal input/paste stays invalid instead of silently changing the amount.
     const editingSeparators = validDailyBudget && previousDisplay.includes(".") && edit?.data !== "."
-      && edit?.inputType !== "insertFromPaste" && /^[0-9.]*$/.test(value);
-    let digits = grouped || editingSeparators || (compositionEnded && /^[0-9.]+$/.test(value))
-      ? value.replaceAll(".", "") : value;
+      && edit?.inputType !== "insertFromPaste" && /^[0-9.]*$/.test(normalizedValue);
+    let digits = grouped || editingSeparators || (compositionEnded && /^[0-9.]+$/.test(normalizedValue))
+      ? normalizedValue.replaceAll(".", "") : normalizedValue;
     let before = (value.slice(0, input.selectionStart ?? value.length).match(/[0-9]/g) ?? []).length;
     let end = (value.slice(0, input.selectionEnd ?? value.length).match(/[0-9]/g) ?? []).length;
     if (digits === dailyBudgetAmount && value !== previousDisplay && previousDisplay.includes(".")) {
@@ -957,6 +968,7 @@ export function OnboardingWizard() {
                       <Input
                         ref={budgetInputRef}
                         id="daily-budget"
+                        autoComplete="off"
                         value={!budgetComposing && validDailyBudget
                           ? new Intl.NumberFormat("vi-VN").format(Number(dailyBudgetAmount))
                           : dailyBudget}
@@ -966,8 +978,18 @@ export function OnboardingWizard() {
                         aria-invalid={budgetTouched && !budgetComposing && !validDailyBudget}
                         aria-describedby={budgetTouched && !budgetComposing && !validDailyBudget ? "daily-budget-error" : undefined}
                         placeholder={t("onboarding.dailyBudget.placeholder")}
-                        onBlur={() => {
+                        onBlur={(event) => {
                           setBudgetTouched(true);
+                          if (budgetComposing || budgetCompositionRef.current) {
+                            budgetCompositionRef.current = false;
+                            updateBudgetInput(event.currentTarget, undefined, true);
+                            setBudgetComposing(false);
+                            return;
+                          }
+                          if (event.currentTarget.value !== dailyBudget && event.currentTarget.value.trim()) {
+                            updateBudgetInput(event.currentTarget, undefined, true);
+                            return;
+                          }
                           if (validDailyBudget) setDailyBudget(dailyBudgetAmount);
                         }}
                         onCompositionStart={(event) => {

@@ -1,11 +1,16 @@
 "use client";
 
+import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, MapPin, Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/i18n";
+import {
+  shouldUseUnoptimizedImage,
+  useSharedTripCoverPhoto,
+} from "../hooks/use-shared-trip-cover-photo";
 import type { SharedTripSummary } from "../types";
 
 interface SharedTripArtifactCardProps {
@@ -56,18 +61,49 @@ export function SharedTripArtifactCard({
   href,
 }: SharedTripArtifactCardProps) {
   const { locale, t } = useTranslation();
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [inView, setInView] = React.useState(() => Boolean(trip.coverImageUrl));
+  const [failedUrl, setFailedUrl] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (inView || trip.coverImageUrl) return;
+    if (typeof IntersectionObserver === "undefined" || !cardRef.current) {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [inView, trip.coverImageUrl]);
+
+  const resolvedCover = useSharedTripCoverPhoto(trip, undefined, inView);
+  const coverImage =
+    resolvedCover && failedUrl !== resolvedCover ? resolvedCover : null;
   const highlights = trip.highlights?.slice(0, compact ? 3 : 6) ?? [];
   const destination = trip.destinationName || t("social.tripShareNoDestination");
 
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-background shadow-xs">
+    <div
+      ref={cardRef}
+      className="mt-4 overflow-hidden rounded-2xl border border-border bg-background shadow-xs"
+    >
       <div className="relative aspect-[16/7] min-h-56 bg-muted">
-        {trip.coverImageUrl ? (
+        {coverImage ? (
           <Image
-            src={trip.coverImageUrl}
+            src={coverImage}
             alt={trip.name}
             fill
             sizes="(max-width: 768px) 100vw, 900px"
+            unoptimized={shouldUseUnoptimizedImage(coverImage)}
+            onError={() => setFailedUrl(coverImage)}
             className="object-cover"
           />
         ) : (

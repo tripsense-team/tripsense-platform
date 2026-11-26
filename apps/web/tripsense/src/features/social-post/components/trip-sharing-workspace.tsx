@@ -993,7 +993,10 @@ function WorkspaceNotification({ message, onDismiss }: { message: string; onDism
 }
 
 function TripCover({ trip, className, priority = false }: { trip: TripResponse; className?: string; priority?: boolean }) {
-  const coverImage = coverImageForTrip(trip);
+  const defaultCover = coverImageForTrip({ ...trip, coverImageUrl: null });
+  const preferredCover = coverImageForTrip(trip);
+  const [failedUrl, setFailedUrl] = React.useState<string | null>(null);
+  const coverImage = failedUrl === preferredCover ? defaultCover : preferredCover;
 
   return (
     <Image
@@ -1002,7 +1005,12 @@ function TripCover({ trip, className, priority = false }: { trip: TripResponse; 
       fill
       priority={priority}
       sizes="(max-width: 1024px) 100vw, 900px"
-      unoptimized={coverImage.startsWith("data:")}
+      unoptimized={coverImage.startsWith("data:") || Boolean(trip.coverImageUrl)}
+      onError={() => {
+        if (coverImage !== defaultCover) {
+          setFailedUrl(preferredCover);
+        }
+      }}
       className={cn("object-cover", className)}
     />
   );
