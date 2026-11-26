@@ -34,6 +34,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { hotelApi } from "../services/hotels-api";
+import {
+  AdminSubscriptionOrderItem,
+  fetchAdminSubscriptionOrders,
+} from "../services/admin-finance-api";
+import { fetchAdminTripAnalytics } from "@/features/admin/api/admin-analytics-api";
+import type { AdminTripPlatformAnalytics } from "@/features/admin/types/admin-analytics.types";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { useTranslation } from "@/i18n";
 import {
@@ -47,10 +53,14 @@ import {
 export function AdminFinanceView() {
   const { t, locale } = useTranslation();
   const [overview, setOverview] = React.useState<AdminFinanceOverview | null>(null);
+  const [platformAnalytics, setPlatformAnalytics] = React.useState<AdminTripPlatformAnalytics | null>(null);
+  const [subscriptionOrders, setSubscriptionOrders] = React.useState<AdminSubscriptionOrderItem[]>([]);
+  const [subStatusFilter, setSubStatusFilter] = React.useState<string>("ALL");
+  const [subKindFilter, setSubKindFilter] = React.useState<string>("ALL");
   const [withdrawals, setWithdrawals] = React.useState<PartnerWithdrawalRequest[]>([]);
   const [refunds, setRefunds] = React.useState<CustomerRefundRequest[]>([]);
   const [ledger, setLedger] = React.useState<FinancialLedgerEntry[]>([]);
-  const [activeTab, setActiveTab] = React.useState<"withdrawals" | "refunds" | "ledger">("withdrawals");
+  const [activeTab, setActiveTab] = React.useState<"subscriptions" | "withdrawals" | "refunds" | "ledger">("subscriptions");
   const [withdrawalFilter, setWithdrawalFilter] = React.useState<string>("ALL");
   const [refundFilter, setRefundFilter] = React.useState<string>("ALL");
 
@@ -92,17 +102,30 @@ export function AdminFinanceView() {
   const loadData = React.useCallback(async () => {
     try {
       setError(null);
-      const [overviewRes, withdrawalsRes, refundsRes, ledgerRes] = await Promise.all([
+      const results = await Promise.allSettled([
         hotelApi<AdminFinanceOverview>("/admin/finance/overview"),
+        fetchAdminTripAnalytics(30),
+        fetchAdminSubscriptionOrders({ page: 0, size: 50 }),
         hotelApi<PartnerWithdrawalRequest[]>("/admin/finance/withdrawals"),
         hotelApi<CustomerRefundRequest[]>("/admin/finance/refunds"),
         hotelApi<FinancialLedgerEntry[]>("/admin/finance/ledger"),
       ]);
 
-      setOverview(overviewRes);
-      setWithdrawals(withdrawalsRes || []);
-      setRefunds(refundsRes || []);
-      setLedger(ledgerRes || []);
+      const [overviewRes, analyticsRes, subOrdersRes, withdrawalsRes, refundsRes, ledgerRes] = results;
+
+      if (overviewRes.status === "fulfilled") setOverview(overviewRes.value);
+      if (analyticsRes.status === "fulfilled") setPlatformAnalytics(analyticsRes.value);
+      if (subOrdersRes.status === "fulfilled") setSubscriptionOrders(subOrdersRes.value?.items || []);
+      if (withdrawalsRes.status === "fulfilled") setWithdrawals(withdrawalsRes.value || []);
+      if (refundsRes.status === "fulfilled") setRefunds(refundsRes.value || []);
+      if (ledgerRes.status === "fulfilled") setLedger(ledgerRes.value || []);
+
+      const firstRejected = results.find(
+        (r): r is PromiseRejectedResult => r.status === "rejected",
+      );
+      if (firstRejected) {
+        setError(getSafeErrorMessage(firstRejected.reason, t("admin.finance.messages.loadError")));
+      }
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err, t("admin.finance.messages.loadError")));
     } finally {
@@ -243,6 +266,37 @@ export function AdminFinanceView() {
     return r.status === refundFilter;
   });
 
+  const filteredSubscriptionOrders = subscriptionOrders.filter((order) => {
+    if (subStatusFilter !== "ALL" && order.paymentStatus !== subStatusFilter) return false;
+    if (subKindFilter !== "ALL" && order.businessKind !== subKindFilter) return false;
+    return true;
+  });
+
+  const financeStats = platformAnalytics?.financeAndSubscriptionStats;
+  const totalPlatformRevenue =
+    financeStats?.totalPlatformRevenue ?? overview?.platformRevenue ?? 0;
+  const subscriptionRevenue = financeStats?.subscriptionRevenue ?? 0;
+  const hotelCommissionRevenue =
+    financeStats?.hotelCommissionRevenue ?? overview?.platformRevenue ?? 0;
+
+  const recentDailyRevenue = (platformAnalytics?.dailySeries ?? []).slice(-14);
+  const maxDailyRevenue = Math.max(
+    1,
+    ...recentDailyRevenue.map((d) => Number(d.platformRevenueAmount ?? 0)),
+  );
+  const paidSubOrders = subscriptionOrders.filter((o) => o.paymentStatus === "PAID");
+  const subByKind = (["HOTEL", "RESTAURANT", "TOUR_GUIDE"] as const).map((kind) => {
+    const matching = paidSubOrders.filter((o) => o.businessKind === kind);
+    return {
+      kind,
+      count: matching.length,
+      amount: matching.reduce((sum, o) => sum + Number(o.amount ?? 0), 0),
+    };
+  });
+  const revenueBase = Math.max(1, subscriptionRevenue + hotelCommissionRevenue);
+  const subscriptionPct = Math.round((subscriptionRevenue / revenueBase) * 100);
+  const hotelPct = Math.max(0, 100 - subscriptionPct);
+
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse">
@@ -300,42 +354,10 @@ export function AdminFinanceView() {
         </div>
       </div>
 
-      {/* 4 Financial KPI Cards */}
-      {overview && (
+      {/* Unified Financial KPI Cards */}
+      {(overview || financeStats) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Total GMV */}
-          <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">{t("admin.finance.kpi.totalGmv")}</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
-                <TrendingUp className="h-4 w-4" />
-              </div>
-            </div>
-            <p className="mt-3 text-2xl font-bold tracking-tight text-foreground">
-              {money(overview.totalGmv)}
-            </p>
-            <p className="mt-1 text-micro text-muted-foreground">
-              {t("admin.finance.kpi.totalGmvDesc")}
-            </p>
-          </div>
-
-          {/* Card 2: Escrow Holding */}
-          <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-card to-card p-5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">{t("admin.finance.kpi.escrowHolding")}</span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                <Clock className="h-4 w-4" />
-              </div>
-            </div>
-            <p className="mt-3 text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
-              {money(overview.escrowHolding)}
-            </p>
-            <p className="mt-1 text-micro text-muted-foreground">
-              {t("admin.finance.kpi.escrowHoldingDesc")}
-            </p>
-          </div>
-
-          {/* Card 3: Platform Revenue (10%) */}
+          {/* Card 1: Total Platform Revenue (Subscriptions 100% + Hotel Commission 10%) */}
           <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-card to-card p-5 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">{t("admin.finance.kpi.platformRevenue")}</span>
@@ -344,27 +366,168 @@ export function AdminFinanceView() {
               </div>
             </div>
             <p className="mt-3 text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-              {money(overview.platformRevenue)}
+              {money(totalPlatformRevenue)}
             </p>
             <p className="mt-1 text-micro text-muted-foreground">
               {t("admin.finance.kpi.platformRevenueDesc")}
             </p>
           </div>
 
-          {/* Card 4: Partner Payable */}
+          {/* Card 2: Subscription Revenue (100%) */}
           <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">{t("admin.finance.kpi.partnerPayable")}</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("admin.finance.kpi.subscriptionRevenue")}</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
-                <Building className="h-4 w-4" />
+                <Zap className="h-4 w-4" />
               </div>
             </div>
             <p className="mt-3 text-2xl font-bold tracking-tight text-primary">
-              {money(overview.partnerPayable)}
+              {money(subscriptionRevenue)}
             </p>
             <p className="mt-1 text-micro text-muted-foreground">
-              {t("admin.finance.kpi.partnerPayableDesc")}
+              {t("admin.finance.kpi.subscriptionRevenueDesc", { count: financeStats?.paidSubscriptionOrdersCount ?? 0 })}
             </p>
+          </div>
+
+          {/* Card 3: Active Subscriptions */}
+          <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">{t("admin.finance.kpi.activeSubscriptions")}</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-foreground">
+              {financeStats?.activeSubscriptionsCount ?? 0}
+            </p>
+            <p className="mt-1 text-micro text-muted-foreground">
+              {t("admin.finance.kpi.activeSubscriptionsDesc", {
+                active: financeStats?.activeSubscriptionsCount ?? 0,
+                trial: financeStats?.trialSubscriptionsCount ?? 0,
+                expired: financeStats?.expiredSubscriptionsCount ?? 0,
+              })}
+            </p>
+          </div>
+
+          {/* Card 4: Escrow Holding (Hotel) */}
+          <div className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-card to-card p-5 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">{t("admin.finance.kpi.escrowHolding")}</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                <Clock className="h-4 w-4" />
+              </div>
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
+              {money(overview?.escrowHolding ?? 0)}
+            </p>
+            <p className="mt-1 text-micro text-muted-foreground">
+              {t("admin.finance.kpi.partnerPayable")}: {money(overview?.partnerPayable ?? 0)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Charts & Revenue Breakdown */}
+      {(platformAnalytics || subscriptionOrders.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* 14-Day Revenue Trend Bar Chart */}
+          <div className="lg:col-span-2 rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  {t("admin.finance.dashboard.chartTitle")}
+                </h3>
+                <p className="text-micro text-muted-foreground">
+                  {t("admin.finance.dashboard.chartSubtitle")}
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                {money(totalPlatformRevenue)}
+              </span>
+            </div>
+
+            {recentDailyRevenue.length === 0 ? (
+              <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">
+                {t("admin.finance.dashboard.noDailyData")}
+              </div>
+            ) : (
+              <div className="flex h-44 items-end gap-1.5 pt-4">
+                {recentDailyRevenue.map((point) => {
+                  const value = Number(point.platformRevenueAmount ?? 0);
+                  const heightPct = value > 0 ? Math.max(8, Math.round((value / maxDailyRevenue) * 100)) : 4;
+                  return (
+                    <div key={point.date} className="group flex flex-1 flex-col items-center gap-1.5">
+                      <div className="relative flex h-32 w-full items-end justify-center">
+                        <div
+                          title={`${point.date}: ${money(value)}`}
+                          style={{ height: `${heightPct}%` }}
+                          className={`w-full max-w-[26px] rounded-t-md transition-all ${
+                            value > 0
+                              ? "bg-emerald-500/80 group-hover:bg-emerald-500"
+                              : "bg-muted/60"
+                          }`}
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {point.date.slice(5)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Revenue Mix & Subscriptions by Kind */}
+          <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-5">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-3">
+                {t("admin.finance.dashboard.revenueSplit")}
+              </h3>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted flex">
+                <div
+                  style={{ width: `${subscriptionPct}%` }}
+                  className="bg-primary transition-all"
+                />
+                <div
+                  style={{ width: `${hotelPct}%` }}
+                  className="bg-emerald-500 transition-all"
+                />
+              </div>
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                    {t("admin.finance.dashboard.subscriptionShare")}
+                  </span>
+                  <span className="font-semibold text-foreground">{money(subscriptionRevenue)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    {t("admin.finance.dashboard.hotelCommission")}
+                  </span>
+                  <span className="font-semibold text-foreground">{money(hotelCommissionRevenue)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <h4 className="text-xs font-semibold text-foreground mb-2.5">
+                {t("admin.finance.dashboard.kindBreakdown")}
+              </h4>
+              <div className="space-y-2 text-xs">
+                {subByKind.map((row) => (
+                  <div key={row.kind} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-micro">{row.kind}</Badge>
+                      <span className="text-muted-foreground">({row.count})</span>
+                    </div>
+                    <span className="font-medium text-foreground">{money(row.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -418,7 +581,18 @@ export function AdminFinanceView() {
 
       {/* Tabs */}
       <div className="space-y-4">
-        <div className="flex border-b border-border">
+        <div className="flex overflow-x-auto border-b border-border">
+          <button
+            onClick={() => setActiveTab("subscriptions")}
+            className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
+              activeTab === "subscriptions"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Zap className="h-4 w-4" />
+            <span>{t("admin.finance.tabs.subscriptions")} ({subscriptionOrders.length})</span>
+          </button>
           <button
             onClick={() => setActiveTab("withdrawals")}
             className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-medium transition-colors ${
@@ -463,6 +637,100 @@ export function AdminFinanceView() {
             <span>{t("admin.finance.tabs.ledger")} ({ledger.length})</span>
           </button>
         </div>
+
+        {/* Tab 0: Partner Subscriptions (PayOS SaaS) */}
+        {activeTab === "subscriptions" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {["ALL", "PAID", "PENDING", "CANCELLED", "FAILED"].map((st) => (
+                  <Button
+                    key={st}
+                    variant={subStatusFilter === st ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSubStatusFilter(st)}
+                    className="h-7 text-xs rounded-full"
+                  >
+                    {st === "ALL" && t("admin.finance.subscriptions.statusAll")}
+                    {st === "PAID" && t("admin.finance.subscriptions.statusPaid")}
+                    {st === "PENDING" && t("admin.finance.subscriptions.statusPending")}
+                    {st === "CANCELLED" && t("admin.finance.subscriptions.statusCancelled")}
+                    {st === "FAILED" && t("admin.finance.subscriptions.statusFailed")}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {["ALL", "HOTEL", "RESTAURANT", "TOUR_GUIDE"].map((kind) => (
+                  <Button
+                    key={kind}
+                    variant={subKindFilter === kind ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setSubKindFilter(kind)}
+                    className="h-7 text-xs rounded-full"
+                  >
+                    {kind === "ALL" ? t("admin.finance.subscriptions.kindAll") : kind}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {filteredSubscriptionOrders.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-12 text-center text-xs text-muted-foreground">
+                {t("admin.finance.subscriptions.empty")}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">{t("admin.finance.subscriptions.orderCode")}</th>
+                      <th className="px-4 py-3 font-medium">{t("admin.finance.subscriptions.business")}</th>
+                      <th className="px-4 py-3 font-medium">{t("admin.finance.subscriptions.plan")}</th>
+                      <th className="px-4 py-3 font-medium">{t("admin.finance.subscriptions.amount")}</th>
+                      <th className="px-4 py-3 font-medium">{t("admin.finance.subscriptions.status")}</th>
+                      <th className="px-4 py-3 font-medium">{t("admin.finance.subscriptions.time")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredSubscriptionOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-muted/20">
+                        <td className="px-4 py-3 font-mono font-medium">#{order.orderCode}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-foreground">{order.businessName}</div>
+                          <Badge variant="outline" className="mt-1 text-micro">
+                            {order.businessKind}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-foreground">{order.planName}</div>
+                          <div className="text-micro text-muted-foreground">
+                            {t("admin.finance.subscriptions.days", { count: order.durationDays })}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                          {money(order.amount)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant={order.paymentStatus === "PAID" ? "default" : "secondary"}
+                            className="text-micro"
+                          >
+                            {order.paymentStatus}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {new Date(order.paidAt ?? order.createdAt).toLocaleString(
+                            locale === "vi" ? "vi-VN" : "en-US",
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tab 1: Partner Withdrawals */}
         {activeTab === "withdrawals" && (
