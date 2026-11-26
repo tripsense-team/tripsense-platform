@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   Store,
   Building2,
-  DollarSign,
   KeyRound,
   LucideIcon,
 } from "lucide-react";
@@ -73,12 +72,6 @@ const adminNavGroups: AdminNavGroup[] = [
         defaultTitle: "Hotel Listings",
         href: "/admin/hotels",
         icon: Building2,
-      },
-      {
-        titleKey: "admin.sidebar.financePayouts",
-        defaultTitle: "Finance & Payouts",
-        href: "/admin/finance",
-        icon: DollarSign,
       },
     ],
   },
@@ -172,22 +165,6 @@ export function AdminSidebar({
                     if (!pathname) return false;
                     if (pathname === item.href) return true;
                     if (item.href === "/admin") return false;
-
-                    // Match legacy finance route if navigated directly
-                    if (
-                      item.href === "/admin/finance" &&
-                      (pathname === "/admin/hotels/commerce" || pathname.startsWith("/admin/hotels/commerce/"))
-                    ) {
-                      return true;
-                    }
-
-                    // Prevent /admin/hotels from highlighting on legacy finance route
-                    if (
-                      item.href === "/admin/hotels" &&
-                      (pathname === "/admin/hotels/commerce" || pathname.startsWith("/admin/hotels/commerce/"))
-                    ) {
-                      return false;
-                    }
 
                     // If another more specific menu item matches the current pathname, don't highlight this parent item
                     const hasMoreSpecificMatch = allHrefs.some(

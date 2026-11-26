@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { HotelManagement } from "@/features/hotels";
 import { Button } from "@/components/ui/button";
-import { Building2, DollarSign } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
 export default function AdminHotelsPage() {
@@ -27,12 +27,6 @@ export default function AdminHotelsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
-            <Link href="/admin/hotels/commerce">
-              <DollarSign className="h-3.5 w-3.5" />
-              <span>{t("trip.commerce.title", { defaultValue: "Đối soát thanh toán" })}</span>
-            </Link>
-          </Button>
           <Button asChild variant="secondary" size="sm" className="text-xs">
             <Link href="/admin/partners">
               <span>{t("trip.commerce.partnerReview", { defaultValue: "Xét duyệt đối tác" })}</span>

@@ -13,7 +13,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.slf4j.LoggerFactory;
 
 @Order(0)
-@RestControllerAdvice(assignableTypes=HotelController.class)
+@RestControllerAdvice(assignableTypes={HotelController.class, PublicHotelController.class})
 public class HotelExceptionHandler {
   @ExceptionHandler(TripServiceException.class)
   ResponseEntity<ErrorResponse> domain(TripServiceException e) { return ResponseEntity.status(e.status()).body(ErrorResponse.of(e.code(),e.getMessage())); }

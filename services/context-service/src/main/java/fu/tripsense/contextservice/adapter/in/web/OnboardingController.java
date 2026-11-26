@@ -5,6 +5,8 @@ import fu.tripsense.contextservice.application.cache.CachedPreferencesService;
 import fu.tripsense.contextservice.security.CurrentUserProvider;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,7 +36,13 @@ public class OnboardingController {
 
   @PostMapping("/onboarding/start")
   public OnboardingResponse startOnboarding() {
-    return OnboardingResponse.from(onboarding.start(currentUser.requiredUser().id()));
+    UUID userId = currentUser.requiredUser().id();
+    try {
+      return OnboardingResponse.from(onboarding.start(userId));
+    } catch (DataIntegrityViolationException ex) {
+      return OnboardingResponse.from(
+          onboarding.find(userId).orElseThrow(() -> ex));
+    }
   }
 
   @PutMapping("/onboarding")

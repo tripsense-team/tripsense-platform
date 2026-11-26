@@ -19,16 +19,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 /** All mutations lock the property first, serializing inventory and reservation transitions. */
 @Service
 public class HotelService {
-  @org.springframework.beans.factory.annotation.Value("${HOTEL_DEMO_PAYMENTS_ENABLED:false}")
-  private boolean demoPaymentsEnabled;
-  @org.springframework.beans.factory.annotation.Value("${payos.enabled:false}")
-  private boolean payosEnabled;
   private final JdbcTemplate db;
   private final TransactionTemplate tx;
   private final MeterRegistry metrics;
-  @org.springframework.beans.factory.annotation.Autowired(required = false)
-  @org.springframework.context.annotation.Lazy
-  private HotelFinanceService hotelFinanceService;
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   @org.springframework.context.annotation.Lazy
   private fu.tripsense.tripservice.partner.service.PartnerNotificationOutboxService
@@ -318,13 +311,19 @@ public class HotelService {
       UUID bid=UUID.randomUUID();
       ZoneId zone=ZoneId.of((String)p.get("time_zone"));
       LocalTime checkInTime=LocalTime.parse((String)p.get("check_in_time"));
+      Instant currentNow=now();
       Instant freeCancelUntil=in.checkIn().atTime(checkInTime).atZone(zone).toInstant();
       Instant noShowAfter=in.checkIn().plusDays(1).atTime(6,0).atZone(zone).toInstant();
+      Instant defaultHoldExpiry=currentNow.plus(24, ChronoUnit.HOURS);
+      Instant minHoldExpiry=currentNow.plus(15, ChronoUnit.MINUTES);
+      Instant holdExpiresAt=defaultHoldExpiry.isAfter(freeCancelUntil)
+          ? (freeCancelUntil.isAfter(minHoldExpiry) ? freeCancelUntil : minHoldExpiry)
+          : defaultHoldExpiry;
       BigDecimal calculatedTotal = total.multiply(BigDecimal.valueOf(in.quantity()));
       db.update("""
           INSERT INTO hotel_booking(id,property_id,business_id,room_type_id,customer_id,customer_email,request_key,check_in,check_out,quantity,guests,total,subtotal,discount_amount,voucher_code,property_name,room_name,time_zone,status,payment_method,expires_at,free_cancellation_until,no_show_after)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,null,?,?,?,'HELD',?,clock_timestamp()+interval '10 minutes',?,?)
-          """,bid,pid,bizId,in.roomTypeId(),u.id(),u.email(),key,in.checkIn(),in.checkOut(),in.quantity(),in.guests(),calculatedTotal,calculatedTotal,p.get("name"),r.get("name"),p.get("time_zone"),payosEnabled?"PAYOS":demoPaymentsEnabled?"DEMO_ONLINE":"PAY_AT_PROPERTY",java.sql.Timestamp.from(freeCancelUntil),java.sql.Timestamp.from(noShowAfter));
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,null,?,?,?,'HELD','PAY_AT_PROPERTY',?,?,?)
+          """,bid,pid,bizId,in.roomTypeId(),u.id(),u.email(),key,in.checkIn(),in.checkOut(),in.quantity(),in.guests(),calculatedTotal,calculatedTotal,p.get("name"),r.get("name"),p.get("time_zone"),java.sql.Timestamp.from(holdExpiresAt),java.sql.Timestamp.from(freeCancelUntil),java.sql.Timestamp.from(noShowAfter));
       metrics.counter("hotel.holds.created").increment();
       notifyHotelManagers(
           bizId,
@@ -356,17 +355,6 @@ public class HotelService {
       var b = one("SELECT * FROM hotel_booking WHERE id=? FOR UPDATE", bookingId);
       if (!u.id().equals(b.get("customer_id"))) throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
       check("HELD".equals(b.get("status")), "HOTEL_INVALID_STATE");
-
-      var pendingPayments = db.queryForList(
-          "SELECT * FROM hotel_payos_payment WHERE booking_id=?", bookingId);
-      if (!pendingPayments.isEmpty()) {
-        var p = pendingPayments.getFirst();
-        String pState = (String) p.get("state");
-        if ("PAID".equals(pState)) throw error("HOTEL_PAYMENT_ALREADY_CAPTURED", HttpStatus.CONFLICT);
-        if ("PENDING".equals(pState) || "CREATING".equals(pState)) {
-          throw error("HOTEL_PAYMENT_IN_PROGRESS", HttpStatus.CONFLICT);
-        }
-      }
 
       var voucherList = db.queryForList("SELECT * FROM hotel_voucher WHERE upper(code)=? FOR UPDATE", code);
       if (voucherList.isEmpty()) throw error("HOTEL_VOUCHER_NOT_FOUND", HttpStatus.NOT_FOUND);
@@ -437,17 +425,6 @@ public class HotelService {
       if (!u.id().equals(b.get("customer_id"))) throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
       check("HELD".equals(b.get("status")), "HOTEL_INVALID_STATE");
 
-      var pendingPayments = db.queryForList(
-          "SELECT * FROM hotel_payos_payment WHERE booking_id=?", bookingId);
-      if (!pendingPayments.isEmpty()) {
-        var p = pendingPayments.getFirst();
-        String pState = (String) p.get("state");
-        if ("PAID".equals(pState)) throw error("HOTEL_PAYMENT_ALREADY_CAPTURED", HttpStatus.CONFLICT);
-        if ("PENDING".equals(pState) || "CREATING".equals(pState)) {
-          throw error("HOTEL_PAYMENT_IN_PROGRESS", HttpStatus.CONFLICT);
-        }
-      }
-
       BigDecimal subtotal = (BigDecimal) b.get("subtotal");
       if (subtotal == null) subtotal = (BigDecimal) b.get("total");
 
@@ -460,24 +437,24 @@ public class HotelService {
     });
   }
   public Map<String,Object> transition(AuthenticatedUser u,UUID id,boolean confirm) {
-    var result=tx.execute(s -> transitionLocked(u,id,confirm,false));
+    var result=tx.execute(s -> transitionLocked(u,id,confirm));
     if(confirm && "EXPIRED".equals(result.get("status"))) throw error("HOTEL_HOLD_EXPIRED",HttpStatus.CONFLICT);
     return result;
   }
-  private Map<String,Object> transitionLocked(AuthenticatedUser u,UUID id,boolean confirm,boolean demoCapture) {
+  private Map<String,Object> transitionLocked(AuthenticatedUser u,UUID id,boolean confirm) {
       var initial=booking(id); var p=property((UUID)initial.get("property_id"));
       var b=one("SELECT * FROM hotel_booking WHERE id=? FOR UPDATE",id);
       boolean isOwner=isPropertyOwner(u,p);
-      if(!u.id().equals(b.get("customer_id")) && (confirm || !isOwner)) throw error("HOTEL_NOT_FOUND",HttpStatus.NOT_FOUND);
+      if (confirm) {
+        if (!isOwner) throw error("HOTEL_NOT_FOUND",HttpStatus.NOT_FOUND);
+      } else {
+        if (!u.id().equals(b.get("customer_id")) && !isOwner) throw error("HOTEL_NOT_FOUND",HttpStatus.NOT_FOUND);
+      }
       expireProperty(p); b=booking(id); String state=(String)b.get("status");
       if(confirm && "CONFIRMED".equals(state) || !confirm && Set.of("CANCELLED","EXPIRED").contains(state)) return b;
       if("EXPIRED".equals(state)) return b; // commit expiry release before reporting conflict
       check(confirm?"HELD".equals(state):Set.of("HELD","CONFIRMED").contains(state),"HOTEL_INVALID_STATE");
       if(confirm) {
-        if("DEMO_ONLINE".equals(b.get("payment_method")) && !demoCapture)
-          check(db.queryForObject("SELECT count(*) FROM hotel_demo_payment WHERE booking_id=? AND state='CAPTURED'",Integer.class,id)==1,"HOTEL_PAYMENT_REQUIRED");
-        if("PAYOS".equals(b.get("payment_method")) && !demoCapture)
-          check(db.queryForObject("SELECT count(*) FROM hotel_payos_payment WHERE booking_id=? AND state='PAID'",Integer.class,id)==1,"HOTEL_PAYMENT_REQUIRED");
         check("ACTIVE".equals(p.get("status")),"HOTEL_NOT_ACTIVE");
         UUID bizId=(UUID)p.get("business_id");
         currentIdentity(p,eligibleBusiness(bizId,"HOTEL_BOOKING",false));
@@ -494,9 +471,6 @@ public class HotelService {
       }
       if (!confirm && !u.id().equals(b.get("customer_id"))) throw error("HOTEL_REASON_REQUIRED",HttpStatus.BAD_REQUEST);
       adjust(b,confirm?"CONFIRMED":"CANCELLED");
-      if(!confirm && !"PAYOS".equals(b.get("payment_method"))) refundDemo(id);
-      if(!confirm && "PAYOS".equals(b.get("payment_method")))
-        db.update("UPDATE hotel_payos_payment SET resolution='REFUND_REQUIRED' WHERE booking_id=? AND state='PAID' AND resolution='NONE'",id);
       if(!confirm) {
         String cancelledBy = u.id().equals(b.get("customer_id"))?"CUSTOMER":"PROPERTY";
         db.update("UPDATE hotel_booking SET cancelled_by=? WHERE id=?",cancelledBy,id);
@@ -630,9 +604,6 @@ public class HotelService {
       check("CHECKED_IN".equals(state), "HOTEL_INVALID_STATE");
       db.update("UPDATE hotel_booking SET status='CHECKED_OUT', check_out_at=clock_timestamp(), version=version+1 WHERE id=?", id);
       event(id, "BOOKING_CHECKED_OUT", p, b);
-      if (hotelFinanceService != null) {
-        hotelFinanceService.settleBooking(id);
-      }
       return booking(id);
     });
   }
@@ -696,9 +667,15 @@ public class HotelService {
 
       db.update("UPDATE hotel_booking SET status='CANCELLED', cancelled_by='PROPERTY', cancellation_reason=?, version=version+1 WHERE id=?",
           reason, id);
-      if ("PAYOS".equals(b.get("payment_method")))
-        db.update("UPDATE hotel_payos_payment SET resolution='REFUND_REQUIRED' WHERE booking_id=? AND state='PAID' AND resolution='NONE'",id);
-      else refundDemo(id);
+      String vcode = (String) b.get("voucher_code");
+      if (vcode != null) {
+        int committed = db.update("UPDATE hotel_voucher_redemption SET state = 'RELEASED', updated_at = now() WHERE booking_id = ? AND state = 'COMMITTED'", id);
+        if (committed > 0) {
+          db.update("UPDATE hotel_voucher SET usage_count = GREATEST(0, usage_count - 1) WHERE code = ?", vcode);
+        } else {
+          db.update("UPDATE hotel_voucher_redemption SET state = 'RELEASED', updated_at = now() WHERE booking_id = ?", id);
+        }
+      }
       event(id, "BOOKING_CANCELLED", p, b);
       return booking(id);
     });
@@ -709,167 +686,4 @@ public class HotelService {
     if(!u.id().equals(b.get("customer_id"))) owner(u,one("SELECT * FROM hotel_property WHERE id=?",b.get("property_id")));
     return b;
   }
-
-  public Map<String,Object> commerceConfig() {
-    return Map.of("simulationEnabled",demoPaymentsEnabled,"commissionBps",1000,"currency","VND",
-        "onlineProvider",payosEnabled?"PAYOS":"");
-  }
-
-  private void demoEnabled() {
-    if(!demoPaymentsEnabled) throw error("HOTEL_DEMO_DISABLED",HttpStatus.SERVICE_UNAVAILABLE);
-  }
-
-  private Map<String,Object> previousCommand(AuthenticatedUser u, UUID id, String key, String operation, String payload) {
-    if(key==null || !key.matches("[A-Za-z0-9_-]{8,100}")) throw error("HOTEL_INVALID_REQUEST_KEY",HttpStatus.BAD_REQUEST);
-    // Actor lock also prevents the same key racing across different properties.
-    db.update("INSERT INTO hotel_request_lock(customer_id) VALUES (?) ON CONFLICT DO NOTHING",u.id());
-    one("SELECT * FROM hotel_request_lock WHERE customer_id=? FOR UPDATE",u.id());
-    var rows=db.queryForList("SELECT * FROM hotel_demo_command WHERE actor_id=? AND operation=? AND request_key=?",u.id(),operation,key);
-    if(rows.isEmpty()) return null;
-    var command=rows.getFirst();
-    check(id.equals(command.get("booking_id")) && payload.equals(command.get("payload")),"HOTEL_IDEMPOTENCY_CONFLICT");
-    return one("SELECT result->>'outcome' AS outcome FROM hotel_demo_command WHERE id=?",command.get("id"));
-  }
-
-  private void receipt(AuthenticatedUser u,UUID id,String key,String operation,String payload,String outcome) {
-    db.update("INSERT INTO hotel_demo_command(id,actor_id,booking_id,operation,request_key,payload,result) VALUES (?,?,?,?,?,?,jsonb_build_object('outcome',?::text))",
-        UUID.randomUUID(),u.id(),id,operation,key,payload,outcome);
-  }
-
-  private Map<String,Object> paymentResult(UUID id,String outcome) {
-    var payments=db.queryForList("SELECT * FROM hotel_demo_payment WHERE booking_id=?",id);
-    return Map.of("simulation",true,"outcome",outcome,"booking",booking(id),"payments",payments);
-  }
-
-  public Map<String,Object> demoPayment(AuthenticatedUser u,UUID id,String key,String outcome) {
-    demoEnabled();
-    if(!Set.of("SUCCESS","FAILURE","EXPIRED").contains(outcome)) throw error("HOTEL_INVALID_OUTCOME",HttpStatus.BAD_REQUEST);
-    return tx.execute(s -> {
-      var initial=booking(id);
-      if(!u.id().equals(initial.get("customer_id"))) throw error("HOTEL_NOT_FOUND",HttpStatus.NOT_FOUND);
-      var previous=previousCommand(u,id,key,"PAYMENT",outcome);
-      if(previous!=null) return paymentResult(id,(String)previous.get("outcome"));
-      var p=property((UUID)initial.get("property_id"));
-      var b=one("SELECT * FROM hotel_booking WHERE id=? FOR UPDATE",id);
-      check("DEMO_ONLINE".equals(b.get("payment_method")),"HOTEL_INVALID_PAYMENT_METHOD");
-      if(db.queryForObject("SELECT count(*) FROM hotel_demo_payment WHERE booking_id=?",Integer.class,id)>0) {
-        receipt(u,id,key,"PAYMENT",outcome,"ALREADY_PROCESSED");
-        return paymentResult(id,"ALREADY_PROCESSED");
-      }
-      check(Set.of("HELD","EXPIRED").contains(b.get("status")),"HOTEL_INVALID_STATE");
-      if("EXPIRED".equals(outcome) && "HELD".equals(b.get("status")))
-        db.update("UPDATE hotel_booking SET expires_at=clock_timestamp() WHERE id=?",id);
-      expireProperty(p);
-      b=booking(id);
-      if("FAILURE".equals(outcome)) {
-        receipt(u,id,key,"PAYMENT",outcome,"FAILED");
-        return paymentResult(id,"FAILED");
-      }
-      var confirmedOrExpired="EXPIRED".equals(b.get("status")) ? b : transitionLocked(u,id,true,true);
-      boolean expired="EXPIRED".equals(confirmedOrExpired.get("status"));
-      java.math.BigDecimal amount=(java.math.BigDecimal)b.get("total");
-      var commission=amount.multiply(new java.math.BigDecimal("0.10")).setScale(0,java.math.RoundingMode.HALF_UP);
-      var net=amount.subtract(commission);
-      db.update("INSERT INTO hotel_demo_payment(booking_id,state,amount,currency,commission_bps,commission_amount,partner_amount) VALUES (?,'CAPTURED',?,'VND',1000,?,?)",id,amount,commission,net);
-      db.update("UPDATE hotel_booking SET payment_method='DEMO_ONLINE' WHERE id=?",id);
-      ledger(id,"CAPTURE");
-      if(expired) refundDemo(id);
-      String result=expired?"REFUNDED_EXPIRED":"CAPTURED";
-      receipt(u,id,key,"PAYMENT",outcome,result);
-      return paymentResult(id,result);
-    });
-  }
-
-  private void ledger(UUID id,String event) {
-    db.update("INSERT INTO hotel_demo_ledger(id,booking_id,event,gross,commission,partner_amount) SELECT ?,booking_id,?,amount,commission_amount,partner_amount FROM hotel_demo_payment WHERE booking_id=? ON CONFLICT(booking_id,event) DO NOTHING",UUID.randomUUID(),event,id);
-  }
-
-  private void refundDemo(UUID id) {
-    check(db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='PAYOUT'",Integer.class,id)==0,"HOTEL_ALREADY_SETTLED");
-    if(db.update("UPDATE hotel_demo_payment SET state='REFUNDED',refunded_at=clock_timestamp() WHERE booking_id=? AND state='CAPTURED'",id)>0) ledger(id,"REFUND");
-  }
-
-  public Map<String,Object> demoSettlement(AuthenticatedUser u,UUID id,String key) {
-    demoEnabled(); admin(u);
-    return tx.execute(s -> {
-      var previous=previousCommand(u,id,key,"SETTLEMENT","PAYOUT");
-      var initial=booking(id); var p=property((UUID)initial.get("property_id"));
-      var b=one("SELECT * FROM hotel_booking WHERE id=? FOR UPDATE",id);
-      if(previous!=null || db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='PAYOUT'",Integer.class,id)>0)
-        return paymentResult(id,"PAID_OUT");
-      check("CHECKED_OUT".equals(b.get("status")),"HOTEL_NOT_COMPLETED");
-      check(db.queryForObject("SELECT count(*) FROM hotel_demo_payment WHERE booking_id=? AND state='CAPTURED'",Integer.class,id)==1,"HOTEL_NOT_PAID");
-      check(db.queryForObject("SELECT count(*) FROM partner_support_case WHERE resource_type='HOTEL_BOOKING' AND resource_id=? AND state IN ('OPEN','IN_PROGRESS')",Integer.class,id)==0,"HOTEL_OPEN_DISPUTE");
-      ledger(id,"PAYOUT");
-      receipt(u,id,key,"SETTLEMENT","PAYOUT","PAID_OUT");
-      event(id,"BOOKING_DEMO_SETTLED",p,b);
-      return paymentResult(id,"PAID_OUT");
-    });
-  }
-
-  public List<Map<String,Object>> commerce(AuthenticatedUser u) {
-    return commerce(u, null);
-  }
-
-  public List<Map<String,Object>> commerce(AuthenticatedUser u, UUID businessId) {
-    if (businessId != null) {
-      if (u == null) throw error("UNAUTHORIZED", HttpStatus.UNAUTHORIZED);
-      Integer count = db.queryForObject(
-          "SELECT count(*) FROM partner_business_member WHERE business_id=? AND user_id=? AND state='ACTIVE' AND role IN ('OWNER','MANAGER')",
-          Integer.class, businessId, u.id());
-      if (count == null || count == 0) {
-        Integer exists = db.queryForObject("SELECT count(*) FROM partner_business WHERE id=?", Integer.class, businessId);
-        if (exists == null || exists == 0) {
-          throw error("HOTEL_NOT_FOUND", HttpStatus.NOT_FOUND);
-        }
-        throw error("HOTEL_FORBIDDEN", HttpStatus.FORBIDDEN);
-      }
-      return db.queryForList("""
-          SELECT b.id AS booking_id,b.business_id,b.property_name,b.room_name,b.status AS booking_status,
-          p.amount,p.currency,p.commission_bps,p.commission_amount,p.partner_amount,p.state AS payment_state,
-          p.captured_at,p.refunded_at,
-          CASE WHEN p.state='REFUNDED' THEN 'REFUNDED'
-               WHEN EXISTS(SELECT 1 FROM hotel_demo_ledger l WHERE l.booking_id=b.id AND l.event='PAYOUT') THEN 'PAID_OUT'
-               WHEN EXISTS(SELECT 1 FROM partner_support_case c WHERE c.resource_type='HOTEL_BOOKING' AND c.resource_id=b.id AND c.state IN ('OPEN','IN_PROGRESS')) THEN 'DISPUTED'
-               WHEN b.status='CHECKED_OUT' THEN 'ELIGIBLE' ELSE 'PENDING' END AS settlement_state
-          FROM hotel_demo_payment p JOIN hotel_booking b ON b.id=p.booking_id
-          WHERE b.business_id=?
-          ORDER BY p.captured_at DESC LIMIT 200
-          """, businessId);
-    }
-    return db.queryForList("""
-        SELECT b.id AS booking_id,b.business_id,b.property_name,b.room_name,b.status AS booking_status,
-        p.amount,p.currency,p.commission_bps,p.commission_amount,p.partner_amount,p.state AS payment_state,
-        p.captured_at,p.refunded_at,
-        CASE WHEN p.state='REFUNDED' THEN 'REFUNDED'
-             WHEN EXISTS(SELECT 1 FROM hotel_demo_ledger l WHERE l.booking_id=b.id AND l.event='PAYOUT') THEN 'PAID_OUT'
-             WHEN EXISTS(SELECT 1 FROM partner_support_case c WHERE c.resource_type='HOTEL_BOOKING' AND c.resource_id=b.id AND c.state IN ('OPEN','IN_PROGRESS')) THEN 'DISPUTED'
-             WHEN b.status='CHECKED_OUT' THEN 'ELIGIBLE' ELSE 'PENDING' END AS settlement_state
-        FROM hotel_demo_payment p JOIN hotel_booking b ON b.id=p.booking_id
-        WHERE ? OR b.customer_id=? OR EXISTS(SELECT 1 FROM partner_business_member m WHERE m.business_id=b.business_id AND m.user_id=? AND m.state='ACTIVE' AND m.role IN ('OWNER','MANAGER'))
-        ORDER BY p.captured_at DESC LIMIT 200
-        """,isAdmin(u),u.id(),u.id());
-  }
-
-  /** Confirm a PAYOS booking after verified payment. Called from PayOsPaymentService inside transaction. */
-  public void confirmPayosBooking(UUID bookingId) {
-    var b=one("SELECT * FROM hotel_booking WHERE id=? FOR UPDATE",bookingId);
-    var p=property((UUID)b.get("property_id"));
-    check("HELD".equals(b.get("status")),"HOTEL_INVALID_STATE");
-    check("PAYOS".equals(b.get("payment_method")),"HOTEL_INVALID_PAYMENT_METHOD");
-    check("ACTIVE".equals(p.get("status")),"HOTEL_NOT_ACTIVE");
-    UUID bizId=(UUID)p.get("business_id");
-    currentIdentity(p,eligibleBusiness(bizId,"HOTEL_BOOKING",false));
-    check(!date(b.get("check_in")).isBefore(now().atZone(ZoneId.of((String)b.get("time_zone"))).toLocalDate()),"HOTEL_INVALID_DATES");
-    var inv=days((UUID)b.get("room_type_id"),date(b.get("check_in")),date(b.get("check_out")));
-    int qty=number(b.get("quantity"));
-    check(inv.size()==ChronoUnit.DAYS.between(date(b.get("check_in")),date(b.get("check_out")))
-        && inv.stream().allMatch(d->number(d.get("held"))>=qty && number(d.get("held"))+number(d.get("booked"))<=number(d.get("allocation"))),"HOTEL_INVENTORY_CONFLICT");
-    adjust(b,"CONFIRMED");
-    event(bookingId,"BOOKING_CONFIRMED",p,b);
-    if(inv.stream().anyMatch(d->number(d.get("allocation"))-number(d.get("held"))-number(d.get("booked"))<=1)) event(bookingId,"INVENTORY_LOW",p,null);
-  }
-
-  /** Direct booking read without auth check — for internal payment service use only. */
-  Map<String,Object> bookingDirect(UUID id) { return one("SELECT * FROM hotel_booking WHERE id=?",id); }
 }

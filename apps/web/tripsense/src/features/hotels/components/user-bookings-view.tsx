@@ -8,18 +8,7 @@ import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { notifyBookingActivityChanged } from "@/features/reservations/services/reservations-activity-api";
 import { hotelApi } from "../services/hotels-api";
 import { HotelCheckoutReview } from "./hotel-checkout-review";
-import type { HotelBooking, PayOsPaymentResult } from "../types";
-import { POPULAR_BANKS } from "../types";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import type { HotelBooking } from "../types";
 import {
   Calendar,
   Users,
@@ -52,14 +41,6 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBooking, setSelectedBooking] = useState<HotelBooking | null>(null);
   const [cancelTarget, setCancelTarget] = useState<HotelBooking | null>(null);
-
-  // Cancellation and Refund Modal state
-  const [refundBooking, setRefundBooking] = useState<HotelBooking | null>(null);
-  const [refundBankCode, setRefundBankCode] = useState<string>("MB");
-  const [refundAccountNumber, setRefundAccountNumber] = useState<string>("");
-  const [refundAccountHolderName, setRefundAccountHolderName] = useState<string>("");
-  const [refundReason, setRefundReason] = useState<string>("Khách đổi lịch trình");
-  const [submittingRefund, setSubmittingRefund] = useState<boolean>(false);
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -114,41 +95,6 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
     };
   }, [bookings]);
 
-  async function handleQuickPay(booking: HotelBooking) {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      if (booking.payment_method === "PAYOS") {
-        const result = await hotelApi<PayOsPaymentResult>(`/bookings/${booking.id}/payos-payment`, "POST");
-        if (result.payment?.checkoutUrl && result.payment.checkoutUrl.startsWith("https://")) {
-          window.location.assign(result.payment.checkoutUrl);
-          return;
-        }
-      }
-      setSelectedBooking(booking);
-    } catch (e) {
-      setError(getSafeErrorMessage(e, t("trip.hotels.failed")));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleConfirmPayAtProperty(booking: HotelBooking) {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const updated = await hotelApi<HotelBooking>(`/bookings/${booking.id}/confirm`, "POST");
-      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
-      notifyBookingActivityChanged();
-    } catch (e) {
-      setError(getSafeErrorMessage(e, t("trip.hotels.failed")));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleCancelConfirm() {
     if (!cancelTarget || busy) return;
     setBusy(true);
@@ -167,36 +113,7 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
   }
 
   function handleInitiateCancel(b: HotelBooking) {
-    if (b.status === "CONFIRMED" || b.payment_method === "PAYOS") {
-      setRefundBooking(b);
-    } else {
-      setCancelTarget(b);
-    }
-  }
-
-  async function handleConfirmCancelAndRefund(e: React.FormEvent) {
-    e.preventDefault();
-    if (!refundBooking || submittingRefund) return;
-    setSubmittingRefund(true);
-    setError("");
-    try {
-      const selectedBank = POPULAR_BANKS.find((b) => b.code === refundBankCode);
-      await hotelApi(`/bookings/${refundBooking.id}/cancel-and-refund`, "POST", {
-        reason: refundReason.trim(),
-        bankCode: refundBankCode,
-        bankName: selectedBank ? selectedBank.name : refundBankCode,
-        accountNumber: refundAccountNumber.trim(),
-        accountHolderName: refundAccountHolderName.trim().toUpperCase(),
-      });
-      setRefundBooking(null);
-      if (selectedBooking?.id === refundBooking.id) setSelectedBooking(null);
-      await loadBookings();
-      notifyBookingActivityChanged();
-    } catch (e) {
-      setError(getSafeErrorMessage(e, t("trip.hotels.failed", { defaultValue: "Hủy và yêu cầu hoàn tiền thất bại" })));
-    } finally {
-      setSubmittingRefund(false);
-    }
+    setCancelTarget(b);
   }
 
   const money = (value: number, currency: string) =>
@@ -421,7 +338,6 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
           {filteredBookings.map((b) => {
             const badge = getStatusBadge(b.status);
             const BadgeIcon = badge.icon;
-            const isPayos = b.payment_method === "PAYOS";
             const isHeld = b.status === "HELD";
             const isConfirmed = b.status === "CONFIRMED";
             const canCancel = isHeld || isConfirmed;
@@ -479,11 +395,7 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
                       <span>{t("trip.hotels.paymentMethod", { defaultValue: "Thanh toán" })}</span>
                     </span>
                     <p className="font-medium text-foreground">
-                      {isPayos
-                        ? t("trip.commerce.payOnline", { defaultValue: "Online qua payOS" })
-                        : b.payment_method === "DEMO_ONLINE"
-                        ? t("trip.commerce.payOnline", { defaultValue: "Thanh toán trực tuyến" })
-                        : t("trip.hotels.payAtProperty", { defaultValue: "Tại cơ sở" })}
+                      {t("trip.hotels.payAtProperty", { defaultValue: "Thanh toán tại khách sạn" })}
                     </p>
                   </div>
 
@@ -515,38 +427,6 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
                   </span>
 
                   <div className="flex items-center gap-2">
-                    {/* Pay / Confirm action if HELD */}
-                    {isHeld && (
-                      isPayos ? (
-                        <Button
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => void handleQuickPay(b)}
-                          className="h-8 text-xs font-semibold shadow-2xs"
-                        >
-                          {t("trip.commerce.payOnline", { defaultValue: "Thanh toán ngay" })}
-                        </Button>
-                      ) : b.payment_method === "PAY_AT_PROPERTY" ? (
-                        <Button
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => void handleConfirmPayAtProperty(b)}
-                          className="h-8 text-xs font-semibold shadow-2xs"
-                        >
-                          {t("trip.hotels.confirm", { defaultValue: "Xác nhận đặt" })}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => setSelectedBooking(b)}
-                          className="h-8 text-xs font-semibold shadow-2xs"
-                        >
-                          {t("trip.hotels.review", { defaultValue: "Xem lại" })}
-                        </Button>
-                      )
-                    )}
-
                     {/* View details */}
                     <Button
                       variant="outline"
@@ -577,7 +457,7 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
         </div>
       )}
 
-      {/* Confirmation Dialog for Unpaid Cancellation */}
+      {/* Confirmation Dialog for Booking Cancellation */}
       <ConfirmationDialog
         open={!!cancelTarget}
         onOpenChange={(open) => {
@@ -591,94 +471,6 @@ export function UserBookingsView({ onExploreStays, hideHeader = false }: UserBoo
         cancelText={t("common.cancel", { defaultValue: "Giữ lại đơn" })}
         onConfirm={handleCancelConfirm}
       />
-
-      {/* Dialog for Paid Booking Cancellation & Refund Request */}
-      {refundBooking && (
-        <Dialog open={!!refundBooking} onOpenChange={(open) => { if (!open) setRefundBooking(null); }}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="h-5 w-5" />
-                <span>Hủy Đơn & Yêu cầu Hoàn tiền Phòng</span>
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Vì bạn đã thanh toán trực tuyến tiền phòng, yêu cầu hủy sẽ được gửi đến Quản trị viên cùng thông tin tài khoản ngân hàng thụ hưởng để thực hiện hoàn tiền lại cho bạn.
-              </DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleConfirmCancelAndRefund} className="space-y-4">
-              <div className="rounded-xl border border-border bg-muted/30 p-3.5 text-xs space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Khách sạn:</span>
-                  <span className="font-semibold text-foreground">{refundBooking.property_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Số tiền hoàn:</span>
-                  <span className="font-bold text-destructive text-sm">{money(refundBooking.total, refundBooking.currency)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refundBank" className="text-xs font-medium">Ngân hàng nhận hoàn tiền</Label>
-                <select
-                  id="refundBank"
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={refundBankCode}
-                  onChange={(e) => setRefundBankCode(e.target.value)}
-                >
-                  {POPULAR_BANKS.map((b) => (
-                    <option key={b.code} value={b.code}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refundAccNumber" className="text-xs font-medium">Số tài khoản ngân hàng (*)</Label>
-                <Input
-                  id="refundAccNumber"
-                  placeholder="Nhập số tài khoản của bạn..."
-                  value={refundAccountNumber}
-                  onChange={(e) => setRefundAccountNumber(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refundAccHolder" className="text-xs font-medium">Tên chủ tài khoản (Viết hoa không dấu) (*)</Label>
-                <Input
-                  id="refundAccHolder"
-                  placeholder="Ví dụ: NGUYEN VAN A"
-                  value={refundAccountHolderName}
-                  onChange={(e) => setRefundAccountHolderName(e.target.value.toUpperCase())}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refundReasonText" className="text-xs font-medium">Lý do hủy phòng</Label>
-                <Input
-                  id="refundReasonText"
-                  placeholder="Ví dụ: Thay đổi lịch trình chuyến đi..."
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(e.target.value)}
-                  required
-                />
-              </div>
-
-              <DialogFooter className="pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setRefundBooking(null)}>
-                  Đóng
-                </Button>
-                <Button type="submit" variant="destructive" size="sm" disabled={submittingRefund || !refundAccountNumber.trim() || !refundAccountHolderName.trim()}>
-                  {submittingRefund ? "Đang gửi..." : "Xác nhận Hủy & Hoàn tiền"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

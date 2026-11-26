@@ -174,7 +174,7 @@ public class PublicHotelService {
                  (SELECT MIN(i.nightly_price)
                   FROM hotel_inventory i
                   WHERE i.room_type_id = r.id),
-                 500000.00
+                 0.00
                ) as price,
                COALESCE(
                  (SELECT MIN(i.allocation - i.held - i.booked)
@@ -182,10 +182,7 @@ public class PublicHotelService {
                   WHERE i.room_type_id = r.id
                     AND i.stay_date >= CURRENT_DATE
                     AND i.stop_sell = false),
-                 (SELECT MIN(i.allocation)
-                  FROM hotel_inventory i
-                  WHERE i.room_type_id = r.id),
-                 10
+                 0
                ) as available_rooms
         FROM hotel_room_type r
         WHERE r.property_id = ?
@@ -197,7 +194,7 @@ public class PublicHotelService {
             .name(rs.getString("name"))
             .capacity(rs.getInt("capacity"))
             .pricePerNight(rs.getBigDecimal("price"))
-            .availableRooms(Math.max(1, rs.getInt("available_rooms")))
+            .availableRooms(Math.max(0, rs.getInt("available_rooms")))
             .currency("VND")
             .cancellationPolicy("FREE_BEFORE_CHECK_IN")
             .build(),

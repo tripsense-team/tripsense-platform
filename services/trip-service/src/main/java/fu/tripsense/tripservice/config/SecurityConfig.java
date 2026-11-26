@@ -1,6 +1,7 @@
 package fu.tripsense.tripservice.config;
 
 import fu.tripsense.tripservice.security.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,7 +51,9 @@ public class SecurityConfig implements WebMvcConfigurer {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/actuator/**")
+                auth.dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR)
+                    .permitAll()
+                    .requestMatchers("/actuator/**")
                     .permitAll()
                     .requestMatchers("/internal/**")
                     .permitAll()
@@ -77,7 +80,6 @@ public class SecurityConfig implements WebMvcConfigurer {
                     .permitAll()
                     .requestMatchers(
                         HttpMethod.POST,
-                        "/api/hotels/payments/payos/webhook",
                         "/api/partners/subscriptions/payos/webhook")
                     .permitAll()
                     .requestMatchers("/api/admin/**")

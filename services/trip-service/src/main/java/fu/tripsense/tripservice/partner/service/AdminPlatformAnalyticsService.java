@@ -385,49 +385,12 @@ public class AdminPlatformAnalyticsService {
 
   private FinanceAndSubscriptionStats buildFinanceAndSubscriptionStats(
       Timestamp tsStart, Timestamp tsEnd) {
-    BigDecimal totalHotelGmv =
-        nvlDecimal(
-            jdbc.queryForObject(
-                "SELECT COALESCE(SUM(amount), 0.00) FROM hotel_payos_payment WHERE state = 'PAID'",
-                BigDecimal.class));
-    BigDecimal periodHotelGmv =
-        nvlDecimal(
-            jdbc.queryForObject(
-                """
-                SELECT COALESCE(SUM(amount), 0.00)
-                FROM hotel_payos_payment
-                WHERE state = 'PAID'
-                  AND COALESCE(paid_at, created_at) >= ?
-                  AND COALESCE(paid_at, created_at) < ?
-                """,
-                BigDecimal.class,
-                tsStart,
-                tsEnd));
-
-    BigDecimal escrowHolding =
-        nvlDecimal(
-            jdbc.queryForObject(
-                """
-                SELECT COALESCE(SUM(b.total), 0.00)
-                FROM hotel_booking b
-                JOIN hotel_payos_payment p ON p.booking_id = b.id
-                WHERE p.state = 'PAID' AND b.status IN ('CONFIRMED', 'CHECKED_IN')
-                """,
-                BigDecimal.class));
-
-    BigDecimal completedHotelGmv =
-        nvlDecimal(
-            jdbc.queryForObject(
-                """
-                SELECT COALESCE(SUM(b.total), 0.00)
-                FROM hotel_booking b
-                JOIN hotel_payos_payment p ON p.booking_id = b.id
-                WHERE p.state = 'PAID' AND b.status = 'CHECKED_OUT'
-                """,
-                BigDecimal.class));
-
-    BigDecimal hotelCommissionRevenue =
-        completedHotelGmv.multiply(new BigDecimal("0.10")).setScale(0, RoundingMode.HALF_UP);
+    // Hotels operate on Request-to-Confirm (Pay at Property); TripSense does not collect hotel funds or escrow.
+    BigDecimal totalHotelGmv = BigDecimal.ZERO;
+    BigDecimal periodHotelGmv = BigDecimal.ZERO;
+    BigDecimal escrowHolding = BigDecimal.ZERO;
+    BigDecimal completedHotelGmv = BigDecimal.ZERO;
+    BigDecimal hotelCommissionRevenue = BigDecimal.ZERO;
 
     BigDecimal subscriptionRevenue =
         nvlDecimal(
@@ -453,13 +416,8 @@ public class AdminPlatformAnalyticsService {
                 "SELECT COUNT(*) FROM partner_subscription_order WHERE payment_status = 'PAID'",
                 Long.class));
 
-    BigDecimal totalPlatformRevenue = hotelCommissionRevenue.add(subscriptionRevenue);
-
-    BigDecimal partnerPayableBalance =
-        nvlDecimal(
-            jdbc.queryForObject(
-                "SELECT COALESCE(SUM(available_balance), 0.00) FROM partner_wallet",
-                BigDecimal.class));
+    BigDecimal totalPlatformRevenue = subscriptionRevenue;
+    BigDecimal partnerPayableBalance = BigDecimal.ZERO;
 
     Map<String, Long> subStatusMap = new HashMap<>();
     jdbc.query(
