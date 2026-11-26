@@ -293,9 +293,10 @@ export function AdminFinanceView() {
       amount: matching.reduce((sum, o) => sum + Number(o.amount ?? 0), 0),
     };
   });
-  const revenueBase = Math.max(1, subscriptionRevenue + hotelCommissionRevenue);
-  const subscriptionPct = Math.round((subscriptionRevenue / revenueBase) * 100);
-  const hotelPct = Math.max(0, 100 - subscriptionPct);
+  const totalMixRevenue = subscriptionRevenue + hotelCommissionRevenue;
+  const subscriptionPct =
+    totalMixRevenue > 0 ? Math.round((subscriptionRevenue / totalMixRevenue) * 100) : 0;
+  const hotelPct = totalMixRevenue > 0 ? Math.max(0, 100 - subscriptionPct) : 0;
 
   if (loading) {
     return (
