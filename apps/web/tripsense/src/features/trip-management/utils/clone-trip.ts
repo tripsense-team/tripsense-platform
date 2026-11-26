@@ -4,6 +4,7 @@ import {
   getItinerary,
 } from "../services/trip-management-api";
 import type { ItineraryResponse, TripResponse } from "../types";
+import { trackEvent } from "@/lib/analytics";
 
 export interface CloneTripOptions {
   newName: string;
@@ -29,6 +30,7 @@ export async function cloneTrip(
       ? `Bản sao từ "${sourceTrip.name}".\n${sourceTrip.notes}`
       : `Bản sao từ "${sourceTrip.name}".`,
   });
+  trackEvent("create_trip", { source: "clone" });
 
   // 2. Fetch or reuse source itinerary
   let itineraryToCopy = sourceItinerary;

@@ -192,6 +192,7 @@
       "totalServiceOrders": "Total Service Orders",
       "totalSubscriptionRevenue": "Subscription Revenue",
       "tripVisibility": "Visibility (Public/Shared/Private)",
+      "tripsUnit": "trips",
       "userDemographicsDesc": "User role distribution, OAuth vs Local sign-ins, and account status.",
       "userDemographicsTitle": "User Growth & Authentication Breakdown",
       "verticals": {

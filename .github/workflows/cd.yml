@@ -143,6 +143,7 @@ jobs:
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || '' }}
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_APP_ID={0}', secrets.NEXT_PUBLIC_FIREBASE_APP_ID) || '' }}
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_FIREBASE_VAPID_KEY={0}', secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY) || '' }}
+            ${{ matrix.image == 'web' && format('NEXT_PUBLIC_GA_MEASUREMENT_ID={0}', secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID) || '' }}
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_COMMUNITY_REVIEW_WRITES_ENABLED={0}', vars.NEXT_PUBLIC_COMMUNITY_REVIEW_WRITES_ENABLED || 'false') || '' }}
             ${{ matrix.image == 'web' && format('NEXT_PUBLIC_EXPLORE_SECTION_FEED_ENABLED={0}', vars.NEXT_PUBLIC_EXPLORE_SECTION_FEED_ENABLED || 'true') || '' }}
           tags: |

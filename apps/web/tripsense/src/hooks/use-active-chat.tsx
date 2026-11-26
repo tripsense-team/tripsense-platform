@@ -30,6 +30,7 @@ import {
 import { aiChatQueryKeys, getQueryClient } from "@/lib/react-query";
 import { useAuthStore } from "@/features/auth";
 import { aiApiUrl } from "@/lib/ai-service-url";
+import { trackEvent } from "@/lib/analytics";
 import { authenticatedFetch, requestRefreshToken } from "@/services/api-client";
 import type { TripPreferences } from "@/components/chat/modals/trip-preferences-types";
 
@@ -303,6 +304,9 @@ export function ActiveChatProvider({
       if (!resolvedChatId && typeof window !== "undefined") {
         window.history.replaceState(null, "", `/ai-planner/${chatId}`);
       }
+      trackEvent("send_ai_prompt", {
+        has_trip_context: Object.keys(tripContextHintRef.current).length > 0,
+      });
       rawSendMessage(msg as unknown as Parameters<typeof rawSendMessage>[0]);
     },
     [chatId, rawSendMessage, resolvedChatId]

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/analytics/analytics_service.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
@@ -38,10 +39,12 @@ String? resolveRedirect(SessionState session, String path) {
 final appRouterProvider = Provider<GoRouter>((ref) {
   final sessionChanged = ValueNotifier<int>(0);
   ref.listen(sessionControllerProvider, (_, _) => sessionChanged.value++);
+  final analyticsObserver = ref.read(analyticsServiceProvider).navigatorObserver;
 
   final router = GoRouter(
     initialLocation: Routes.splash,
     refreshListenable: sessionChanged,
+    observers: [?analyticsObserver],
     redirect: (context, state) =>
         resolveRedirect(ref.read(sessionControllerProvider), state.uri.path),
     routes: [

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { authApi } from "../services/auth-api";
+import { trackEvent } from "@/lib/analytics";
 import { useAuthStore, loadCachedUser } from "../store/use-auth-store";
 import { profileService } from "@/features/profile";
 import { normalizeRole } from "../utils/role-helpers";
@@ -144,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (response.success && response.data) {
       setLoggedInCookie();
       setAuth(response.data.user, response.data.accessToken);
+      trackEvent("login", { method: "email" });
     }
     return response;
   };
@@ -155,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (response.success && response.data) {
       setLoggedInCookie();
       setAuth(response.data.user, response.data.accessToken);
+      trackEvent("login", { method: "google" });
     }
     return response;
   };
@@ -162,7 +165,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (
     payload: RegisterRequest,
   ): Promise<ApiResponse<User>> => {
-    return authApi.register(payload);
+    const response = await authApi.register(payload);
+    if (response.success) {
+      trackEvent("sign_up", { method: "email" });
+    }
+    return response;
   };
 
   const verifyEmail = async (

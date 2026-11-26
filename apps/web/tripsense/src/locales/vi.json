@@ -87,7 +87,7 @@
         "posTop7Plus": "Nhóm Top 7+",
         "recDesc": "Phễu chuyển đổi kiểu Google Analytics, kiểm chứng CTR theo vị trí xếp hạng và hiệu quả cá nhân hóa.",
         "recTitle": "Chất lượng Thuật toán Gợi ý & Phân tích Thứ hạng Top-K",
-        "repeatRateLabel": "Tỷ lệ quay lại (Repeat Rate)",
+        "repeatRateLabel": "Tỷ lệ quay lại",
         "retentionDesc": "Phễu chuyển đổi vòng đời người dùng từ lúc đăng ký đến khi quay lại tạo chuyến đi thứ 2+ và tốc độ duyệt đối tác.",
         "retentionTitle": "Phễu Kích hoạt, Giữ chân Người dùng (Retention) & SLA Vận hành",
         "segmentAi": "Dùng AI",
@@ -192,6 +192,7 @@
       "totalServiceOrders": "Tổng đơn dịch vụ",
       "totalSubscriptionRevenue": "Doanh thu gói Hội viên",
       "tripVisibility": "Chế độ (Công khai/Chia sẻ/Riêng tư)",
+      "tripsUnit": "chuyến",
       "userDemographicsDesc": "Phân bổ vai trò người dùng, nguồn đăng ký OAuth vs Email và trạng thái tài khoản.",
       "userDemographicsTitle": "Tăng trưởng Người dùng & Xác thực",
       "verticals": {
