@@ -112,7 +112,6 @@ public class TripServiceImpl implements TripService {
     return toTripResponse(saved);
   }
 
-  @Transactional(readOnly = true)
   @Cacheable(
       cacheNames = "trip-list",
       key =
@@ -182,7 +181,6 @@ public class TripServiceImpl implements TripService {
         trips.getTotalPages());
   }
 
-  @Transactional(readOnly = true)
   @Cacheable(cacheNames = "trip-detail", key = "#userId + ':' + #tripId")
   @Override
   public TripResponse getTrip(UUID userId, UUID tripId) {
@@ -736,7 +734,6 @@ public class TripServiceImpl implements TripService {
             .toList());
   }
 
-  @Transactional(readOnly = true)
   @Override
   public TripShareSnapshotResponse getShareSnapshot(UUID userId, UUID tripId) {
     Trip trip = getOwnedTrip(userId, tripId);
@@ -748,12 +745,13 @@ public class TripServiceImpl implements TripService {
             ? Math.max(1, (int) ChronoUnit.DAYS.between(trip.getStartDate(), trip.getEndDate()) + 1)
             : days.size();
 
+    Map<UUID, List<ItineraryItem>> itemsByDayId =
+        loadItemsGroupedByDay(trip.getId());
     List<ItineraryItem> publishableItems = new ArrayList<>();
     List<TripShareHighlightResponse> highlights = new ArrayList<>();
 
     for (ItineraryDay day : days) {
-      List<ItineraryItem> dayItems =
-          itemRepository.findByTripIdAndDayIdOrderBySortOrderAsc(trip.getId(), day.getId());
+      List<ItineraryItem> dayItems = itemsByDayId.getOrDefault(day.getId(), List.of());
       List<ItineraryItem> safeItems =
           dayItems.stream()
               .filter(
@@ -792,7 +790,6 @@ public class TripServiceImpl implements TripService {
         trip.getUpdatedAt());
   }
 
-  @Transactional(readOnly = true)
   @Override
   public PublicTripPublicationResponse getPublicationSnapshot(UUID userId, UUID tripId) {
     Trip trip = getOwnedTrip(userId, tripId);
@@ -806,6 +803,7 @@ public class TripServiceImpl implements TripService {
 
     boolean ended = trip.getEndDate().isBefore(LocalDate.now(clock));
     validatePublicCover(trip.getCoverImageUrl());
+    Map<UUID, List<ItineraryItem>> itemsByDayId = loadItemsGroupedByDay(trip.getId());
     List<PublicTripSnapshotResponse.Day> publicDays = new ArrayList<>();
     List<PublicTripSnapshotResponse.Highlight> highlights = new ArrayList<>();
     List<ItineraryItem> coverCandidateItems = new ArrayList<>();
@@ -813,8 +811,7 @@ public class TripServiceImpl implements TripService {
     boolean privateDetailsRedacted = false;
 
     for (ItineraryDay day : sourceDays) {
-      List<ItineraryItem> sourceItems =
-          itemRepository.findByTripIdAndDayIdOrderBySortOrderAsc(trip.getId(), day.getId());
+      List<ItineraryItem> sourceItems = itemsByDayId.getOrDefault(day.getId(), List.of());
       List<PublicTripSnapshotResponse.Item> publicItems = new ArrayList<>();
       for (ItineraryItem item : sourceItems) {
         PublicTripSnapshotResponse.Item projected =
@@ -926,6 +923,17 @@ public class TripServiceImpl implements TripService {
     }
   }
 
+  private Map<UUID, List<ItineraryItem>> loadItemsGroupedByDay(UUID tripId) {
+    List<ItineraryItem> allItems =
+        itemRepository.findByTripIdInOrderByTripIdAscSortOrderAsc(List.of(tripId));
+    if (allItems == null || allItems.isEmpty()) {
+      return Map.of();
+    }
+    return allItems.stream()
+        .filter(item -> item.getDayId() != null)
+        .collect(Collectors.groupingBy(ItineraryItem::getDayId));
+  }
+
   private void validatePublicCover(String coverImageUrl) {
     if (coverImageUrl == null || coverImageUrl.isBlank()) return;
     if (coverImageUrl.length() > MAX_PUBLIC_COVER_URL_LENGTH) {
@@ -939,8 +947,10 @@ public class TripServiceImpl implements TripService {
       throw new ValidationException(
           "TRIP_NOT_PUBLISHABLE", "Trip cover must be a valid approved HTTPS URL");
     }
+    String host = uri.getHost();
     if (!"https".equalsIgnoreCase(uri.getScheme())
-        || !APPROVED_PUBLIC_COVER_HOSTS.contains(uri.getHost())) {
+        || host == null
+        || !APPROVED_PUBLIC_COVER_HOSTS.contains(host.toLowerCase(Locale.ROOT))) {
       throw new ValidationException(
           "TRIP_NOT_PUBLISHABLE", "Trip cover must use an approved HTTPS media host");
     }

@@ -43,10 +43,3 @@ CREATE TABLE IF NOT EXISTS hotel_voucher_redemption (
 CREATE INDEX IF NOT EXISTS idx_voucher_redemption_customer
   ON hotel_voucher_redemption(customer_id, voucher_code);
 
-INSERT INTO hotel_voucher(code, title, description, discount_type, discount_value, max_discount_amount, min_order_amount, valid_from, valid_until, usage_limit)
-VALUES
-  ('WELCOME50', 'Chào mừng thành viên mới', 'Giảm trực tiếp 50.000đ cho đơn đặt phòng từ 200.000đ', 'FIXED_AMOUNT', 50000, 50000, 200000, now() - interval '1 day', now() + interval '90 days', 500),
-  ('SUMMER10', 'Ưu đãi mùa du lịch', 'Giảm 10% tối đa 150.000đ cho mọi đơn đặt phòng từ 500.000đ', 'PERCENT', 10, 150000, 500000, now() - interval '1 day', now() + interval '90 days', 1000),
-  ('TRIPSENSE100', 'Tri ân khách hàng TripSense', 'Giảm 100.000đ cho các đơn đặt phòng từ 1.000.000đ', 'FIXED_AMOUNT', 100000, 100000, 1000000, now() - interval '1 day', now() + interval '90 days', 200)
-ON CONFLICT (code) DO NOTHING;
-

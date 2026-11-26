@@ -42,6 +42,7 @@ import {
   titleCaseDestination,
 } from "../utils/format";
 import { useTripCoverPhotos } from "../hooks/use-trip-cover-photos";
+import { shouldUseUnoptimizedImage } from "@/features/social-post/hooks/use-shared-trip-cover-photo";
 import { TripTabs } from "./trip-tabs";
 
 type TripListFilter = "all" | "recent" | "upcoming" | "unscheduled";
@@ -592,9 +593,7 @@ function TripPoster({
   const [failedUrl, setFailedUrl] = React.useState<string | null>(null);
   const coverImage =
     failedUrl === preferredCoverImage ? defaultCoverImage : preferredCoverImage;
-  const isUnoptimizedCover =
-    coverImage.startsWith("data:") ||
-    coverImage !== defaultCoverImage;
+  const isUnoptimizedCover = shouldUseUnoptimizedImage(coverImage);
   const isUnscheduled = !trip.startDate || !trip.endDate;
   const days = countTripDays(trip);
 

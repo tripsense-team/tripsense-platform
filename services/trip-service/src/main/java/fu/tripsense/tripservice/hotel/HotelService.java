@@ -586,6 +586,10 @@ public class HotelService {
       }
       String state = (String) b.get("status");
       check("CONFIRMED".equals(state), "HOTEL_INVALID_STATE");
+      LocalDate today = now().atZone(ZoneId.of((String) p.get("time_zone"))).toLocalDate();
+      if (today.isBefore(date(b.get("check_in")))) {
+        throw error("HOTEL_CHECK_IN_TOO_EARLY", HttpStatus.CONFLICT);
+      }
       db.update("UPDATE hotel_booking SET status='CHECKED_IN', check_in_at=clock_timestamp(), version=version+1 WHERE id=?", id);
       event(id, "BOOKING_CHECKED_IN", p, b);
       return booking(id);

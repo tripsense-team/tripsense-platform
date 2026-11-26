@@ -26,7 +26,18 @@ const ITEM_TYPE_PRIORITY: Record<ItineraryItemType, number> = {
   NOTE: 6,
 };
 
+const MAX_CACHE_ENTRIES = 200;
 const tripCoverPhotoCache = new Map<string, string | null>();
+
+function setBoundedTripCoverCache(key: string, value: string | null): void {
+  if (tripCoverPhotoCache.size >= MAX_CACHE_ENTRIES && !tripCoverPhotoCache.has(key)) {
+    const oldestKey = tripCoverPhotoCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      tripCoverPhotoCache.delete(oldestKey);
+    }
+  }
+  tripCoverPhotoCache.set(key, value);
+}
 
 export function clearTripCoverPhotoCache(): void {
   tripCoverPhotoCache.clear();
@@ -89,6 +100,9 @@ export function useTripCoverPhotos(
     return initial;
   });
 
+  const tripsRef = React.useRef(trips);
+  tripsRef.current = trips;
+
   const targetSignature = React.useMemo(
     () =>
       trips
@@ -99,7 +113,7 @@ export function useTripCoverPhotos(
   );
 
   React.useEffect(() => {
-    const targets = trips.filter((trip) => !trip.coverImageUrl);
+    const targets = tripsRef.current.filter((trip) => !trip.coverImageUrl);
     if (targets.length === 0) return;
 
     const cachedHits: Record<string, string> = {};
@@ -205,7 +219,7 @@ export function useTripCoverPhotos(
         }
 
         if (foundUrl) {
-          tripCoverPhotoCache.set(cacheKeyForTrip(trip), foundUrl);
+          setBoundedTripCoverCache(cacheKeyForTrip(trip), foundUrl);
           updates[trip.id] = foundUrl;
         } else {
           const topNamedItem = sortItemsForCoverPriority(
@@ -224,7 +238,7 @@ export function useTripCoverPhotos(
           if (query) {
             fallbackSearchTrips.push({ trip, query });
           } else {
-            tripCoverPhotoCache.set(cacheKeyForTrip(trip), null);
+            setBoundedTripCoverCache(cacheKeyForTrip(trip), null);
           }
         }
       }
@@ -256,7 +270,7 @@ export function useTripCoverPhotos(
           }),
         );
         for (const { trip, url } of results) {
-          tripCoverPhotoCache.set(cacheKeyForTrip(trip), url);
+          setBoundedTripCoverCache(cacheKeyForTrip(trip), url);
           if (url) {
             fallbackUpdates[trip.id] = url;
           }
@@ -275,7 +289,6 @@ export function useTripCoverPhotos(
       active = false;
       controller.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetSignature]);
 
   return resolvedCovers;

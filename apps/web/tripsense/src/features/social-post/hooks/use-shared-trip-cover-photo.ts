@@ -21,8 +21,19 @@ const ITEM_TYPE_PRIORITY: Record<string, number> = {
   HOTEL: 3,
 };
 
+const MAX_CACHE_ENTRIES = 200;
 const sharedTripCoverCache = new Map<string, string | null>();
 const inFlightCoverQueries = new Map<string, Promise<string | null>>();
+
+function setBoundedCache(key: string, value: string | null): void {
+  if (sharedTripCoverCache.size >= MAX_CACHE_ENTRIES && !sharedTripCoverCache.has(key)) {
+    const oldestKey = sharedTripCoverCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      sharedTripCoverCache.delete(oldestKey);
+    }
+  }
+  sharedTripCoverCache.set(key, value);
+}
 
 export function clearSharedTripCoverPhotoCache(): void {
   sharedTripCoverCache.clear();
@@ -102,11 +113,11 @@ async function resolveCoverByQuery(query: string): Promise<string | null> {
       for (const place of places) {
         const photoUrl = getPlacePhotoUrl(place);
         if (photoUrl) {
-          sharedTripCoverCache.set(cacheKey, photoUrl);
+          setBoundedCache(cacheKey, photoUrl);
           return photoUrl;
         }
       }
-      sharedTripCoverCache.set(cacheKey, null);
+      setBoundedCache(cacheKey, null);
       return null;
     })
     .catch(() => {

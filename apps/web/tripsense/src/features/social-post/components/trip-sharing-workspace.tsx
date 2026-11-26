@@ -39,6 +39,7 @@ import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { useTranslation } from "@/i18n";
 import { useCollaborativeItinerarySync } from "@/features/trip-management/hooks";
 import { socialPostRepository } from "@/features/social-post/services";
+import { shouldUseUnoptimizedImage } from "@/features/social-post/hooks/use-shared-trip-cover-photo";
 import { AddItemDialog, EditItemDialog } from "@/features/trip-management/components/trip-dialogs";
 import { TripMembersDialog } from "@/features/trip-management/components/trip-members-dialog";
 import { PendingInvitationsBanner } from "@/features/trip-management/components/pending-invitations-banner";
@@ -1005,7 +1006,7 @@ function TripCover({ trip, className, priority = false }: { trip: TripResponse; 
       fill
       priority={priority}
       sizes="(max-width: 1024px) 100vw, 900px"
-      unoptimized={coverImage.startsWith("data:") || Boolean(trip.coverImageUrl)}
+      unoptimized={shouldUseUnoptimizedImage(coverImage)}
       onError={() => {
         if (coverImage !== defaultCover) {
           setFailedUrl(preferredCover);

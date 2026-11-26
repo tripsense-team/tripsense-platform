@@ -228,6 +228,11 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     var ex = assertThrows(TripServiceException.class, () -> service.checkIn(owner, id, 99L));
     assertEquals("HOTEL_VERSION_CONFLICT", ex.code());
 
+    var earlyEx = assertThrows(TripServiceException.class, () -> service.checkIn(owner, id, 0L));
+    assertEquals("HOTEL_CHECK_IN_TOO_EARLY", earlyEx.code());
+
+    db.update("UPDATE hotel_booking SET check_in = CURRENT_DATE WHERE id=?", id);
+
     var checkedIn = service.checkIn(owner, id, 0L);
     assertEquals("CHECKED_IN", checkedIn.get("status"));
     assertNotNull(checkedIn.get("check_in_at"));
@@ -287,6 +292,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     service.transition(owner, id, true);
 
     db.update("UPDATE partner_business SET operation_state='SUSPENDED' WHERE id=?", businessId);
+    db.update("UPDATE hotel_booking SET check_in = CURRENT_DATE WHERE id=?", id);
 
     var checkedIn = service.checkIn(owner, id, 0L);
     assertEquals("CHECKED_IN", checkedIn.get("status"));

@@ -107,7 +107,7 @@ class PublicTripSnapshotServiceTest {
   }
 
   @Test
-  void rejectsUnapprovedCoverHostFromThePublicSnapshot() {
+  void rejectsUnapprovedOrMissingCoverHostFromThePublicSnapshot() {
     Trip trip = trip(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2));
     trip.setCoverImageUrl("http://private-host.example/cover.jpg");
     ItineraryDay day = day(1, LocalDate.of(2026, 10, 1));
@@ -115,6 +115,15 @@ class PublicTripSnapshotServiceTest {
 
     assertThatThrownBy(() -> service.getPublicationSnapshot(userId, tripId))
         .hasMessageContaining("approved HTTPS media host");
+
+    trip.setCoverImageUrl("https:///missing-host/cover.jpg");
+    assertThatThrownBy(() -> service.getPublicationSnapshot(userId, tripId))
+        .hasMessageContaining("approved HTTPS media host");
+
+    trip.setCoverImageUrl("https://RES.CLOUDINARY.COM/demo/cover.jpg");
+    var snapshot = service.getPublicationSnapshot(userId, tripId).snapshot();
+    assertThat(snapshot.summary().coverImageUrl())
+        .isEqualTo("https://RES.CLOUDINARY.COM/demo/cover.jpg");
   }
 
   @Test
@@ -122,8 +131,10 @@ class PublicTripSnapshotServiceTest {
     Trip trip = trip(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 2));
     ItineraryDay day = day(1, LocalDate.of(2026, 10, 1));
     ItineraryItem meal = item("Quán Ăn", ItineraryItemType.MEAL, 1000);
+    meal.setDayId(day.getId());
     meal.setPlaceRef("place-meal");
     ItineraryItem landmark = item("Ngũ Hành Sơn", ItineraryItemType.PLACE, 2000);
+    landmark.setDayId(day.getId());
     landmark.setPlaceRef("place-nhs");
     stub(trip, day, List.of(meal, landmark));
     when(placeClient.fetchPlacePhotoUrls(List.of("place-nhs", "place-meal")))
@@ -139,10 +150,13 @@ class PublicTripSnapshotServiceTest {
   }
 
   private void stub(Trip trip, ItineraryDay day, List<ItineraryItem> dayItems) {
+    for (ItineraryItem item : dayItems) {
+      item.setDayId(day.getId());
+    }
     when(trips.findByIdAndOwnerUserIdAndArchivedAtIsNull(tripId, userId))
         .thenReturn(Optional.of(trip));
     when(days.findByTripIdOrderByDayNumberAsc(tripId)).thenReturn(List.of(day));
-    when(items.findByTripIdAndDayIdOrderBySortOrderAsc(tripId, day.getId())).thenReturn(dayItems);
+    when(items.findByTripIdInOrderByTripIdAscSortOrderAsc(List.of(tripId))).thenReturn(dayItems);
   }
 
   private Trip trip(LocalDate start, LocalDate end) {

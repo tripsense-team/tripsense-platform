@@ -99,16 +99,16 @@ This conflicts with TripSense's real business model:
   - Restaurant Reservations, Rental Bookings, and Tour Guide Inquiries (already follow Request-to-Confirm / direct contact).
 
 ### 1.4 Acceptance Criteria
-- [ ] **AC-1 (Partner Subscription Preserved):** Partner subscription checkout & PayOS webhook (`/api/partners/subscriptions/payos/webhook`) compile, start cleanly, and pass tests using the shared `PayOsConfig` bean.
-- [ ] **AC-2 (No Hotel PayOS / Escrow Endpoints):** All hotel PayOS, Demo Payment, and Hotel Finance endpoints return 404 / are removed; zero PayOS redirects or bank-account refund modals appear anywhere in Traveler, Partner, or Admin hotel UI.
-- [ ] **AC-3 (Request → Partner Confirm Works):**
+- [x] **AC-1 (Partner Subscription Preserved):** Partner subscription checkout & PayOS webhook (`/api/partners/subscriptions/payos/webhook`) compile, start cleanly, and pass tests using the shared `PayOsConfig` bean.
+- [x] **AC-2 (No Hotel PayOS / Escrow Endpoints):** All hotel PayOS, Demo Payment, and Hotel Finance endpoints return 404 / are removed; zero PayOS redirects or bank-account refund modals appear anywhere in Traveler, Partner, or Admin hotel UI.
+- [x] **AC-3 (Request → Partner Confirm Works):**
   - Traveler submits `POST /api/hotels/holds` → creates `HELD` booking (`payment_method = 'PAY_AT_PROPERTY'`, 24h expiry capped at check-in), locks inventory `held += qty`, notifies Partner.
   - Traveler calling `POST /api/hotels/bookings/{id}/confirm` is rejected (`403`/`404`).
   - Partner (`OWNER`/`MANAGER`) calling `POST /api/hotels/bookings/{id}/confirm` transitions `HELD -> CONFIRMED`, moves `held -> booked`, and notifies Traveler.
   - Partner rejecting via `POST /api/hotels/bookings/{id}/cancel` with `reason` transitions `HELD/CONFIRMED -> CANCELLED`, releases inventory, and notifies Traveler.
-- [ ] **AC-4 (Traveler Cancel Without Refund Form):** Traveler can cancel `HELD` anytime and `CONFIRMED` before `free_cancellation_until` via simple confirmation dialog (`POST /api/hotels/bookings/{id}/cancel`), releasing inventory and notifying Partner.
-- [ ] **AC-5 (Accurate Public Availability & URL):** `PublicHotelService.getPublicHotelRooms()` returns `0` when sold out (never fakes `1` or `10`), and `hotel-service-adapter.ts` calls `/api/public/hotels/{id}/rooms`.
-- [ ] **AC-6 (Admin Analytics Stability):** `GET /api/admin/analytics/overview` succeeds without querying removed hotel payment flows; platform revenue accurately reflects `partner_subscription_order`.
+- [x] **AC-4 (Traveler Cancel Without Refund Form):** Traveler can cancel `HELD` anytime and `CONFIRMED` before `free_cancellation_until` via simple confirmation dialog (`POST /api/hotels/bookings/{id}/cancel`), releasing inventory and notifying Partner.
+- [x] **AC-5 (Accurate Public Availability & URL):** `PublicHotelService.getPublicHotelRooms()` returns `0` when sold out (never fakes `1` or `10`), and `hotel-service-adapter.ts` calls `/api/public/hotels/{id}/rooms`.
+- [x] **AC-6 (Admin Analytics Stability):** `GET /api/admin/analytics/overview` succeeds without querying removed hotel payment flows; platform revenue accurately reflects `partner_subscription_order`.
 
 ---
 
