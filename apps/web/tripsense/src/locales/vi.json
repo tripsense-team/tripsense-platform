@@ -191,8 +191,8 @@
       "totalPaidGmv": "Tổng GMV Đặt phòng (Đã TT)",
       "totalServiceOrders": "Tổng đơn dịch vụ",
       "totalSubscriptionRevenue": "Doanh thu gói Hội viên",
-      "tripVisibility": "Chế độ (Công khai/Chia sẻ/Riêng tư)",
       "tripsUnit": "chuyến",
+      "tripVisibility": "Chế độ (Công khai/Chia sẻ/Riêng tư)",
       "userDemographicsDesc": "Phân bổ vai trò người dùng, nguồn đăng ký OAuth vs Email và trạng thái tài khoản.",
       "userDemographicsTitle": "Tăng trưởng Người dùng & Xác thực",
       "verticals": {
