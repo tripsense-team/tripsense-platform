@@ -468,7 +468,7 @@ export function AdminFinanceView() {
                           }`}
                         />
                       </div>
-                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                      <span className="text-micro text-muted-foreground tabular-nums">
                         {point.date.slice(5)}
                       </span>
                     </div>
