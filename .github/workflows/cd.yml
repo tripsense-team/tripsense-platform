@@ -1,4 +1,4 @@
-name: CD Azure
+name: CD VPS
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tripsense-cd-azure
+  group: tripsense-cd-vps
   cancel-in-progress: false
 
 jobs:
@@ -158,7 +158,7 @@ jobs:
       - self-hosted
       - Linux
       - X64
-      - tripsense-azure
+      - tripsense-vps
 
     needs: publish
 
@@ -192,7 +192,7 @@ jobs:
 
           chmod +x /opt/tripsense/deploy/deploy.sh
 
-      - name: Deploy TripSense to Azure
+      - name: Deploy TripSense to VPS
         env:
           IMAGE_REGISTRY: docker.io
           IMAGE_OWNER: ${{ secrets.DOCKERHUB_USERNAME }}
