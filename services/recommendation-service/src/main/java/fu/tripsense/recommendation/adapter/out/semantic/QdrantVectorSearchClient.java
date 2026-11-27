@@ -207,14 +207,15 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
           response == null
               ? null
               : response.path("result").path("config").path("params").path("vectors");
-      JsonNode size = vectors == null ? null : vectors.path("size");
+      JsonNode vectorConfig = resolveUnnamedVectorConfig(vectors);
+      JsonNode size = vectorConfig == null ? null : vectorConfig.path("size");
       if (size == null || !size.isIntegralNumber()) {
         throw new IllegalStateException("Qdrant collection vector size is unavailable");
       }
       if (size.intValue() != expected) {
         throw new IllegalStateException("Qdrant collection vector size does not match configuration");
       }
-      if (!"cosine".equalsIgnoreCase(vectors.path("distance").asText())) {
+      if (!"cosine".equalsIgnoreCase(vectorConfig.path("distance").asText())) {
         throw new IllegalStateException("Qdrant collection distance does not match configuration");
       }
     } catch (IllegalStateException invalid) {
@@ -222,6 +223,14 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
     } catch (Exception invalidResponse) {
       throw new IllegalStateException("Qdrant collection metadata is invalid", invalidResponse);
     }
+  }
+
+  private JsonNode resolveUnnamedVectorConfig(JsonNode vectors) {
+    if (vectors == null || vectors.isMissingNode()) return vectors;
+    if (vectors.path("size").isIntegralNumber()) return vectors;
+
+    JsonNode unnamedVector = vectors.path("");
+    return unnamedVector.isObject() ? unnamedVector : vectors;
   }
 
   private RestClient.RequestHeadersSpec<?> request(RestClient.RequestHeadersSpec<?> request) {
