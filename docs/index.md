@@ -5,6 +5,7 @@ This knowledge base stores reusable planning, architecture, and review context f
 ## Start Here
 
 - [Feature Planning Workflow](workflows/multi-agent-feature-workflow.md)
+- [Ubuntu VPS Deployment](workflows/vps-deployment.md)
 - [TripSense Architecture](architecture/tripsense-architecture.md)
 - [Service Boundaries](architecture/service-boundaries.md)
 - [Monetization & 3-Party Cash Flow Architecture](architecture/monetization-and-cash-flow.md)

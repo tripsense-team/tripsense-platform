@@ -1,4 +1,4 @@
-name: CD AWS Manual
+name: CD VPS Manual Deploy
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tripsense-cd-aws
+  group: tripsense-cd-vps
   cancel-in-progress: false
 
 jobs:
@@ -150,7 +150,7 @@ jobs:
       - self-hosted
       - Linux
       - X64
-      - tripsense-aws
+      - tripsense-vps
 
     needs: publish
 
@@ -184,7 +184,7 @@ jobs:
 
           chmod +x /opt/tripsense/deploy/deploy.sh
 
-      - name: Deploy TripSense to AWS EC2
+      - name: Deploy TripSense to VPS
         env:
           IMAGE_REGISTRY: docker.io
           IMAGE_OWNER: ${{ secrets.DOCKERHUB_USERNAME }}
