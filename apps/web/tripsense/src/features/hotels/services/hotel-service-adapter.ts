@@ -1,4 +1,5 @@
 import { hotelApi } from "./hotels-api";
+import { apiClient } from "@/services/api-client";
 import { searchPlaces } from "@/features/places/services/places-api";
 import type { Place } from "@/features/places/types";
 import type {
@@ -492,7 +493,7 @@ export async function fetchDirectOffersForPlace(
     if (!bestMatch) {
       if (place.id) {
         try {
-          const publicRooms = await hotelApi<Array<{
+          const publicRoomsRes = await apiClient<{ data?: Array<{
             id: string;
             propertyId: string;
             name: string;
@@ -501,7 +502,21 @@ export async function fetchDirectOffersForPlace(
             availableRooms: number;
             currency?: string;
             cancellationPolicy?: string;
-          }>>(`/public/hotels/${place.id}/rooms`).catch(() => []);
+          }> }>(`/api/public/hotels/${place.id}/rooms`).catch(() => ({ data: [] }));
+          const publicRooms = Array.isArray(publicRoomsRes?.data)
+            ? publicRoomsRes.data
+            : Array.isArray(publicRoomsRes)
+            ? (publicRoomsRes as unknown as Array<{
+                id: string;
+                propertyId: string;
+                name: string;
+                capacity: number;
+                pricePerNight: number;
+                availableRooms: number;
+                currency?: string;
+                cancellationPolicy?: string;
+              }>)
+            : [];
 
           if (publicRooms && publicRooms.length > 0) {
             const rooms = publicRooms.map((r) => ({

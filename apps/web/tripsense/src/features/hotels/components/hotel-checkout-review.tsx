@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/i18n";
 import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { hotelApi } from "../services/hotels-api";
-import { Tag, Ticket, Loader2, HelpCircle, AlertCircle, X, ExternalLink } from "lucide-react";
+import { Tag, Ticket, Loader2, HelpCircle, AlertCircle, X, Clock } from "lucide-react";
 import { BookingSupportDialog } from "./booking-support-dialog";
-import type { HotelBooking, PayOsPaymentResult, VoucherDto } from "../types";
+import type { HotelBooking, VoucherDto } from "../types";
 
 export function HotelCheckoutReview({
   booking,
@@ -21,9 +22,6 @@ export function HotelCheckoutReview({
   onDismiss?: () => void;
 }) {
   const { t } = useTranslation();
-  const method = booking.payment_method;
-  const demo = method === "DEMO_ONLINE";
-  const payos = method === "PAYOS";
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [supportOpen, setSupportOpen] = useState(false);
@@ -33,7 +31,6 @@ export function HotelCheckoutReview({
   const [availableVouchers, setAvailableVouchers] = useState<VoucherDto[]>([]);
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const pending = useRef(false);
-  const attempts = useRef(new Map<string, string>());
 
   const hasVoucher = Boolean(booking.voucher_code && booking.discount_amount && booking.discount_amount > 0);
 
@@ -86,35 +83,14 @@ export function HotelCheckoutReview({
     }
   };
 
-  async function submit(outcome: "SUCCESS" | "FAILURE" | "EXPIRED" | "PROPERTY" | "PAYOS") {
+  async function handleCancelRequest() {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     setMessage("");
     try {
-      if (outcome === "PAYOS") {
-        const result = await hotelApi<PayOsPaymentResult>(`/bookings/${booking.id}/payos-payment`, "POST");
-        if (result.payment?.checkoutUrl && result.payment.checkoutUrl.startsWith("https://")) {
-          window.location.assign(result.payment.checkoutUrl);
-        } else {
-          setMessage(t("trip.commerce.payosProcessing", { defaultValue: "Đang tạo liên kết thanh toán..." }));
-          onUpdated(result.booking);
-        }
-      } else if (outcome === "PROPERTY") {
-        onUpdated(await hotelApi<HotelBooking>(`/bookings/${booking.id}/confirm`, "POST"));
-      } else {
-        const identity = `${booking.id}:${outcome}`;
-        const key = attempts.current.get(identity) ?? crypto.randomUUID();
-        attempts.current.set(identity, key);
-        const result = await hotelApi<{ booking: HotelBooking; outcome: string }>(
-          `/bookings/${booking.id}/demo-payment`,
-          "POST",
-          { outcome },
-          key
-        );
-        setMessage(t(`trip.commerce.outcomes.${result.outcome}`));
-        onUpdated(result.booking);
-      }
+      const updated = await hotelApi<HotelBooking>(`/bookings/${booking.id}/cancel`, "POST");
+      onUpdated(updated);
     } catch (error) {
       setMessage(getSafeErrorMessage(error, t("trip.hotels.failed")));
     } finally {
@@ -309,48 +285,34 @@ export function HotelCheckoutReview({
         {t("trip.commerce.cancelUntil", { time: booking.free_cancellation_until ? new Date(booking.free_cancellation_until).toLocaleString() : booking.check_in, defaultValue: `Hủy miễn phí đến: ${booking.check_in}` })}
       </p>
       <p className="text-xs text-amber-600 dark:text-amber-400">
-        {t("trip.hotels.expires", { defaultValue: "Giữ phòng đến:" })} {new Date(booking.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        {t("trip.hotels.expires", { defaultValue: "Giữ phòng chờ duyệt đến:" })} {new Date(booking.expires_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
       </p>
 
-      {payos && (
-        <div className="rounded-lg bg-background/80 border border-border p-3 text-xs text-muted-foreground">
-          {t("trip.commerce.payosNotice", {
-            defaultValue: "Bấm nút bên dưới để chuyển trực tiếp sang trang cổng thanh toán PayOS (quét mã VietQR ngân hàng).",
-          })}
-        </div>
-      )}
+      <div className="rounded-lg bg-background/80 border border-border p-3 text-xs text-muted-foreground flex items-start gap-2">
+        <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+        <span>
+          Yêu cầu đặt phòng đã được gửi tới khách sạn và đang <strong>chờ khách sạn xác nhận</strong>. Bạn thanh toán trực tiếp tại khách sạn khi nhận phòng (nền tảng không thu tiền phòng trung gian).
+        </span>
+      </div>
 
       {message && <p className="text-xs text-destructive font-medium" role="status">{message}</p>}
 
       <div className="flex flex-wrap items-center gap-3 pt-1">
-        {payos ? (
-          <Button
-            size="lg"
-            className="w-full sm:w-auto px-6 py-2.5 rounded-full font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer flex items-center justify-center gap-2"
-            disabled={busy}
-            onClick={() => void submit("PAYOS")}
-          >
-            {busy ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Đang chuyển đến cổng thanh toán PayOS...</span>
-              </>
-            ) : (
-              <>
-                <span>Thanh toán ngay qua PayOS ({money(booking.total, booking.currency)})</span>
-                <ExternalLink className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        ) : demo ? (
-          <Button disabled={busy} onClick={() => void submit("SUCCESS")}>
-            {t("trip.commerce.pay")}
-          </Button>
-        ) : method === "PAY_AT_PROPERTY" ? (
-          <Button disabled={busy} onClick={() => void submit("PROPERTY")}>
-            {t("trip.hotels.confirm")} · {t("trip.hotels.payAtProperty")}
-          </Button>
-        ) : null}
+        <Button asChild size="sm" variant="default">
+          <Link href="/reservations?tab=hotels">
+            {t("trip.hotels.myBookings", { defaultValue: "Xem đơn đặt phòng của tôi" })}
+          </Link>
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          disabled={busy}
+          onClick={() => void handleCancelRequest()}
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+          {t("common.cancel", { defaultValue: "Hủy yêu cầu" })}
+        </Button>
       </div>
 
       <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs">

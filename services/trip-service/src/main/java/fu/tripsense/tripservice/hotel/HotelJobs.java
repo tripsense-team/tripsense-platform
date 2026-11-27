@@ -22,11 +22,10 @@ public class HotelJobs {
   private final HotelService hotels;
   private final HotelMailClient mail;
   private final MeterRegistry metrics;
-  private final PayOsPaymentService payOsPayments;
   private final boolean jobsEnabled;
 
-  public HotelJobs(JdbcTemplate db,TransactionTemplate tx,HotelService hotels,HotelMailClient mail,MeterRegistry metrics,PayOsPaymentService payOsPayments) {
-    this(db, tx, hotels, mail, metrics, payOsPayments, true);
+  public HotelJobs(JdbcTemplate db,TransactionTemplate tx,HotelService hotels,HotelMailClient mail,MeterRegistry metrics) {
+    this(db, tx, hotels, mail, metrics, true);
   }
 
   @Autowired
@@ -36,9 +35,8 @@ public class HotelJobs {
       HotelService hotels,
       HotelMailClient mail,
       MeterRegistry metrics,
-      PayOsPaymentService payOsPayments,
       @Value("${hotel.jobs.enabled:true}") boolean jobsEnabled) {
-    this.db=db; this.tx=tx; this.hotels=hotels; this.mail=mail; this.metrics=metrics; this.payOsPayments=payOsPayments;
+    this.db=db; this.tx=tx; this.hotels=hotels; this.mail=mail; this.metrics=metrics;
     this.jobsEnabled=jobsEnabled;
   }
   @Configuration
@@ -53,7 +51,7 @@ public class HotelJobs {
   }
 
   public void tick() {
-    try { hotels.expire(); dispatch(); deliver(); payOsPayments.reconcile(); }
+    try { hotels.expire(); dispatch(); deliver(); }
     catch(Exception e) { metrics.counter("hotel.worker.failures").increment(); log.warn("hotel_worker_failed type={}",e.getClass().getSimpleName()); }
   }
   public void dispatch() {
@@ -67,12 +65,7 @@ public class HotelJobs {
       for(var e:events) {
         String type=(String)e.get("event_type");
         String message=switch(type) {
-          case "BOOKING_CONFIRMED" -> {
-              String method = db.queryForObject("SELECT payment_method FROM hotel_booking WHERE id=?",String.class,e.get("aggregate_id"));
-              yield "PAYOS".equals(method) ? "Reservation confirmed. Online payment received."
-                  : "DEMO_ONLINE".equals(method) ? "Reservation confirmed. Demo payment recorded; no real funds moved."
-                  : "Reservation confirmed. Payment is due at the property.";
-          }
+          case "BOOKING_CONFIRMED" -> "Reservation confirmed by the property. Payment is due directly at the property.";
           case "BOOKING_CANCELLED" -> "Reservation cancelled. The allocated rooms have been released.";
           case "BOOKING_EXPIRED" -> "Reservation hold expired. Search again to check available rooms.";
           case "BOOKING_CHECKED_IN" -> "Guest check-in recorded for this reservation.";

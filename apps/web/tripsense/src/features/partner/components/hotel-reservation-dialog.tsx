@@ -222,8 +222,9 @@ export function HotelReservationDialog({
       if (hotel.ownerUserId) {
         try {
           const bookingCode = booking.id ? booking.id.slice(0, 8).toUpperCase() : "TS";
-          const currency = selectedRoom?.currency || "VND";
-          const chatMsg = `[Đặt phòng trực tiếp] Khách ${customerName} (SĐT: ${customerPhone}) đã đặt ${quantity}x "${selectedRoom.name}" tại ${hotel.displayName} (${checkIn} → ${checkOut}, ${nights} đêm). Tổng tiền: ${formatPrice(totalPrice, currency)}. Mã đơn: #TS-HTL-${bookingCode}`;
+          const currency = booking.currency || selectedRoom?.currency || "VND";
+          const confirmedTotal = typeof booking.total === "number" ? booking.total : totalPrice;
+          const chatMsg = `[Yêu cầu đặt phòng trực tiếp] Khách ${customerName} (SĐT: ${customerPhone}) đã gửi yêu cầu đặt ${quantity}x "${selectedRoom.name}" tại ${hotel.displayName} (${checkIn} → ${checkOut}, ${nights} đêm). Dự kiến: ${formatPrice(confirmedTotal, currency)}. Mã đơn: #TS-HTL-${bookingCode} (Chờ khách sạn xác nhận).`;
           void chatApi.sendDirectMessage(hotel.ownerUserId, chatMsg).catch(() => undefined);
         } catch {
           // Non-blocking notification
@@ -251,7 +252,7 @@ export function HotelReservationDialog({
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-foreground">
-                {createdBooking ? "Đặt phòng thành công" : "Đặt phòng trực tiếp"}
+                {createdBooking ? "Đã gửi yêu cầu đặt phòng" : "Đặt phòng trực tiếp"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground line-clamp-1">
                 {hotel.displayName} {hotel.address ? `· ${hotel.address}` : ""}
@@ -263,12 +264,12 @@ export function HotelReservationDialog({
         {createdBooking ? (
           <div className="space-y-5 py-3">
             <div className="text-center space-y-2">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
-                <CheckCircle2 className="h-8 w-8" />
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-amber-600">
+                <Clock className="h-8 w-8" />
               </div>
-              <h3 className="text-lg font-bold text-foreground">Đặt phòng thành công!</h3>
+              <h3 className="text-lg font-bold text-foreground">Đã gửi yêu cầu đặt phòng!</h3>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Kỳ nghỉ của bạn đã được ghi nhận trực tiếp trên hệ thống TripSense. Khách sạn sẽ sẵn sàng đón tiếp bạn theo lịch trình.
+                Phòng đang được giữ tạm thời để khách sạn xem xét và xác nhận. Bạn sẽ nhận thông báo ngay khi khách sạn xác nhận đơn.
               </p>
             </div>
 
@@ -308,9 +309,12 @@ export function HotelReservationDialog({
                 </span>
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-border/60 text-sm">
-                <span className="font-semibold text-foreground">Tổng chi phí:</span>
+                <span className="font-semibold text-foreground">Tổng chi phí dự kiến:</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatPrice(totalPrice, selectedRoom?.currency || "VND")}
+                  {formatPrice(
+                    typeof createdBooking.total === "number" ? createdBooking.total : totalPrice,
+                    createdBooking.currency || selectedRoom?.currency || "VND",
+                  )}
                 </span>
               </div>
             </div>

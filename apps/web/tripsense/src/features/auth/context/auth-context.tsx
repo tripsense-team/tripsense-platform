@@ -143,7 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const response = await authApi.login(payload);
     if (response.success && response.data) {
       setLoggedInCookie();
-      setAuth(response.data.user, response.data.accessToken);
+      if (useAuthStore.getState().accessToken !== response.data.accessToken) {
+        setAuth(response.data.user, response.data.accessToken);
+      }
     }
     return response;
   };
@@ -154,7 +156,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const response = await authApi.loginGoogle(idToken);
     if (response.success && response.data) {
       setLoggedInCookie();
-      setAuth(response.data.user, response.data.accessToken);
+      if (useAuthStore.getState().accessToken !== response.data.accessToken) {
+        setAuth(response.data.user, response.data.accessToken);
+      }
     }
     return response;
   };

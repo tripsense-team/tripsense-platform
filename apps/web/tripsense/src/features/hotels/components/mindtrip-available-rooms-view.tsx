@@ -26,8 +26,7 @@ import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { HotelCheckoutReview } from "./hotel-checkout-review";
 import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { createDirectHold, bookingIntentKey, clearBookingIntent, searchRealHotels } from "../services/hotel-service-adapter";
-import { hotelApi } from "../services/hotels-api";
-import type { MindtripHotel, HotelRoomData, HotelBooking, PayOsPaymentResult } from "../types";
+import type { MindtripHotel, HotelRoomData, HotelBooking } from "../types";
 
 export interface MindtripAvailableRoomsViewProps {
   hotel: MindtripHotel;
@@ -118,17 +117,7 @@ export function MindtripAvailableRoomsView({
       setHeldRoom(room);
       setHeldBooking(booking);
 
-      if (booking.status === "HELD" && booking.payment_method === "PAYOS") {
-        try {
-          const result = await hotelApi<PayOsPaymentResult>(`/bookings/${booking.id}/payos-payment`, "POST");
-          if (result.payment?.checkoutUrl && result.payment.checkoutUrl.startsWith("https://")) {
-            window.location.assign(result.payment.checkoutUrl);
-            return;
-          }
-        } catch (payErr) {
-          console.error("Auto PayOS redirect failed:", payErr);
-        }
-      } else if (booking.status === "CONFIRMED") {
+      if (booking.status === "CONFIRMED") {
         setConfirmedBooking({ booking, room });
       }
     } catch (err: unknown) {

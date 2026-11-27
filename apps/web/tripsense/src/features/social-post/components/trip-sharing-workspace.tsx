@@ -39,6 +39,7 @@ import { useAuthStore } from "@/features/auth/store/use-auth-store";
 import { useTranslation } from "@/i18n";
 import { useCollaborativeItinerarySync } from "@/features/trip-management/hooks";
 import { socialPostRepository } from "@/features/social-post/services";
+import { shouldUseUnoptimizedImage } from "@/features/social-post/hooks/use-shared-trip-cover-photo";
 import { AddItemDialog, EditItemDialog } from "@/features/trip-management/components/trip-dialogs";
 import { TripMembersDialog } from "@/features/trip-management/components/trip-members-dialog";
 import { PendingInvitationsBanner } from "@/features/trip-management/components/pending-invitations-banner";
@@ -993,7 +994,10 @@ function WorkspaceNotification({ message, onDismiss }: { message: string; onDism
 }
 
 function TripCover({ trip, className, priority = false }: { trip: TripResponse; className?: string; priority?: boolean }) {
-  const coverImage = coverImageForTrip(trip);
+  const defaultCover = coverImageForTrip({ ...trip, coverImageUrl: null });
+  const preferredCover = coverImageForTrip(trip);
+  const [failedUrl, setFailedUrl] = React.useState<string | null>(null);
+  const coverImage = failedUrl === preferredCover ? defaultCover : preferredCover;
 
   return (
     <Image
@@ -1002,7 +1006,12 @@ function TripCover({ trip, className, priority = false }: { trip: TripResponse; 
       fill
       priority={priority}
       sizes="(max-width: 1024px) 100vw, 900px"
-      unoptimized={coverImage.startsWith("data:")}
+      unoptimized={shouldUseUnoptimizedImage(coverImage)}
+      onError={() => {
+        if (coverImage !== defaultCover) {
+          setFailedUrl(preferredCover);
+        }
+      }}
       className={cn("object-cover", className)}
     />
   );

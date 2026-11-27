@@ -1,4 +1,4 @@
-package fu.tripsense.tripservice.hotel;
+package fu.tripsense.tripservice.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -6,6 +6,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import vn.payos.PayOS;
 
+/**
+ * Shared PayOS SDK bean used exclusively for platform-owned Partner SaaS Subscriptions
+ * (PartnerSubscriptionService & PartnerSubscriptionWebhookController).
+ */
 @Configuration
 public class PayOsConfig {
   @Bean

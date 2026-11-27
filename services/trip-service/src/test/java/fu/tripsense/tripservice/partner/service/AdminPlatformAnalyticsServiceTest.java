@@ -77,7 +77,7 @@ class AdminPlatformAnalyticsServiceTest {
     assertEquals(7, overview.dailySeries().size());
     assertEquals(20L, overview.tripStats().totalTrips());
     assertEquals(100.0, overview.tripStats().aiAdoptionRatePercent());
-    assertEquals(new BigDecimal("1100000"), overview.financeAndSubscriptionStats().totalPlatformRevenue());
+    assertEquals(new BigDecimal("1000000"), overview.financeAndSubscriptionStats().totalPlatformRevenue());
     assertNotNull(overview.deepTripAnalytics());
     assertEquals(2.4, overview.deepTripAnalytics().leadTimeAndSeasonality().avgLeadTimeDays());
     assertEquals(2.4, overview.deepTripAnalytics().retentionAndSla().avgPartnerApprovalHours());

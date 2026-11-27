@@ -19,7 +19,6 @@ public final class HotelDtos {
       this(name,destination,address,timeZone,checkInTime,checkOutTime,null);
     }
   }
-  public record DemoPaymentInput(@NotBlank @Pattern(regexp="SUCCESS|FAILURE|EXPIRED") String outcome) {}
   public record RoomInput(
       @NotBlank @Size(max=160) String name,
       @Min(1) @Max(20) int capacity,

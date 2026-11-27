@@ -24,7 +24,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
-@SpringBootTest(properties={"hotel.jobs.enabled=false","spring.cache.type=simple","HOTEL_DEMO_PAYMENTS_ENABLED=true"})
+@SpringBootTest(properties={"hotel.jobs.enabled=false","spring.cache.type=simple"})
 @AutoConfigureMockMvc
 class HotelReservationIntegrationTest extends RealInfrastructureTest {
   @Autowired HotelService service;
@@ -69,43 +69,22 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
   }
   private static AuthenticatedUser user(String role) { var id=UUID.randomUUID();return new AuthenticatedUser(id,id+"@example.test",role); }
   private HoldInput input() { return new HoldInput(rid,from,to,1,2); }
-  private UUID demoHold() { return (UUID)service.hold(customer,"request-123",input()).get("id"); }
-  private UUID hold() { UUID id=demoHold(); db.update("UPDATE hotel_booking SET payment_method='PAY_AT_PROPERTY' WHERE id=?",id); return id; }
+  private UUID hold() { return (UUID)service.hold(customer,"request-123",input()).get("id"); }
   private int inventory(String field) { return db.queryForObject("SELECT sum("+field+") FROM hotel_inventory",Integer.class); }
 
-  @Test void demoCaptureRefundAndIdempotencyKeepMoneyAndInventoryConsistent() {
-    UUID id=demoHold();
-    assertEquals("DEMO_ONLINE",service.bookingDetail(customer,id).get("payment_method"));
+  @Test void holdDefaultsToPayAtPropertyAndOnlyPartnerCanConfirm() {
+    UUID id=hold();
+    var detail=service.bookingDetail(customer,id);
+    assertEquals("PAY_AT_PROPERTY",detail.get("payment_method"));
+    assertEquals("HELD",detail.get("status"));
+    // Customer cannot self-confirm a request without partner approval
     assertThrows(TripServiceException.class,()->service.transition(customer,id,true));
-    var first=service.demoPayment(customer,id,"payment-key-123","SUCCESS");
-    assertEquals("CAPTURED",first.get("outcome"));
-    assertEquals("CONFIRMED",service.bookingDetail(customer,id).get("status"));
-    assertEquals("CAPTURED",service.demoPayment(customer,id,"payment-key-123","SUCCESS").get("outcome"));
-    assertThrows(TripServiceException.class,()->service.demoPayment(customer,id,"payment-key-123","FAILURE"));
-    assertEquals(1,db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='CAPTURE'",Integer.class,id));
-    assertEquals(0,new BigDecimal("100000").compareTo(db.queryForObject("SELECT commission_amount FROM hotel_demo_payment WHERE booking_id=?",BigDecimal.class,id)));
-    service.transition(customer,id,false);
-    assertEquals("REFUNDED",db.queryForObject("SELECT state FROM hotel_demo_payment WHERE booking_id=?",String.class,id));
-    assertEquals(1,db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='REFUND'",Integer.class,id));
-  }
-
-  @Test void demoSettlementRequiresCheckoutAndPaysOnce() {
-    UUID id=demoHold();service.demoPayment(customer,id,"payment-key-123","SUCCESS");
-    assertThrows(TripServiceException.class,()->service.demoSettlement(admin,id,"settle-key-123"));
-    service.checkIn(owner,id,null);service.checkOut(owner,id,null);
-    assertEquals("PAID_OUT",service.demoSettlement(admin,id,"settle-key-123").get("outcome"));
-    assertEquals("PAID_OUT",service.demoSettlement(admin,id,"settle-key-123").get("outcome"));
-    assertEquals(1,db.queryForObject("SELECT count(*) FROM hotel_demo_ledger WHERE booking_id=? AND event='PAYOUT'",Integer.class,id));
-  }
-
-  @Test void demoFailureCanRetryAndExpiredSuccessIsImmediatelyRefunded() {
-    UUID id=demoHold();
-    assertEquals("FAILED",service.demoPayment(customer,id,"payment-fail-123","FAILURE").get("outcome"));
-    assertEquals(0,db.queryForObject("SELECT count(*) FROM hotel_demo_payment WHERE booking_id=?",Integer.class,id));
-    assertEquals("REFUNDED_EXPIRED",service.demoPayment(customer,id,"payment-late-123","EXPIRED").get("outcome"));
-    assertEquals("EXPIRED",service.bookingDetail(customer,id).get("status"));
-    assertEquals("REFUNDED",db.queryForObject("SELECT state FROM hotel_demo_payment WHERE booking_id=?",String.class,id));
+    assertThrows(TripServiceException.class,()->service.transition(other,id,true));
+    // Partner owner confirms the request
+    var confirmed=service.transition(owner,id,true);
+    assertEquals("CONFIRMED",confirmed.get("status"));
     assertEquals(0,inventory("held"));
+    assertEquals(2,inventory("booked"));
   }
 
   @Test void pausedBusinessCannotSellButExistingHoldCanBeCancelled() {
@@ -156,7 +135,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     assertEquals(1,service.search("Da Nang",to,to.plusDays(1),2,1).size());
   }
   @Test void confirmAndCancelAreIdempotent() {
-    var id=hold();service.transition(customer,id,true);service.transition(customer,id,true);
+    var id=hold();service.transition(owner,id,true);service.transition(owner,id,true);
     assertEquals(0,inventory("held"));assertEquals(2,inventory("booked"));
     service.transition(customer,id,false);service.transition(customer,id,false);
     assertEquals(0,inventory("booked"));
@@ -164,7 +143,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
   }
   @Test void expiredConfirmCommitsReleaseAndCannotResurrect() {
     var id=hold();db.update("UPDATE hotel_booking SET expires_at=clock_timestamp()-interval '1 second' WHERE id=?",id);
-    var ex=assertThrows(TripServiceException.class,()->service.transition(customer,id,true));
+    var ex=assertThrows(TripServiceException.class,()->service.transition(owner,id,true));
     assertEquals("HOTEL_HOLD_EXPIRED",ex.code());assertEquals(0,inventory("held"));
     jobs.tick();assertEquals(0,inventory("held"));
     assertEquals("EXPIRED",db.queryForObject("SELECT status FROM hotel_booking WHERE id=?",String.class,id));
@@ -178,11 +157,11 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
   }
   @Test void suspendedPropertyCannotConfirmButCancellationStillWorks() {
     var id=hold();db.update("UPDATE partner_business SET operation_state='SUSPENDED' WHERE id=?",businessId);
-    assertThrows(TripServiceException.class,()->service.transition(customer,id,true));
+    assertThrows(TripServiceException.class,()->service.transition(owner,id,true));
     service.transition(customer,id,false);assertEquals(0,inventory("held"));
   }
   @Test void outboxReplayAndEmailRetriesDoNotCreateDuplicateJobs() throws Exception {
-    service.transition(customer,hold(),true);jobs.dispatch();
+    service.transition(owner,hold(),true);jobs.dispatch();
     int count=db.queryForObject("SELECT count(*) FROM hotel_notification",Integer.class);
     db.update("UPDATE hotel_outbox SET processed_at=NULL");jobs.dispatch();
     assertEquals(count,db.queryForObject("SELECT count(*) FROM hotel_notification",Integer.class));
@@ -194,7 +173,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     assertEquals("CONFIRMED",db.queryForObject("SELECT status FROM hotel_booking",String.class));
   }
   @Test void oldAmbiguousDeliveryIsDeadLetteredWithoutSending() throws Exception {
-    service.transition(customer,hold(),true);jobs.dispatch();db.update("UPDATE hotel_email_delivery SET first_attempt=clock_timestamp()-interval '24 hours'");jobs.deliver();
+    service.transition(owner,hold(),true);jobs.dispatch();db.update("UPDATE hotel_email_delivery SET first_attempt=clock_timestamp()-interval '24 hours'");jobs.deliver();
     verifyNoInteractions(mail);
     assertFalse(service.deliveries(admin).isEmpty());
     assertThrows(TripServiceException.class,()->service.deliveries(customer));
@@ -217,14 +196,14 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     var id=hold();db.update("UPDATE hotel_booking SET expires_at=clock_timestamp()-interval '1 second' WHERE id=?",id);
     try(var pool=Executors.newFixedThreadPool(2)) {
       var expiry=pool.submit(()->service.expire());
-      var confirm=pool.submit(()->assertThrows(TripServiceException.class,()->service.transition(customer,id,true)));
+      var confirm=pool.submit(()->assertThrows(TripServiceException.class,()->service.transition(owner,id,true)));
       expiry.get(15,TimeUnit.SECONDS);confirm.get(15,TimeUnit.SECONDS);
     }
     assertEquals(0,inventory("held"));assertEquals(0,inventory("booked"));
     assertEquals(1,db.queryForObject("SELECT count(*) FROM hotel_outbox WHERE event_type='BOOKING_EXPIRED'",Integer.class));
   }
   @Test void failedNotificationNeverRollsBackConfirmedBookingAndRetriesUseSameIds() throws Exception {
-    service.transition(customer,hold(),true);jobs.dispatch();
+    service.transition(owner,hold(),true);jobs.dispatch();
     var attempted=new ArrayList<UUID>();
     doAnswer(call->{attempted.add((UUID)((Map<?,?>)call.getArgument(0)).get("id"));throw new IllegalStateException("ambiguous response");}).when(mail).send(any());
     jobs.deliver();var first=List.copyOf(attempted);attempted.clear();
@@ -241,13 +220,18 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
 
   @Test void checkInAndCheckOutLifecycle() {
     var id = hold();
-    service.transition(customer, id, true);
+    service.transition(owner, id, true);
     assertEquals("CONFIRMED", db.queryForObject("SELECT status FROM hotel_booking WHERE id=?", String.class, id));
 
     assertThrows(TripServiceException.class, () -> service.checkIn(other, id, 0L));
 
     var ex = assertThrows(TripServiceException.class, () -> service.checkIn(owner, id, 99L));
     assertEquals("HOTEL_VERSION_CONFLICT", ex.code());
+
+    var earlyEx = assertThrows(TripServiceException.class, () -> service.checkIn(owner, id, 0L));
+    assertEquals("HOTEL_CHECK_IN_TOO_EARLY", earlyEx.code());
+
+    db.update("UPDATE hotel_booking SET check_in = CURRENT_DATE WHERE id=?", id);
 
     var checkedIn = service.checkIn(owner, id, 0L);
     assertEquals("CHECKED_IN", checkedIn.get("status"));
@@ -266,7 +250,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
 
   @Test void noShowEnforcement() {
     var id = hold();
-    service.transition(customer, id, true);
+    service.transition(owner, id, true);
 
     var ex = assertThrows(TripServiceException.class, () -> service.noShow(owner, id, 0L));
     assertEquals("HOTEL_NO_SHOW_EARLY", ex.code());
@@ -280,7 +264,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
 
   @Test void propertyCancelWithReasonAndRelease() {
     var id = hold();
-    service.transition(customer, id, true);
+    service.transition(owner, id, true);
     assertEquals(2, inventory("booked"));
 
     var ex = assertThrows(TripServiceException.class, () -> service.propertyCancel(owner, id, 0L, "  "));
@@ -295,7 +279,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
 
   @Test void freeCancellationCutoffEnforcement() {
     var id = hold();
-    service.transition(customer, id, true);
+    service.transition(owner, id, true);
 
     db.update("UPDATE hotel_booking SET free_cancellation_until = clock_timestamp() - interval '1 minute' WHERE id=?", id);
 
@@ -305,9 +289,10 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
 
   @Test void dutyOfServiceContinuesUnderSuspension() {
     var id = hold();
-    service.transition(customer, id, true);
+    service.transition(owner, id, true);
 
     db.update("UPDATE partner_business SET operation_state='SUSPENDED' WHERE id=?", businessId);
+    db.update("UPDATE hotel_booking SET check_in = CURRENT_DATE WHERE id=?", id);
 
     var checkedIn = service.checkIn(owner, id, 0L);
     assertEquals("CHECKED_IN", checkedIn.get("status"));
@@ -373,7 +358,7 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
         """);
 
     service.applyVoucher(customer, id, "LIFECYCLE");
-    service.transition(customer, id, true);
+    service.transition(owner, id, true);
 
     int usageAfterConfirm = db.queryForObject("SELECT usage_count FROM hotel_voucher WHERE code='LIFECYCLE'", Integer.class);
     assertEquals(1, usageAfterConfirm);
@@ -381,18 +366,5 @@ class HotelReservationIntegrationTest extends RealInfrastructureTest {
     service.transition(customer, id, false);
     int usageAfterCancel = db.queryForObject("SELECT usage_count FROM hotel_voucher WHERE code='LIFECYCLE'", Integer.class);
     assertEquals(0, usageAfterCancel);
-  }
-
-  @Test void voucherRejectedWhenPaymentInProgress() {
-    var id = hold();
-    db.update("""
-        INSERT INTO hotel_voucher(code, title, discount_type, discount_value, min_order_amount, valid_from, valid_until, usage_limit)
-        VALUES ('INPROGRESS', 'In Progress', 'FIXED_AMOUNT', 50000, 100000, now() - interval '1 hour', now() + interval '1 day', 10)
-        ON CONFLICT (code) DO NOTHING
-        """);
-    db.update("INSERT INTO hotel_payos_payment(booking_id, amount, currency, state, expires_at) VALUES (?, 1000000, 'VND', 'PENDING', now() + interval '10 minutes')", id);
-
-    var ex = assertThrows(TripServiceException.class, () -> service.applyVoucher(customer, id, "INPROGRESS"));
-    assertEquals("HOTEL_PAYMENT_IN_PROGRESS", ex.code());
   }
 }

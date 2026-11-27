@@ -9,7 +9,6 @@ import { getSafeErrorMessage } from "@/services/error-sanitizer";
 import { getBusinessApplications, getPartnerContext, updateIntakeState } from "@/features/partner/services/partner-api";
 import type { BusinessDetailDto } from "@/features/partner/types";
 import { hotelApi } from "../services/hotels-api";
-import { HotelCommerce } from "./hotel-commerce";
 import { HotelAmPmTimeField } from "./hotel-ampm-time-field";
 import { formatHotelTime } from "../utils/hotel-time";
 import type { HotelProperty, HotelRoom, HotelInventory, HotelBooking } from "../types";
@@ -18,7 +17,6 @@ import {
   BedDouble,
   CalendarDays,
   Users,
-  DollarSign,
   RefreshCw,
   Plus,
   CheckCircle2,
@@ -27,7 +25,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-type PartnerTab = "properties" | "inventory" | "guests" | "commerce";
+type PartnerTab = "properties" | "inventory" | "guests";
 
 export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () => void }) {
   const { t } = useTranslation();
@@ -386,7 +384,6 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
           { key: "properties", label: t("trip.hotels.tabProperties", { defaultValue: "Cơ sở & Loại phòng" }), icon: Building2 },
           { key: "inventory", label: t("trip.hotels.tabInventory", { defaultValue: "Lịch phòng & Giá" }), icon: CalendarDays },
           { key: "guests", label: t("trip.hotels.tabGuests", { defaultValue: "Quản lý khách lưu trú" }), icon: Users, badge: bookings.length },
-          { key: "commerce", label: t("trip.hotels.tabCommerce", { defaultValue: "Quyết toán doanh thu" }), icon: DollarSign },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -986,13 +983,6 @@ export function PartnerHotelWorkspace({ onBackToStays }: { onBackToStays?: () =>
               })}
             </div>
           )}
-        </div>
-      )}
-
-      {/* TAB 4: COMMERCE & STATEMENTS */}
-      {activeTab === "commerce" && (
-        <div className="space-y-4">
-          <HotelCommerce />
         </div>
       )}
     </div>
