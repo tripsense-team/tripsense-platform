@@ -16,8 +16,10 @@ public class TripSensePlaceProperties {
 
   private CacheProperties cache = new CacheProperties();
   private SearchProperties search = new SearchProperties();
-  private String recommendationServiceUrl = "http://localhost:8088";
+  private String recommendationServiceUrl = "";
   private String recommendationInternalApiKey = "";
+  private RecommendationIndexingProperties recommendationIndexing =
+      new RecommendationIndexingProperties();
 
   @Data
   public static class CacheProperties {
@@ -31,5 +33,15 @@ public class TripSensePlaceProperties {
   public static class SearchProperties {
     private int minLocalResults = 5;
     private boolean localOnly = false;
+  }
+
+  @Data
+  public static class RecommendationIndexingProperties {
+    private boolean enabled = false;
+    private int batchSize = 50;
+    private int maxAttempts = 8;
+    private long dispatchDelayMs = 5000;
+    private long leaseSeconds = 90;
+    private long reconciliationDelayMs = 21600000;
   }
 }

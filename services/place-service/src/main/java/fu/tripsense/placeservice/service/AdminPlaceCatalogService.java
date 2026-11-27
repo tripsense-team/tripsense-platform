@@ -1,10 +1,10 @@
 package fu.tripsense.placeservice.service;
 
-import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceMediaAsset;
 import fu.tripsense.placeservice.domain.model.PlaceLifecycleStatus;
 import fu.tripsense.placeservice.domain.model.PlaceManagementSource;
+import fu.tripsense.placeservice.domain.model.PlaceRecommendationIndexJob.Operation;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.AdminPlaceCatalogDtos.Detail;
 import fu.tripsense.placeservice.dto.AdminPlaceCatalogDtos.Location;
@@ -45,22 +45,24 @@ public class AdminPlaceCatalogService {
   private static final Set<String> EDITABLE_FIELDS =
       Set.of("name", "primaryType", "categories", "location", "address", "oldAddress", "city",
           "district", "phone", "website", "socials", "openingHours", "businessStatus", "description");
+  private static final Set<String> SEMANTIC_FIELDS =
+      Set.of("name", "primaryType", "categories", "address", "city", "district", "description");
 
   private final MongoTemplate mongo;
   private final PlaceRepository repository;
   private final PlaceCacheService cache;
   private final PlacePersistenceService persistence;
-  private final RecommendationIndexerClient indexer;
+  private final PlaceRecommendationIndexQueue recommendationIndexQueue;
   private final PlaceMediaStorage mediaStorage;
 
   public AdminPlaceCatalogService(MongoTemplate mongo, PlaceRepository repository,
       PlaceCacheService cache, PlacePersistenceService persistence,
-      RecommendationIndexerClient indexer, PlaceMediaStorage mediaStorage) {
+      PlaceRecommendationIndexQueue recommendationIndexQueue, PlaceMediaStorage mediaStorage) {
     this.mongo = mongo;
     this.repository = repository;
     this.cache = cache;
     this.persistence = persistence;
-    this.indexer = indexer;
+    this.recommendationIndexQueue = recommendationIndexQueue;
     this.mediaStorage = mediaStorage;
   }
 
@@ -152,7 +154,7 @@ public class AdminPlaceCatalogService {
         .build();
     apply(place, value);
     Place saved = repository.save(place);
-    afterMutation(saved, false);
+    afterMutation(saved, false, true);
     return toDetail(saved);
   }
 
@@ -169,7 +171,8 @@ public class AdminPlaceCatalogService {
     if (!changedFields.isEmpty())
       update.addToSet("manualOverrideFields").each(changedFields.toArray());
     Place saved = mutate(id, version, activeCriteria(), update);
-    afterMutation(saved, false);
+    afterMutation(
+        saved, false, changedFields.stream().anyMatch(SEMANTIC_FIELDS::contains));
     return toDetail(saved);
   }
 
@@ -181,7 +184,7 @@ public class AdminPlaceCatalogService {
         .set("lastAdminAction", "ARCHIVE")
         .set("lastAdminRequestId", RequestDiagnostics.requestId())
         .set("updatedAt", now).inc("version", 1L));
-    afterMutation(saved, true);
+    afterMutation(saved, true, true);
   }
 
   public Detail restore(String id, long version, String actor) {
@@ -191,7 +194,7 @@ public class AdminPlaceCatalogService {
         .set("lastAdminAction", "RESTORE")
         .set("lastAdminRequestId", RequestDiagnostics.requestId())
         .set("updatedAt", Instant.now()).inc("version", 1L));
-    afterMutation(saved, false);
+    afterMutation(saved, false, true);
     return toDetail(saved);
   }
 
@@ -213,12 +216,10 @@ public class AdminPlaceCatalogService {
     return Criteria.where("version").is(version);
   }
 
-  private void afterMutation(Place place, boolean archived) {
+  private void afterMutation(Place place, boolean archived, boolean enqueueRecommendation) {
     cache.invalidatePlaceCatalog(place.getId());
-    if (archived) indexer.triggerDeindexingAsync(place.getId());
-    else {
-      var snapshot = persistence.toDto(place);
-      if (snapshot != null) indexer.triggerIndexingAsync(List.of(snapshot));
+    if (enqueueRecommendation) {
+      recommendationIndexQueue.enqueue(place, archived ? Operation.DELETE : Operation.UPSERT);
     }
   }
 

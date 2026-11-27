@@ -216,6 +216,9 @@ public class RecommendationProperties {
     private String embeddingBaseUrl = "";
     private String embeddingApiKey = "";
     private String embeddingModel = "text-embedding-3-small";
+    @Min(1)
+    @Max(10000)
+    private int embeddingDimensions = 1536;
     private String qdrantUrl = "http://qdrant:6333";
     private String qdrantApiKey = "";
     private String collection = "tripsense_places";
@@ -225,6 +228,13 @@ public class RecommendationProperties {
   @Data
   public static class Feedback {
     private Duration maxClockSkew = Duration.ofMinutes(10);
+
+    @Min(1)
+    @Max(50)
+    private int maxBatchSize = 50;
+
+    @Min(1)
+    private int eventsPerMinute = 120;
 
     @Min(1)
     private int maxHistoryEvents = 5000;

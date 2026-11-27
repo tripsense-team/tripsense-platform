@@ -5,6 +5,7 @@ import fu.tripsense.recommendation.domain.PlaceSnapshot;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
@@ -26,7 +27,9 @@ public record PlaceIndexRequestItem(
     @Size(max = 2000) String openingHours,
     @Size(max = 80) String businessStatus,
     @Size(max = 5000) String description,
-    @Size(max = 80) String primaryType) {
+    @Size(max = 80) String primaryType,
+    @PositiveOrZero Long sourceVersion,
+    Instant sourceUpdatedAt) {
 
   public PlaceSnapshot toDomain() {
     GeoPoint location = (lat != null && lng != null) ? new GeoPoint(lat, lng) : null;

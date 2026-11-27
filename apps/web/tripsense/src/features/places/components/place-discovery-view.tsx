@@ -21,13 +21,20 @@ import {
 import { MindtripPlaceCard } from "./mindtrip-place-card";
 import { ForYouSections, SECTION_LABELS } from "./for-you-sections";
 import { useSectionFeed } from "../hooks/use-section-feed";
-import type { DiscoverySection } from "../services/recommendations-api";
+import type {
+  DiscoverySection,
+  RecommendationEventType,
+  WeakRecommendationEventType,
+} from "../services/recommendations-api";
 import { Button } from "@/components/ui/button";
 import { searchPlaces, getPlaceDetails } from "../services/places-api";
 import {
   getExploreForYou,
   recordRecommendationEvent,
+  recordRecommendationEvents,
 } from "../services/recommendations-api";
+import { RecommendationFeedbackBuffer } from "../services/recommendation-feedback-buffer";
+import { MeaningfulViewTimer } from "../services/meaningful-view-timer";
 import { useExploreStore } from "../store/use-explore-store";
 import type { Place } from "../types";
 import { useAuthStore } from "@/features/auth";
@@ -135,6 +142,7 @@ export function PlaceDiscoveryView() {
   const inMemoryGridCacheRef = React.useRef<Set<string>>(new Set());
   const recommendationRequestIdRef = React.useRef(0);
   const feedbackKeysRef = React.useRef<Set<string>>(new Set());
+  const feedbackBufferRef = React.useRef<RecommendationFeedbackBuffer | null>(null);
   const feedHeadingRef = React.useRef<HTMLDivElement | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [sessionId] = React.useState(() =>
@@ -142,6 +150,25 @@ export function PlaceDiscoveryView() {
       ? `explore.${crypto.randomUUID()}`
       : "explore.session",
   );
+
+  React.useEffect(() => {
+    const buffer = new RecommendationFeedbackBuffer((events, keepalive) =>
+      recordRecommendationEvents({ events, keepalive }),
+    );
+    feedbackBufferRef.current = buffer;
+    const flushOnHidden = () => {
+      if (document.visibilityState === "hidden") void buffer.flush(true);
+    };
+    const flushOnPageHide = () => void buffer.flush(true);
+    document.addEventListener("visibilitychange", flushOnHidden);
+    window.addEventListener("pagehide", flushOnPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", flushOnHidden);
+      window.removeEventListener("pagehide", flushOnPageHide);
+      feedbackBufferRef.current = null;
+      void buffer.flush(true).finally(() => buffer.dispose());
+    };
+  }, []);
 
   // In-memory cache for deep details
   const detailsCacheRef = React.useRef<Record<string, Place>>({});
@@ -877,21 +904,27 @@ export function PlaceDiscoveryView() {
   const emitFeedback = React.useCallback(
     async (
       placeId: string,
-      eventType:
-        | "IMPRESSION"
-        | "CLICK"
-        | "DETAIL_VIEW"
-        | "SAVE"
-        | "UNSAVE"
-        | "ADD_TO_TRIP"
-        | "REMOVE_FROM_TRIP",
+      eventType: RecommendationEventType,
     ) => {
       if (!isAuthenticated) return;
       const position = recommendationRanks[placeId];
       if (!recommendationId || !position) return;
       const key = `${recommendationId}:${placeId}:${eventType}`;
-      if (feedbackKeysRef.current.has(key)) return;
-      feedbackKeysRef.current.add(key);
+      const isWeakEvent =
+        eventType === "IMPRESSION" ||
+        eventType === "CLICK" ||
+        eventType === "DETAIL_VIEW";
+      if (isWeakEvent) {
+        if (feedbackKeysRef.current.has(key)) return;
+        const queued = feedbackBufferRef.current?.enqueue({
+          recommendationId,
+          placeId,
+          eventType: eventType as WeakRecommendationEventType,
+          position,
+        });
+        if (queued) feedbackKeysRef.current.add(key);
+        return;
+      }
       try {
         await recordRecommendationEvent({
           recommendationId,
@@ -901,9 +934,7 @@ export function PlaceDiscoveryView() {
           idempotencyKey: crypto.randomUUID(),
         });
       } catch {
-        if (eventType !== "IMPRESSION") {
-          feedbackKeysRef.current.delete(key);
-        }
+        // Telemetry failure must not roll back the completed user action.
       }
     },
     [isAuthenticated, recommendationId, recommendationRanks],
@@ -938,10 +969,9 @@ export function PlaceDiscoveryView() {
 
   const handleOpenDetailsForPlace = React.useCallback(
     (place: Place) => {
-      void emitFeedback(place.id, "DETAIL_VIEW");
       void handleOpenDetails(place);
     },
-    [emitFeedback, handleOpenDetails]
+    [handleOpenDetails]
   );
 
   const handleMapAddAndSelectPlace = React.useCallback(
@@ -963,10 +993,9 @@ export function PlaceDiscoveryView() {
 
   const handleMapViewDetails = React.useCallback(
     async (place: Place) => {
-      void emitFeedback(place.id, "DETAIL_VIEW");
       await handleOpenDetails(place, true, activeCategoryId !== "for-you");
     },
-    [activeCategoryId, emitFeedback, handleOpenDetails],
+    [activeCategoryId, handleOpenDetails],
   );
 
   const totalPages = Math.max(1, Math.ceil(places.length / PLACES_PER_PAGE));
@@ -984,6 +1013,36 @@ export function PlaceDiscoveryView() {
     [detailPlace, pagePlaces],
   );
   const { savedByPlace, tripsByPlace } = usePlaceActions(visiblePlaceRefs);
+
+  React.useEffect(() => {
+    if (
+      !isAuthenticated ||
+      !isDetailOpen ||
+      !detailPlace ||
+      !recommendationId ||
+      !recommendationRanks[detailPlace.id]
+    ) {
+      return;
+    }
+    const timer = new MeaningfulViewTimer(
+      () => void emitFeedback(detailPlace.id, "DETAIL_VIEW"),
+      () => document.visibilityState === "visible",
+    );
+    const handleVisibility = () => timer.restart();
+    document.addEventListener("visibilitychange", handleVisibility);
+    timer.restart();
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      timer.cancel();
+    };
+  }, [
+    detailPlace,
+    emitFeedback,
+    isAuthenticated,
+    isDetailOpen,
+    recommendationId,
+    recommendationRanks,
+  ]);
 
   React.useEffect(() => {
     if (!isAuthenticated || !recommendationId || pagePlaces.length === 0) return;

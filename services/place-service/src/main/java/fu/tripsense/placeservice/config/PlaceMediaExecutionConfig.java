@@ -21,6 +21,11 @@ public class PlaceMediaExecutionConfig {
     return executor(3, 6, "place-media-worker-");
   }
 
+  @Bean(destroyMethod = "shutdownNow")
+  public ThreadPoolExecutor placeRecommendationIndexExecutor() {
+    return executor(2, 100, "place-recommendation-index-");
+  }
+
   private ThreadPoolExecutor executor(int threads, int queueSize, String threadPrefix) {
     AtomicInteger sequence = new AtomicInteger();
     return new ThreadPoolExecutor(

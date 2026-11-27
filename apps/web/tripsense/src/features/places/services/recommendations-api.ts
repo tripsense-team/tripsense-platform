@@ -68,6 +68,41 @@ export interface SectionFeed {
   }>;
 }
 
+export type RecommendationEventType =
+  | "IMPRESSION"
+  | "CLICK"
+  | "DETAIL_VIEW"
+  | "SAVE"
+  | "UNSAVE"
+  | "ADD_TO_TRIP"
+  | "REMOVE_FROM_TRIP";
+
+export type WeakRecommendationEventType = Extract<
+  RecommendationEventType,
+  "IMPRESSION" | "CLICK" | "DETAIL_VIEW"
+>;
+
+export interface RecommendationBatchEvent {
+  eventId: string;
+  recommendationId: string;
+  placeId: string;
+  eventType: WeakRecommendationEventType;
+  position: number;
+  occurredAt: string;
+}
+
+export interface RecommendationBatchResponse {
+  submitted: number;
+  accepted: number;
+  duplicate: number;
+  rejected: number;
+  results: Array<{
+    eventId: string;
+    status: "ACCEPTED" | "DUPLICATE" | "REJECTED";
+    errorCode: string | null;
+  }>;
+}
+
 export async function getExploreSections(params: {
   destinationId: string;
   sessionId: string;
@@ -134,14 +169,7 @@ export async function getExploreForYou(params: {
 export async function recordRecommendationEvent(params: {
   recommendationId: string;
   placeId: string;
-  eventType:
-    | "IMPRESSION"
-    | "CLICK"
-    | "DETAIL_VIEW"
-    | "SAVE"
-    | "UNSAVE"
-    | "ADD_TO_TRIP"
-    | "REMOVE_FROM_TRIP";
+  eventType: RecommendationEventType;
   position: number;
   idempotencyKey: string;
 }): Promise<void> {
@@ -155,4 +183,19 @@ export async function recordRecommendationEvent(params: {
       occurredAt: new Date().toISOString(),
     }),
   });
+}
+
+export async function recordRecommendationEvents(params: {
+  events: RecommendationBatchEvent[];
+  keepalive?: boolean;
+}): Promise<RecommendationBatchResponse> {
+  const response = await apiClient<ApiResponse<RecommendationBatchResponse>>(
+    "/api/recommendations/events/batch",
+    {
+      method: "POST",
+      keepalive: params.keepalive ?? false,
+      body: JSON.stringify({ events: params.events }),
+    },
+  );
+  return response.data;
 }

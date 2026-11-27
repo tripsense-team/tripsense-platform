@@ -5,9 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
-import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceMediaAsset;
@@ -34,13 +34,15 @@ class AdminPlaceCatalogServiceTest {
   @Mock PlaceRepository repository;
   @Mock PlaceCacheService cache;
   @Mock PlacePersistenceService persistence;
-  @Mock RecommendationIndexerClient indexer;
+  @Mock PlaceRecommendationIndexQueue recommendationIndexQueue;
   @Mock PlaceMediaStorage mediaStorage;
   AdminPlaceCatalogService service;
 
   @BeforeEach
   void setUp() {
-    service = new AdminPlaceCatalogService(mongo, repository, cache, persistence, indexer, mediaStorage);
+    service =
+        new AdminPlaceCatalogService(
+            mongo, repository, cache, persistence, recommendationIndexQueue, mediaStorage);
   }
 
   @Test
@@ -106,6 +108,28 @@ class AdminPlaceCatalogServiceTest {
     assertThat(service.update("legacy-1", 4, request, "admin-1").description())
         .isEqualTo("Mô tả mới");
     verify(cache).invalidatePlaceCatalog("legacy-1");
+    verify(recommendationIndexQueue).enqueue(
+        eq(existing), eq(fu.tripsense.placeservice.domain.model.PlaceRecommendationIndexJob.Operation.UPSERT));
+  }
+
+  @Test
+  void nonSemanticAdminUpdateDoesNotEnqueueRecommendationIndexing() {
+    Place existing = Place.builder().id("place-1").name("Cầu Rồng")
+        .primaryType("tourist_attraction").categories(List.of("tourist_attraction"))
+        .location(new GeoJsonPoint(108.2276, 16.0611)).address("Đà Nẵng")
+        .city("Đà Nẵng").version(2L).build();
+    MutationRequest request = new MutationRequest(
+        "Cầu Rồng", "tourist_attraction", List.of("tourist_attraction"),
+        new Location(16.0611, 108.2276), "Đà Nẵng", null, "Đà Nẵng", null,
+        "0905000000", null, List.of(), null, null, null);
+    when(repository.findById("place-1")).thenReturn(Optional.of(existing));
+    when(mongo.findAndModify(any(Query.class), any(Update.class), any(FindAndModifyOptions.class),
+        eq(Place.class))).thenReturn(existing);
+
+    service.update("place-1", 2, request, "admin-1");
+
+    verify(cache).invalidatePlaceCatalog("place-1");
+    verify(recommendationIndexQueue, never()).enqueue(any(), any());
   }
 
   @Test

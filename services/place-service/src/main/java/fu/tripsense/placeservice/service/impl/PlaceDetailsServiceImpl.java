@@ -45,7 +45,6 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
   private final PlaceEnrichmentProvider enrichmentProvider;
   private final PlaceCacheService cache;
   private final PlacePersistenceService persistence;
-  private final RecommendationIndexerClient recommendationIndexerClient;
   private final PlaceCloudinaryStorageService cloudinaryStorageService;
   private final int lazyPhotoLimit;
   private final Object[] photoHealLocks = createLockStripes();
@@ -77,7 +76,15 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
       PlaceEnrichmentProvider enrichmentProvider,
       PlaceCacheService cache,
       PlacePersistenceService persistence) {
-    this(repository, provider, enrichmentProvider, cache, persistence, null, null);
+    this(
+        repository,
+        provider,
+        enrichmentProvider,
+        cache,
+        persistence,
+        null,
+        null,
+        DEFAULT_LAZY_PHOTO_LIMIT);
   }
 
   public PlaceDetailsServiceImpl(
@@ -86,8 +93,16 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
       PlaceEnrichmentProvider enrichmentProvider,
       PlaceCacheService cache,
       PlacePersistenceService persistence,
-      RecommendationIndexerClient recommendationIndexerClient) {
-    this(repository, provider, enrichmentProvider, cache, persistence, recommendationIndexerClient, null);
+      PlaceCloudinaryStorageService cloudinaryStorageService) {
+    this(
+        repository,
+        provider,
+        enrichmentProvider,
+        cache,
+        persistence,
+        null,
+        cloudinaryStorageService,
+        DEFAULT_LAZY_PHOTO_LIMIT);
   }
 
   public PlaceDetailsServiceImpl(
@@ -124,7 +139,6 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
     this.enrichmentProvider = enrichmentProvider;
     this.cache = cache;
     this.persistence = persistence;
-    this.recommendationIndexerClient = recommendationIndexerClient;
     this.cloudinaryStorageService = cloudinaryStorageService;
     this.lazyPhotoLimit = Math.max(1, Math.min(lazyPhotoLimit, 5));
   }
@@ -217,7 +231,6 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
               });
     }
 
-    finalResult.ifPresent(this::triggerRecommendationIndexing);
     return finalResult;
   }
 
@@ -342,12 +355,6 @@ public class PlaceDetailsServiceImpl implements PlaceDetailsService {
                     && photo.fetchedAt().isAfter(now.minus(PHOTO_URL_TTL)))
         .limit(5)
         .toList();
-  }
-
-  private void triggerRecommendationIndexing(PlaceDto place) {
-    if (recommendationIndexerClient != null && place != null) {
-      recommendationIndexerClient.triggerIndexingAsync(List.of(place));
-    }
   }
 
   private void persistPhotoUrls(PlaceDto place, List<String> photoUrls) {

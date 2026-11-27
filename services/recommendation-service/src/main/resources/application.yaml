@@ -88,6 +88,7 @@ tripsense:
       embedding-base-url: ${EMBEDDING_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
       embedding-api-key: ${EMBEDDING_API_KEY:}
       embedding-model: ${EMBEDDING_MODEL:gemini-embedding-001}
+      embedding-dimensions: ${EMBEDDING_DIMENSIONS:1536}
       qdrant-url: ${QDRANT_URL:http://localhost:6333}
       qdrant-api-key: ${QDRANT_API_KEY:}
       collection: ${QDRANT_PLACE_COLLECTION:tripsense_places}
@@ -99,9 +100,11 @@ tripsense:
       last-known-good-ttl: ${EXPLORE_RECOMMENDATION_LKG_TTL:24h}
       cache-key-secret: ${RECOMMENDATION_CACHE_KEY_SECRET:tripsense-default-cache-key-secret-32b}
     security:
-      internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:tripsense-internal-recommendation-key-sec-2026}
+      internal-api-key: ${RECOMMENDATION_INTERNAL_API_KEY:}
     feedback:
       max-clock-skew: ${RECOMMENDATION_FEEDBACK_MAX_CLOCK_SKEW:10m}
+      max-batch-size: ${RECOMMENDATION_FEEDBACK_MAX_BATCH_SIZE:50}
+      events-per-minute: ${RECOMMENDATION_FEEDBACK_EVENTS_PER_MINUTE:120}
       max-history-events: ${RECOMMENDATION_MAX_HISTORY_EVENTS:5000}
     taxonomy:
       category-aliases:

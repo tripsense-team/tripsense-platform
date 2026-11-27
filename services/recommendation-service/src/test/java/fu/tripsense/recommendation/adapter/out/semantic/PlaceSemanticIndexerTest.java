@@ -36,7 +36,7 @@ class PlaceSemanticIndexerTest {
   @DisplayName("Should embed and upsert vector when place is new (no stored hash)")
   void shouldEmbedAndUpsertWhenNew() {
     PlaceSnapshot place = samplePlace("p1", "Highlands Coffee");
-    when(vectorSearchClient.storedContentHash("p1")).thenReturn(Optional.empty());
+    when(vectorSearchClient.storedMetadata("p1")).thenReturn(Optional.empty());
     when(embeddingClient.embed(any())).thenReturn(List.of(0.1, 0.2, 0.3));
     when(embeddingClient.modelVersion()).thenReturn("gemini-embedding-001");
 
@@ -45,7 +45,13 @@ class PlaceSemanticIndexerTest {
     assertThat(indexed).isTrue();
     verify(embeddingClient).embed(any());
     verify(vectorSearchClient)
-        .upsert(eq("p1"), eq(List.of(0.1, 0.2, 0.3)), eq("gemini-embedding-001"), any());
+        .upsert(
+            eq("p1"),
+            eq(List.of(0.1, 0.2, 0.3)),
+            eq("gemini-embedding-001"),
+            any(),
+            eq(null),
+            eq(null));
   }
 
   @Test
@@ -54,13 +60,18 @@ class PlaceSemanticIndexerTest {
     PlaceSnapshot place = samplePlace("p1", "Highlands Coffee");
     PlaceSemanticDocument doc = documentBuilder.build(place);
 
-    when(vectorSearchClient.storedContentHash("p1")).thenReturn(Optional.of(doc.contentHash()));
+    when(embeddingClient.modelVersion()).thenReturn("gemini-embedding-001");
+    when(vectorSearchClient.storedMetadata("p1"))
+        .thenReturn(
+            Optional.of(
+                new VectorSearchClient.StoredVectorMetadata(
+                    doc.contentHash(), null, null, "gemini-embedding-001")));
 
     boolean indexed = indexer.indexIfChanged(place);
 
     assertThat(indexed).isFalse();
     verify(embeddingClient, never()).embed(any());
-    verify(vectorSearchClient, never()).upsert(any(), any(), any(), any());
+    verify(vectorSearchClient, never()).upsert(any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -68,7 +79,11 @@ class PlaceSemanticIndexerTest {
   void shouldReindexWhenContentHashChanged() {
     PlaceSnapshot place = samplePlace("p1", "Highlands Coffee");
 
-    when(vectorSearchClient.storedContentHash("p1")).thenReturn(Optional.of("old-hash-123"));
+    when(vectorSearchClient.storedMetadata("p1"))
+        .thenReturn(
+            Optional.of(
+                new VectorSearchClient.StoredVectorMetadata(
+                    "old-hash-123", null, null, "gemini-embedding-001")));
     when(embeddingClient.embed(any())).thenReturn(List.of(0.4, 0.5));
     when(embeddingClient.modelVersion()).thenReturn("gemini-embedding-001");
 
@@ -77,7 +92,13 @@ class PlaceSemanticIndexerTest {
     assertThat(indexed).isTrue();
     verify(embeddingClient).embed(any());
     verify(vectorSearchClient)
-        .upsert(eq("p1"), eq(List.of(0.4, 0.5)), eq("gemini-embedding-001"), any());
+        .upsert(
+            eq("p1"),
+            eq(List.of(0.4, 0.5)),
+            eq("gemini-embedding-001"),
+            any(),
+            eq(null),
+            eq(null));
   }
 
   private PlaceSnapshot samplePlace(String id, String name) {

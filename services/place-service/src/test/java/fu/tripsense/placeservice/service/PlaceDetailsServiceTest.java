@@ -9,7 +9,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import fu.tripsense.placeservice.client.RecommendationIndexerClient;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceReview;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
@@ -38,7 +37,6 @@ class PlaceDetailsServiceTest {
   @Mock private PlaceEnrichmentProvider enrichmentProvider;
   @Mock private PlaceCacheService cache;
   @Mock private PlacePersistenceService persistence;
-  @Mock private RecommendationIndexerClient recommendationIndexerClient;
 
   private PlaceDetailsService service;
 
@@ -50,8 +48,7 @@ class PlaceDetailsServiceTest {
             provider,
             enrichmentProvider,
             cache,
-            persistence,
-            recommendationIndexerClient);
+            persistence);
   }
 
   @Test
@@ -240,7 +237,7 @@ class PlaceDetailsServiceTest {
   }
 
   @Test
-  void triggersIndexingOnPlaceDetailsLookup() {
+  void detailsLookupHasNoRecommendationIndexingSideEffect() {
     Place entity = completeEntity(Instant.now());
     PlaceDto dto = completeDto();
     when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
@@ -249,7 +246,7 @@ class PlaceDetailsServiceTest {
 
     service.getDetails("place-1", null, null, null);
 
-    verify(recommendationIndexerClient).triggerIndexingAsync(any());
+    verify(repository).findById("place-1");
   }
 
   @Test
@@ -313,7 +310,6 @@ class PlaceDetailsServiceTest {
             enrichmentProvider,
             cache,
             persistence,
-            recommendationIndexerClient,
             mockCloudinary);
 
     when(cache.getPlaceDetails("place-1")).thenReturn(Optional.empty());
@@ -368,7 +364,7 @@ class PlaceDetailsServiceTest {
             enrichmentProvider,
             cache,
             persistence,
-            recommendationIndexerClient,
+            null,
             mockCloudinary);
 
     when(repository.findAllById(List.of("place-1", "place-2")))
@@ -419,7 +415,7 @@ class PlaceDetailsServiceTest {
             enrichmentProvider,
             cache,
             persistence,
-            recommendationIndexerClient,
+            null,
             mockCloudinary);
 
     when(cache.getPlaceDetails("place-fail")).thenReturn(Optional.empty());
@@ -469,7 +465,7 @@ class PlaceDetailsServiceTest {
             enrichmentProvider,
             cache,
             persistence,
-            recommendationIndexerClient,
+            null,
             org.mockito.Mockito.mock(PlaceCloudinaryStorageService.class),
             3);
 

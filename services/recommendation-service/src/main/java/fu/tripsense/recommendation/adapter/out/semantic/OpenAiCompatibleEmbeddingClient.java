@@ -47,7 +47,12 @@ public class OpenAiCompatibleEmbeddingClient implements EmbeddingClient {
         request
             .body(
                 Map.of(
-                    "model", properties.getEmbeddingModel(), "input", content, "dimensions", 1536))
+                    "model",
+                    properties.getEmbeddingModel(),
+                    "input",
+                    content,
+                    "dimensions",
+                    properties.getEmbeddingDimensions()))
             .retrieve()
             .body(String.class);
 

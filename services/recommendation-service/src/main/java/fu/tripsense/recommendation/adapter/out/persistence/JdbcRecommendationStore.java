@@ -8,6 +8,8 @@ import fu.tripsense.recommendation.algorithm.profile.ObservedSignalReducer;
 import fu.tripsense.recommendation.algorithm.profile.ProfileSegment;
 import fu.tripsense.recommendation.application.FeedbackCommand;
 import fu.tripsense.recommendation.application.FeedbackConflictException;
+import fu.tripsense.recommendation.application.FeedbackRecordResult;
+import fu.tripsense.recommendation.application.FeedbackRecordStatus;
 import fu.tripsense.recommendation.application.FeedbackValidationException;
 import fu.tripsense.recommendation.application.RequestDiagnostics;
 import fu.tripsense.recommendation.application.port.FeedbackRecorder;
@@ -26,7 +28,9 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -164,102 +168,263 @@ public class JdbcRecommendationStore
   @Override
   @Transactional
   public void recordFeedback(FeedbackCommand command, Instant receivedAt) {
-    ImpressionRow row =
-        jdbc
-            .query(
-                """
-                SELECT i.user_id, i.trip_id, i.session_id, i.ranking_version, i.feature_version,
-                       item.position
-                FROM recommendation_impression i
-                JOIN recommendation_impression_item item
-                  ON item.recommendation_id = i.recommendation_id
-                WHERE i.recommendation_id = ? AND item.place_id = ?
-                """,
-                (rs, index) ->
+    FeedbackRecordResult result = recordFeedbackBatch(List.of(command), receivedAt).getFirst();
+    if (result.status() == FeedbackRecordStatus.REJECTED) {
+      if ("IDEMPOTENCY_CONFLICT".equals(result.errorCode())) {
+        throw new FeedbackConflictException(
+            "Idempotency key was already used for different feedback");
+      }
+      throw new FeedbackValidationException("Feedback does not match the shown recommendation");
+    }
+  }
+
+  @Override
+  @Transactional
+  public List<FeedbackRecordResult> recordFeedbackBatch(
+      List<FeedbackCommand> commands, Instant receivedAt) {
+    if (commands.isEmpty()) return List.of();
+
+    UUID userId = commands.getFirst().userId();
+    Map<ItemKey, ImpressionRow> impressions = readImpressionRows(userId, commands);
+    Map<UUID, FeedbackRecordResult> results = new HashMap<>();
+    List<PendingFeedback> pending = new ArrayList<>();
+    for (FeedbackCommand command : commands) {
+      ImpressionRow row =
+          impressions.get(new ItemKey(command.recommendationId(), command.placeId()));
+      if (row == null || row.position() != command.position()) {
+        results.put(
+            command.idempotencyKey(),
+            FeedbackRecordResult.rejected(command.idempotencyKey(), "INVALID_EVENT"));
+        continue;
+      }
+      pending.add(
+          new PendingFeedback(
+              UUID.randomUUID(), command, row, semanticDedupKey(command)));
+    }
+
+    Set<UUID> insertedEventIds = insertFeedbackRows(pending, receivedAt);
+    List<PendingFeedback> inserted = new ArrayList<>();
+    List<PendingFeedback> conflicted = new ArrayList<>();
+    for (PendingFeedback candidate : pending) {
+      if (insertedEventIds.contains(candidate.databaseEventId())) {
+        inserted.add(candidate);
+        results.put(
+            candidate.command().idempotencyKey(),
+            FeedbackRecordResult.accepted(candidate.command().idempotencyKey()));
+      } else {
+        conflicted.add(candidate);
+      }
+    }
+
+    if (!conflicted.isEmpty()) {
+      classifyConflicts(userId, conflicted, results);
+    }
+    if (!inserted.isEmpty()) {
+      insertOutboxRows(inserted, receivedAt);
+    }
+    return commands.stream().map(command -> results.get(command.idempotencyKey())).toList();
+  }
+
+  private Map<ItemKey, ImpressionRow> readImpressionRows(
+      UUID userId, List<FeedbackCommand> commands) {
+    Map<ItemKey, FeedbackCommand> unique = new LinkedHashMap<>();
+    for (FeedbackCommand command : commands) {
+      unique.putIfAbsent(new ItemKey(command.recommendationId(), command.placeId()), command);
+    }
+    String pairs = String.join(", ", java.util.Collections.nCopies(unique.size(), "(?, ?)"));
+    List<Object> arguments = new ArrayList<>();
+    arguments.add(userId);
+    unique.keySet().forEach(
+        key -> {
+          arguments.add(key.recommendationId());
+          arguments.add(key.placeId());
+        });
+    List<ImpressionItemRow> rows =
+        jdbc.query(
+            """
+            SELECT i.recommendation_id, item.place_id, i.trip_id, i.session_id,
+                   i.ranking_version, i.feature_version, item.position
+            FROM recommendation_impression i
+            JOIN recommendation_impression_item item
+              ON item.recommendation_id = i.recommendation_id
+            WHERE i.user_id = ?
+              AND (i.recommendation_id, item.place_id) IN (%s)
+            """
+                .formatted(pairs),
+            (rs, index) ->
+                new ImpressionItemRow(
+                    new ItemKey(
+                        rs.getObject("recommendation_id", UUID.class),
+                        rs.getString("place_id")),
                     new ImpressionRow(
-                        rs.getObject("user_id", UUID.class),
                         rs.getObject("trip_id", UUID.class),
                         rs.getString("session_id"),
                         rs.getString("ranking_version"),
                         rs.getString("feature_version"),
-                        rs.getInt("position")),
-                command.recommendationId(),
-                command.placeId())
-            .stream()
-            .findFirst()
-            .orElseThrow(() -> new FeedbackValidationException("Recommendation item not found"));
-    if (!row.userId().equals(command.userId()) || row.position() != command.position()) {
-      throw new FeedbackValidationException("Feedback does not match the shown recommendation");
+                        rs.getInt("position"))),
+            arguments.toArray());
+    Map<ItemKey, ImpressionRow> byItem = new HashMap<>();
+    rows.forEach(row -> byItem.put(row.key(), row.impression()));
+    return byItem;
+  }
+
+  private Set<UUID> insertFeedbackRows(List<PendingFeedback> pending, Instant receivedAt) {
+    if (pending.isEmpty()) return Set.of();
+    String values =
+        String.join(
+            ", ",
+            java.util.Collections.nCopies(
+                pending.size(), "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+    List<Object> arguments = new ArrayList<>(pending.size() * 14);
+    for (PendingFeedback item : pending) {
+      FeedbackCommand command = item.command();
+      ImpressionRow row = item.impression();
+      java.util.Collections.addAll(
+          arguments,
+          item.databaseEventId(),
+          command.idempotencyKey(),
+          command.recommendationId(),
+          command.userId(),
+          row.tripId(),
+          row.sessionId(),
+          command.placeId(),
+          command.eventType().name(),
+          command.position(),
+          sqlTimestamp(command.occurredAt()),
+          sqlTimestamp(receivedAt),
+          row.rankingVersion(),
+          row.featureVersion(),
+          item.dedupKey());
     }
-    UUID eventId = UUID.randomUUID();
-    int inserted =
-        jdbc.update(
+    return new HashSet<>(
+        jdbc.query(
             """
-          INSERT INTO recommendation_feedback_event
-            (event_id, idempotency_key, recommendation_id, user_id, trip_id, session_id,
-             place_id, event_type, position, occurred_at, received_at,
-             ranking_version, feature_version)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT (user_id, idempotency_key) DO NOTHING
-          """,
-            eventId,
+            INSERT INTO recommendation_feedback_event
+              (event_id, idempotency_key, recommendation_id, user_id, trip_id, session_id,
+               place_id, event_type, position, occurred_at, received_at,
+               ranking_version, feature_version, dedup_key)
+            VALUES %s
+            ON CONFLICT DO NOTHING
+            RETURNING event_id
+            """
+                .formatted(values),
+            (rs, index) -> rs.getObject("event_id", UUID.class),
+            arguments.toArray()));
+  }
+
+  private void classifyConflicts(
+      UUID userId,
+      List<PendingFeedback> conflicted,
+      Map<UUID, FeedbackRecordResult> results) {
+    String idPlaceholders =
+        String.join(", ", java.util.Collections.nCopies(conflicted.size(), "?"));
+    List<String> dedupKeys =
+        conflicted.stream()
+            .map(PendingFeedback::dedupKey)
+            .filter(java.util.Objects::nonNull)
+            .toList();
+    String dedupPredicate =
+        dedupKeys.isEmpty()
+            ? "FALSE"
+            : "dedup_key IN ("
+                + String.join(", ", java.util.Collections.nCopies(dedupKeys.size(), "?"))
+                + ")";
+    List<Object> arguments = new ArrayList<>();
+    arguments.add(userId);
+    conflicted.forEach(item -> arguments.add(item.command().idempotencyKey()));
+    arguments.addAll(dedupKeys);
+    List<ExistingFeedback> existing =
+        jdbc.query(
+            """
+            SELECT idempotency_key, recommendation_id, place_id, event_type, position,
+                   occurred_at, dedup_key
+            FROM recommendation_feedback_event
+            WHERE user_id = ?
+              AND (idempotency_key IN (%s) OR %s)
+            """
+                .formatted(idPlaceholders, dedupPredicate),
+            (rs, index) ->
+                new ExistingFeedback(
+                    rs.getObject("idempotency_key", UUID.class),
+                    new FeedbackIdentity(
+                        rs.getObject("recommendation_id", UUID.class),
+                        rs.getString("place_id"),
+                        FeedbackEventType.valueOf(rs.getString("event_type")),
+                        rs.getInt("position"),
+                        rs.getTimestamp("occurred_at").toInstant()),
+                    rs.getString("dedup_key")),
+            arguments.toArray());
+    Map<UUID, ExistingFeedback> byIdempotency = new HashMap<>();
+    Map<String, ExistingFeedback> byDedup = new HashMap<>();
+    for (ExistingFeedback row : existing) {
+      byIdempotency.put(row.idempotencyKey(), row);
+      if (row.dedupKey() != null) byDedup.put(row.dedupKey(), row);
+    }
+    for (PendingFeedback item : conflicted) {
+      FeedbackCommand command = item.command();
+      ExistingFeedback sameId = byIdempotency.get(command.idempotencyKey());
+      if (sameId != null) {
+        results.put(
             command.idempotencyKey(),
-            command.recommendationId(),
-            command.userId(),
-            row.tripId(),
-            row.sessionId(),
-            command.placeId(),
-            command.eventType().name(),
-            command.position(),
-            sqlTimestamp(command.occurredAt()),
-            sqlTimestamp(receivedAt),
-            row.rankingVersion(),
-            row.featureVersion());
-    if (inserted == 0) {
-      FeedbackIdentity existing =
-          jdbc
-              .query(
-                  """
-                  SELECT recommendation_id, place_id, event_type, position
-                  FROM recommendation_feedback_event
-                  WHERE user_id = ? AND idempotency_key = ?
-                  """,
-                  (rs, index) ->
-                      new FeedbackIdentity(
-                          rs.getObject("recommendation_id", UUID.class),
-                          rs.getString("place_id"),
-                          FeedbackEventType.valueOf(rs.getString("event_type")),
-                          rs.getInt("position")),
-                  command.userId(),
-                  command.idempotencyKey())
-              .stream()
-              .findFirst()
-              .orElseThrow(() -> new IllegalStateException("Feedback idempotency lookup failed"));
-      if (!existing.matches(command)) {
-        throw new FeedbackConflictException(
-            "Idempotency key was already used for different feedback");
+            sameId.identity().matches(command)
+                ? FeedbackRecordResult.duplicate(command.idempotencyKey())
+                : FeedbackRecordResult.rejected(
+                    command.idempotencyKey(), "IDEMPOTENCY_CONFLICT"));
+      } else if (item.dedupKey() != null && byDedup.containsKey(item.dedupKey())) {
+        results.put(
+            command.idempotencyKey(),
+            FeedbackRecordResult.duplicate(command.idempotencyKey()));
+      } else {
+        results.put(
+            command.idempotencyKey(),
+            FeedbackRecordResult.rejected(command.idempotencyKey(), "INVALID_EVENT"));
       }
-      return;
+    }
+  }
+
+  private void insertOutboxRows(List<PendingFeedback> inserted, Instant receivedAt) {
+    String values =
+        String.join(
+            ", ",
+            java.util.Collections.nCopies(
+                inserted.size(),
+                "(?, ?, 'RECOMMENDATION_FEEDBACK_RECORDED', 1, ?::jsonb, ?)"));
+    List<Object> arguments = new ArrayList<>(inserted.size() * 4);
+    for (PendingFeedback item : inserted) {
+      FeedbackCommand command = item.command();
+      ImpressionRow row = item.impression();
+      java.util.Collections.addAll(
+          arguments,
+          UUID.randomUUID(),
+          command.recommendationId(),
+          json(
+              Map.of(
+                  "eventId", item.databaseEventId(),
+                  "recommendationId", command.recommendationId(),
+                  "userId", command.userId(),
+                  "placeId", command.placeId(),
+                  "eventType", command.eventType(),
+                  "position", command.position(),
+                  "rankingVersion", row.rankingVersion(),
+                  "featureVersion", row.featureVersion())),
+          sqlTimestamp(receivedAt));
     }
     jdbc.update(
         """
         INSERT INTO recommendation_outbox
           (event_id, aggregate_id, event_type, schema_version, payload, occurred_at)
-        VALUES (?, ?, 'RECOMMENDATION_FEEDBACK_RECORDED', 1, ?::jsonb, ?)
-        """,
-        UUID.randomUUID(),
-        command.recommendationId(),
-        json(
-            Map.of(
-                "eventId", eventId,
-                "recommendationId", command.recommendationId(),
-                "userId", command.userId(),
-                "placeId", command.placeId(),
-                "eventType", command.eventType(),
-                "position", command.position(),
-                "rankingVersion", row.rankingVersion(),
-                "featureVersion", row.featureVersion())),
-        sqlTimestamp(receivedAt));
+        VALUES %s
+        """
+            .formatted(values),
+        arguments.toArray());
+  }
+
+  private String semanticDedupKey(FeedbackCommand command) {
+    return switch (command.eventType()) {
+      case IMPRESSION, CLICK, DETAIL_VIEW ->
+          hash(command.recommendationId() + ":" + command.placeId() + ":" + command.eventType());
+      default -> null;
+    };
   }
 
   @Override
@@ -592,20 +757,37 @@ public class JdbcRecommendationStore
   }
 
   private record ImpressionRow(
-      UUID userId,
       UUID tripId,
       String sessionId,
       String rankingVersion,
       String featureVersion,
       int position) {}
 
+  private record ItemKey(UUID recommendationId, String placeId) {}
+
+  private record ImpressionItemRow(ItemKey key, ImpressionRow impression) {}
+
+  private record PendingFeedback(
+      UUID databaseEventId,
+      FeedbackCommand command,
+      ImpressionRow impression,
+      String dedupKey) {}
+
+  private record ExistingFeedback(
+      UUID idempotencyKey, FeedbackIdentity identity, String dedupKey) {}
+
   private record FeedbackIdentity(
-      UUID recommendationId, String placeId, FeedbackEventType eventType, int position) {
+      UUID recommendationId,
+      String placeId,
+      FeedbackEventType eventType,
+      int position,
+      Instant occurredAt) {
     private boolean matches(FeedbackCommand command) {
       return recommendationId.equals(command.recommendationId())
           && placeId.equals(command.placeId())
           && eventType == command.eventType()
-          && position == command.position();
+          && position == command.position()
+          && occurredAt.equals(command.occurredAt());
     }
   }
 }
