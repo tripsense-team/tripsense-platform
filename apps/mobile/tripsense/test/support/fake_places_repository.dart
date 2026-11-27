@@ -2,9 +2,15 @@ import 'package:trip/core/errors/app_failure.dart';
 import 'package:trip/features/places/domain/place.dart';
 import 'package:trip/features/places/domain/places_repository.dart';
 
-Place samplePlace(String id, {String? name, String? hours}) => Place(
+Place samplePlace(
+  String id, {
+  String? name,
+  String? hours,
+  GeoPoint? location,
+}) => Place(
   id: id,
   name: name ?? 'Place $id',
+  location: location,
   address: '1 Main St',
   categories: const ['coffee_shop'],
   rating: 4.5,

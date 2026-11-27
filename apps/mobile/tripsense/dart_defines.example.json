@@ -1,0 +1,3 @@
+{
+  "MAPVINA_API_KEY": "<your MapVina tile key, same as NEXT_PUBLIC_MAPVINA_API_KEY on the web>"
+}

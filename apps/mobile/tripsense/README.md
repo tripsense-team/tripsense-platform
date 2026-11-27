@@ -32,6 +32,18 @@ Default Gateway URL (Android emulator -> host): `http://10.0.2.2:8085`.
 flutter run --dart-define=TRIPSENSE_API_BASE_URL=http://localhost:8085
 ```
 
+### Map key
+
+The map uses MapVina tiles (same as the web). The key is injected at build time
+and must never be committed:
+
+```shell
+cp dart_defines.example.json dart_defines.local.json   # then put the real key in it (gitignored)
+flutter run --dart-define-from-file=dart_defines.local.json
+```
+
+Without a key the map falls back to open raster tiles.
+
 ## Development
 
 ```shell

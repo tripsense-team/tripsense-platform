@@ -158,7 +158,8 @@ final exploreControllerProvider =
     NotifierProvider<ExploreController, ExploreState>(ExploreController.new);
 
 /// Search-as-you-type suggestions: 300 ms debounce, min 2 chars, stale answers dropped.
-class AutocompleteController extends Notifier<AsyncValue<List<PlaceSuggestion>>> {
+class AutocompleteController
+    extends Notifier<AsyncValue<List<PlaceSuggestion>>> {
   Timer? _timer;
   int _request = 0;
 
@@ -183,7 +184,10 @@ class AutocompleteController extends Notifier<AsyncValue<List<PlaceSuggestion>>>
       final result = await AsyncValue.guard(
         () => ref
             .read(placesRepositoryProvider)
-            .autocomplete(text, near: GeoPoint(destination.lat, destination.lng)),
+            .autocomplete(
+              text,
+              near: GeoPoint(destination.lat, destination.lng),
+            ),
       );
       if (id != _request || !ref.mounted) return;
       state = result;

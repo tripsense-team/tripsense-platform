@@ -27,7 +27,10 @@ const _approvedHosts = {
   'maps.mapvina.com',
 };
 
-final _secretParam = RegExp(r'^(key|api_key|token|secret)$', caseSensitive: false);
+final _secretParam = RegExp(
+  r'^(key|api_key|token|secret)$',
+  caseSensitive: false,
+);
 
 /// Only https photos from approved hosts, never with credentials in the URL.
 bool isApprovedPhotoUrl(String? raw) {
