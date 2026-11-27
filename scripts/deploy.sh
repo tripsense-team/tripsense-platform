@@ -81,7 +81,7 @@ if [ ${#MISSING_VARS[@]} -gt 0 ]; then
   done
   echo ""
   echo "👉 HƯỚNG DẪN KHẮC PHỤC:"
-  echo "1. SSH vào máy chủ VPS Azure."
+  echo "1. SSH vào máy chủ VPS."
   echo "2. Mở và chỉnh sửa file: nano ${ENV_FILE}"
   echo "3. Bổ sung các biến trên với giá trị cấu hình tương ứng."
   echo "4. Kích hoạt lại quá trình Deploy."
@@ -378,7 +378,7 @@ if [ ! -f "$CERT_FILE" ]; then
   echo ""
   echo "================================================================================"
   echo "🔒 [SSL BOOTSTRAP] Không tìm thấy chứng chỉ SSL cho domain: $SSL_DOMAIN"
-  echo "   Tiến hành Bootstrap 2 giai đoạn trên EC2 mới..."
+  echo "   Tiến hành Bootstrap 2 giai đoạn trên VPS mới..."
   echo "================================================================================"
 
   # Giai đoạn 1: Kích hoạt cấu hình HTTP tạm thời (chỉ mở port 80 phục vụ ACME challenge)
