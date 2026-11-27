@@ -4,6 +4,7 @@ import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.domain.model.Place;
 import fu.tripsense.placeservice.domain.model.PlaceReview;
 import fu.tripsense.placeservice.domain.model.QuietnessEvidence;
+import fu.tripsense.placeservice.domain.model.PlaceRecommendationIndexJob.Operation;
 import fu.tripsense.placeservice.domain.repository.PlaceRepository;
 import fu.tripsense.placeservice.dto.LocationDto;
 import fu.tripsense.placeservice.dto.PlaceDto;
@@ -13,6 +14,7 @@ import fu.tripsense.placeservice.dto.QuietnessEvidenceDto;
 import fu.tripsense.placeservice.observability.RequestDiagnostics;
 import fu.tripsense.placeservice.service.PlaceCloudinaryStorageService;
 import fu.tripsense.placeservice.service.PlacePersistenceService;
+import fu.tripsense.placeservice.service.PlaceRecommendationIndexQueue;
 import fu.tripsense.placeservice.service.PlaceMediaProjectionService;
 import fu.tripsense.placeservice.service.VietnameseAdministrativeAreaNormalizer;
 import java.time.Instant;
@@ -34,6 +36,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
   private org.springframework.data.mongodb.core.MongoTemplate mongo;
   private final TripSensePlaceProperties properties;
   private PlaceMediaProjectionService mediaProjection;
+  private PlaceRecommendationIndexQueue recommendationIndexQueue;
   private volatile long lastFailureTime = 0;
 
   public PlacePersistenceServiceImpl(
@@ -52,6 +55,11 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   public void setMediaProjection(PlaceMediaProjectionService mediaProjection) {
     this.mediaProjection = mediaProjection;
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setRecommendationIndexQueue(PlaceRecommendationIndexQueue recommendationIndexQueue) {
+    this.recommendationIndexQueue = recommendationIndexQueue;
   }
 
   private Place saveProviderFields(Place entity) {
@@ -110,6 +118,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
                       .findByProviderAndProviderPlaceId(provider, dto.getProviderPlaceId())
                       .orElse(null));
       boolean isNew = entity == null;
+      SemanticSnapshot previous = isNew ? null : semanticSnapshot(entity);
       RequestDiagnostics.mark("place_upsert_lookup_hit", !isNew);
       if (isNew) {
         Place duplicate = unambiguousDuplicate(dto);
@@ -132,6 +141,7 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
           RequestDiagnostics.measure(
               isNew ? "place_upsert_save_new" : "place_upsert_save_existing",
               () -> saveProviderFields(selected));
+      enqueueIfSemanticChanged(saved, previous);
       PlaceDto result = RequestDiagnostics.measure("place_upsert_to_dto", () -> toDto(saved));
       RequestDiagnostics.mark("place_upsert_result", isNew ? "NEW_SAVED" : "EXISTING_SAVED");
       return result;
@@ -200,12 +210,15 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
     }
 
     try {
+      SemanticSnapshot previous = semanticSnapshot(entity);
       applyProviderData(entity, enrichment);
       Map<String, Object> sourceData =
           entity.getSourceData() != null ? new HashMap<>(entity.getSourceData()) : new HashMap<>();
       sourceData.put("deepDetailsFetched", true);
       entity.setSourceData(sourceData);
-      return toDto(saveProviderFields(entity));
+      Place saved = saveProviderFields(entity);
+      enqueueIfSemanticChanged(saved, previous);
+      return toDto(saved);
     } catch (Exception ex) {
       lastFailureTime = System.currentTimeMillis();
       log.warn("Failed to enrich place in MongoDB: {}", ex.getMessage());
@@ -372,6 +385,33 @@ public class PlacePersistenceServiceImpl implements PlacePersistenceService {
     return entity.getManualOverrideFields() == null
         || !entity.getManualOverrideFields().contains(field);
   }
+
+  private void enqueueIfSemanticChanged(Place saved, SemanticSnapshot previous) {
+    if (saved == null || recommendationIndexQueue == null) return;
+    if (previous == null || !previous.equals(semanticSnapshot(saved))) {
+      recommendationIndexQueue.enqueue(saved, Operation.UPSERT);
+    }
+  }
+
+  private SemanticSnapshot semanticSnapshot(Place place) {
+    return new SemanticSnapshot(
+        place.getName(),
+        place.getPrimaryType(),
+        place.getCategories() == null ? List.of() : List.copyOf(place.getCategories()),
+        place.getDescription(),
+        place.getAddress(),
+        place.getCity(),
+        place.getDistrict());
+  }
+
+  private record SemanticSnapshot(
+      String name,
+      String primaryType,
+      List<String> categories,
+      String description,
+      String address,
+      String city,
+      String district) {}
 
   private String normalize(String value) {
     return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);

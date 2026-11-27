@@ -3,6 +3,8 @@ package fu.tripsense.recommendation.api;
 import fu.tripsense.recommendation.api.dto.ApiResponse;
 import fu.tripsense.recommendation.api.dto.ExploreRecommendationRequest;
 import fu.tripsense.recommendation.api.dto.ExploreRecommendationResponse;
+import fu.tripsense.recommendation.api.dto.FeedbackBatchRequest;
+import fu.tripsense.recommendation.api.dto.FeedbackBatchResponse;
 import fu.tripsense.recommendation.api.dto.FeedbackRequest;
 import fu.tripsense.recommendation.api.dto.RecommendationRequest;
 import fu.tripsense.recommendation.api.dto.RecommendationResponse;
@@ -127,6 +129,28 @@ public class RecommendationController {
             request.position(),
             request.occurredAt()));
     return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(null));
+  }
+
+  @PostMapping("/events/batch")
+  public ResponseEntity<ApiResponse<FeedbackBatchResponse>> feedbackBatch(
+      @Valid @RequestBody FeedbackBatchRequest request) {
+    UUID userId = currentUser.user().id();
+    var result =
+        feedback.recordBatch(
+            request.events().stream()
+                .map(
+                    event ->
+                        new FeedbackCommand(
+                            event.recommendationId(),
+                            userId,
+                            event.eventId(),
+                            event.placeId(),
+                            event.eventType(),
+                            event.position(),
+                            event.occurredAt()))
+                .toList());
+    return ResponseEntity.status(HttpStatus.ACCEPTED)
+        .body(ApiResponse.success(FeedbackBatchResponse.from(result)));
   }
 
   private Set<String> normalize(Set<String> values) {

@@ -4,6 +4,8 @@ Track every feature that enters the multi-agent workflow.
 
 | Feature | Status | Affected Services | Documentation |
 | --- | --- | --- | --- |
+| `recommendation-feedback-batching-and-deduplication` | IMPLEMENTING; code and automated checks complete, manual before/after evidence pending | `services/recommendation-service`, `apps/web/tripsense`, `services/api-gateway`; Recommendation PostgreSQL | [Docs](./recommendation-feedback-batching-and-deduplication.md) |
+| `recommendation-indexing-before-after-demo` | WAITING_FOR_APPROVAL | `services/place-service`, `services/recommendation-service`; local benchmark/demo tooling | [Docs](./recommendation-indexing-before-after-demo.md) |
 | `hotel-request-confirm-without-payos` | DONE | `services/trip-service`, `apps/web/tripsense` | [Docs](./hotel-request-confirm-without-payos.md) |
 | `ai-proposal-suggested-places-and-trip-ideas` | DONE | `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-proposal-suggested-places-and-trip-ideas.md) |
 | `ai-itinerary-granular-updates-and-stay-display` | DONE | `services/trip-service`, `services/ai-service`, `apps/web/tripsense` | [Docs](./ai-itinerary-granular-updates-and-stay-display.md) |
@@ -89,6 +91,7 @@ Track every feature that enters the multi-agent workflow.
 | `web-control-sizing-system` | DONE | `apps/web/tripsense` | [Docs](./web-control-sizing-system.md) |
 | `web-typography-system` | DONE | `apps/web/tripsense` | [Docs](./web-typography-system.md) |
 | `place-search-embedding-sync` | DONE | `services/place-service`, `services/recommendation-service` | [Docs](./place-search-embedding-sync.md) |
+| `durable-place-recommendation-indexing` | IMPLEMENTING; core flow + 423 regression tests complete, operational metrics pending | `services/place-service`, `services/recommendation-service`, Place MongoDB, Qdrant | [Docs](./durable-place-recommendation-indexing.md) |
 | `recommendation-decision-intelligence` | IMPLEMENTING | `services/recommendation-service`, `services/ai-service`, `services/place-service`, `services/api-gateway`, `apps/web/tripsense` | [Docs](./recommendation-decision-intelligence.md) |
 | `evidence-aware-recommendation-ranking` | DONE | `services/place-service`, `services/recommendation-service`, `services/ai-service`, `apps/web/tripsense` | [Docs](./evidence-aware-recommendation-ranking.md) |
 | `recommendation-engine-v2` | DONE | `services/recommendation-service`, `services/place-service`, `services/context-service`, `services/trip-service`, `services/user-service`, `services/api-gateway`, `services/ai-service` | [Docs](./recommendation-engine-v2.md) |

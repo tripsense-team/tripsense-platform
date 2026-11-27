@@ -1,6 +1,7 @@
 package fu.tripsense.placeservice.client.dto;
 
 import fu.tripsense.placeservice.dto.PlaceDto;
+import java.time.Instant;
 import java.util.List;
 
 public record PlaceIndexingPayload(
@@ -14,18 +15,18 @@ public record PlaceIndexingPayload(
     String city,
     String district,
     List<String> categories,
-    Double rating,
-    Integer userRatingCount,
-    List<String> photos,
-    String openingHours,
-    String businessStatus,
     String description,
-    String primaryType) {
+    String primaryType,
+    Long sourceVersion,
+    Instant sourceUpdatedAt) {
 
   public static PlaceIndexingPayload from(PlaceDto dto) {
-    if (dto == null) {
-      return null;
-    }
+    return from(dto, null, null);
+  }
+
+  public static PlaceIndexingPayload from(
+      PlaceDto dto, Long sourceVersion, Instant sourceUpdatedAt) {
+    if (dto == null) return null;
     Double lat = dto.getLocation() != null ? dto.getLocation().getLat() : null;
     Double lng = dto.getLocation() != null ? dto.getLocation().getLng() : null;
     return new PlaceIndexingPayload(
@@ -39,12 +40,9 @@ public record PlaceIndexingPayload(
         dto.getCity(),
         dto.getDistrict(),
         dto.getCategories(),
-        dto.getRating(),
-        dto.getUserRatingCount(),
-        dto.getPhotos(),
-        dto.getOpeningHours(),
-        dto.getBusinessStatus(),
         dto.getDescription(),
-        dto.getPrimaryType());
+        dto.getPrimaryType(),
+        sourceVersion,
+        sourceUpdatedAt);
   }
 }

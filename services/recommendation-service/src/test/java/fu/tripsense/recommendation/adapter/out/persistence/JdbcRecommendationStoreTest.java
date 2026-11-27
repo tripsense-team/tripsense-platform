@@ -121,10 +121,14 @@ class JdbcRecommendationStoreTest {
   }
 
   @Test
-  void feedbackStillRejectsWrongOwnerAndWrongRankBeforeAnyWrite() throws Exception {
+  void feedbackUsesOwnerScopedSetQueryAndRejectsWrongRankBeforeAnyWrite() throws Exception {
     UUID owner = UUID.randomUUID();
+    UUID recommendationId = UUID.randomUUID();
     ResultSet row = mock(ResultSet.class);
-    when(row.getObject("user_id", UUID.class)).thenReturn(owner);
+    when(row.getObject("recommendation_id", UUID.class)).thenReturn(recommendationId);
+    when(row.getString("place_id")).thenReturn("place");
+    when(row.getString("ranking_version")).thenReturn("rank-v1");
+    when(row.getString("feature_version")).thenReturn("feature-v1");
     when(row.getInt("position")).thenReturn(1);
     when(jdbc.query(
             anyString(),
@@ -135,27 +139,29 @@ class JdbcRecommendationStoreTest {
               RowMapper<?> rowMapper = invocation.getArgument(1);
               return List.of(rowMapper.mapRow(row, 0));
             });
-    for (FeedbackCommand command :
-        List.of(
-            new FeedbackCommand(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                "place",
-                FeedbackEventType.CLICK,
-                1,
-                Instant.now()),
-            new FeedbackCommand(
-                UUID.randomUUID(),
-                owner,
-                UUID.randomUUID(),
-                "place",
-                FeedbackEventType.CLICK,
-                2,
-                Instant.now()))) {
-      assertThatThrownBy(() -> store.recordFeedback(command, Instant.now()))
-          .isInstanceOf(FeedbackValidationException.class);
-    }
+    FeedbackCommand command =
+        new FeedbackCommand(
+            recommendationId,
+            owner,
+            UUID.randomUUID(),
+            "place",
+            FeedbackEventType.CLICK,
+            2,
+            Instant.now());
+
+    assertThatThrownBy(() -> store.recordFeedback(command, Instant.now()))
+        .isInstanceOf(FeedbackValidationException.class);
+
+    verify(jdbc)
+        .query(
+            argThat(
+                sql ->
+                    sql.contains("WHERE i.user_id = ?")
+                        && sql.contains("IN ((?, ?))")),
+            org.mockito.ArgumentMatchers.<RowMapper<Object>>any(),
+            eq(owner),
+            eq(recommendationId),
+            eq("place"));
     verify(jdbc, never()).update(anyString(), org.mockito.ArgumentMatchers.<Object[]>any());
   }
 }

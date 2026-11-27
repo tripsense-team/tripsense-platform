@@ -1,5 +1,6 @@
 package fu.tripsense.placeservice.client;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import fu.tripsense.placeservice.client.dto.PlaceIndexingPayload;
 import fu.tripsense.placeservice.config.TripSensePlaceProperties;
 import fu.tripsense.placeservice.dto.PlaceDto;
@@ -26,15 +27,14 @@ public class RecommendationIndexerClient {
     this(properties, createDefaultRestClient());
   }
 
-  RecommendationIndexerClient(
-      TripSensePlaceProperties properties, RestClient restClient) {
+  RecommendationIndexerClient(TripSensePlaceProperties properties, RestClient restClient) {
     this.properties = properties;
     this.restClient = restClient;
   }
 
   private static RestClient createDefaultRestClient() {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-    requestFactory.setConnectTimeout(Duration.ofSeconds(10));
+    requestFactory.setConnectTimeout(Duration.ofSeconds(5));
     requestFactory.setReadTimeout(Duration.ofSeconds(60));
     return RestClient.builder().requestFactory(requestFactory).build();
   }
@@ -102,22 +102,9 @@ public class RecommendationIndexerClient {
     CompletableFuture.runAsync(
         () -> {
           try {
-            String baseUrl = properties.getRecommendationServiceUrl();
-            if (baseUrl == null || baseUrl.isBlank()) {
-              baseUrl = "http://localhost:8088";
-            }
             List<PlaceIndexingPayload> payloads =
                 places.stream().filter(Objects::nonNull).map(PlaceIndexingPayload::from).toList();
-
-            restClient
-                .post()
-                .uri(baseUrl + "/api/recommendations/internal/places/index")
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .header("X-Internal-Api-Key", properties.getRecommendationInternalApiKey())
-                .body(payloads)
-                .retrieve()
-                .toBodilessEntity();
-
+            index(payloads);
             log.info("Triggered async recommendation indexing for {} places", payloads.size());
           } catch (Exception exception) {
             log.warn(
@@ -133,14 +120,7 @@ public class RecommendationIndexerClient {
     CompletableFuture.runAsync(
         () -> {
           try {
-            String baseUrl = properties.getRecommendationServiceUrl();
-            if (baseUrl == null || baseUrl.isBlank()) baseUrl = "http://localhost:8088";
-            restClient
-                .delete()
-                .uri(baseUrl + "/api/recommendations/internal/places/{placeId}", placeId)
-                .header("X-Internal-Api-Key", properties.getRecommendationInternalApiKey())
-                .retrieve()
-                .toBodilessEntity();
+            delete(placeId);
             log.info("Triggered async recommendation de-indexing for placeId={}", placeId);
           } catch (Exception exception) {
             log.warn(
@@ -148,5 +128,63 @@ public class RecommendationIndexerClient {
                 exception.getClass().getSimpleName());
           }
         });
+  }
+
+  public IndexBatchResult index(List<PlaceIndexingPayload> places) {
+    if (places == null || places.isEmpty()) return new IndexBatchResult(List.of());
+    IndexEnvelope response =
+        restClient
+            .post()
+            .uri(baseUrl() + "/api/recommendations/internal/places/index")
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .header("X-Internal-Api-Key", properties.getRecommendationInternalApiKey())
+            .body(places)
+            .retrieve()
+            .body(IndexEnvelope.class);
+    if (response == null || !response.success() || response.data() == null) {
+      throw new IllegalStateException("Recommendation indexing response was unavailable");
+    }
+    return new IndexBatchResult(response.data().results());
+  }
+
+  public void delete(String placeId) {
+    if (placeId == null || placeId.isBlank()) return;
+    restClient
+        .delete()
+        .uri(baseUrl() + "/api/recommendations/internal/places/{placeId}", placeId)
+        .header("X-Internal-Api-Key", properties.getRecommendationInternalApiKey())
+        .retrieve()
+        .toBodilessEntity();
+  }
+
+  private String baseUrl() {
+    String value = properties.getRecommendationServiceUrl();
+    if (value == null || value.isBlank()) {
+      throw new IllegalStateException("Recommendation service URL is not configured");
+    }
+    return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+  }
+
+  public record IndexBatchResult(List<ItemResult> results) {
+    public IndexBatchResult {
+      results = results == null ? List.of() : List.copyOf(results);
+    }
+  }
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record IndexEnvelope(boolean success, IndexData data) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record IndexData(List<ItemResult> results) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record ItemResult(
+      String placeId, Long sourceVersion, Status status, String errorCode) {}
+
+  public enum Status {
+    INDEXED,
+    UNCHANGED,
+    RETRYABLE_FAILURE,
+    PERMANENT_FAILURE
   }
 }

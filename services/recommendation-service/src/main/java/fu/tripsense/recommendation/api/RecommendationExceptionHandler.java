@@ -3,6 +3,7 @@ package fu.tripsense.recommendation.api;
 import fu.tripsense.recommendation.api.dto.ApiResponse;
 import fu.tripsense.recommendation.application.CandidateRetrievalUnavailableException;
 import fu.tripsense.recommendation.application.FeedbackConflictException;
+import fu.tripsense.recommendation.application.FeedbackRateLimitExceededException;
 import fu.tripsense.recommendation.application.FeedbackValidationException;
 import fu.tripsense.recommendation.application.InvalidDestinationException;
 import fu.tripsense.recommendation.application.TripContextNotAccessibleException;
@@ -66,6 +67,13 @@ public class RecommendationExceptionHandler {
             ApiResponse.error(
                 "FEEDBACK_IDEMPOTENCY_CONFLICT",
                 "The idempotency key was already used for different feedback"));
+  }
+
+  @ExceptionHandler(FeedbackRateLimitExceededException.class)
+  ResponseEntity<ApiResponse<Void>> feedbackRateLimited(
+      FeedbackRateLimitExceededException exception) {
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        .body(ApiResponse.error("FEEDBACK_RATE_LIMITED", "Too many feedback events"));
   }
 
   @ExceptionHandler(CandidateRetrievalUnavailableException.class)

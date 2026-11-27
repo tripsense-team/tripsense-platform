@@ -3,14 +3,18 @@ package fu.tripsense.recommendation.adapter.out.semantic;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fu.tripsense.recommendation.config.RecommendationProperties;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.StreamSupport;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -23,6 +27,7 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
   private final RestClient restClient;
   private final RecommendationProperties.Semantic properties;
   private final ObjectMapper objectMapper;
+  private final AtomicBoolean collectionReady = new AtomicBoolean();
 
   public QdrantVectorSearchClient(
       RestClient recommendationRestClient,
@@ -31,6 +36,11 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
     this.restClient = recommendationRestClient;
     this.properties = properties.getSemantic();
     this.objectMapper = objectMapper;
+  }
+
+  @PostConstruct
+  void initializeCollection() {
+    ensureCollection(properties.getEmbeddingDimensions());
   }
 
   @Override
@@ -69,6 +79,11 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
 
   @Override
   public Optional<String> storedContentHash(String placeId) {
+    return storedMetadata(placeId).map(StoredVectorMetadata::contentHash);
+  }
+
+  @Override
+  public Optional<StoredVectorMetadata> storedMetadata(String placeId) {
     try {
       String raw =
           request(
@@ -86,11 +101,20 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
         return Optional.empty();
       }
       JsonNode response = objectMapper.readTree(raw);
-      String value =
-          response == null
-              ? null
-              : response.path("result").path("payload").path("contentHash").asText(null);
-      return Optional.ofNullable(value);
+      JsonNode payload = response == null ? null : response.path("result").path("payload");
+      if (payload == null || payload.isMissingNode()) return Optional.empty();
+      String hash = payload.path("contentHash").asText(null);
+      if (hash == null) return Optional.empty();
+      JsonNode revisionNode = payload.path("sourceVersion");
+      Long revision = revisionNode.isIntegralNumber() ? revisionNode.longValue() : null;
+      String updated = payload.path("sourceUpdatedAt").asText(null);
+      Instant sourceUpdatedAt = updated == null ? null : Instant.parse(updated);
+      return Optional.of(
+          new StoredVectorMetadata(
+              hash,
+              revision,
+              sourceUpdatedAt,
+              payload.path("embeddingVersion").asText(null)));
     } catch (Exception exception) {
       return Optional.empty();
     }
@@ -98,7 +122,25 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
 
   @Override
   public void upsert(String placeId, List<Double> vector, String modelVersion, String contentHash) {
+    upsert(placeId, vector, modelVersion, contentHash, null, null);
+  }
+
+  @Override
+  public void upsert(
+      String placeId,
+      List<Double> vector,
+      String modelVersion,
+      String contentHash,
+      Long sourceVersion,
+      Instant sourceUpdatedAt) {
     ensureCollection(vector.size());
+    Map<String, Object> payload = new java.util.LinkedHashMap<>();
+    payload.put("placeId", placeId);
+    payload.put("embeddingModel", modelVersion);
+    payload.put("embeddingVersion", modelVersion);
+    payload.put("contentHash", contentHash);
+    if (sourceVersion != null) payload.put("sourceVersion", sourceVersion);
+    if (sourceUpdatedAt != null) payload.put("sourceUpdatedAt", sourceUpdatedAt.toString());
     Map<String, Object> point =
         Map.of(
             "id",
@@ -106,11 +148,7 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
             "vector",
             vector,
             "payload",
-            Map.of(
-                "placeId", placeId,
-                "embeddingModel", modelVersion,
-                "embeddingVersion", modelVersion,
-                "contentHash", contentHash));
+            payload);
     RestClient.RequestBodySpec request =
         restClient
             .put()
@@ -132,23 +170,57 @@ public class QdrantVectorSearchClient implements VectorSearchClient {
   }
 
   private void ensureCollection(int vectorSize) {
+    if (collectionReady.get()) return;
+    synchronized (collectionReady) {
+      if (collectionReady.get()) return;
+      try {
+        String raw =
+            request(
+                    restClient
+                        .get()
+                        .uri(
+                            properties.getQdrantUrl()
+                                + "/collections/"
+                                + properties.getCollection()))
+                .retrieve()
+                .body(String.class);
+        validateVectorSize(raw, vectorSize);
+      } catch (HttpClientErrorException.NotFound missingCollection) {
+        RestClient.RequestBodySpec create =
+            restClient
+                .put()
+                .uri(properties.getQdrantUrl() + "/collections/" + properties.getCollection());
+        configure(create);
+        create
+            .body(Map.of("vectors", Map.of("size", vectorSize, "distance", "Cosine")))
+            .retrieve()
+            .toBodilessEntity();
+      }
+      collectionReady.set(true);
+    }
+  }
+
+  private void validateVectorSize(String raw, int expected) {
     try {
-      request(
-              restClient
-                  .get()
-                  .uri(properties.getQdrantUrl() + "/collections/" + properties.getCollection()))
-          .retrieve()
-          .toBodilessEntity();
-    } catch (RuntimeException missingCollection) {
-      RestClient.RequestBodySpec create =
-          restClient
-              .put()
-              .uri(properties.getQdrantUrl() + "/collections/" + properties.getCollection());
-      configure(create);
-      create
-          .body(Map.of("vectors", Map.of("size", vectorSize, "distance", "Cosine")))
-          .retrieve()
-          .toBodilessEntity();
+      JsonNode response = raw == null ? null : objectMapper.readTree(raw);
+      JsonNode vectors =
+          response == null
+              ? null
+              : response.path("result").path("config").path("params").path("vectors");
+      JsonNode size = vectors == null ? null : vectors.path("size");
+      if (size == null || !size.isIntegralNumber()) {
+        throw new IllegalStateException("Qdrant collection vector size is unavailable");
+      }
+      if (size.intValue() != expected) {
+        throw new IllegalStateException("Qdrant collection vector size does not match configuration");
+      }
+      if (!"cosine".equalsIgnoreCase(vectors.path("distance").asText())) {
+        throw new IllegalStateException("Qdrant collection distance does not match configuration");
+      }
+    } catch (IllegalStateException invalid) {
+      throw invalid;
+    } catch (Exception invalidResponse) {
+      throw new IllegalStateException("Qdrant collection metadata is invalid", invalidResponse);
     }
   }
 
