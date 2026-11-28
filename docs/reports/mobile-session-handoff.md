@@ -12,7 +12,7 @@
 - Làm xong mỗi tính năng: viết test, `flutter analyze` 0 lỗi, `flutter test` xanh, chạy emulator + chụp màn hình đối chiếu web, **cập nhật Excel**, commit.
 - **Không nhập mật khẩu/credential của người dùng.** Không đăng ký tài khoản rác lên DB prod. Mọi thao tác ghi (tạo trip, đăng bài…) đi vào **DB prod thật** (xem mục 5).
 
-## 2. Nhánh & commit hiện có (tất cả local, chưa push)
+## 2. Nhánh & commit hiện có (chỉ `mobile-explore-places` và các nhánh nó chứa đã push qua PR #103; `mobile-save-collections` còn local)
 Thứ tự chồng (mới nhất ở dưới):
 | Nhánh | Nội dung | Commit chính |
 |---|---|---|
@@ -20,9 +20,10 @@ Thứ tự chồng (mới nhất ở dưới):
 | `nhiby/feature/mobile-foundation-and-auth` | Phase 0–1: nền tảng + đăng nhập/đăng ký/OTP/quên mật khẩu/phiên | `86e0b2c` (docs), `60919f6`, `2974c23` (test), `2a7d1c9` (fix splash) |
 | `nhiby/feature/mobile-onboarding` | Wizard onboarding 10 bước + cổng bắt buộc | `a27e894`, `010a156` |
 | `nhiby/feature/mobile-ui-polish` | UI giống web (pill, hero gradient, tab 5 như web, menu avatar) + nhúng font Inter | `01b1f4f`, `3645127` (font), `4c0daa3`, `9d0c115` |
-| `nhiby/feature/mobile-explore-places` | **ĐANG LÀM** (xem mục 8), chưa commit gì | — |
+| `nhiby/feature/mobile-explore-places` | Explore + chi tiết địa điểm, **đã push**, PR #103 vào `dev` (chờ review, chưa merge) | `55ae057` |
+| `nhiby/feature/mobile-save-collections` | **ĐANG LÀM / chưa commit**: lưu địa điểm, Bộ sưu tập, tab Saved (xem mục 8) | — |
 
-Trạng thái kiểm tra ở tip `mobile-ui-polish`: `flutter analyze` 0 lỗi, **138 test pass**.
+Trạng thái kiểm tra mới nhất (nhánh `mobile-save-collections`): `flutter analyze` 0 lỗi, **203 test pass**.
 
 ## 3. Kiến trúc app (đã dựng)
 ```
@@ -65,28 +66,19 @@ Test theo **hành vi từng tính năng**, không theo từng hàm: (1) **Unit**
 - File: `docs/reports/mobile-user-app-tracking-v2.xlsx` (157 chức năng, 11 nhóm, banner từng nhóm có % tiến độ, dropdown trạng thái, cột nhánh Git / trạng thái code / link commit / issue / test). **File gốc `mobile-user-app-tracking.xlsx` thường bị Excel khóa** (có file `~$...`) → luôn ghi ra bản `-v2` và nhờ người dùng đóng bản cũ.
 - **QUY TẮC: làm tới đâu cập nhật Excel tới đó** (cả khi làm dở), rồi gửi file cho người dùng bằng `SendUserFile`.
 - Cách cập nhật (tạo lại toàn bộ từ dữ liệu, an toàn vì người dùng chưa sửa tay): sửa dữ liệu `MODULES` trong `docs/reports/tools/build_tracker.py` (hàm `T(...)`, `DONE`, `TEST`), ánh xạ test/nhánh/commit trong `docs/reports/tools/build_tracker2.py` (dict `TESTS`, hằng `*_BRANCH`, `*_COMMIT`), rồi chạy `py -X utf8 docs\reports\tools\build_tracker2.py` (**ghi thẳng ra `-v2.xlsx`**, 2 file đã tự tìm nhau theo thư mục, không còn phụ thuộc thư mục tạm). Công thức đã được kiểm bằng thư viện `formulas`. `stage_check.py` in thống kê + liệt kê dòng thiếu test. Sau khi sinh file: gửi người dùng (`SendUserFile`) + commit file `-v2` cùng `docs/features/mobile-user-app.md` (Implementation Log).
-- Trạng thái hiện tại (13/11/2026): 157 chức năng, 41 Hoàn thành, 10 Đang kiểm thử, 7 Đang thực hiện, tiến độ tổng ~32,8%. Nền tảng + auth + onboarding + UI parity + font **Hoàn thành**; 5 dòng Khám phá/Địa điểm **Đang thực hiện** (nhánh `nhiby/feature/mobile-explore-places`, trạng thái code "Chưa commit"). Khi commit tính năng Khám phá: đặt `EXPLORE_COMMIT` thật thay cho "(chưa commit)" trong `build_tracker2.py` và đổi `CODE_LOCAL` -> `CODE_COMMIT` cho nhóm này.
+- Trạng thái hiện tại (13/11/2026): xem dòng tổng ở đầu sheet. Nhóm Khám phá & Địa điểm đã push (PR #103, commit `55ae057`); nhóm Bộ sưu tập & Đã lưu + 2 dòng "Hành động trên địa điểm" ở nhánh `nhiby/feature/mobile-save-collections`, trạng thái code "Chưa commit". Khi commit/push nhánh save-collections: đặt hash thật cho `SAVE_COMMIT` (thêm hằng này vào `build_tracker2.py`) và đổi `CODE_LOCAL` -> `CODE_COMMIT`/`CODE_PUSHED` cho nhóm đó.
 - Việc còn mở trong Excel: Google Sign-In (Bị chặn, thiếu OAuth client ID), đăng nhập/OTP/đăng xuất/chặn admin "Đang kiểm thử" (người dùng đã đăng nhập thật nên phần lớn đã được xác nhận ngầm), kiểm tra chế độ tối, đối chiếu từng màn mới với web, CI (analyze+test), flavor dev/prod, iOS.
 
-## 8. ĐANG LÀM DỞ: Phase 2 — Khám phá & Địa điểm (nhánh `nhiby/feature/mobile-explore-places`)
-**Đã viết (chưa commit, `flutter analyze` sạch):**
-- `lib/features/places/domain/`: `place.dart` (`Place`, `PlaceCategory`, `GeoPoint`, `PlaceReview`, `PlaceSuggestion`, `isApprovedPhotoUrl`), `destinations.dart` (`DestinationPreset` danang/hue/hoian, `ExploreTab`, `buildSearchQuery`), `opening_hours.dart` (`parseOpeningHours`, `todayOpeningHours`), `places_repository.dart` (interface: `search`, `autocomplete`, `details`, `exploreForYou`).
-- `lib/features/places/data/`: `place_json.dart` (parse + lọc ảnh theo host được duyệt), `places_repository_impl.dart` (+ `placesRepositoryProvider`).
+## 8. Trạng thái Phase 2 (cập nhật 13/11/2026)
+**Đã xong:** Explore + chi tiết địa điểm (PR #103); lưu địa điểm / Bộ sưu tập / tab Saved (nhánh `nhiby/feature/mobile-save-collections`, **chưa commit**, 203 test pass). Chi tiết từng phần, lỗi đã gặp và cách xử lý: `docs/features/mobile-user-app.md` mục "Nhật ký 2026-11-13".
 
-**Chưa làm (làm theo thứ tự):**
-1. **Chuỗi i18n** (script merge ARB đã soạn nhưng chưa chạy): thêm vào cả en/vi các khóa: `exploreSearchHint`, `exploreClearSearch`, `exploreTabForYou/Food/Cafes/Stays/Attractions`, `exploreEmptyTitle`, `exploreEmptyHint`, `exploreSearchResults{query}`, `exploreFallbackNote`, `exploreChooseDestination`, `placeReviewsCount{count}`, `placeOpenToday{hours}`, `placeAbout`, `placeHours`, `placeContact`, `placeReviews`, `placeAddress`, `placeNoPhoto`, `placeBack`; rồi `flutter gen-l10n`.
-2. **`presentation/explore_controller.dart`** (đã thiết kế): `ExploreState{destination, tab, query, AsyncValue<List<Place>> places, usedFallback}`; `ExploreController` (Notifier) có `selectDestination/selectTab/search/clearSearch/refresh`, gắn số thứ tự request để bỏ kết quả cũ, `sessionId` ngẫu nhiên mỗi phiên; tab "For you" gọi `exploreForYou` (cần đăng nhập) và **rơi về `search(defaultQuery)`** khi lỗi/rỗng (`usedFallback=true`); tab khác gọi `search(buildSearchQuery(keyword, dest), category, near)`. `AutocompleteController` (autoDispose): debounce 300 ms, tối thiểu 2 ký tự, bỏ kết quả cũ.
-3. **UI** (thay `ComingSoonPage` ở tab Explore trong `app_router.dart`): `ExploreScreen` = chọn điểm đến (pill → bottom sheet) + ô tìm kiếm pill có gợi ý + hàng chip danh mục (For you/Food/Cafés/Stays/Attractions) + danh sách thẻ địa điểm, `RefreshIndicator`, skeleton khi tải, trạng thái rỗng/lỗi có thử lại, ghi chú khi dùng fallback. `PlaceCard` giống web: ảnh 16:10 (`cached_network_image`; không ảnh → thẻ gradient + tên), badge danh mục, tên đậm, sao amber + số đánh giá, địa chỉ, "Hôm nay: giờ". `PlaceDetailScreen` route `/places/:id` (top-level, nhận `extra: Place`, gọi `details` để làm giàu): ảnh/gradient, tên, rating, địa chỉ, giờ mở cửa cả tuần, liên hệ, giới thiệu, đánh giá. Thêm `Routes.place(id)`.
-4. **Test**: `place_json` (ảnh bị lọc theo host, ref id), `opening_hours`, `buildSearchQuery`, repository với `FakeHttpAdapter`, controller (fake repo: fallback, chuyển tab, tìm kiếm, bỏ kết quả cũ, autocomplete debounce bằng `fakeAsync`), widget (`ExploreScreen` các trạng thái, chạm thẻ → mở chi tiết), cập nhật `shell_and_profile_test` nếu tab Explore không còn "Coming soon" (các test lặp qua 5 tab hiện kỳ vọng "Coming soon" ở mọi tab → đổi cho đúng).
-5. Chạy emulator, chụp so với web; cập nhật Excel (thêm/đổi dòng nhóm "Khám phá & Địa điểm" trong `build_tracker.py`); commit.
+**Còn lại của Phase 2:** bản đồ MapLibre (cần key MapVina), gallery ảnh vuốt ngang, phân trang feed, sections cuộn ngang theo danh mục, ô tìm kiếm trong Đã lưu.
 
-**Hợp đồng API đã xác minh thật qua gateway `:8085`:**
-- `GET /api/places/search?q&category=FOOD|CAFE|STAY|ATTRACTION&lat&lng&radius&limit` → `{success, data:[Place], meta:{total,query,returned,category}}` (**công khai**; lần gọi đầu có thể chậm ~10 s, sau đó ~0,2 s).
-- `GET /api/places/autocomplete?q&limit&lat&lng` → `{success, data:[{id,title,subtitle,category}]}` (công khai).
-- `GET /api/places/{id}?name&lat&lng&includePhoto` → `{success, data: Place}` (công khai).
-- `POST /api/recommendations/explore-for-you` body `{destinationId:"danang", query|null, sessionId, limit}` → `{success, data:{items:[{place, rank, score, reasons[]}], …}}` (**cần JWT**, 401 nếu chưa đăng nhập).
-- `Place`: `id,name,address,city,district,categories[],rating,userRatingCount,photos[],primaryPhoto,photoGallery[],media{state,primary,gallery},openingHours("Thứ Hai: …; Thứ Ba: …"),phone,website,location{lat,lng},reviews[]`. Ảnh thường **trống** (`media.state=PENDING`) → phải có thẻ gradient dự phòng. Chỉ hiển thị ảnh `https` từ host được duyệt (lh3-6.googleusercontent.com, ziomap-api.socibi.com, res.cloudinary.com, maps.mapvina.com), không có `key|api_key|token|secret` trong query.
-- Web tham chiếu: `apps/web/tripsense/src/features/places/{services,components,types,utils}` (đặc biệt `explore-feed-header.tsx`, `place-card.tsx`, `place-discovery-view.tsx`).
+**Việc đầu tiên khi mở lại:** hỏi người dùng có muốn commit nhánh `mobile-save-collections` (rồi push + tạo PR vào `dev`) không. Tuyệt đối không commit/push khi chưa được đồng ý; trước đó chạy `flutter analyze` + `flutter test`.
+
+**Hợp đồng API đã xác minh qua gateway `:8085`:** xem plan. Thêm: `/api/places/me/collections` (GET/POST, PATCH/DELETE theo id), `/api/places/me/saved?collectionId&page&size`, `POST /api/places/me/saved-status:batch {placeRefs}`, `PUT|DELETE /api/places/me/collections/{id}/places/{placeRef}`. Đã thử thật bằng tài khoản người dùng trên DB prod (tạo/lưu/xóa) và đã dọn.
+
+**Lưu ý kỹ thuật mới:** Riverpod 3 tự retry provider lỗi (đặt `retry: (_, _) => null` cho provider cần hiện lỗi); theme có `minimumSize` vô hạn cho nút (nút trong `Row` phải đặt `minimumSize: Size(0, 48)`); test widget phải `pump()` sau `enterText` trước khi bấm nút phụ thuộc text; lệnh `python` không có, dùng `py -X utf8`; heredoc Bash dài hay lỗi → ghi file bằng công cụ Write rồi chạy.
 
 ## 9. Các phase còn lại (theo plan, thứ tự gợi ý)
 Phase 2 tiếp: tìm kiếm nâng cao/lọc, bản đồ (MapLibre + tile MapVina cần key), lưu địa điểm/Collections/Saved. Phase 3: Trips (+ mời, cộng tác SSE, Calendar) và AI Planner (stream). Phase 4: Community. Phase 5: Chat (SSE) & Notifications (FCM **không làm**). Phase 6: Hồ sơ đầy đủ & Cài đặt (đổi ngôn ngữ/theme/mật khẩu). Phase 7: Đặt chỗ (khách sạn, nhà hàng, guide, thuê đồ, PayOS deep link). Chất lượng: CI, flavor, build release, iOS (cần Mac), Google Sign-In (cần OAuth client ID Android/iOS).

@@ -30,11 +30,21 @@ FEATURE_BRANCH = "nhiby/feature/mobile-foundation-and-auth"
 ONB_BRANCH = "nhiby/feature/mobile-onboarding"
 ONB_COMMIT = "a27e894"
 EXPLORE_BRANCH = "nhiby/feature/mobile-explore-places"
+EXPLORE_COMMIT = "55ae057 (PR #103)"
+SAVE_BRANCH = "nhiby/feature/mobile-save-collections"
 UI_BRANCH = "nhiby/feature/mobile-ui-polish"
 UI_COMMIT = "01b1f4f, 3645127"
 COMMIT = "60919f6, 2974c23, 2a7d1c9 (code/test); 86e0b2c (docs)"
 # Automated tests per task (name -> (type, result)); everything else done/under test has none yet.
 TESTS = {
+    'Lưu / bỏ lưu địa điểm': ('Unit + Widget', 'collections_controller_test (batch trạng thái) + collections_screens_test: tim, sheet lưu (pass)'),
+    'Thêm vào bộ sưu tập': ('Unit + Widget', 'collections_controller_test (chỉ gọi phần chênh lệch, lỗi ném lại) + collections_screens_test: lưu, bỏ lưu, tạo trong sheet, lỗi giữ sheet (pass)'),
+    'Danh sách bộ sưu tập': ('Unit + Widget', 'collections_repository_impl_test + collections_screens_test: danh sách, rỗng (pass)'),
+    'Tạo / sửa / xóa bộ sưu tập': ('Unit + Widget', 'collections_controller_test + collections_screens_test: tạo, đổi tên, xóa, lỗi (pass)'),
+    'Chi tiết bộ sưu tập': ('Widget', 'collections_screens_test: mở bộ sưu tập thấy địa điểm (pass)'),
+    'Thêm / xóa địa điểm trong bộ sưu tập': ('Unit + Widget', 'collections_repository_impl_test: PUT/DELETE + path mã hóa; collections_screens_test (pass)'),
+    'Danh sách địa điểm đã lưu': ('Unit + Widget', 'collections_controller_test: phân trang loadMore + collections_screens_test: rỗng, lỗi, mở địa điểm (pass)'),
+    'Lọc & tìm trong đã lưu': ('Widget', 'collections_screens_test: chip lọc theo bộ sưu tập (pass)'),
     'Header & ô tìm kiếm': ('Widget', 'explore_screen_test.dart: tìm, xoá, chọn điểm đến (pass)'),
     'Gợi ý cho bạn (explore-for-you)': ('Unit + Widget', 'explore_controller_test (fallback khi lỗi/rỗng) + explore_screen_test (pass)'),
     'Tìm kiếm địa điểm': ('Unit + Widget', 'places_repository_impl_test + explore_controller_test (request cũ bị bỏ) + explore_screen_test (pass)'),
@@ -133,8 +143,8 @@ def build():
     ws["A3"] = (f'="Tiến độ tổng: "&ROUND(IFERROR(SUM({pr})/COUNTA({task}),0)*100,1)&"%"'
                 f'&"   |   Issue đang mở: "&COUNTIF({ist},"{ISSUE_OPEN}")&"   |   Đã xử lý: "&COUNTIF({ist},"{ISSUE_FIXED}")'
                 f'&"   |   Chấp nhận rủi ro: "&COUNTIF({ist},"{ISSUE_ACCEPT}")')
-    ws["A4"] = (f"Dự án: TripSense Mobile (chỉ role User, admin/partner dùng web)   |   Nhánh hiện tại: {EXPLORE_BRANCH}   |   Người thực hiện: {OWNER}   |   "
-                "Cập nhật: 13/11/2026 (Khám phá: code + test xong, chờ nghiệm thu emulator)   |   Quy ước nhánh: nhiby/feature/<tên-tính-năng>   |   Test tự động hiện có: 172 test pass   |   "
+    ws["A4"] = (f"Dự án: TripSense Mobile (chỉ role User, admin/partner dùng web)   |   Nhánh hiện tại: {SAVE_BRANCH}   |   Người thực hiện: {OWNER}   |   "
+                "Cập nhật: 13/11/2026 (Khám phá đã push PR #103; Lưu/Bộ sưu tập: code + test xong, chưa commit)   |   Quy ước nhánh: nhiby/feature/<tên-tính-năng>   |   Test tự động hiện có: 203 test pass   |   "
                 "LƯU Ý: code đã commit local, CHƯA push lên GitHub.")
     for row, bg, fg, size in ((2, "DDEBF7", NAVY, 11), (3, "E2EFDA", "375623", 11), (4, "FFF2CC", "7F3F00", 9)):
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)
@@ -169,7 +179,9 @@ def build():
             for ti, t in enumerate(tasks, start=1):
                 no_code = t["status"] in (S_TODO, S_HOLD, S_BLOCK) or t["name"].startswith("Nghiệm thu")
                 is_explore = mname.startswith("Khám phá")
-                code_state = CODE_NONE if no_code else (CODE_LOCAL if is_explore else CODE_COMMIT)
+                is_save = mname.startswith("Bộ sưu tập") or fname.startswith("Hành động trên địa điểm")
+                code_state = CODE_NONE if no_code else (
+                    CODE_LOCAL if is_save else CODE_PUSHED if is_explore else CODE_COMMIT)
                 if t["name"] in TESTS:
                     ttype, tres = TESTS[t["name"]]
                 elif no_code:
@@ -179,7 +191,7 @@ def build():
                 row = [
                     f"{mi - 1}.{fi}.{ti}", phase, mname, fname, t["name"], t["desc"], t["web"], t["prio"],
                     t["status"], t["prog"], t["start"], t["end"], t["due"], None,
-                    "" if no_code else (EXPLORE_BRANCH if is_explore else UI_BRANCH if fname.startswith("Giao diện giống web") else ONB_BRANCH if fname.startswith("Onboarding") else FEATURE_BRANCH), code_state, "" if no_code else ("(chưa commit)" if is_explore else UI_COMMIT if fname.startswith("Giao diện giống web") else ONB_COMMIT if fname.startswith("Onboarding") else COMMIT), t["issue"], t["istate"], t["fix"],
+                    "" if no_code else (SAVE_BRANCH if is_save else EXPLORE_BRANCH if is_explore else UI_BRANCH if fname.startswith("Giao diện giống web") else ONB_BRANCH if fname.startswith("Onboarding") else FEATURE_BRANCH), code_state, "" if no_code else ("(chưa commit)" if is_save else EXPLORE_COMMIT if is_explore else UI_COMMIT if fname.startswith("Giao diện giống web") else ONB_COMMIT if fname.startswith("Onboarding") else COMMIT), t["issue"], t["istate"], t["fix"],
                     "" if no_code else OWNER, t["note"], ttype, tres,
                 ]
                 for c, v in enumerate(row, start=1):

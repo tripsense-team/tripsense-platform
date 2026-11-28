@@ -215,7 +215,7 @@ Dừng ở `STATUS: WAITING_FOR_HUMAN_APPROVAL`. Chỉ triển khai khi bạn tr
 | 1 Auth | DONE (một phần) | Login, Register, Verify OTP, Resend, Forgot/Reset, Splash khôi phục phiên, chặn role không phải USER. **Chưa làm:** Google Sign-In (Q2, cần client ID), Onboarding wizard (tách thành phase 1b) |
 | 1b Onboarding | DONE (chờ nghiệm thu lưu thật) | Nhánh `nhiby/feature/mobile-onboarding`: wizard 10 bước, cổng bắt buộc, lưu/hoàn tất qua context-service. 135 test pass. Đã chạy trên emulator; chưa bấm Hoàn tất với DB prod. |
 | UI parity (~80% giống web) | DONE (đã nhúng font Inter) | Nhánh `nhiby/feature/mobile-ui-polish`: theme pill, hero gradient, màn auth/onboarding/khung chính theo web. Đã chụp emulator đối chiếu. 137 test pass. |
-| 2 Explore & Places | CODE + TEST XONG, chờ nghiệm thu (nhánh `nhiby/feature/mobile-explore-places`) | Explore (điểm đến, tìm kiếm + autocomplete, chip danh mục, thẻ địa điểm, fallback khi feed lỗi) + chi tiết địa điểm. 172 test pass, analyze 0 issue. Chưa làm: bản đồ, lưu/Collections, gallery ảnh, phân trang. Chưa commit. |
+| 2 Explore & Places | ĐANG LÀM, phần lõi xong (PR #103 chờ review; tiếp nối ở nhánh `nhiby/feature/mobile-save-collections`) | Explore + chi tiết địa điểm: PR [#103](https://github.com/tripsense-team/tripsense-platform/pull/103) (commit `55ae057`, đã push). Lưu địa điểm + Bộ sưu tập + tab Saved: code + test xong trên nhánh `nhiby/feature/mobile-save-collections`, **chưa commit**. 203 test pass, analyze 0 issue. **Chưa làm:** bản đồ MapLibre, gallery ảnh, phân trang feed, tìm kiếm trong Đã lưu, sections cuộn ngang. |
 | 3 Trips & AI Planner | TODO | |
 | 4–7 | TODO | |
 
@@ -232,3 +232,26 @@ Verification Phase 0–1: `flutter analyze` 0 issue; `flutter test` 23 test pass
 - **Làm tới đâu cập nhật Excel tới đó:** sau mỗi tính năng (và cả khi làm dở) cập nhật `docs/reports/mobile-user-app-tracking-v2.xlsx` (trạng thái, tiến độ, ngày, nhánh Git, trạng thái code, commit, issue, loại/kết quả test) rồi ghi Implementation Log ở trên.
 - Cách làm: sửa dữ liệu trong `docs/reports/tools/build_tracker.py`, ánh xạ nhánh/commit/test trong `docs/reports/tools/build_tracker2.py`, chạy `py -X utf8 docs\reports\tools\build_tracker2.py` (ghi thẳng ra bản `-v2`).
 - File Excel gốc `mobile-user-app-tracking.xlsx` hay bị Excel khóa: luôn dùng bản `-v2`.
+
+
+### Nhật ký 2026-11-13 (phiên làm việc Phase 2)
+**Quyết định / quy ước mới:** mỗi tính năng một nhánh `nhiby/feature/<tên>`; **chỉ commit/push khi người dùng đồng ý**; trước mỗi commit/push phải chạy đủ `flutter analyze` + `flutter test` để CI không fail; DB test của các tính năng có ghi dữ liệu = **DB prod, chỉ dùng tài khoản của người dùng** và phải dọn dữ liệu test sau khi thử.
+
+**1. Khám phá & Chi tiết địa điểm** (nhánh `nhiby/feature/mobile-explore-places`, commit `55ae057`, đã push, PR #103 vào `dev`, chờ review, chưa merge)
+- Màn Explore: chọn điểm đến (Đà Nẵng/Huế/Hội An), ô tìm kiếm + autocomplete (debounce 300 ms, tối thiểu 2 ký tự, bỏ kết quả cũ), chip danh mục, thẻ địa điểm, skeleton, rỗng/lỗi + thử lại, kéo để làm mới.
+- Tab "For you" gọi explore-for-you; lỗi/rỗng thì rơi về địa điểm nổi bật kèm ghi chú.
+- Chi tiết `/places/:id`: giờ mở cửa cả tuần, liên hệ, đánh giá; API chi tiết lỗi vẫn hiện dữ liệu từ danh sách.
+- Test: 172 pass. Đã xem trên emulator với dữ liệu thật; sửa chip đang chọn bị chữ tối trên nền đen.
+- Lưu ý BE (không phải lỗi app): recommendation-service gọi place-service bị `ResourceAccessException` khi chạy local (nghi do giới hạn heap), nên feed cá nhân hóa đang fallback.
+- PR #103 chứa 12 commit vì các nhánh trước (foundation, onboarding, UI polish) chưa từng được push.
+
+**2. Lưu địa điểm & Bộ sưu tập** (nhánh `nhiby/feature/mobile-save-collections`, **chưa commit**)
+- Thư mục mới `lib/features/collections/` (data/domain/presentation). API: `/api/places/me/{collections,saved,saved-status:batch}`, PUT/DELETE `collections/{id}/places/{ref}`.
+- Nút tim trên thẻ + màn chi tiết (trạng thái lưu lấy theo batch), sheet chọn nhiều bộ sưu tập + tạo mới trong sheet (chỉ gọi thêm/xóa phần chênh lệch), tab Saved (cuộn vô hạn 20/trang, chip lọc theo bộ sưu tập), màn `/collections` (tạo/đổi tên/xóa có xác nhận) và `/collections/:id`.
+- Dữ liệu tách theo tài khoản (`signedInUserIdProvider`) để không lộ dữ liệu khi đổi user.
+- Lỗi thật tìm ra khi làm: (a) Riverpod 3 tự retry provider lỗi nên UI không hiện lỗi → tắt `retry` cho 2 provider; (b) dialog dispose `TextEditingController` quá sớm → chuyển vào widget dialog riêng; (c) theme đặt `minimumSize` rộng vô hạn nên nút trong `Row` lỗi layout → đặt `minimumSize: Size(0, 48)`; (d) chuỗi "1 places" → dùng plural ICU (chỉ bản en).
+- Test: 203 pass (31 test mới), analyze 0 issue.
+- Đã thử trên emulator với DB prod: tạo "Mobile test", lưu địa điểm, thấy ở Saved, rồi xóa bộ sưu tập; dữ liệu test đã dọn.
+- Chưa làm: ô tìm kiếm trong Đã lưu; nút Xóa trong hộp thoại xác nhận đang kéo dài hết chiều ngang.
+
+**Việc tiếp theo gợi ý:** commit nhánh save-collections (khi người dùng đồng ý) và push/tạo PR; sau đó Bản đồ (cần key MapVina), gallery ảnh, rồi sang Phase 3 (Trips & AI Planner).

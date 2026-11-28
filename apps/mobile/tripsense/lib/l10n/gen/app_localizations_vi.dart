@@ -496,4 +496,82 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get placeBack => 'Quay lại';
+
+  @override
+  String get commonSave => 'Lưu';
+
+  @override
+  String get commonCreate => 'Tạo';
+
+  @override
+  String get commonDelete => 'Xóa';
+
+  @override
+  String get commonEdit => 'Sửa';
+
+  @override
+  String get savedTitle => 'Địa điểm đã lưu';
+
+  @override
+  String get savedDescription => 'Tất cả địa điểm bạn đã lưu để xem sau.';
+
+  @override
+  String get savedEmptyTitle => 'Chưa có địa điểm đã lưu';
+
+  @override
+  String get savedEmptyHint =>
+      'Lưu địa điểm từ trang Khám phá để xem lại tại đây.';
+
+  @override
+  String get savedAll => 'Tất cả';
+
+  @override
+  String get savedManageCollections => 'Quản lý bộ sưu tập';
+
+  @override
+  String get savedLoadMoreFailed => 'Không tải thêm được địa điểm.';
+
+  @override
+  String get saveButtonSave => 'Lưu địa điểm';
+
+  @override
+  String get saveButtonSaved => 'Đã lưu. Sửa bộ sưu tập';
+
+  @override
+  String get saveToCollection => 'Lưu vào bộ sưu tập';
+
+  @override
+  String get collectionsTitle => 'Bộ sưu tập';
+
+  @override
+  String get collectionsDescription =>
+      'Sắp xếp các địa điểm đã lưu theo bộ sưu tập.';
+
+  @override
+  String get collectionCreate => 'Tạo bộ sưu tập';
+
+  @override
+  String get collectionRename => 'Đổi tên bộ sưu tập';
+
+  @override
+  String get collectionDelete => 'Xóa bộ sưu tập';
+
+  @override
+  String get collectionDeleteHint =>
+      'Bộ sưu tập sẽ bị xóa. Địa điểm vẫn còn trong các bộ sưu tập khác.';
+
+  @override
+  String get collectionNameHint => 'Tên bộ sưu tập mới';
+
+  @override
+  String get collectionsEmptyTitle => 'Chưa có bộ sưu tập';
+
+  @override
+  String get collectionsEmptyHint =>
+      'Tạo bộ sưu tập để sắp xếp những địa điểm bạn muốn ghi nhớ.';
+
+  @override
+  String collectionPlacesCount(int count) {
+    return '$count địa điểm';
+  }
 }
